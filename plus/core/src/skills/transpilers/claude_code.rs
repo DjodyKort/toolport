@@ -1,11 +1,11 @@
 use super::{render_frontmatter, Field};
-use crate::skills::json::{self, J};
 use crate::skills::parser::{Activation, Skill, SkillType};
-use crate::skills::pyfs::write_text;
 use crate::skills::scalar;
 use crate::skills::transpiler::{TranspileResult, Transpiler};
+use serde_json::{json, Map, Value};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use toolport_plus_api::SettingsStore;
 
 pub struct ClaudeCode;
 
@@ -24,34 +24,22 @@ fn settings_path(root: &Path) -> PathBuf {
     root.join(".claude").join("settings.json")
 }
 
-/// Unreadable or malformed settings count as empty so a sync never aborts on them.
-fn load_settings(root: &Path) -> Result<Vec<(String, J)>, String> {
+/// The settings file text is returned for [`SettingsStore::write_hooks`], which keeps comments
+/// and every key other than `hooks`; a file that does not parse is an error, never empty.
+fn load_settings(
+    store: &dyn SettingsStore,
+    root: &Path,
+) -> Result<(PathBuf, Value, Option<String>), String> {
     let path = settings_path(root);
-    if !path.exists() {
-        return Ok(Vec::new());
+    let (settings, text) = store.read_settings(&path)?;
+    if !settings.is_object() {
+        return Err(format!("{}: top level is not an object", path.display()));
     }
-    let text = fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    match json::parse(&text) {
-        Ok(J::Obj(items)) => Ok(items),
-        Ok(_) => Err(format!("{}: top level is not an object", path.display())),
-        Err(_) => Ok(Vec::new()),
-    }
+    Ok((path, settings, text))
 }
 
-fn write_settings(root: &Path, settings: Vec<(String, J)>) -> Result<(), String> {
-    let path = settings_path(root);
-    write_text(&path, &format!("{}\n", J::Obj(settings).dumps()))
-}
-
-fn slot<'a>(items: &'a mut Vec<(String, J)>, key: &str, default: J) -> &'a mut J {
-    let idx = match items.iter().position(|(k, _)| k == key) {
-        Some(i) => i,
-        None => {
-            items.push((key.to_string(), default));
-            items.len() - 1
-        }
-    };
-    &mut items[idx].1
+fn entry_slot<'a>(map: &'a mut Map<String, Value>, key: &str, default: Value) -> &'a mut Value {
+    map.entry(key).or_insert(default)
 }
 
 /// Python `Path.resolve()`: symlinks resolved for the existing prefix, the rest normalised lexically.
@@ -82,13 +70,10 @@ fn resolve(path: &Path) -> PathBuf {
     }
 }
 
-fn entry_has_command(entry: &J, cmd: &str) -> bool {
-    match entry.get("hooks") {
-        Some(J::Arr(hooks)) => hooks
-            .iter()
-            .any(|h| h.get("command").and_then(J::as_str) == Some(cmd)),
-        _ => false,
-    }
+fn entry_has_command(entry: &Value, cmd: &str) -> bool {
+    entry["hooks"]
+        .as_array()
+        .is_some_and(|hooks| hooks.iter().any(|h| h["command"].as_str() == Some(cmd)))
 }
 
 #[cfg(unix)]
@@ -183,13 +168,21 @@ impl Transpiler for ClaudeCode {
             .collect()
     }
 
-    fn install_hooks(&self, skill: &Skill, root: &Path) -> Result<Vec<String>, String> {
+    fn install_hooks(
+        &self,
+        skill: &Skill,
+        root: &Path,
+        store: &dyn SettingsStore,
+    ) -> Result<Vec<String>, String> {
         let Some(hooks) = skill.frontmatter.hooks.as_ref().filter(|h| !h.is_empty()) else {
             return Ok(Vec::new());
         };
-        let mut settings = load_settings(root)?;
-        let hooks_section = slot(&mut settings, "hooks", J::Obj(Vec::new()));
-        let J::Obj(events) = hooks_section else {
+        let (path, mut settings, text) = load_settings(store, root)?;
+        let before = settings.get("hooks").cloned();
+        let Some(map) = settings.as_object_mut() else {
+            return Err(format!("{}: top level is not an object", path.display()));
+        };
+        let Some(events) = entry_slot(map, "hooks", json!({})).as_object_mut() else {
             return Err("settings.json: `hooks` is not an object".into());
         };
         let skill_dir = root.join(".claude/skills").join(skill.name());
@@ -197,58 +190,53 @@ impl Transpiler for ClaudeCode {
         for (event, hook) in hooks {
             let target = resolve(&skill_dir.join(&hook.command));
             let cmd = target.to_string_lossy().into_owned();
-            let J::Arr(entries) = slot(events, event, J::Arr(Vec::new())) else {
+            let Some(entries) = entry_slot(events, event, json!([])).as_array_mut() else {
                 return Err(format!("settings.json: hooks.{event} is not a list"));
             };
             if !entries.iter().any(|e| entry_has_command(e, &cmd)) {
-                entries.push(J::Obj(vec![
-                    ("matcher".into(), J::str(&hook.matcher)),
-                    (
-                        "hooks".into(),
-                        J::Arr(vec![J::Obj(vec![
-                            ("type".into(), J::str(&hook.hook_type)),
-                            ("command".into(), J::str(&cmd)),
-                        ])]),
-                    ),
-                ]));
+                entries.push(json!({
+                    "matcher": hook.matcher,
+                    "hooks": [{"type": hook.hook_type, "command": cmd}],
+                }));
             }
             ensure_executable(&target);
             installed.push(cmd);
         }
-        write_settings(root, settings)?;
+        if settings.get("hooks") != before.as_ref() {
+            store.write_hooks(&path, text.as_deref(), &settings)?;
+        }
         Ok(installed)
     }
 
-    fn uninstall_hooks(&self, root: &Path, ids: &[String]) -> Result<Vec<String>, String> {
+    fn uninstall_hooks(
+        &self,
+        root: &Path,
+        ids: &[String],
+        store: &dyn SettingsStore,
+    ) -> Result<Vec<String>, String> {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
-        let mut settings = load_settings(root)?;
-        let Some(idx) = settings.iter().position(|(k, _)| k == "hooks") else {
-            return Ok(Vec::new());
-        };
-        let J::Obj(events) = &mut settings[idx].1 else {
+        let (path, mut settings, text) = load_settings(store, root)?;
+        let Some(events) = settings.get_mut("hooks").and_then(Value::as_object_mut) else {
             return Ok(Vec::new());
         };
         if events.is_empty() {
             return Ok(Vec::new());
         }
         let mut removed = Vec::new();
-        let mut kept_events = Vec::new();
+        let mut kept_events = Map::new();
         for (event, value) in std::mem::take(events) {
-            let J::Arr(entries) = value else {
-                kept_events.push((event, value));
+            let Value::Array(entries) = value else {
+                kept_events.insert(event, value);
                 continue;
             };
             let mut kept = Vec::new();
             for mut entry in entries {
-                let hooks = match entry.get("hooks") {
-                    Some(J::Arr(h)) => h.clone(),
-                    _ => Vec::new(),
-                };
+                let hooks = entry["hooks"].as_array().cloned().unwrap_or_default();
                 let mut filtered = Vec::new();
                 for h in hooks {
-                    match h.get("command").and_then(J::as_str) {
+                    match h["command"].as_str() {
                         Some(c) if ids.iter().any(|i| i == c) => removed.push(c.to_string()),
                         _ => filtered.push(h),
                     }
@@ -256,21 +244,25 @@ impl Transpiler for ClaudeCode {
                 if filtered.is_empty() {
                     continue;
                 }
-                if let J::Obj(fields) = &mut entry {
-                    *slot(fields, "hooks", J::Null) = J::Arr(filtered);
+                if let Some(fields) = entry.as_object_mut() {
+                    fields.insert("hooks".into(), Value::Array(filtered));
                 }
                 kept.push(entry);
             }
             if !kept.is_empty() {
-                kept_events.push((event, J::Arr(kept)));
+                kept_events.insert(event, Value::Array(kept));
             }
         }
-        let empty = kept_events.is_empty();
-        *events = kept_events;
-        if empty {
-            settings.remove(idx);
+        if kept_events.is_empty() {
+            if let Some(map) = settings.as_object_mut() {
+                map.remove("hooks");
+            }
+        } else {
+            settings["hooks"] = Value::Object(kept_events);
         }
-        write_settings(root, settings)?;
+        if !removed.is_empty() {
+            store.write_hooks(&path, text.as_deref(), &settings)?;
+        }
         Ok(removed)
     }
 }

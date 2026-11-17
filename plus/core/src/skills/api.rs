@@ -26,6 +26,7 @@ use crate::args::{list, nonempty_strings, str_arg};
 use crate::op::OpError;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
+use toolport_plus_api::SettingsStore;
 
 #[cfg(test)]
 thread_local! {
@@ -341,7 +342,8 @@ fn check_clients(args: &Args, registry: &TranspilerRegistry) -> Result<(), OpErr
     client_scope::ensure_supported(keys, registry).map_err(OpError::usage)
 }
 
-pub fn sync(args: &Args) -> Result<Value, OpError> {
+/// `settings` is where hooks are installed; `None` only for a dry run, which never writes them.
+pub fn sync(args: &Args, settings: Option<&dyn SettingsStore>) -> Result<Value, OpError> {
     let repo = resolve_repo(args.repo.as_deref())?;
     let skills = discover_skills(&repo);
     let global = args.global;
@@ -363,6 +365,7 @@ pub fn sync(args: &Args) -> Result<Value, OpError> {
         apply_held: args.apply_held,
         allow_tap_hooks: args.allow_tap_hooks,
         clock: &SystemClock,
+        settings,
     };
     let result = sync_skills(&skills, &registry, &opts).map_err(backend)?;
     if !opts.dry_run {

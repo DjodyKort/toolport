@@ -2733,3 +2733,7 @@ mod tests {
 #[cfg(test)]
 #[path = "plus_adapter_oauth_tests.rs"]
 mod oauth_tests;
+
+#[cfg(test)]
+#[path = "plus_adapter_hooks_tests.rs"]
+mod hooks_tests;

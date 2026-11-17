@@ -130,7 +130,7 @@ pub(super) fn diff(host: &dyn Host, args: &Value) -> Outcome {
 pub(super) fn sync(host: &dyn Host, args: &Value) -> Outcome {
     let mut sync = Args::from_json(args);
     sync.dry_run = flag_or(args, "dry_run", true);
-    with_paths(host, || Ok(api::sync(&sync)?))
+    with_paths(host, || Ok(api::sync(&sync, Some(host))?))
 }
 
 pub(super) fn list_transpilers(_host: &dyn Host, _args: &Value) -> Outcome {

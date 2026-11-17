@@ -1,10 +1,12 @@
 use super::agents_md::{self, html_escape};
 use super::*;
-use crate::skills::json::{self, J};
 use crate::skills::parser::{parse_skill_file, Skill, SkillType};
 use crate::skills::transpiler::Transpiler;
+use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
+use toolport_plus_api::memory::MemoryHost;
+use toolport_plus_api::SettingsStore;
 
 struct Tmp(PathBuf);
 
@@ -97,9 +99,11 @@ fn claude_manual_skill_disables_model_invocation() {
 
 const HOOKED: &str = "name: h\ndescription: d\nhooks:\n  SessionStart:\n    command: scripts/a.sh\n  PreCompact:\n    command: scripts/b.sh\n    matcher: auto\n";
 
-fn settings(root: &Path) -> J {
-    json::parse(&fs::read_to_string(root.join(".claude/settings.json")).unwrap()).unwrap()
+fn settings(root: &Path) -> Value {
+    serde_json::from_str(&fs::read_to_string(root.join(".claude/settings.json")).unwrap()).unwrap()
 }
+
+const FOREIGN_SETTINGS: &str = "{\"theme\": \"dark\", \"hooks\": {\"PreCompact\": [{\"matcher\": \"*\", \"hooks\": [{\"type\": \"command\", \"command\": \"/u/keep.sh\"}]}]}}";
 
 #[test]
 fn hooks_install_is_idempotent_and_revocable() {
@@ -108,47 +112,36 @@ fn hooks_install_is_idempotent_and_revocable() {
     let dst = t.0.join(".claude/skills/h/scripts");
     fs::create_dir_all(&dst).unwrap();
     fs::write(dst.join("a.sh"), "#!/bin/sh\n").unwrap();
-    fs::write(
-        t.0.join(".claude/settings.json"),
-        "{\"theme\": \"dark\", \"hooks\": {\"PreCompact\": [{\"matcher\": \"*\", \"hooks\": [{\"type\": \"command\", \"command\": \"/u/keep.sh\"}]}]}}",
-    )
-    .unwrap();
+    fs::write(t.0.join(".claude/settings.json"), FOREIGN_SETTINGS).unwrap();
     let ct = claude_code::ClaudeCode;
-    let ids = ct.install_hooks(&s, &t.0).unwrap();
+    let store = MemoryHost::default();
+    let ids = ct.install_hooks(&s, &t.0, &store).unwrap();
     assert_eq!(ids.len(), 2);
-    let again = ct.install_hooks(&s, &t.0).unwrap();
-    assert_eq!(ids, again);
-    let J::Arr(pre) = settings(&t.0)
-        .get("hooks")
-        .unwrap()
-        .get("PreCompact")
-        .unwrap()
-        .clone()
-    else {
-        panic!()
-    };
-    assert_eq!(pre.len(), 2);
+    let installed = fs::read_to_string(t.0.join(".claude/settings.json")).unwrap();
+    assert_eq!(ct.install_hooks(&s, &t.0, &store).unwrap(), ids);
+    assert_eq!(
+        fs::read_to_string(t.0.join(".claude/settings.json")).unwrap(),
+        installed
+    );
+    assert_eq!(
+        settings(&t.0)["hooks"]["PreCompact"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let mode = fs::metadata(dst.join("a.sh")).unwrap().permissions().mode();
         assert_ne!(mode & 0o111, 0);
     }
-    let removed = ct.uninstall_hooks(&t.0, &ids).unwrap();
+    let removed = ct.uninstall_hooks(&t.0, &ids, &store).unwrap();
     assert_eq!(removed.len(), 2);
     let after = settings(&t.0);
-    assert_eq!(after.get("theme").and_then(J::as_str), Some("dark"));
-    let J::Arr(pre) = after
-        .get("hooks")
-        .unwrap()
-        .get("PreCompact")
-        .unwrap()
-        .clone()
-    else {
-        panic!()
-    };
-    assert_eq!(pre.len(), 1);
-    assert!(after.get("hooks").unwrap().get("SessionStart").is_none());
+    assert_eq!(after["theme"], "dark");
+    assert_eq!(after["hooks"]["PreCompact"].as_array().unwrap().len(), 1);
+    assert!(after["hooks"].get("SessionStart").is_none());
 }
 
 #[test]
@@ -156,25 +149,79 @@ fn uninstalling_the_last_hook_drops_the_hooks_key() {
     let t = Tmp::new("hooks-drop");
     let s = skill(&t.0, "h", HOOKED, "B");
     let ct = claude_code::ClaudeCode;
-    let ids = ct.install_hooks(&s, &t.0).unwrap();
-    ct.uninstall_hooks(&t.0, &ids).unwrap();
+    let store = MemoryHost::default();
+    let ids = ct.install_hooks(&s, &t.0, &store).unwrap();
+    ct.uninstall_hooks(&t.0, &ids, &store).unwrap();
     assert!(settings(&t.0).get("hooks").is_none());
 }
 
 #[test]
-fn malformed_settings_are_treated_as_empty() {
+fn malformed_settings_are_an_error_and_the_file_is_left_alone() {
     let t = Tmp::new("hooks-bad");
     fs::create_dir_all(t.0.join(".claude")).unwrap();
     fs::write(t.0.join(".claude/settings.json"), "{nope").unwrap();
     let s = skill(&t.0, "h", HOOKED, "B");
+    let ct = claude_code::ClaudeCode;
+    let store = MemoryHost::default();
+    ct.install_hooks(&s, &t.0, &store).unwrap_err();
+    ct.uninstall_hooks(&t.0, &["/x/a.sh".to_string()], &store)
+        .unwrap_err();
     assert_eq!(
-        claude_code::ClaudeCode
-            .install_hooks(&s, &t.0)
-            .unwrap()
-            .len(),
-        2
+        fs::read_to_string(t.0.join(".claude/settings.json")).unwrap(),
+        "{nope"
     );
-    assert!(settings(&t.0).get("hooks").is_some());
+}
+
+#[test]
+fn a_settings_file_that_is_not_an_object_is_refused() {
+    let t = Tmp::new("hooks-array");
+    fs::create_dir_all(t.0.join(".claude")).unwrap();
+    fs::write(t.0.join(".claude/settings.json"), "[]").unwrap();
+    let s = skill(&t.0, "h", HOOKED, "B");
+    let err = claude_code::ClaudeCode
+        .install_hooks(&s, &t.0, &MemoryHost::default())
+        .unwrap_err();
+    assert!(err.contains("top level is not an object"), "{err}");
+    assert_eq!(
+        fs::read_to_string(t.0.join(".claude/settings.json")).unwrap(),
+        "[]"
+    );
+}
+
+struct Conflicting(MemoryHost);
+
+impl SettingsStore for Conflicting {
+    fn claude_settings_paths(&self) -> Vec<PathBuf> {
+        self.0.claude_settings_paths()
+    }
+
+    fn read_settings(&self, path: &Path) -> Result<(Value, Option<String>), String> {
+        self.0.read_settings(path)
+    }
+
+    fn write_hooks(&self, path: &Path, _: Option<&str>, _: &Value) -> Result<(), String> {
+        Err(format!(
+            "Client config conflict at {}: 'hooks' changed. Config unchanged.",
+            path.display()
+        ))
+    }
+}
+
+#[test]
+fn a_refused_write_leaves_the_file_and_reports_the_conflict() {
+    let t = Tmp::new("hooks-conflict");
+    let s = skill(&t.0, "h", HOOKED, "B");
+    fs::create_dir_all(t.0.join(".claude")).unwrap();
+    fs::write(t.0.join(".claude/settings.json"), FOREIGN_SETTINGS).unwrap();
+    let store = Conflicting(MemoryHost::default());
+    let err = claude_code::ClaudeCode
+        .install_hooks(&s, &t.0, &store)
+        .unwrap_err();
+    assert!(err.contains("Client config conflict"), "{err}");
+    assert_eq!(
+        fs::read_to_string(t.0.join(".claude/settings.json")).unwrap(),
+        FOREIGN_SETTINGS
+    );
 }
 
 #[test]

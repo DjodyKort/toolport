@@ -2,6 +2,7 @@
 
 use super::parser::{Skill, SkillType};
 use std::path::{Path, PathBuf};
+use toolport_plus_api::SettingsStore;
 
 pub const MCPM_BLOCK_START: &str = "<!-- mcpm:start -->";
 pub const MCPM_BLOCK_END: &str = "<!-- mcpm:end -->";
@@ -63,11 +64,21 @@ pub trait Transpiler {
     }
 
     /// Returns the identifiers installed so a later sync can revoke them.
-    fn install_hooks(&self, _skill: &Skill, _output_root: &Path) -> Result<Vec<String>, String> {
+    fn install_hooks(
+        &self,
+        _skill: &Skill,
+        _output_root: &Path,
+        _store: &dyn SettingsStore,
+    ) -> Result<Vec<String>, String> {
         Ok(Vec::new())
     }
 
-    fn uninstall_hooks(&self, _output_root: &Path, _ids: &[String]) -> Result<Vec<String>, String> {
+    fn uninstall_hooks(
+        &self,
+        _output_root: &Path,
+        _ids: &[String],
+        _store: &dyn SettingsStore,
+    ) -> Result<Vec<String>, String> {
         Ok(Vec::new())
     }
 

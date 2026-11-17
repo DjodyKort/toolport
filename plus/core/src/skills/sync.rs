@@ -31,6 +31,7 @@ use crate::hashing::lock_hash;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use toolport_plus_api::SettingsStore;
 
 pub struct SyncOptions<'a> {
     pub output_root: PathBuf,
@@ -45,6 +46,8 @@ pub struct SyncOptions<'a> {
     /// With `apply_held`, also install the hooks of skills whose lock source is a tap.
     pub allow_tap_hooks: bool,
     pub clock: &'a dyn Clock,
+    /// Where hooks are installed and revoked; `None` for a run that never writes settings.
+    pub settings: Option<&'a dyn SettingsStore>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -487,12 +490,23 @@ fn sync_hooks(
     if ctx.dry_run {
         return Ok(());
     }
-    match t.install_hooks(skill, ctx.output_root) {
+    let Some(store) = ctx.settings else {
+        entry
+            .warnings
+            .push(format!("{key}: hook install failed: no settings store"));
+        return Ok(());
+    };
+    match t.install_hooks(skill, ctx.output_root, store) {
         Ok(ids) if !ids.is_empty() => entry.set_hooks(key, ids),
         Ok(_) => {}
-        Err(e) => entry
-            .warnings
-            .push(format!("{key}: hook install failed: {e}")),
+        Err(e) => {
+            if !known.is_empty() {
+                entry.set_hooks(key, known);
+            }
+            entry
+                .warnings
+                .push(format!("{key}: hook install failed: {e}"));
+        }
     }
     Ok(())
 }
@@ -504,6 +518,7 @@ struct Ctx<'a> {
     apply_held: bool,
     allow_tap_hooks: bool,
     clock: &'a dyn Clock,
+    settings: Option<&'a dyn SettingsStore>,
     plan: Plan,
     desired_abs: BTreeSet<PathBuf>,
 }
@@ -629,6 +644,7 @@ pub fn sync_skills(
         apply_held: opts.apply_held,
         allow_tap_hooks: opts.allow_tap_hooks,
         clock: opts.clock,
+        settings: opts.settings,
         plan: Plan::default(),
         desired_abs: BTreeSet::new(),
     };
@@ -732,7 +748,7 @@ pub fn sync_skills(
         };
         carry_held_removals(prev, &mut lock, &carried, &synced);
         if !opts.dry_run {
-            revoke_stale_hooks(prev, &lock, &selected, output_root);
+            revoke_stale_hooks(prev, &mut lock, &selected, output_root, opts.settings);
         }
     }
 
@@ -819,20 +835,23 @@ fn carry_held_removals(
 
 fn revoke_stale_hooks(
     previous: &LockFile,
-    new_lock: &LockFile,
+    new_lock: &mut LockFile,
     transpilers: &[&dyn Transpiler],
     output_root: &Path,
+    settings: Option<&dyn SettingsStore>,
 ) {
+    let Some(store) = settings else {
+        return;
+    };
     for (prev, new) in [
-        (&previous.skills, &new_lock.skills),
-        (&previous.rules, &new_lock.rules),
+        (&previous.skills, &mut new_lock.skills),
+        (&previous.rules, &mut new_lock.rules),
     ] {
         for (name, prev_entry) in prev {
-            let new_entry = get_entry(new, name);
             for (client, prev_ids) in &prev_entry.hooks_installed {
-                let kept: &[String] = new_entry
+                let kept: Vec<String> = get_entry(new, name)
                     .and_then(|e| e.hooks_installed.iter().find(|(k, _)| k == client))
-                    .map_or(&[], |(_, ids)| ids.as_slice());
+                    .map_or_else(Vec::new, |(_, ids)| ids.clone());
                 let remove: Vec<String> = prev_ids
                     .iter()
                     .filter(|id| !kept.contains(id))
@@ -841,8 +860,24 @@ fn revoke_stale_hooks(
                 if remove.is_empty() {
                     continue;
                 }
-                if let Some(t) = transpilers.iter().find(|t| t.client_key() == client) {
-                    let _ = t.uninstall_hooks(output_root, &remove);
+                let Some(t) = transpilers.iter().find(|t| t.client_key() == client) else {
+                    continue;
+                };
+                if let Err(e) = t.uninstall_hooks(output_root, &remove, store) {
+                    if get_entry(new, name).is_none() {
+                        let mut stub =
+                            LockEntry::new(prev_entry.version.clone(), prev_entry.hash.clone());
+                        stub.source = prev_entry.source.clone();
+                        set_entry(new, name, stub);
+                    }
+                    if let Some(entry) = get_entry_mut(new, name) {
+                        let mut held = kept;
+                        held.extend(remove);
+                        entry.set_hooks(client, held);
+                        entry
+                            .warnings
+                            .push(format!("{client}: hook removal failed: {e}"));
+                    }
                 }
             }
         }

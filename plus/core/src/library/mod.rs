@@ -14,11 +14,14 @@ use std::path::Path;
 pub fn pull(repo: &Path, dry_run: bool, review: bool) -> Result<Value, OpError> {
     let mut data = sync::pull(repo, dry_run)?;
     if review && !dry_run && data["pulled"] == Value::Bool(true) {
-        let plan = api::sync(&Args {
-            repo: Some(repo.to_path_buf()),
-            dry_run: true,
-            ..Args::default()
-        });
+        let plan = api::sync(
+            &Args {
+                repo: Some(repo.to_path_buf()),
+                dry_run: true,
+                ..Args::default()
+            },
+            None,
+        );
         data["syncPlan"] = match plan {
             Ok(plan) => plan,
             Err(error) => json!({"error": error.message}),

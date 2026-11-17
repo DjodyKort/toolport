@@ -8,6 +8,7 @@ use super::verify::verify_installed;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use toolport_plus_api::memory::MemoryHost;
 
 struct Tmp(PathBuf);
 
@@ -64,6 +65,7 @@ impl World {
             micros: 0,
         });
         let registry = registry();
+        let store = MemoryHost::default();
         let opts = SyncOptions {
             output_root: self.home.0.clone(),
             lock_dir: self.home.0.clone(),
@@ -74,6 +76,7 @@ impl World {
             apply_held,
             allow_tap_hooks,
             clock: &clock,
+            settings: Some(&store),
         };
         let result = sync_skills(&discover_skills(&self.repo.0), &registry, &opts).unwrap();
         if !dry_run {
@@ -630,4 +633,51 @@ fn test26_a_hook_of_a_tap_skill_waits_for_a_second_confirmation() {
         .1
         .hooks_installed
         .is_empty());
+}
+
+#[test]
+fn test27_an_unreadable_settings_file_becomes_a_warning_and_stays_as_it_was() {
+    let w = World::new("hook-malformed");
+    with_hook(&w);
+    put(&w.home.0, ".claude/settings.json", "{ not json");
+    w.sync(true, false);
+    let entry = &load_lockfile(&w.home.0).unwrap().skills[0].1;
+    assert!(entry.hooks_installed.is_empty());
+    assert!(
+        entry
+            .warnings
+            .iter()
+            .any(|m| m.starts_with("claude-code: hook install failed")),
+        "{:?}",
+        entry.warnings
+    );
+    assert_eq!(
+        fs::read_to_string(w.home.0.join(".claude/settings.json")).unwrap(),
+        "{ not json"
+    );
+}
+
+#[test]
+fn test28_a_hook_that_cannot_be_revoked_stays_in_the_lock_with_a_warning() {
+    let w = World::new("hook-revoke");
+    with_hook(&w);
+    w.sync(true, false);
+    let installed = load_lockfile(&w.home.0).unwrap().skills[0]
+        .1
+        .hooks_installed
+        .clone();
+    assert!(!installed.is_empty());
+    put(&w.repo.0, "skills/nacht/SKILL.md", &format!("{SKILL_MD}"));
+    put(&w.home.0, ".claude/settings.json", "{ not json");
+    w.sync(true, false);
+    let entry = &load_lockfile(&w.home.0).unwrap().skills[0].1;
+    assert_eq!(entry.hooks_installed, installed);
+    assert!(
+        entry
+            .warnings
+            .iter()
+            .any(|m| m.starts_with("claude-code: hook removal failed")),
+        "{:?}",
+        entry.warnings
+    );
 }

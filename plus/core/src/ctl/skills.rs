@@ -99,7 +99,7 @@ pub fn sync(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
         allow_tap_hooks: flags.on("--allow-tap-hooks"),
         ..repo_args(&flags)
     };
-    let data = served(api::sync(&args))?;
+    let data = served(api::sync(&args, Some(host)))?;
     let human = sync_text(&data);
     Ok(Output::new(data, human))
 }

@@ -749,6 +749,9 @@ impl crate::SettingsStore for MemoryHost {
                 }
             }
         }
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
         std::fs::write(path, serde_json::to_string_pretty(&current).unwrap())
             .map_err(|e| e.to_string())
     }
