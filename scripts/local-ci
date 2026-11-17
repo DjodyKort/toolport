@@ -231,6 +231,10 @@ run_step() {
 
 echo "local-ci mode=$MODE toolchain=$FORK_TOOLCHAIN base=$BASE jobs=$CARGO_BUILD_JOBS"
 echo "target dirs: app=$FORK_APP_TARGET_DIR plus=$FORK_PLUS_TARGET_DIR"
+scripts/fork/sync-upstream --check >/dev/null 2>&1
+if [ $? -eq 10 ]; then
+  echo "WARNING: a newer upstream release exists; sync it first (D-141): scripts/fork/sync-upstream"
+fi
 # Worktrees share the cargo target dirs, and cargo judges freshness by mtime: a file older than an
 # artifact built from another worktree's different content would be skipped. Touch what cargo reads.
 git -C "$FORK_ROOT" ls-files -z plus src-tauri | (cd "$FORK_ROOT" && xargs -0 touch)

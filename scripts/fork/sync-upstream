@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Merge the newest upstream release into a new branch off djody/v2 (D-141: every release at once).
+#
+#   scripts/fork/sync-upstream          fetch upstream tags; when a release is newer than
+#                                       scripts/fork/upstream-ref, branch djody/v2-sync-<tag>,
+#                                       merge it, run relock.sh and move the ref and the budget header
+#   scripts/fork/sync-upstream --check  only report whether a newer release exists (exit 10 when it does)
+#
+# Next step after a clean run: scripts/local-ci --full on the branch, then ff-only into djody/v2.
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
+cd "$FORK_ROOT"
+
+latest_tag() {
+  git tag -l 'v[0-9]*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1
+}
+
+if [ "${1:-}" = "--check" ]; then
+  git fetch -q upstream --tags 2>/dev/null || exit 0
+else
+  git fetch -q upstream --tags
+fi
+current="$FORK_UPSTREAM_REF"
+latest="$(latest_tag)"
+if [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -n 1)" = "$current" ]; then
+  echo "up to date: upstream-ref $current is the newest release"
+  exit 0
+fi
+echo "upstream $latest is newer than upstream-ref $current"
+[ "${1:-}" = "--check" ] && exit 10
+
+if [ -n "$(git status --porcelain)" ]; then
+  echo "worktree not clean; commit or move work aside first" >&2
+  exit 1
+fi
+branch="djody/v2-sync-${latest#v}"
+git switch -c "$branch" djody/v2
+if ! git merge --no-ff --no-commit "$latest"; then
+  echo "conflicts; resolve them, then run relock.sh and move upstream-ref and the budget header by hand:" >&2
+  git diff --name-only --diff-filter=U >&2
+  exit 2
+fi
+
+echo "$latest" >scripts/fork/upstream-ref
+scripts/fork/relock.sh
+sha="$(git rev-parse --short "$latest^{commit}")"
+sed -i.bak "1s/.*/# Upstream files the fork patches, against $latest ($sha)./" scripts/fork/patch-budget.txt
+rm -f scripts/fork/patch-budget.txt.bak
+git add scripts/fork/upstream-ref src-tauri/Cargo.lock plus/Cargo.lock scripts/fork/patch-budget.txt
+python3 -I scripts/fork/patch-budget.py --base "$latest" || {
+  echo "patch budget no longer fits $latest; fix it before committing" >&2
+  exit 3
+}
+git commit -q -m "[MERGE] upstream: $latest into djody/v2" \
+  -m "Upstream release $latest ($(git rev-list --count "$current..$latest") commits); upstream-ref, the locks and the budget header move with it."
+git log --oneline -1
+echo "next: scripts/local-ci --full, then git -C <djody/v2 worktree> merge --ff-only $branch"
