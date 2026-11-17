@@ -296,6 +296,29 @@ fn servers_of_one_google_account_share_one_scheduled_probe() {
     assert_eq!(host.http.requests.borrow().len(), 1);
 }
 
+#[test]
+fn a_scheduled_probe_runs_unattended_and_a_forced_one_does_not() {
+    let (host, dir) = host_with("unattended", vec![google_server("g1", Some("work"))]);
+    write_token(&dir, "work", TOKEN_FILE);
+    for _ in 0..2 {
+        host.http
+            .responses
+            .borrow_mut()
+            .push_back(reply(200, json!({"access_token": "FAKE-access"})));
+    }
+    let prober = Prober::new(&host)
+        .unwrap()
+        .with_google_endpoint("http://127.0.0.1:9/t")
+        .unwrap();
+
+    prober.run(&Selector::Due, false).unwrap();
+    assert_eq!(host.tasks.unattended_runs.get(), 1);
+
+    prober.run(&Selector::One("g1".into()), true).unwrap();
+    prober.run(&Selector::All, false).unwrap();
+    assert_eq!(host.tasks.unattended_runs.get(), 1);
+}
+
 #[cfg(unix)]
 #[test]
 fn the_status_file_is_private_and_a_removed_server_is_pruned_from_it() {

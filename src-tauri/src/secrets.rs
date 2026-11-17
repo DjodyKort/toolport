@@ -2368,7 +2368,7 @@ thread_local! {
 
 /// A call on this thread asked to unlock the store and was refused: the store
 /// was locked and its unlock dialog dismissed (or, in the test store, recorded).
-fn note_refused_ask() {
+pub(crate) fn note_refused_ask() {
     REFUSED_ASKS.with(|asks| asks.set(asks.get().saturating_add(1)));
 }
 

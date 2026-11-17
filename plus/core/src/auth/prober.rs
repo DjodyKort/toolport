@@ -346,6 +346,16 @@ impl<'a> Prober<'a> {
     /// `Due` runs what the file says is due, `All` forces every registered probe, `One` is a
     /// single request that fails as a whole. A registry without probes touches nothing on disk.
     pub fn run(&self, selector: &Selector, force: bool) -> Result<ProbeRun, String> {
+        if force || *selector == Selector::All {
+            return self.run_probes(selector, force);
+        }
+        let mut result = Ok(ProbeRun::default());
+        self.host
+            .unattended(&mut || result = self.run_probes(selector, force));
+        result
+    }
+
+    fn run_probes(&self, selector: &Selector, force: bool) -> Result<ProbeRun, String> {
         self.prune_unregistered()?;
         let trigger = if force || *selector == Selector::All {
             Trigger::UserForce

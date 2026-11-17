@@ -9,6 +9,7 @@
 //! migration then does not run.
 
 use std::path::PathBuf;
+use std::sync::Mutex;
 
 use toolport_plus_api::SecretsHost;
 
@@ -26,6 +27,92 @@ const MASTER_KEY_ACCOUNT: &str = "__conduit_master_key__";
 /// Upstream's wording for a file vault with no key, kept so the default
 /// behaviour reads the same with or without this mode.
 pub const NO_KEY_MESSAGE: &str = "TOOLPORT_SECRET_KEY (legacy CONDUIT_SECRET_KEY) is not set";
+
+pub const UNATTENDED_MESSAGE: &str = "login keychain is locked; unattended work does not ask";
+
+type MasterKey = [u8; 32];
+
+/// The master key of this process, kept after the first successful read so the login keychain is
+/// asked once, not on every vault read.
+#[derive(Debug, Default)]
+pub struct KeyCache {
+    key: Mutex<Option<MasterKey>>,
+    asking: Mutex<()>,
+}
+
+fn locked<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+impl KeyCache {
+    pub const fn new() -> Self {
+        Self {
+            key: Mutex::new(None),
+            asking: Mutex::new(()),
+        }
+    }
+
+    /// The cached key, else `read` when asking is allowed. With `blocked` (unattended work) and
+    /// nothing cached the keychain is not touched. `refused` runs when the keychain denied,
+    /// cancelled or was locked. One reader asks at a time; the others get its key.
+    pub fn read(
+        &self,
+        blocked: bool,
+        read: impl FnOnce() -> Result<Option<MasterKey>, String>,
+        refused: impl FnOnce(),
+    ) -> Result<Option<MasterKey>, String> {
+        if let Some(key) = *locked(&self.key) {
+            return Ok(Some(key));
+        }
+        if blocked {
+            return Err(UNATTENDED_MESSAGE.to_string());
+        }
+        let _asking = locked(&self.asking);
+        if let Some(key) = *locked(&self.key) {
+            return Ok(Some(key));
+        }
+        let result = read();
+        match &result {
+            Ok(Some(key)) => *locked(&self.key) = Some(*key),
+            Err(error) if is_refusal(error) => refused(),
+            _ => {}
+        }
+        result
+    }
+
+    /// [`KeyCache::read`] for the writer's `ensure`, which creates the key when it is missing.
+    pub fn ensure(
+        &self,
+        blocked: bool,
+        ensure: impl FnOnce() -> Result<MasterKey, String>,
+        refused: impl FnOnce(),
+    ) -> Result<MasterKey, String> {
+        self.read(blocked, || ensure().map(Some), refused)
+            .and_then(|key| key.ok_or_else(|| "the login keychain gave no master key".to_string()))
+    }
+}
+
+/// Whether a keychain error means the user or the system refused to give the item out.
+pub fn is_refusal(error: &str) -> bool {
+    let error = error.to_lowercase();
+    [
+        "interaction is not allowed",
+        "interaction not allowed",
+        "cancel",
+        "denied",
+        "locked",
+        "authoriz",
+        "passphrase",
+        "-25308",
+        "-25293",
+        "-25315",
+        "-128",
+    ]
+    .iter()
+    .any(|needle| error.contains(needle))
+}
 
 /// Either source may ask for the mode; the value is compared trimmed and
 /// ignoring case.
@@ -294,6 +381,140 @@ mod tests {
             "TOOLPORT_SECRET_KEY (legacy CONDUIT_SECRET_KEY) is not set"
         );
         assert_eq!(host.ensures.get(), 0);
+    }
+
+    struct CachedHost {
+        inner: MemorySecrets,
+        cache: KeyCache,
+        blocked: std::cell::Cell<bool>,
+        refusals: std::cell::Cell<usize>,
+    }
+
+    impl CachedHost {
+        fn new(dir: &Scratch) -> Self {
+            dir.marker("login-keychain");
+            Self {
+                inner: MemorySecrets::macos(&dir.0),
+                cache: KeyCache::new(),
+                blocked: std::cell::Cell::new(false),
+                refusals: std::cell::Cell::new(0),
+            }
+        }
+    }
+
+    impl SecretsHost for CachedHost {
+        fn data_dir(&self) -> Option<PathBuf> {
+            self.inner.data_dir()
+        }
+        fn env_var(&self, name: &str) -> Option<String> {
+            self.inner.env_var(name)
+        }
+        fn login_keychain_available(&self) -> bool {
+            self.inner.login_keychain_available()
+        }
+        fn read_master_key(&self) -> Result<Option<[u8; 32]>, String> {
+            self.cache.read(
+                self.blocked.get(),
+                || self.inner.read_master_key(),
+                || self.refusals.set(self.refusals.get() + 1),
+            )
+        }
+        fn ensure_master_key(&self) -> Result<[u8; 32], String> {
+            self.cache.ensure(
+                self.blocked.get(),
+                || self.inner.ensure_master_key(),
+                || self.refusals.set(self.refusals.get() + 1),
+            )
+        }
+        fn rewrite_master_key_acl(&self) -> Result<bool, String> {
+            self.inner.rewrite_master_key_acl()
+        }
+        fn trust_inputs(&self) -> Result<TrustInputs, String> {
+            self.inner.trust_inputs()
+        }
+        fn delete_server_secret(&self, server_id: &str, key: &str) -> Result<(), String> {
+            self.inner.delete_server_secret(server_id, key)
+        }
+    }
+
+    #[test]
+    fn two_vault_reads_ask_the_keychain_once() {
+        let dir = Scratch::new("cache-once");
+        let host = CachedHost::new(&dir);
+        host.inner.key.set(Some([5; 32]));
+        assert_eq!(vault_key(&host, None, false), Ok([5; 32]));
+        assert_eq!(vault_key(&host, None, false), Ok([5; 32]));
+        assert_eq!(host.inner.reads.get(), 1);
+    }
+
+    #[test]
+    fn blocked_with_a_cold_cache_does_not_touch_the_keychain() {
+        let dir = Scratch::new("cache-blocked");
+        let host = CachedHost::new(&dir);
+        host.inner.key.set(Some([5; 32]));
+        host.blocked.set(true);
+        let error = vault_key(&host, None, false).unwrap_err();
+        assert!(error.contains(UNATTENDED_MESSAGE), "{error}");
+        assert_eq!(host.inner.reads.get(), 0);
+        let error = vault_key(&host, None, true).unwrap_err();
+        assert!(error.contains(UNATTENDED_MESSAGE), "{error}");
+        assert_eq!((host.inner.reads.get(), host.inner.ensures.get()), (0, 0));
+        assert_eq!(host.refusals.get(), 0);
+
+        host.blocked.set(false);
+        assert_eq!(vault_key(&host, None, false), Ok([5; 32]));
+        host.blocked.set(true);
+        assert_eq!(vault_key(&host, None, false), Ok([5; 32]));
+        assert_eq!(
+            host.inner.reads.get(),
+            1,
+            "a warm cache answers unattended work"
+        );
+    }
+
+    #[test]
+    fn a_denied_read_is_recorded_and_not_cached() {
+        let dir = Scratch::new("cache-refused");
+        let host = CachedHost::new(&dir);
+        host.inner.key.set(Some([5; 32]));
+        *host.inner.read_error.borrow_mut() = Some("User interaction is not allowed.".into());
+        assert!(vault_key(&host, None, false).is_err());
+        assert_eq!(host.refusals.get(), 1);
+
+        *host.inner.read_error.borrow_mut() = Some("master key in keychain is 3 bytes".into());
+        assert!(vault_key(&host, None, false).is_err());
+        assert_eq!(host.refusals.get(), 1, "a corrupt item is not a refusal");
+
+        *host.inner.read_error.borrow_mut() = None;
+        assert_eq!(vault_key(&host, None, false), Ok([5; 32]));
+        assert_eq!(host.inner.reads.get(), 3);
+    }
+
+    #[test]
+    fn an_ensured_key_is_cached_for_later_reads() {
+        let dir = Scratch::new("cache-ensure");
+        let host = CachedHost::new(&dir);
+        let created = vault_key(&host, None, true).unwrap();
+        assert_eq!(vault_key(&host, None, false), Ok(created));
+        assert_eq!(vault_key(&host, None, true), Ok(created));
+        assert_eq!((host.inner.reads.get(), host.inner.ensures.get()), (0, 1));
+    }
+
+    #[test]
+    fn refusals_are_told_from_other_keychain_errors() {
+        for refused in [
+            "User interaction is not allowed.",
+            "User canceled the operation.",
+            "keychain is locked",
+            "access denied",
+            "error code -25308",
+        ] {
+            assert!(is_refusal(refused), "{refused}");
+        }
+        assert!(!is_refusal(
+            "master key in keychain is 3 bytes, expected 32"
+        ));
+        assert!(!is_refusal("invalid Base64 length"));
     }
 
     fn host_with_binaries(dir: &Scratch) -> MemorySecrets {

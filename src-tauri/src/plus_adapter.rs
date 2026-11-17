@@ -543,6 +543,10 @@ impl toolport_plus_api::SettingsStore for HostAdapter {
     }
 }
 
+#[cfg(target_os = "macos")]
+static MASTER_KEY: toolport_plus::login_keychain::KeyCache =
+    toolport_plus::login_keychain::KeyCache::new();
+
 /// The macOS calls live in upstream's `secrets::platform`; off macOS the mode is never
 /// available, so no other method is reached.
 impl SecretsHost for HostAdapter {
@@ -560,14 +564,22 @@ impl SecretsHost for HostAdapter {
 
     fn read_master_key(&self) -> Result<Option<[u8; 32]>, String> {
         #[cfg(target_os = "macos")]
-        return crate::secrets::platform::read_master_key();
+        return MASTER_KEY.read(
+            crate::secrets::prompts_blocked(),
+            crate::secrets::platform::read_master_key,
+            crate::secrets::note_refused_ask,
+        );
         #[cfg(not(target_os = "macos"))]
         Ok(None)
     }
 
     fn ensure_master_key(&self) -> Result<[u8; 32], String> {
         #[cfg(target_os = "macos")]
-        return crate::secrets::platform::ensure_master_key();
+        return MASTER_KEY.ensure(
+            crate::secrets::prompts_blocked(),
+            crate::secrets::platform::ensure_master_key,
+            crate::secrets::note_refused_ask,
+        );
         #[cfg(not(target_os = "macos"))]
         Err("no login keychain on this OS".to_string())
     }
@@ -1265,6 +1277,10 @@ fn run_guarded_script(source: &str, args: Value, servers: &[String]) -> Result<V
 }
 
 impl TaskHost for HostAdapter {
+    fn unattended(&self, run: &mut dyn FnMut()) {
+        crate::secrets::without_prompts(run);
+    }
+
     fn tasks_base(&self) -> Option<PathBuf> {
         crate::registry::conduit_dir()
     }
@@ -1398,6 +1414,17 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(FIXTURE).unwrap();
         let entry = serde_json::from_value(json.clone()).unwrap();
         (json, entry)
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn unattended_work_does_not_read_a_cold_master_key() {
+        let mut result = None;
+        HostAdapter.unattended(&mut || result = Some(HostAdapter.read_master_key()));
+        assert_eq!(
+            result.unwrap(),
+            Err(toolport_plus::login_keychain::UNATTENDED_MESSAGE.to_string())
+        );
     }
 
     struct RestoreEnv(Option<std::ffi::OsString>);

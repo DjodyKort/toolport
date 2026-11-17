@@ -91,6 +91,12 @@ pub trait TaskHost {
     fn task_kill_group(&self, pid: u32);
 
     fn task_approve_run(&self, ask: &RunApproval) -> RunDecision;
+
+    /// Runs `run` as work nobody asked for (the scheduler tick, a scheduled auth probe): a locked
+    /// login keychain is not asked to unlock during it.
+    fn unattended(&self, run: &mut dyn FnMut()) {
+        run();
+    }
 }
 
 /// A scripted [`TaskHost`]: a clock the test sets, calls it records and outcomes it was given.
@@ -112,6 +118,8 @@ pub struct FakeTaskHost {
     pub approvals: RefCell<Vec<RunApproval>>,
     pub alive: Cell<bool>,
     pub killed: RefCell<Vec<u32>>,
+    /// How many times work ran inside `unattended`.
+    pub unattended_runs: Cell<usize>,
 }
 
 impl Default for FakeTaskHost {
@@ -133,6 +141,7 @@ impl Default for FakeTaskHost {
             approvals: RefCell::default(),
             alive: Cell::new(true),
             killed: RefCell::default(),
+            unattended_runs: Cell::new(0),
         }
     }
 }
@@ -151,6 +160,11 @@ impl FakeTaskHost {
 }
 
 impl TaskHost for FakeTaskHost {
+    fn unattended(&self, run: &mut dyn FnMut()) {
+        self.unattended_runs.set(self.unattended_runs.get() + 1);
+        run();
+    }
+
     fn tasks_base(&self) -> Option<PathBuf> {
         self.base.borrow().clone()
     }
@@ -267,6 +281,10 @@ impl SharedClockTaskHost {
 }
 
 impl TaskHost for SharedClockTaskHost {
+    fn unattended(&self, run: &mut dyn FnMut()) {
+        self.inner.unattended(run)
+    }
+
     fn tasks_base(&self) -> Option<PathBuf> {
         self.inner.tasks_base()
     }

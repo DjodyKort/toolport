@@ -757,3 +757,12 @@ fn test27_a_catch_up_run_shows_what_it_covers_in_its_view() {
     assert_eq!(run["missed"]["slots"], 3);
     assert_eq!(run["missed"]["firstDue"], "2026-11-17T05:07:00Z");
 }
+
+#[test]
+fn test28_a_tick_runs_unattended_so_a_locked_keychain_is_not_asked() {
+    let (_dir, host) = fixture("unattended-tick", at(17, 7, 6, 0));
+
+    schedule::tick_as(&host, schedule::TICKER_APP);
+
+    assert_eq!(host.unattended_runs.get(), 1);
+}

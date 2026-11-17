@@ -155,6 +155,12 @@ pub fn tick(host: &dyn TaskHost) -> TickReport {
 
 pub fn tick_as(host: &dyn TaskHost, by: &str) -> TickReport {
     let mut report = TickReport::default();
+    host.unattended(&mut || report = tick_pass(host, by));
+    report
+}
+
+fn tick_pass(host: &dyn TaskHost, by: &str) -> TickReport {
+    let mut report = TickReport::default();
     if disabled() {
         return report;
     }

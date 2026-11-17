@@ -1286,6 +1286,9 @@ impl AuthAccess for MemoryHost {
 }
 
 impl crate::tasks::TaskHost for MemoryHost {
+    fn unattended(&self, run: &mut dyn FnMut()) {
+        self.tasks.unattended(run)
+    }
     fn tasks_base(&self) -> Option<PathBuf> {
         self.tasks.tasks_base().or_else(|| self.secrets.data_dir())
     }
