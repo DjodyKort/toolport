@@ -43,6 +43,16 @@ pub(crate) fn same_resource(expected: &str, advertised: &str) -> bool {
     return expected == advertised;
 }
 
+/// Hands the consent URL of an interactive sign-in to the caller that asked to receive it, and
+/// opens the browser only when nobody did.
+pub(crate) fn present_consent(url: &str) {
+    #[cfg(feature = "plus")]
+    if toolport_plus::oauth::consent::present(url) {
+        return;
+    }
+    crate::oauth::open_browser(url);
+}
+
 /// A launch the gateway keeps for one project folder: the server id, the folder and the slot.
 pub type PooledLaunch = (String, String, crate::router::SharedServerSlot);
 

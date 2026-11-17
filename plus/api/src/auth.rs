@@ -3,6 +3,10 @@
 //! refresh token goes through `HttpAccess` and `VaultAccess`; nothing here carries a secret.
 
 use std::io::Read;
+use std::sync::Arc;
+
+/// Receives the consent URL of an interactive sign-in.
+pub type ConsentSink = Arc<dyn Fn(&str) + Send + Sync>;
 
 /// Why a server's `auth` subcommand could not be started.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,8 +68,13 @@ pub trait AuthAccess {
     fn awaits_review(&self, server_id: &str) -> Result<bool, String>;
 
     /// Runs upstream's browser sign-in for a remote server and stores the token it returns.
-    /// Blocks until the browser flow ends. Upstream opens the browser itself.
-    fn sign_in_remote(&self, server_id: &str) -> Result<(), String>;
+    /// Blocks until the browser flow ends. Upstream opens the browser itself, unless
+    /// `on_consent` is given: then the consent URL goes there and the browser stays closed.
+    fn sign_in_remote(
+        &self,
+        server_id: &str,
+        on_consent: Option<ConsentSink>,
+    ) -> Result<(), String>;
 
     fn open_url(&self, url: &str) -> Result<(), String>;
 }

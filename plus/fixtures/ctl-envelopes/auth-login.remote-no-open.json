@@ -3,8 +3,8 @@
   "envelope": {
     "command": "auth login",
     "error": {
-      "code": "unsupported",
-      "message": "the sign-in of beta opens the browser itself, so --no-open cannot print the link. Next: run it without --no-open, or sign in from the app"
+      "code": "auth_login",
+      "message": "authorization server points at a private or loopback address (example.invalid); refusing (a hostile metadata document could use this to reach your internal network)."
     },
     "ok": false,
     "schemaVersion": 1

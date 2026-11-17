@@ -1873,7 +1873,7 @@ pub(crate) fn authenticate_cancellable(
         endpoints.authorization_endpoint
     ));
     cancellation.with_active(|| {
-        open_browser(&auth_url);
+        crate::seam::present_consent(&auth_url);
         Ok(())
     })?;
     let code = wait_for_code_until(

@@ -3,11 +3,11 @@
 //! server, Google's included, signs in through its own `auth` subcommand, which prints the
 //! consent URL. A consent URL carries no credential; nothing secret is ever returned.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use serde::Serialize;
 use serde_json::{json, Value};
-use toolport_plus_api::{Host, LaunchError, ServerRecord};
+use toolport_plus_api::{ConsentSink, Host, LaunchError, ServerRecord};
 
 use super::prober::{read_servers, Prober, Selector};
 use super::stdio;
@@ -116,23 +116,27 @@ fn remote_flow(
     host: &dyn Host,
     server: &ServerRecord,
     opts: LoginOptions,
+    sink: UrlSink,
 ) -> Result<LoginReport, LoginError> {
-    if !opts.open_browser {
-        return Err(LoginError::Unsupported {
-            reason: format!(
-                "the sign-in of {} opens the browser itself, so --no-open cannot print the link",
-                server.name
-            ),
-            next: "run it without --no-open, or sign in from the app".to_string(),
-        });
-    }
-    host.sign_in_remote(&server.id)
+    let consent = Arc::new(Mutex::new(None::<String>));
+    let on_consent: Option<ConsentSink> = (!opts.open_browser).then(|| {
+        let consent = Arc::clone(&consent);
+        Arc::new(move |url: &str| {
+            *consent.lock().unwrap_or_else(PoisonError::into_inner) = Some(url.to_string());
+            sink(url);
+        }) as ConsentSink
+    });
+    host.sign_in_remote(&server.id, on_consent)
         .map_err(LoginError::Failed)?;
+    let consent_url = consent
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .take();
     Ok(LoginReport {
         server: server.id.clone(),
         name: server.name.clone(),
         flow: "browser",
-        consent_url: None,
+        consent_url,
         signed_in: true,
         message: format!("Signed in to {}.", server.name),
     })
@@ -205,7 +209,7 @@ pub fn login(
         None => plan(&server),
     };
     match chosen {
-        Plan::Remote => remote_flow(host, &server, opts),
+        Plan::Remote => remote_flow(host, &server, opts, sink),
         Plan::Stdio => stdio_flow(host, &server, opts, sink),
         Plan::Unsupported { reason, next } => Err(LoginError::Unsupported { reason, next }),
     }
@@ -221,7 +225,12 @@ pub fn start_sign_in(host: &dyn Host, key: &str) -> Result<Value, LoginError> {
         return Err(LoginError::Unsupported { reason, next });
     }
     if is_remote(&server) {
-        let report = remote_flow(host, &server, LoginOptions { open_browser: true })?;
+        let report = remote_flow(
+            host,
+            &server,
+            LoginOptions { open_browser: true },
+            Arc::new(|_| {}),
+        )?;
         return Ok(json!({
             "name": server.name,
             "started": true,

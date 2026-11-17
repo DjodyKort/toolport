@@ -440,8 +440,43 @@ fn a_remote_login_runs_upstreams_own_flow() {
 }
 
 #[test]
-fn a_remote_login_cannot_honour_no_open_because_upstream_opens_the_browser() {
+fn a_remote_login_opens_the_browser_itself_and_asks_for_no_link() {
+    let (host, _dir) = host_with("login-remote-open", vec![remote_server("r1")]);
+    *host.auth.remote_consent.borrow_mut() = Some(CONSENT.to_string());
+    let report = login(&host, "r1", LoginOptions { open_browser: true }, no_sink()).unwrap();
+    assert_eq!(*host.auth.remote_sinks.borrow(), [false]);
+    assert_eq!(report.consent_url, None);
+}
+
+#[test]
+fn a_remote_login_with_no_open_prints_the_consent_url_and_leaves_the_browser_alone() {
     let (host, _dir) = host_with("login-remote-no-open", vec![remote_server("r1")]);
+    *host.auth.remote_consent.borrow_mut() = Some(CONSENT.to_string());
+    let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let sink: UrlSink = {
+        let seen = Arc::clone(&seen);
+        Arc::new(move |url| seen.lock().unwrap().push(url.to_string()))
+    };
+    let report = login(
+        &host,
+        "r1",
+        LoginOptions {
+            open_browser: false,
+        },
+        sink,
+    )
+    .unwrap();
+    assert_eq!(*host.auth.remote_sinks.borrow(), [true]);
+    assert_eq!(*seen.lock().unwrap(), [CONSENT]);
+    assert_eq!(report.consent_url.as_deref(), Some(CONSENT));
+    assert!(report.signed_in);
+    assert!(host.auth.opened.borrow().is_empty());
+}
+
+#[test]
+fn a_failed_remote_login_with_no_open_reports_the_failure_not_a_link() {
+    let (host, _dir) = host_with("login-remote-no-open-fail", vec![remote_server("r1")]);
+    *host.auth.remote_result.borrow_mut() = Some(Err("the sign-in timed out".into()));
     let error = login(
         &host,
         "r1",
@@ -451,8 +486,7 @@ fn a_remote_login_cannot_honour_no_open_because_upstream_opens_the_browser() {
         no_sink(),
     )
     .unwrap_err();
-    assert!(error.message().contains("--no-open"), "{}", error.message());
-    assert!(host.auth.remote_signins.borrow().is_empty());
+    assert_eq!(error.message(), "the sign-in timed out");
 }
 
 #[test]

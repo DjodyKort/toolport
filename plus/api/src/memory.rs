@@ -15,8 +15,8 @@ use serde_json::{Map, Value};
 use crate::fork_data::{plus_ops, AuthProbe, DirectEntry, McpmSource, RegistryPlus, SelfMcpRecord};
 use crate::{
     AccessSetInfo, AuthAccess, AuthChild, CallsInFlight, CatalogAccess, CatalogEntryRecord,
-    ContextHost, EnvEntry, FolderRoute, GatewayRouter, HostEnv, HttpAccess, HttpError, HttpRequest,
-    HttpResponse, LaunchError, LaunchFault, RegistryAccess, RegistryTx, RegistryView,
+    ConsentSink, ContextHost, EnvEntry, FolderRoute, GatewayRouter, HostEnv, HttpAccess, HttpError,
+    HttpRequest, HttpResponse, LaunchError, LaunchFault, RegistryAccess, RegistryTx, RegistryView,
     RestartOutcome, SecretsHost, ServerRecord, ServerRules, ServerSpec, TrustInputs, VaultAccess,
 };
 
@@ -1169,6 +1169,10 @@ pub struct ScriptedAuth {
     pub awaiting_review: RefCell<BTreeSet<String>>,
     pub remote_result: RefCell<Option<Result<(), String>>>,
     pub remote_signins: RefCell<Vec<String>>,
+    /// The consent URL a remote sign-in hands to the sink it was given.
+    pub remote_consent: RefCell<Option<String>>,
+    /// Per remote sign-in: whether a consent sink was passed, so the browser stayed closed.
+    pub remote_sinks: RefCell<Vec<bool>>,
     pub opened: RefCell<Vec<String>>,
 }
 
@@ -1233,11 +1237,23 @@ impl AuthAccess for MemoryHost {
         Ok(self.auth.awaiting_review.borrow().contains(server_id))
     }
 
-    fn sign_in_remote(&self, server_id: &str) -> Result<(), String> {
+    fn sign_in_remote(
+        &self,
+        server_id: &str,
+        on_consent: Option<ConsentSink>,
+    ) -> Result<(), String> {
         self.auth
             .remote_signins
             .borrow_mut()
             .push(server_id.to_string());
+        self.auth
+            .remote_sinks
+            .borrow_mut()
+            .push(on_consent.is_some());
+        if let (Some(sink), Some(url)) = (on_consent, self.auth.remote_consent.borrow().as_deref())
+        {
+            sink(url);
+        }
         self.auth.remote_result.borrow().clone().unwrap_or(Ok(()))
     }
 

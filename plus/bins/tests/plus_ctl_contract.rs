@@ -319,7 +319,7 @@ const CASES: &[Case] = &[
         "auth login",
         &[
             read("signed-in", &["auth", "login", "alpha", "--no-open"]),
-            read("remote-no-open", &["auth", "login", "beta", "--no-open"]).exit(1),
+            apply("remote-no-open", &["auth", "login", "beta", "--no-open"]).exit(1),
             usage("usage", &["auth", "login"]),
         ],
     ),

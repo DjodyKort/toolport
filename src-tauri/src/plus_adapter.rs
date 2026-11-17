@@ -1178,7 +1178,11 @@ impl toolport_plus_api::AuthAccess for HostAdapter {
             }))
     }
 
-    fn sign_in_remote(&self, server_id: &str) -> Result<(), String> {
+    fn sign_in_remote(
+        &self,
+        server_id: &str,
+        on_consent: Option<toolport_plus_api::ConsentSink>,
+    ) -> Result<(), String> {
         let registry = read_registry_copy()?;
         let url = registry
             .servers
@@ -1187,7 +1191,13 @@ impl toolport_plus_api::AuthAccess for HostAdapter {
             .and_then(|server| server.url.clone())
             .ok_or_else(|| "the server has no address to sign in to".to_string())?;
         let attempt = crate::oauth_controller::start_attempt();
-        crate::oauth_controller::authenticate(server_id, &url, &attempt)
+        let sign_in = || crate::oauth_controller::authenticate(server_id, &url, &attempt);
+        match on_consent {
+            Some(sink) => {
+                toolport_plus::oauth::consent::with_observer(move |url| sink(url), sign_in)
+            }
+            None => sign_in(),
+        }
     }
 
     fn open_url(&self, url: &str) -> Result<(), String> {

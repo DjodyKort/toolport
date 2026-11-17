@@ -17,7 +17,7 @@ pub mod secrets;
 pub mod servers;
 pub mod view;
 
-pub use auth::{AuthAccess, AuthChild, LaunchError, LaunchFault};
+pub use auth::{AuthAccess, AuthChild, ConsentSink, LaunchError, LaunchFault};
 pub use context::ContextHost;
 pub use fork_data::{
     plus_ops, AuthProbe, DirectEntry, ForkServerFields, McpmSource, RegistryPlus, SelfMcpRecord,
