@@ -2,7 +2,8 @@ use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
 use super::{
-    backend, compression, content, context, library, servers, skills, sources, tasks, ToolError,
+    backend, compression, content, context, library, servers, setup, skills, sources, tasks,
+    ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1013,6 +1014,62 @@ pub const TOOLS: &[ToolDef] = &[
         "Everything Toolport knows about a folder's context, read only: the applied bundle, what is left out, which plugins are switched off, the estimate of the instruction rows and the last measurement with its calibration factor. Starts nothing and costs no tokens",
         [CWD],
         context::context_status
+    ),
+    tool!(
+        "setup_parts",
+        1,
+        None,
+        "List what a setup file can hold with counts and sizes: repositories (path, remote, branch, unpushed commits, changes, worktrees), servers, access sets, the skills library, tasks, settings, Claude Code user files, memory, sessions and secrets, and the last export. Reads only local git state; sessions and secrets are sized, never read",
+        [p("roots", Ty::StrList, false, "Folders to search for repositories")],
+        setup::parts
+    ),
+    tool!(
+        "setup_export",
+        3,
+        UnlessDryRun,
+        "Write one setup zip with the readable parts: dry_run is on by default and only lists what would go in (apply with dry_run=false and confirm=true). Secrets and sessions are sealed with a passphrase and are never exported through this tool; a person does that in the app or with toolportctl",
+        [
+            p("parts", Ty::Str, false, "all, or a comma separated list of repos, servers, access, library, tasks, settings, claudeUser, memory"),
+            p("out", Ty::Str, false, "File to write, or a folder to get toolport-setup-<date>.zip in; an existing file is never replaced"),
+            p("name", Ty::Str, false, "File name for a folder in out, ending in .zip"),
+            p("roots", Ty::StrList, false, "Folders to search for repositories"),
+            p("no_worktrees", Ty::Bool, false, "Leave the linked worktrees out of the repository list"),
+            p("skip_no_remote", Ty::Bool, false, "Leave out repositories without a remote"),
+            p("library_zip", Ty::Bool, false, "Also zip the uncommitted skills and rules of the library"),
+            p("without", Ty::StrList, false, "Sub-choices to leave out: claude-instructions, claude-settings, claude-plugins, claude-own, memory-auto, memory-switches, memory-instructions"),
+            p("peek", Ty::Str, false, "With dry_run: show what one part would hold"),
+            DRY_ON
+        ],
+        setup::export
+    ),
+    tool!(
+        "setup_inspect",
+        1,
+        None,
+        "Read a setup file and change nothing: its parts with counts, sizes and whether each matches its hash. Sealed parts are named, never opened",
+        [p("file", Ty::Str, true, "Path of the setup zip")],
+        setup::inspect
+    ),
+    tool!(
+        "setup_check",
+        1,
+        None,
+        "Before a reset: repositories with commits on no remote, no remote, changes, stashes and ignored secret-looking files, the things a person carries, and the age of the last export. Reads local git only",
+        [p("roots", Ty::StrList, false, "Folders to search for repositories")],
+        setup::check
+    ),
+    tool!(
+        "setup_restore",
+        3,
+        UnlessDryRun,
+        "Plan a restore of a setup file against this Mac and change nothing: each row is add, here, conflict, needs you or skip, with a plan hash. Applying a restore is done by a person in the app or with toolportctl",
+        [
+            p("file", Ty::Str, true, "Path of the setup zip"),
+            p("parts", Ty::Str, false, "Comma separated parts to plan (sealed parts are refused)"),
+            p("take", Ty::StrList, false, "Conflict rows to take from the file instead of keeping yours"),
+            DRY_ON
+        ],
+        setup::restore
     ),
     tool!(
         "tasks_list",

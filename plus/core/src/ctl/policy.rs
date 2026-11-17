@@ -20,6 +20,7 @@ use super::mcp;
 use super::plugins;
 use super::secret;
 use super::server;
+use super::setup;
 use super::skills;
 use super::skills_checks;
 use super::skills_repo;
@@ -769,6 +770,26 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&task::DISABLE])
         .args(&[req("id")])
         .skip("turns a task off; its --dry-run is a golden step"),
+    row("setup parts", R).spec(&[&setup::PARTS]),
+    row("setup export", W)
+        .dry()
+        .needs(&[Needs::Stdin])
+        .spec(&[&setup::EXPORT])
+        .skip("writes a zip; its --dry-run and apply are golden steps"),
+    row("setup inspect", R)
+        .spec(&[&setup::INSPECT])
+        .args(&[req("file")])
+        .smoke(&["missing.zip"]),
+    row("setup restore", W)
+        .unless("--apply")
+        .needs(&[Needs::Stdin])
+        .spec(&[&setup::RESTORE])
+        .skip("clones and writes files; its dry run and apply are golden steps"),
+    row("setup undo", W)
+        .dry()
+        .spec(&[&setup::UNDO])
+        .skip("reverses a restore run; covered by the setup unit tests"),
+    row("setup check", R).spec(&[&setup::CHECK]),
     row("mcp install", W)
         .spec(&[&mcp::INSTALL])
         .skip("registers the server and lists it in access sets; plus_mcp.rs round trip"),
@@ -971,6 +992,11 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_clean", D, "skills clean").on(),
     maps("skills_uninstall", D, "skills uninstall").on(),
     maps("skills_resolve", W, "skills resolve").on(),
+    maps("setup_parts", R, "setup parts"),
+    maps("setup_export", W, "setup export").on(),
+    maps("setup_inspect", R, "setup inspect"),
+    maps("setup_check", R, "setup check"),
+    maps("setup_restore", W, "setup restore").on(),
     maps("tasks_list", R, "task ls"),
     maps("tasks_get", R, "task show"),
     maps("tasks_history", R, "task history"),

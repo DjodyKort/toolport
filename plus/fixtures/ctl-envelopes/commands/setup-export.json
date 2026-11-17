@@ -1,0 +1,180 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "all, or a comma separated list of repos, servers, access, library, tasks, settings, claudeUser, memory, history, secrets (default all: everything readable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--parts",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "File to write, or a folder to get toolport-setup-<date>.zip in; an existing file is never replaced",
+      "escalates": false,
+      "hidden": false,
+      "name": "--out",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "File name for a folder in --out, ending in .zip",
+      "escalates": false,
+      "hidden": false,
+      "name": "--name",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Also write the secret values typed in Toolport, sealed with the passphrase from stdin; never through the self-management server",
+      "escalates": false,
+      "hidden": false,
+      "name": "--secrets",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Also write past Claude Code conversations, sealed with the passphrase from stdin; off by default",
+      "escalates": false,
+      "hidden": false,
+      "name": "--sessions",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Read the passphrase (at least 12 characters, never stored, no recovery) as one line from stdin",
+      "escalates": false,
+      "hidden": false,
+      "name": "--passphrase-stdin",
+      "repeatable": false,
+      "required": false,
+      "sensitive": true,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Folders to search for repositories (default: the source folders of `sources root ls`, else the usual checkout folders)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--roots",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "paths"
+    },
+    {
+      "aliases": [],
+      "effect": "Leave the linked worktrees of each repository out of the list",
+      "escalates": false,
+      "hidden": false,
+      "name": "--no-worktrees",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Leave out repositories without a remote: they cannot be cloned again",
+      "escalates": false,
+      "hidden": false,
+      "name": "--skip-no-remote",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Also zip the uncommitted skills and rules of the library (skills bundle)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--library-zip",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Turn a sub-choice off: claude-instructions, claude-settings, claude-plugins, claude-own, memory-auto, memory-switches, memory-instructions (comma separated, repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--without",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Only the sessions of this repository (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--session-repo",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "With --dry-run: show what one part would hold, as JSON",
+      "escalates": false,
+      "hidden": false,
+      "name": "--peek",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Report what would be written and write nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "setup",
+  "id": "setup export",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": ["stdin"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["setup", "export"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Write one zip with a manifest holding the parts you tick; secrets and sessions only sealed with a passphrase from stdin (--parts, --out, --name, --secrets, --sessions, --passphrase-stdin, --roots, --no-worktrees, --skip-no-remote, --library-zip, --without, --session-repo, --peek, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["setup_export"]
+}

@@ -12,6 +12,7 @@ mod context;
 mod library;
 pub mod register;
 mod servers;
+mod setup;
 mod skills;
 mod sources;
 mod tasks;

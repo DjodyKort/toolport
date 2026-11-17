@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "out": "<WORLD>/out/a.zip",
+    "roots": ["<WORLD>/home/code"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "<WORLD>/out/a.zip exists: an export never replaces a file"
+    }
+  },
+  "text": "conflict: <WORLD>/out/a.zip exists: an export never replaces a file",
+  "tool": "setup_export"
+}

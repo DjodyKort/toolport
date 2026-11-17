@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "setup",
+    "export",
+    "--secrets",
+    "--passphrase-stdin",
+    "--out",
+    "{base}/out/short.zip",
+    "--roots",
+    "{home}/code"
+  ],
+  "envelope": {
+    "command": "setup export",
+    "error": {
+      "code": "usage",
+      "message": "the passphrase needs at least 12 characters"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

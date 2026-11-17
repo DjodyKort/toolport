@@ -1,0 +1,266 @@
+{
+  "argv": [
+    "setup",
+    "export",
+    "--secrets",
+    "--sessions",
+    "--passphrase-stdin",
+    "--out",
+    "{base}/out/sealed.zip",
+    "--roots",
+    "{home}/code"
+  ],
+  "envelope": {
+    "command": "setup export",
+    "data": {
+      "dryRun": false,
+      "file": "<WORLD>/out/sealed.zip",
+      "fileSize": 0,
+      "madeAt": "<TIME>",
+      "name": "sealed.zip",
+      "notIncluded": [
+        "your code and anything uncommitted, stashed or unpushed",
+        "server sign-in sessions (you sign in again)",
+        "Claude Code login, SSH keys and git credentials",
+        "files in .gitignore such as .env"
+      ],
+      "parts": [
+        {
+          "count": 3,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "repos",
+          "info": {
+            "noRemote": 1,
+            "skipped": 0,
+            "worktrees": 0
+          },
+          "label": "Repositories",
+          "notes": ["1 without a remote cannot be cloned again"],
+          "sealed": false
+        },
+        {
+          "count": 2,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "servers",
+          "info": {
+            "secretValues": 0
+          },
+          "label": "Servers",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 1,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "access",
+          "info": {
+            "accessSets": 1,
+            "clients": 0
+          },
+          "label": "Clients and access sets",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 0,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "library",
+          "info": {},
+          "label": "Skills library",
+          "notes": ["no skills library found on this Mac"],
+          "sealed": false
+        },
+        {
+          "count": 0,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "tasks",
+          "info": {},
+          "label": "Tasks",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 10,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "settings",
+          "info": {
+            "bundles": 0,
+            "compression": false,
+            "registry": 10,
+            "sourceRoots": 0
+          },
+          "label": "Toolport settings",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 3,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "claudeUser",
+          "info": {
+            "filtered": 2,
+            "plugins": 0
+          },
+          "label": "Claude Code user files",
+          "notes": ["2 values of settings.json were left out"],
+          "sealed": false
+        },
+        {
+          "count": 1,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "memory",
+          "info": {
+            "flagged": 0,
+            "instructionFiles": 1,
+            "memoryFiles": 1,
+            "switches": 0
+          },
+          "label": "Memory",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 1,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "history",
+          "info": {
+            "repos": [
+              {
+                "fileSize": 0,
+                "name": "web",
+                "path": "~/code/web",
+                "sessions": 1
+              }
+            ]
+          },
+          "label": "Sessions",
+          "notes": [],
+          "sealed": true
+        },
+        {
+          "count": 1,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "secrets",
+          "info": {},
+          "label": "Secrets",
+          "notes": [],
+          "sealed": true
+        }
+      ],
+      "result": {
+        "undo": "delete the file"
+      },
+      "tree": [
+        {
+          "fileSize": 0,
+          "name": "manifest.json",
+          "part": null
+        },
+        {
+          "count": 3,
+          "fileSize": 0,
+          "kind": "file",
+          "name": "repos.json",
+          "part": "repos",
+          "sealed": false
+        },
+        {
+          "count": 2,
+          "fileSize": 0,
+          "kind": "file",
+          "name": "servers.json",
+          "part": "servers",
+          "sealed": false
+        },
+        {
+          "count": 1,
+          "fileSize": 0,
+          "kind": "file",
+          "name": "access.json",
+          "part": "access",
+          "sealed": false
+        },
+        {
+          "count": 0,
+          "fileSize": 0,
+          "kind": "dir",
+          "name": "skills-library/",
+          "part": "library",
+          "sealed": false
+        },
+        {
+          "count": 0,
+          "fileSize": 0,
+          "kind": "file",
+          "name": "tasks.json",
+          "part": "tasks",
+          "sealed": false
+        },
+        {
+          "count": 10,
+          "fileSize": 0,
+          "kind": "file",
+          "name": "settings.json",
+          "part": "settings",
+          "sealed": false
+        },
+        {
+          "count": 3,
+          "fileSize": 0,
+          "kind": "dir",
+          "name": "claude-user/",
+          "part": "claudeUser",
+          "sealed": false
+        },
+        {
+          "count": 1,
+          "fileSize": 0,
+          "kind": "dir",
+          "name": "memory/",
+          "part": "memory",
+          "sealed": false
+        },
+        {
+          "count": 1,
+          "fileSize": 0,
+          "kind": "file",
+          "name": "history.enc",
+          "part": "history",
+          "sealed": true
+        },
+        {
+          "count": 1,
+          "fileSize": 0,
+          "kind": "file",
+          "name": "secrets.enc",
+          "part": "secrets",
+          "sealed": true
+        }
+      ],
+      "verified": true
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

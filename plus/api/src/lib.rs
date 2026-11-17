@@ -16,6 +16,7 @@ pub mod mirror;
 pub mod secrets;
 pub mod servers;
 pub mod settings;
+pub mod setup;
 pub mod tasks;
 pub mod view;
 
@@ -36,6 +37,7 @@ pub use servers::{
     ServerRules, ServerSpec,
 };
 pub use settings::SettingsStore;
+pub use setup::{AddedServer, SetupHost, StaticSecret};
 pub use tasks::{
     FakeTaskHost, ProcessOutcome, ProcessSpec, RunApproval, RunDecision, SharedClockTaskHost,
     TaskHost,
@@ -188,6 +190,7 @@ pub trait Host:
     + AuthAccess
     + ContextHost
     + SettingsStore
+    + SetupHost
     + TaskHost
 {
 }
@@ -203,6 +206,7 @@ impl<
             + AuthAccess
             + ContextHost
             + SettingsStore
+            + SetupHost
             + TaskHost,
     > Host for T
 {

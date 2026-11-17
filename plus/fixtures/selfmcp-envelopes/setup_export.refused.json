@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "out": "<WORLD>/out/a.zip",
+    "roots": ["<WORLD>/home/code"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: setup_export (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: setup_export (tier 3). Pass confirm=true to proceed.",
+  "tool": "setup_export"
+}

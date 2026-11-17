@@ -1,0 +1,7 @@
+{
+  "command": "setup check",
+  "dryRun": "none",
+  "name": "setup_check",
+  "tier": "read",
+  "toolTier": 1
+}

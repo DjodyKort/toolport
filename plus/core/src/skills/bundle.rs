@@ -213,7 +213,7 @@ pub fn extract_bundle(
     Ok(report)
 }
 
-fn crc32(data: &[u8]) -> u32 {
+pub(crate) fn crc32(data: &[u8]) -> u32 {
     static TABLE: std::sync::OnceLock<[u32; 256]> = std::sync::OnceLock::new();
     let table = TABLE.get_or_init(|| {
         let mut t = [0u32; 256];
@@ -487,7 +487,7 @@ fn inflate_codes(
     }
 }
 
-fn inflate(data: &[u8], size_hint: usize) -> Result<Vec<u8>, String> {
+pub(crate) fn inflate(data: &[u8], size_hint: usize) -> Result<Vec<u8>, String> {
     let mut bits = Bits {
         data,
         pos: 0,

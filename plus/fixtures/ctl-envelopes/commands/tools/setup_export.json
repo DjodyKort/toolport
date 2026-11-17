@@ -1,0 +1,7 @@
+{
+  "command": "setup export",
+  "dryRun": "default-on",
+  "name": "setup_export",
+  "tier": "write",
+  "toolTier": 3
+}

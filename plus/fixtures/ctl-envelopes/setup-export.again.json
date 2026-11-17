@@ -1,0 +1,13 @@
+{
+  "argv": ["setup", "export", "--out", "{base}/out/setup.zip", "--roots", "{home}/code"],
+  "envelope": {
+    "command": "setup export",
+    "error": {
+      "code": "conflict",
+      "message": "<WORLD>/out/setup.zip exists: an export never replaces a file"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

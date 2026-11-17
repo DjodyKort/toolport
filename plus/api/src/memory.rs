@@ -1349,6 +1349,191 @@ impl crate::tasks::TaskHost for MemoryHost {
     }
 }
 
+/// The setup seam over the in-memory registry and vault: servers are listed by name with a plain
+/// stdio shape, an import adds them as the disabled stdio servers `add_stdio_server` makes, and
+/// the access document holds the sets of the registry state.
+impl crate::SetupHost for MemoryHost {
+    fn setup_servers(&self) -> Result<Vec<Value>, String> {
+        Ok(self
+            .registry
+            .list_servers()?
+            .into_iter()
+            .map(|server| {
+                serde_json::json!({
+                    "id": server.id,
+                    "name": server.name,
+                    "transport": server.text("transport").unwrap_or("stdio"),
+                    "command": server.text("command"),
+                    "args": server.strings("args"),
+                    "env": [],
+                    "disabled": !server.enabled,
+                    "forkSwitches": {},
+                })
+            })
+            .collect())
+    }
+
+    fn setup_add_servers(&self, servers: &[Value]) -> Result<Vec<crate::AddedServer>, String> {
+        let mut added = Vec::new();
+        for doc in servers {
+            let name = doc["name"].as_str().ok_or("a server has no name")?;
+            let exists = self
+                .registry
+                .list_servers()?
+                .iter()
+                .any(|server| server.name.eq_ignore_ascii_case(name));
+            if exists {
+                continue;
+            }
+            let command = doc["command"].as_str().unwrap_or("placeholder");
+            let mut id = String::new();
+            self.registry.transact(&mut |tx| {
+                id = tx.add_stdio_server(name, command, "shared")?;
+                Ok(())
+            })?;
+            added.push(crate::AddedServer {
+                name: name.into(),
+                id,
+            });
+        }
+        Ok(added)
+    }
+
+    fn setup_access(&self) -> Result<Value, String> {
+        let servers = self.registry.list_servers()?;
+        let name = |id: &String| {
+            servers
+                .iter()
+                .find(|server| &server.id == id)
+                .map_or(id.clone(), |server| server.name.clone())
+        };
+        let sets: Vec<Value> = self
+            .registry
+            .access_sets
+            .borrow()
+            .iter()
+            .map(|set| {
+                serde_json::json!({
+                    "id": set.id,
+                    "name": set.name,
+                    "servers": set.server_ids.iter().map(name).collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        Ok(serde_json::json!({
+            "accessSets": sets,
+            "defaultAccess": self.registry.default_access.borrow().clone(),
+            "clientScopes": {},
+            "clientDiscovery": {},
+            "folderProfiles": [],
+            "discoveryMode": null,
+            "clients": [],
+        }))
+    }
+
+    fn setup_merge_access(&self, doc: &Value) -> Result<Value, String> {
+        let mut added = Vec::new();
+        let servers = self.registry.list_servers()?;
+        for set in doc["accessSets"].as_array().into_iter().flatten() {
+            let name = set["name"].as_str().unwrap_or_default();
+            if self
+                .registry
+                .access_sets
+                .borrow()
+                .iter()
+                .any(|existing| existing.name.eq_ignore_ascii_case(name))
+            {
+                continue;
+            }
+            let ids: Vec<String> = set["servers"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .filter_map(|server| servers.iter().find(|s| s.name == server))
+                .map(|server| server.id.clone())
+                .collect();
+            let id = slug(name);
+            self.registry
+                .access_sets
+                .borrow_mut()
+                .push(crate::AccessSetInfo {
+                    id: id.clone(),
+                    name: name.into(),
+                    server_ids: ids,
+                });
+            added.push(id);
+        }
+        Ok(serde_json::json!({"accessSets": added}))
+    }
+
+    fn setup_unmerge_access(&self, added: &Value) -> Result<(), String> {
+        let ids: Vec<&str> = added["accessSets"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect();
+        self.registry
+            .access_sets
+            .borrow_mut()
+            .retain(|set| !ids.contains(&set.id.as_str()));
+        Ok(())
+    }
+
+    fn setup_settings(&self) -> Result<Map<String, Value>, String> {
+        Ok(self.registry.unknown_fields.borrow().clone())
+    }
+
+    fn setup_apply_settings(
+        &self,
+        changes: &Map<String, Value>,
+    ) -> Result<Map<String, Value>, String> {
+        let mut fields = self.registry.unknown_fields.borrow_mut();
+        let mut previous = Map::new();
+        for (key, value) in changes {
+            previous.insert(
+                key.clone(),
+                fields
+                    .insert(key.clone(), value.clone())
+                    .unwrap_or(Value::Null),
+            );
+        }
+        Ok(previous)
+    }
+
+    fn setup_secrets(&self) -> Result<Vec<crate::StaticSecret>, String> {
+        let servers = self.registry.list_servers()?;
+        Ok(self
+            .secrets
+            .vault
+            .borrow()
+            .iter()
+            .map(|((server, key), value)| crate::StaticSecret {
+                server: servers
+                    .iter()
+                    .find(|s| &s.id == server)
+                    .map_or(server.clone(), |s| s.name.clone()),
+                key: key.clone(),
+                kind: "env".into(),
+                value: value.clone(),
+            })
+            .collect())
+    }
+
+    fn setup_store_secret(&self, secret: &crate::StaticSecret) -> Result<(), String> {
+        let id = self
+            .registry
+            .list_servers()?
+            .into_iter()
+            .find(|server| server.name == secret.server)
+            .map(|server| server.id)
+            .ok_or_else(|| format!("no server named {}", secret.server))?;
+        self.put_in_vault(&id, &secret.key, &secret.value);
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

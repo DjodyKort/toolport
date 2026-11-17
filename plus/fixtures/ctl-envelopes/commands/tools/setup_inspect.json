@@ -1,0 +1,7 @@
+{
+  "command": "setup inspect",
+  "dryRun": "none",
+  "name": "setup_inspect",
+  "tier": "read",
+  "toolTier": 1
+}

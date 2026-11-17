@@ -1,0 +1,70 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Folders to search for repositories (default: the source folders of `sources root ls`, else the usual checkout folders)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--roots",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "paths"
+    },
+    {
+      "aliases": [],
+      "effect": "Tick a thing you carry yourself: browser, keys, licenses, outside (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--tick",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Untick it again (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--untick",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Acknowledge a finding by its id (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--ack",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "setup",
+  "id": "setup check",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["setup", "check"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Before a reset: unpushed work, repositories without a remote, changes and stashes, plus the things you carry yourself (--roots, --tick, --untick, --ack)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["setup_check"]
+}

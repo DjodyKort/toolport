@@ -2280,6 +2280,165 @@
           "tier": 1
         },
         {
+          "description": "List what a setup file can hold with counts and sizes: repositories (path, remote, branch, unpushed commits, changes, worktrees), servers, access sets, the skills library, tasks, settings, Claude Code user files, memory, sessions and secrets, and the last export. Reads only local git state; sessions and secrets are sized, never read",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "setup_parts",
+          "params": [
+            {
+              "description": "Folders to search for repositories",
+              "name": "roots",
+              "required": false,
+              "type": "string[]"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Write one setup zip with the readable parts: dry_run is on by default and only lists what would go in (apply with dry_run=false and confirm=true). Secrets and sessions are sealed with a passphrase and are never exported through this tool; a person does that in the app or with toolportctl",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "setup_export",
+          "params": [
+            {
+              "description": "all, or a comma separated list of repos, servers, access, library, tasks, settings, claudeUser, memory",
+              "name": "parts",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "File to write, or a folder to get toolport-setup-<date>.zip in; an existing file is never replaced",
+              "name": "out",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "File name for a folder in out, ending in .zip",
+              "name": "name",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Folders to search for repositories",
+              "name": "roots",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Leave the linked worktrees out of the repository list",
+              "name": "no_worktrees",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Leave out repositories without a remote",
+              "name": "skip_no_remote",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Also zip the uncommitted skills and rules of the library",
+              "name": "library_zip",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Sub-choices to leave out: claude-instructions, claude-settings, claude-plugins, claude-own, memory-auto, memory-switches, memory-instructions",
+              "name": "without",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "With dry_run: show what one part would hold",
+              "name": "peek",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Read a setup file and change nothing: its parts with counts, sizes and whether each matches its hash. Sealed parts are named, never opened",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "setup_inspect",
+          "params": [
+            {
+              "description": "Path of the setup zip",
+              "name": "file",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Before a reset: repositories with commits on no remote, no remote, changes, stashes and ignored secret-looking files, the things a person carries, and the age of the last export. Reads local git only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "setup_check",
+          "params": [
+            {
+              "description": "Folders to search for repositories",
+              "name": "roots",
+              "required": false,
+              "type": "string[]"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Plan a restore of a setup file against this Mac and change nothing: each row is add, here, conflict, needs you or skip, with a plan hash. Applying a restore is done by a person in the app or with toolportctl",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "setup_restore",
+          "params": [
+            {
+              "description": "Path of the setup zip",
+              "name": "file",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Comma separated parts to plan (sealed parts are refused)",
+              "name": "parts",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Conflict rows to take from the file instead of keeping yours",
+              "name": "take",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "List the tasks (named, repeatable jobs of steps) with their triggers, last run, next scheduled run and whether a run waits for the person. Disabled drafts only with all",
           "dryRunDefault": false,
           "gate": "none",

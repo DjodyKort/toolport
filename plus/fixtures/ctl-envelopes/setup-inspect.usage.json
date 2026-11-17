@@ -1,0 +1,13 @@
+{
+  "argv": ["setup", "inspect"],
+  "envelope": {
+    "command": "setup inspect",
+    "error": {
+      "code": "usage",
+      "message": "usage: setup inspect <file>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

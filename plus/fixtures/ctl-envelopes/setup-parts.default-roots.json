@@ -1,0 +1,216 @@
+{
+  "argv": ["setup", "parts"],
+  "envelope": {
+    "command": "setup parts",
+    "data": {
+      "encryption": true,
+      "lastExport": null,
+      "minPassphrase": 12,
+      "parts": [
+        {
+          "count": 3,
+          "default": true,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "repos",
+          "info": {
+            "noRemote": 1,
+            "skipped": 0,
+            "worktrees": 0
+          },
+          "label": "Repositories",
+          "notes": ["1 without a remote cannot be cloned again"],
+          "sealed": false
+        },
+        {
+          "count": 2,
+          "default": true,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "servers",
+          "info": {
+            "secretValues": 0
+          },
+          "label": "Servers",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 1,
+          "default": true,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "access",
+          "info": {
+            "accessSets": 1,
+            "clients": 0
+          },
+          "label": "Clients and access sets",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 0,
+          "default": true,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "library",
+          "info": {},
+          "label": "Skills library",
+          "notes": ["no skills library found on this Mac"],
+          "sealed": false
+        },
+        {
+          "count": 0,
+          "default": true,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "tasks",
+          "info": {},
+          "label": "Tasks",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 9,
+          "default": true,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "settings",
+          "info": {
+            "bundles": 0,
+            "compression": false,
+            "registry": 9,
+            "sourceRoots": 0
+          },
+          "label": "Toolport settings",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 3,
+          "default": true,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "claudeUser",
+          "info": {
+            "filtered": 2,
+            "plugins": 0
+          },
+          "label": "Claude Code user files",
+          "notes": ["2 values of settings.json were left out"],
+          "sealed": false
+        },
+        {
+          "count": 1,
+          "default": true,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "memory",
+          "info": {
+            "flagged": 0,
+            "instructionFiles": 1,
+            "memoryFiles": 1,
+            "switches": 0
+          },
+          "label": "Memory",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 1,
+          "default": false,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "history",
+          "info": {
+            "repos": [
+              {
+                "fileSize": 0,
+                "name": "web",
+                "path": "~/code/web",
+                "sessions": 1
+              }
+            ]
+          },
+          "label": "Sessions",
+          "notes": [],
+          "sealed": true
+        },
+        {
+          "count": 0,
+          "default": false,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "secrets",
+          "info": {},
+          "label": "Secrets",
+          "notes": [],
+          "sealed": true
+        }
+      ],
+      "repos": [
+        {
+          "branch": "main",
+          "dirty": 0,
+          "error": null,
+          "name": "docs",
+          "neverPushed": [],
+          "noRemote": false,
+          "path": "~/code/docs",
+          "remote": "<WORLD>/remotes/docs.git",
+          "stashes": 0,
+          "unpushed": 0,
+          "untracked": 0,
+          "upstream": "origin/main",
+          "worktrees": 0
+        },
+        {
+          "branch": "main",
+          "dirty": 0,
+          "error": null,
+          "name": "scratch",
+          "neverPushed": [],
+          "noRemote": true,
+          "path": "~/code/scratch",
+          "remote": null,
+          "stashes": 0,
+          "unpushed": 0,
+          "untracked": 0,
+          "upstream": null,
+          "worktrees": 0
+        },
+        {
+          "branch": "main",
+          "dirty": 0,
+          "error": null,
+          "name": "web",
+          "neverPushed": [],
+          "noRemote": false,
+          "path": "~/code/web",
+          "remote": "<WORLD>/remotes/web.git",
+          "stashes": 0,
+          "unpushed": 1,
+          "untracked": 2,
+          "upstream": "origin/main",
+          "worktrees": 0
+        }
+      ],
+      "roots": ["~/code"],
+      "totalSize": 0
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
