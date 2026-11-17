@@ -1,0 +1,27 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj"
+  },
+  "isError": false,
+  "result": {
+    "bundle": {
+      "applied": null,
+      "conflicts": [],
+      "folder": "<WORLD>/home/proj"
+    },
+    "calibration": null,
+    "cwd": "<WORLD>/home/proj",
+    "estimate": {
+      "basis": "estimate",
+      "tokenizer": "[redacted]",
+      "totalTokens": 6
+    },
+    "leftOut": {
+      "files": [],
+      "memoryOff": false
+    },
+    "measured": null,
+    "pluginsOff": []
+  },
+  "tool": "context_status"
+}

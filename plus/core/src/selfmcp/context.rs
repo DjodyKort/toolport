@@ -26,8 +26,8 @@ pub(super) fn ls(host: &dyn Host, _args: &Value) -> Result<Value, ToolError> {
     Ok(api::ls(host)?)
 }
 
-pub(super) fn status(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
-    Ok(api::status(host, Some(required(args, "cwd")?))?)
+pub(super) fn context_status(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    Ok(api::folder_status(host, Some(required(args, "cwd")?))?)
 }
 
 pub(super) fn apply(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
@@ -73,21 +73,43 @@ pub(super) fn leave_out(host: &dyn Host, args: &Value) -> Result<Value, ToolErro
 }
 
 pub(super) fn loads(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
-    Ok(api::loads(host, Some(required(args, "cwd")?))?)
+    Ok(api::loads(
+        host,
+        Some(required(args, "cwd")?),
+        flag(args, "measured"),
+    )?)
 }
 
 pub(super) fn compose(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
     Ok(api::compose(host, Some(required(args, "cwd")?))?)
 }
 
+pub(super) fn status(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    Ok(api::status(host, Some(required(args, "cwd")?))?)
+}
+
 pub(super) fn measure(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    let without = args["without"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(String::from)
+        .collect();
     Ok(api::measure(
         host,
         Some(required(args, "cwd")?),
-        str_arg(args, "model")
-            .map(str::trim)
-            .filter(|m| !m.is_empty()),
-        flag(args, "force"),
-        flag(args, "start"),
+        &api::MeasureOpts {
+            model: str_arg(args, "model")
+                .map(str::trim)
+                .filter(|m| !m.is_empty()),
+            force: flag(args, "force"),
+            confirm: flag(args, "start"),
+            without,
+            bundle: str_arg(args, "bundle")
+                .map(str::trim)
+                .filter(|b| !b.is_empty())
+                .map(String::from),
+        },
     )?)
 }

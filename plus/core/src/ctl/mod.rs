@@ -214,12 +214,17 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["context", "loads"],
-        "Show what a Claude Code session in a folder loads, with an estimated token cost (--cwd)",
+        "Show what a Claude Code session in a folder loads, with an estimated token cost and the folder's calibration (--cwd, --measured)",
         context::loads,
     ),
     cmd(
+        &["context", "status"],
+        "Everything known about a folder's context, read only: bundle, leave-outs, plugin switches, last measurement (--cwd)",
+        context::context_status,
+    ),
+    cmd(
         &["context", "measure"],
-        "Measure what a folder really loads, in tokens, with Claude Code (--cwd, --model, --force, --yes)",
+        "Measure what a folder really loads, in tokens, with Claude Code, as is and per variant (--cwd, --without plugin:<id>|skill:<name>, --bundle, --model, --force, --yes)",
         context::measure,
     ),
     cmd(

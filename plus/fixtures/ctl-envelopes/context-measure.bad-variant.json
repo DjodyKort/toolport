@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "measure", "--cwd", "{home}/proj", "--without", "nonsense"],
+  "envelope": {
+    "command": "context measure",
+    "error": {
+      "code": "usage",
+      "message": "--without takes plugin:<id> or skill:<name>, not nonsense"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

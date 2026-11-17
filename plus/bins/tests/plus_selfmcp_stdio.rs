@@ -146,7 +146,7 @@ fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
         // The tools that name a server or a folder need one; the others take no arguments.
         let arguments = match name {
             "servers_get" => json!({"name": "alpha"}),
-            "context_bundle_status" | "context_loads" | "context_compose" => {
+            "context_bundle_status" | "context_loads" | "context_compose" | "context_status" => {
                 json!({"cwd": world.home.display().to_string()})
             }
             _ => json!({}),

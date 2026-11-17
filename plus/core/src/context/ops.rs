@@ -381,16 +381,53 @@ fn stack(
 
 /// What a session in a folder loads, as rows with an estimated cost. Skills, plugins, agents,
 /// tools and Claude Code's own prompt are not rows, so the total is never presented as a
-/// measurement.
-pub fn loads(host: &dyn Host, cwd: Option<&str>) -> Result<Value, OpError> {
-    let (_, cwd, report) = stack(host, cwd)?;
-    Ok(json!({
+/// measurement. The folder's calibration factor (from its last measurement) sits next to the
+/// estimate; with `measured` the rows the last run's `InstructionsLoaded` log covers are marked.
+pub fn loads(host: &dyn Host, cwd: Option<&str>, measured: bool) -> Result<Value, OpError> {
+    let (_, cwd, mut report) = stack(host, cwd)?;
+    let data = host.data_dir().ok_or_else(|| {
+        OpError::failed("no_data_dir", "the data directory could not be resolved")
+    })?;
+    let calibration = super::measure::calibration(&data, &cwd, None);
+    let mut out = json!({
         "cwd": fsx::display(&fsx::canonical(&cwd)),
-        "items": report.items.iter().map(item_value).collect::<Vec<_>>(),
         "totalTokens": report.total_tokens,
         "basis": "estimate",
         "tokenizer": "cl100k_base",
+        "calibration": super::measure::calibration_value(calibration.as_ref(), report.total_tokens),
         "notItemised": "skills, plugins, agents, tool definitions and Claude Code's own prompt are not rows; `context measure` gives the real total",
+    });
+    if measured {
+        let stored = super::measure::stored(&data, &cwd, None);
+        out["measured"] = stored.as_ref().map_or(Value::Null, |s| s.summary());
+        out["verified"] = stored
+            .as_ref()
+            .and_then(|s| s.verify(&mut report.items))
+            .map_or(Value::Null, |v| json!(v));
+    }
+    out["items"] = Value::Array(report.items.iter().map(item_value).collect());
+    Ok(out)
+}
+
+/// Everything Toolport knows about a folder's context, read only: the applied bundle, what is
+/// left out and switched off, and the last measurement with its calibration. Nothing is written
+/// and no request is made.
+pub fn folder_status(host: &dyn Host, cwd: Option<&str>) -> Result<Value, OpError> {
+    let (_, cwd, report) = stack(host, cwd)?;
+    let data = host.data_dir().ok_or_else(|| {
+        OpError::failed("no_data_dir", "the data directory could not be resolved")
+    })?;
+    let bundle = with_world(host, |w| apply::status(w, &cwd))?;
+    let (files, memory_off) = leave_out::owned(&data, &cwd);
+    let calibration = super::measure::calibration(&data, &cwd, None);
+    Ok(json!({
+        "cwd": fsx::display(&fsx::canonical(&cwd)),
+        "bundle": bundle,
+        "leftOut": { "files": files, "memoryOff": memory_off },
+        "pluginsOff": plugin_switch::switched_off(&data, &cwd),
+        "estimate": { "totalTokens": report.total_tokens, "basis": "estimate", "tokenizer": "cl100k_base" },
+        "measured": super::measure::stored(&data, &cwd, None).map_or(Value::Null, |s| s.summary()),
+        "calibration": super::measure::calibration_value(calibration.as_ref(), report.total_tokens),
     }))
 }
 
@@ -434,30 +471,38 @@ pub fn sync(host: &dyn Host, dry_run: bool) -> Result<Value, OpError> {
     }))
 }
 
-/// `context measure`: the real size of a folder's stack from Claude Code. Without `confirm` and
-/// without a cached answer it returns the plan and starts nothing.
-pub fn measure(
-    host: &dyn Host,
-    cwd: Option<&str>,
-    model: Option<&str>,
-    force: bool,
-    confirm: bool,
-) -> Result<Value, OpError> {
-    let (_, cwd, rows) = stack(host, cwd)?;
+/// What `context measure` is asked for besides the folder.
+#[derive(Clone, Debug, Default)]
+pub struct MeasureOpts<'a> {
+    pub model: Option<&'a str>,
+    pub force: bool,
+    pub confirm: bool,
+    pub without: Vec<String>,
+    pub bundle: Option<String>,
+}
+
+/// `context measure`: the real size of a folder's stack from Claude Code, as is and once per
+/// variant. Without `confirm` and without a cached answer it returns the plan and starts nothing.
+pub fn measure(host: &dyn Host, cwd: Option<&str>, opts: &MeasureOpts) -> Result<Value, OpError> {
+    let (home, cwd, rows) = stack(host, cwd)?;
     let data = host.data_dir().ok_or_else(|| {
         OpError::failed("no_data_dir", "the data directory could not be resolved")
     })?;
     let launcher = super::measure::ProcessLauncher::from_env();
+    let roots = Roots::from_home(&home);
     let env = super::measure::Env {
+        roots: &roots,
         data_dir: &data,
         launcher: &launcher,
         rows: &rows,
     };
     let request = super::measure::Request {
         cwd,
-        model: model.map(String::from),
-        force,
-        confirm,
+        model: opts.model.map(String::from),
+        force: opts.force,
+        confirm: opts.confirm,
+        without: opts.without.clone(),
+        bundle: opts.bundle.clone(),
     };
     super::measure::measure(&env, &request).map_err(|e| match e.code {
         "usage" => OpError::usage(e.message),

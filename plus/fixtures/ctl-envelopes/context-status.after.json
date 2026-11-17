@@ -1,0 +1,29 @@
+{
+  "argv": ["context", "status", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "context status",
+    "data": {
+      "bundle": {
+        "applied": null,
+        "conflicts": [],
+        "folder": "<WORLD>/home/proj"
+      },
+      "calibration": null,
+      "cwd": "<WORLD>/home/proj",
+      "estimate": {
+        "basis": "estimate",
+        "tokenizer": "cl100k_base",
+        "totalTokens": 6
+      },
+      "leftOut": {
+        "files": [],
+        "memoryOff": true
+      },
+      "measured": null,
+      "pluginsOff": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

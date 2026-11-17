@@ -1,0 +1,57 @@
+{
+  "argv": ["context", "leave-out", "add", "--memory", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "context leave-out",
+    "data": {
+      "cwd": "<WORLD>/home/proj",
+      "dryRun": false,
+      "id": "leave-out",
+      "leftOut": [],
+      "memoryOff": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "1 key(s) owned by leave-out",
+            "diff": {
+              "after": "autoMemoryEnabled: false\n",
+              "before": "autoMemoryEnabled: (absent)\n"
+            },
+            "keys": ["autoMemoryEnabled"],
+            "op": "create",
+            "path": "<WORLD>/home/proj/.claude/settings.local.json"
+          },
+          {
+            "detail": "git-ignore .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/proj/.git/info/exclude"
+          },
+          {
+            "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          }
+        ],
+        "summary": "Turn auto memory off in <WORLD>/home/proj",
+        "undo": "toolportctl context leave-out rm --memory --cwd <WORLD>/home/proj",
+        "warnings": [
+          "Claude then neither reads from nor writes to this project's auto memory directory",
+          "Open sessions keep what they loaded; the change applies from the next session"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "<WORLD>/home/proj/.claude/settings.local.json",
+          "<WORLD>/home/proj/.git/info/exclude"
+        ],
+        "undo": "toolportctl context leave-out rm --memory --cwd <WORLD>/home/proj"
+      },
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

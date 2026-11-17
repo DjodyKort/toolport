@@ -818,6 +818,10 @@ const CASES: &[Case] = &[
         &[
             hook("files", context_files),
             read("folder", &["context", "loads", "--cwd", "{home}/proj"]),
+            read(
+                "measured",
+                &["context", "loads", "--cwd", "{home}/proj", "--measured"],
+            ),
             read("no-folder", &["context", "loads", "--cwd", "{home}/gone"]).exit(2),
         ],
     ),
@@ -848,6 +852,54 @@ const CASES: &[Case] = &[
             hook("files", context_files),
             read("plan", &["context", "measure", "--cwd", "{home}/proj"]),
             read("no-folder", &["context", "measure", "--cwd", "{home}/gone"]).exit(2),
+            read(
+                "variants",
+                &[
+                    "context",
+                    "measure",
+                    "--cwd",
+                    "{home}/proj",
+                    "--without",
+                    "plugin:kit@market",
+                    "--without",
+                    "skill:scratch-*",
+                    "--bundle",
+                    "acme-dev",
+                ],
+            ),
+            read(
+                "bad-variant",
+                &[
+                    "context",
+                    "measure",
+                    "--cwd",
+                    "{home}/proj",
+                    "--without",
+                    "nonsense",
+                ],
+            )
+            .exit(2),
+        ],
+    ),
+    case(
+        "context status",
+        &[
+            hook("files", context_files),
+            read("folder", &["context", "status", "--cwd", "{home}/proj"]),
+            apply(
+                "left-out",
+                &[
+                    "context",
+                    "leave-out",
+                    "add",
+                    "--memory",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            read("after", &["context", "status", "--cwd", "{home}/proj"]),
+            read("no-folder", &["context", "status", "--cwd", "{home}/gone"]).exit(2),
+            usage("usage", &["context", "status", "extra"]),
         ],
     ),
 ];

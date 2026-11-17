@@ -1,0 +1,38 @@
+{
+  "argv": [
+    "context",
+    "measure",
+    "--cwd",
+    "{home}/proj",
+    "--without",
+    "plugin:kit@market",
+    "--without",
+    "skill:scratch-*",
+    "--bundle",
+    "acme-dev"
+  ],
+  "envelope": {
+    "command": "context measure",
+    "data": {
+      "cwd": "<WORLD>/home/proj",
+      "plan": {
+        "cost": "about as many input tokens as the folder's stack, on the chosen model, once per request, roughly a minute each",
+        "model": "haiku",
+        "requests": 4,
+        "sends": "the instruction files go to the model like in any session",
+        "variants": [
+          "as is",
+          "without plugin:kit@market",
+          "without skill:scratch-*",
+          "bundle acme-dev"
+        ],
+        "writes": "nothing in the folder; the answers are cached"
+      },
+      "ran": false,
+      "start": "run again with --yes (start: true in the tool) to start the requests"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

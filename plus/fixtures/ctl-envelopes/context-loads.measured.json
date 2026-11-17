@@ -1,0 +1,43 @@
+{
+  "argv": ["context", "loads", "--cwd", "{home}/proj", "--measured"],
+  "envelope": {
+    "command": "context loads",
+    "data": {
+      "basis": "estimate",
+      "calibration": null,
+      "cwd": "<WORLD>/home/proj",
+      "items": [
+        {
+          "kind": "memory",
+          "lazy": false,
+          "leftOutBy": null,
+          "loaded": true,
+          "name": "CLAUDE.md",
+          "path": "<WORLD>/home/.claude/CLAUDE.md",
+          "reason": "",
+          "source": "user",
+          "tokens": 3
+        },
+        {
+          "kind": "memory",
+          "lazy": false,
+          "leftOutBy": null,
+          "loaded": true,
+          "name": "CLAUDE.md",
+          "path": "<WORLD>/home/proj/CLAUDE.md",
+          "reason": "",
+          "source": "project",
+          "tokens": 3
+        }
+      ],
+      "measured": null,
+      "notItemised": "skills, plugins, agents, tool definitions and Claude Code's own prompt are not rows; `context measure` gives the real total",
+      "tokenizer": "cl100k_base",
+      "totalTokens": 6,
+      "verified": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

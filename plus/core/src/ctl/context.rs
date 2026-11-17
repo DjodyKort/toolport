@@ -292,9 +292,9 @@ pub fn undo(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     Ok(Output::new(data, human))
 }
 
-pub fn status(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
-    let flags = STATUS.parse(rest)?;
-    let data = api::status(host, flags.one("--cwd")).map_err(flagged)?;
+pub fn context_status(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let flags = CONTEXT_STATUS.parse(rest)?;
+    let data = api::folder_status(host, flags.one("--cwd")).map_err(flagged)?;
     let folder = data["folder"].as_str().unwrap_or("");
     let human = match data["applied"].as_object() {
         None => format!("no bundle is applied in {folder}\n"),
@@ -389,19 +389,27 @@ pub fn leave_out(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     Ok(Output::new(data, human))
 }
 
-const LOADS_USAGE: &str = "usage: context loads [--cwd <dir>]";
+const LOADS_USAGE: &str = "usage: context loads [--cwd <dir>] [--measured]";
+const STATUS_USAGE: &str = "usage: context status [--cwd <dir>]";
 const COMPOSE_USAGE: &str = "usage: context compose [--cwd <dir>]";
 const SYNC_USAGE: &str = "usage: context sync [--dry-run]";
 
 pub(super) const LOADS: Spec = Spec {
-    flags: &[value("--cwd")],
+    flags: &[value("--cwd"), switch("--measured")],
     operands: Operands::Max(0, LOADS_USAGE),
     ..LS
 };
 
 pub(super) const COMPOSE: Spec = Spec {
+    flags: &[value("--cwd")],
     operands: Operands::Max(0, COMPOSE_USAGE),
-    ..LOADS
+    ..LS
+};
+
+pub(super) const CONTEXT_STATUS: Spec = Spec {
+    flags: &[value("--cwd")],
+    operands: Operands::Max(0, STATUS_USAGE),
+    ..LS
 };
 
 pub(super) const SYNC: Spec = Spec {
@@ -412,7 +420,7 @@ pub(super) const SYNC: Spec = Spec {
 
 pub fn loads(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = LOADS.parse(rest)?;
-    let data = api::loads(host, flags.one("--cwd")).map_err(flagged)?;
+    let data = api::loads(host, flags.one("--cwd"), flags.on("--measured")).map_err(flagged)?;
     let mut human = String::new();
     for item in data["items"].as_array().into_iter().flatten() {
         let state = match (item["loaded"].as_bool(), item["lazy"].as_bool()) {
@@ -434,6 +442,40 @@ pub fn loads(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
         data["tokenizer"].as_str().unwrap_or(""),
         data["notItemised"].as_str().unwrap_or("")
     ));
+    Ok(Output::new(data, human))
+}
+
+pub fn status(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let flags = STATUS.parse(rest)?;
+    let data = api::status(host, flags.one("--cwd")).map_err(flagged)?;
+    let mut human = format!("{}\n", data["cwd"].as_str().unwrap_or(""));
+    human.push_str(&format!(
+        "  bundle: {}\n",
+        data["bundle"]["applied"]["bundle"]
+            .as_str()
+            .unwrap_or("none")
+    ));
+    human.push_str(&format!(
+        "  left out: {} file(s){}\n",
+        data["leftOut"]["files"].as_array().map_or(0, Vec::len),
+        if data["leftOut"]["memoryOff"] == Value::Bool(true) {
+            ", auto memory off"
+        } else {
+            ""
+        }
+    ));
+    human.push_str(&format!(
+        "  plugins off: {}\n",
+        data["pluginsOff"].as_array().map_or(0, Vec::len)
+    ));
+    human.push_str(&format!(
+        "  estimate: about {} tokens in the instruction rows\n",
+        data["estimate"]["totalTokens"]
+    ));
+    match data["measured"]["total"].as_u64() {
+        Some(total) => human.push_str(&format!("  measured: {total} tokens\n")),
+        None => human.push_str("  measured: not yet\n"),
+    }
     Ok(Output::new(data, human))
 }
 
@@ -461,12 +503,14 @@ pub fn sync(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     Ok(Output::new(data, human))
 }
 
-const MEASURE_USAGE: &str = "usage: context measure [--cwd <dir>] [--model <m>] [--force] [--yes]";
+const MEASURE_USAGE: &str = "usage: context measure [--cwd <dir>] [--without plugin:<id>|skill:<name>]... [--bundle <name>] [--model <m>] [--force] [--yes]";
 
 pub(super) const MEASURE: Spec = Spec {
     flags: &[
         value("--cwd"),
         value("--model"),
+        value("--without"),
+        value("--bundle"),
         switch("--force"),
         switch("--yes"),
     ],
@@ -479,9 +523,13 @@ pub fn measure(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let data = api::measure(
         host,
         flags.one("--cwd"),
-        flags.one("--model"),
-        flags.on("--force"),
-        flags.on("--yes"),
+        &api::MeasureOpts {
+            model: flags.one("--model"),
+            force: flags.on("--force"),
+            confirm: flags.on("--yes"),
+            without: flags.all("--without"),
+            bundle: flags.one("--bundle").map(String::from),
+        },
     )
     .map_err(flagged)?;
     let human = if data["ran"] == Value::Bool(false) {
@@ -490,14 +538,29 @@ pub fn measure(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
             data["plan"]["cost"].as_str().unwrap_or("")
         )
     } else {
-        format!(
+        let mut text = format!(
             "{} tokens measured ({}% of the window), {} of them itemised as estimates, {} not itemised{}\n",
             data["total"],
             data["windowPercent"],
             data["itemised"]["tokens"],
             data["notItemised"]["tokens"],
             if data["stale"] == Value::Bool(true) { " (stale)" } else { "" }
-        )
+        );
+        for variant in data["variants"].as_array().into_iter().flatten() {
+            text.push_str(&format!(
+                "  {}: {} tokens ({:+}, {:+}%)\n",
+                variant["label"].as_str().unwrap_or(""),
+                variant["total"],
+                variant["deltaTokens"].as_i64().unwrap_or(0),
+                variant["deltaPercent"].as_f64().unwrap_or(0.0)
+            ));
+        }
+        if let Some(factor) = data["calibration"]["factor"].as_f64() {
+            text.push_str(&format!(
+                "  calibration: x{factor} (measured / estimated)\n"
+            ));
+        }
+        text
     };
     Ok(Output::new(data, human))
 }

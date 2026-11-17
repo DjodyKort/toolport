@@ -22,6 +22,7 @@ pub mod plan;
 pub mod plugin_adapters;
 pub mod plugin_switch;
 pub mod roots;
+pub mod verify;
 
 pub use roots::Roots;
 

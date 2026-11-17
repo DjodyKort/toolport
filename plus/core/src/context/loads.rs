@@ -29,6 +29,8 @@ pub struct LoadItem {
     pub tokens: u64,
     /// Who keeps a left-out row out: `toolport` or `settings`.
     pub left_out_by: Option<&'static str>,
+    /// What a measured run's `InstructionsLoaded` log says about the row: `loaded`, `absent` or `mismatch`.
+    pub confirmed: Option<&'static str>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -193,6 +195,7 @@ impl InstructionLoads<'_> {
             },
             tokens: (self.count_tokens)(text),
             left_out_by: None,
+            confirmed: None,
         }
     }
 
@@ -314,6 +317,7 @@ impl LoadSource for InstructionLoads<'_> {
                 },
                 tokens: (self.count_tokens)(&text),
                 left_out_by: None,
+                confirmed: None,
             });
         }
         let total_tokens = items.iter().filter(|i| i.loaded).map(|i| i.tokens).sum();

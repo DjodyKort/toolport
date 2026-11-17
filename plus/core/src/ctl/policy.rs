@@ -314,6 +314,7 @@ pub(super) const ROWS: &[Row] = &[
         .skip("removes a vault entry; the contract case runs it against a scratch vault"),
     row("context loads", R).spec(&[&context::LOADS]),
     row("context compose", R).spec(&[&context::COMPOSE]),
+    row("context status", R).spec(&[&context::CONTEXT_STATUS]),
     row("context measure", R)
         .needs(&[Needs::LongRunning])
         .costs()
@@ -506,6 +507,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("context_leave_out", W, "context leave-out").on(),
     maps("context_loads", R, "context loads"),
     maps("context_measure", W, "context measure"),
+    maps("context_status", R, "context status"),
     maps("context_compose", R, "context compose"),
 ];
 

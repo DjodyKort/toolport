@@ -195,12 +195,17 @@
     "context.measure": {
       "route": "context",
       "status": "planned",
-      "summary": "Measure for real: confirmation first, the measured total with the not-itemised part, stale and cached states (context measure, context_measure)"
+      "summary": "Measure for real: confirmation first, the measured total with the not-itemised part, stale and cached states (context measure, context_measure); also without a plugin or skill or with a bundle, one request per variant with its delta, the rows its InstructionsLoaded log confirms (context loads --measured), and the folder's calibration factor next to the estimates"
     },
     "context.plugin-switch": {
       "route": "context",
       "status": "planned",
       "summary": "Turn a plugin off or back on in one folder, one click with Undo, on the leave-out ledger (plugins off|on); a bundle's plugins.config is applied again as env keys"
+    },
+    "context.status": {
+      "route": "context",
+      "status": "planned",
+      "summary": "The This folder tab's read-only summary: applied bundle, leave-outs, plugin switches, the estimate, the last measurement with its calibration factor (context status, context_status)"
     }
   },
   "owners": {
@@ -419,6 +424,11 @@
       "route": "context",
       "action": "context.plugin-switch",
       "surface": "screen"
+    },
+    "context status": {
+      "route": "context",
+      "action": "context.status",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -530,6 +540,11 @@
     "context_measure": {
       "route": "context",
       "action": "context.measure",
+      "surface": "screen"
+    },
+    "context_status": {
+      "route": "context",
+      "action": "context.status",
       "surface": "screen"
     }
   }

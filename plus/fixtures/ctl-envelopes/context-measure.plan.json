@@ -5,14 +5,15 @@
     "data": {
       "cwd": "<WORLD>/home/proj",
       "plan": {
-        "cost": "about as many input tokens as the folder's stack, on the chosen model, roughly a minute",
+        "cost": "about as many input tokens as the folder's stack, on the chosen model, once per request, roughly a minute each",
         "model": "haiku",
         "requests": 1,
         "sends": "the instruction files go to the model like in any session",
-        "writes": "nothing in the folder; the answer is cached"
+        "variants": ["as is"],
+        "writes": "nothing in the folder; the answers are cached"
       },
       "ran": false,
-      "start": "run again with --yes (start: true in the tool) to start the request"
+      "start": "run again with --yes (start: true in the tool) to start the requests"
     },
     "ok": true,
     "schemaVersion": 1

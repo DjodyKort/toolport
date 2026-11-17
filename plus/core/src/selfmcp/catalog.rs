@@ -294,8 +294,8 @@ pub const TOOLS: &[ToolDef] = &[
         "context_loads",
         1,
         None,
-        "List the instruction files a Claude Code session in a folder loads (CLAUDE.md files, rules, imports, auto memory index) with an estimated token cost, which are left out and by whom. Skills, plugins, agents and tools are not rows. Read only",
-        [CWD],
+        "List the instruction files a Claude Code session in a folder loads (CLAUDE.md files, rules, imports, auto memory index) with an estimated token cost, which are left out and by whom, and the folder's calibration factor from its last measurement. With measured=true the rows the last measured run's InstructionsLoaded log confirms are marked loaded, absent or mismatch. Skills, plugins, agents and tools are not rows. Read only",
+        [CWD, p("measured", Ty::Bool, false, "Add the last measurement and mark the rows its log confirms")],
         context::loads
     ),
     tool!(
@@ -310,14 +310,24 @@ pub const TOOLS: &[ToolDef] = &[
         "context_measure",
         2,
         None,
-        "Measure what a folder really loads, in tokens, by asking Claude Code itself: one request, which spends model tokens and is cached per Claude Code version, model and settings. Without start=true and without a cached answer it only returns the plan and starts nothing. The result separates the estimated instruction rows from the part that is not itemised",
+        "Measure what a folder really loads, in tokens, by asking Claude Code itself: one request per variant (as is, each without entry, the bundle), which spends model tokens and is cached per Claude Code version, model, settings and variant. Without start=true and without a cached answer it only returns the plan and starts nothing. The result separates the estimated instruction rows from the part that is not itemised, gives each variant's delta, verifies the rows against the InstructionsLoaded log and carries the calibration factor",
         [
             CWD,
+            p("without", Ty::StrList, false, "Also measure without plugin:<id> or skill:<name> (a skill glob is allowed)"),
+            p("bundle", Ty::Str, false, "Also measure what the named bundle would leave"),
             p("model", Ty::Str, false, "Model to ask, haiku by default"),
             p("force", Ty::Bool, false, "Measure again instead of answering from the cache"),
             p("start", Ty::Bool, false, "Start the request; without it a cache miss returns the plan only")
         ],
         context::measure
+    ),
+    tool!(
+        "context_status",
+        1,
+        None,
+        "Everything Toolport knows about a folder's context, read only: the applied bundle, what is left out, which plugins are switched off, the estimate of the instruction rows and the last measurement with its calibration factor. Starts nothing and costs no tokens",
+        [CWD],
+        context::context_status
     ),
 ];
 

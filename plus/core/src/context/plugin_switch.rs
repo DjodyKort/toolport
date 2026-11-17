@@ -38,6 +38,20 @@ pub fn control_name(id: &str) -> String {
     format!("off:{id}")
 }
 
+/// The plugins `plugins off` switched off in a folder whose entry still holds what Toolport wrote.
+pub fn switched_off(data_dir: &Path, cwd: &Path) -> Vec<String> {
+    let cwd = fsx::canonical(cwd);
+    let all = ledger::load(data_dir);
+    let Some(mine) = all.controls.get(&folder_key(&cwd)) else {
+        return Vec::new();
+    };
+    mine.keys()
+        .filter_map(|control| control.strip_prefix("off:"))
+        .filter(|id| controls::drifted(data_dir, &cwd, &control_name(id)).is_empty())
+        .map(String::from)
+        .collect()
+}
+
 fn valid_id(id: &str) -> bool {
     super::plugin_adapters::valid_ident(id)
 }

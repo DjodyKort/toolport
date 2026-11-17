@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "status", "extra"],
+  "envelope": {
+    "command": "context status",
+    "error": {
+      "code": "usage",
+      "message": "usage: context status [--cwd <dir>]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

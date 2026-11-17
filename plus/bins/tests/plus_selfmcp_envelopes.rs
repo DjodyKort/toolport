@@ -393,6 +393,11 @@ const CASES: &[Case] = &[
         "context_loads",
         &[
             read("folder", "context_loads", r#"{"cwd":"{home}/proj"}"#),
+            read(
+                "measured",
+                "context_loads",
+                r#"{"cwd":"{home}/proj","measured":true}"#,
+            ),
             fails("no-cwd", "invalid_arguments", "context_loads", "{}"),
         ],
     ),
@@ -412,7 +417,19 @@ const CASES: &[Case] = &[
         "context_measure",
         &[
             read("plan", "context_measure", r#"{"cwd":"{home}/proj"}"#),
+            read(
+                "variants",
+                "context_measure",
+                r#"{"cwd":"{home}/proj","without":["plugin:kit@market"],"bundle":"acme-dev"}"#,
+            ),
             fails("no-cwd", "invalid_arguments", "context_measure", "{}"),
+        ],
+    ),
+    context_case(
+        "context_status",
+        &[
+            read("folder", "context_status", r#"{"cwd":"{home}/proj"}"#),
+            fails("no-cwd", "invalid_arguments", "context_status", "{}"),
         ],
     ),
 ];
