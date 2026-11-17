@@ -125,6 +125,14 @@ pub(super) fn lint(host: &dyn Host, args: &Value) -> Outcome {
     with_paths(host, || Ok(api::lint(&Args::from_json(args))?))
 }
 
+pub(super) fn fix(host: &dyn Host, args: &Value) -> Outcome {
+    let kind = str_nonempty(args, "fix")
+        .ok_or_else(|| ToolError::new("invalid_arguments", "fix is empty"))?;
+    let mut fix = Args::from_json(args);
+    fix.dry_run = flag_or(args, "dry_run", true);
+    with_paths(host, || Ok(api::fix(&fix, kind)?))
+}
+
 pub(super) fn status(host: &dyn Host, args: &Value) -> Outcome {
     with_paths(host, || Ok(api::status(&Args::from_json(args))?))
 }

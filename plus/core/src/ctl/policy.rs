@@ -21,6 +21,7 @@ use super::plugins;
 use super::secret;
 use super::server;
 use super::skills;
+use super::skills_checks;
 use super::skills_repo;
 use super::skills_state;
 use super::skills_taps;
@@ -459,6 +460,11 @@ pub(super) const ROWS: &[Row] = &[
     row("skills auto resume", W).skip("clears the pause flag in the data dir; golden step"),
     row("skills ls", R).spec(&[&skills::LS_SOURCE]),
     row("skills lint", R).spec(&[&skills::LINT]),
+    row("skills fix", W)
+        .dry()
+        .spec(&[&skills_checks::FIX])
+        .args(&[req("fix"), many("skill")])
+        .skip("sets the execute bit on a hook script; its --dry-run and apply are golden steps"),
     row("skills diff", R).spec(&[&skills::DIFF]),
     row("skills init", W)
         .dry()
@@ -858,6 +864,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_list", R, "skills ls"),
     own("skills_get", R),
     maps("skills_lint", R, "skills lint"),
+    maps("skills_fix", W, "skills fix").on(),
     maps("skills_status", R, "skills status"),
     maps("skills_diff", R, "skills diff"),
     maps("skills_sync", W, "skills sync").on(),

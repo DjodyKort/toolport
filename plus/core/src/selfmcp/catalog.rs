@@ -158,6 +158,19 @@ pub const TOOLS: &[ToolDef] = &[
         skills::lint
     ),
     tool!(
+        "skills_fix",
+        2,
+        UnlessDryRun,
+        "Apply the one safe lint fix: fix=chmod makes the hook scripts of skills executable; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("fix", Ty::Str, true, "The fix to apply: chmod"),
+            REPO,
+            p("names", Ty::StrList, false, "Limit to these skills"),
+            DRY_ON
+        ],
+        skills::fix
+    ),
+    tool!(
         "skills_status",
         1,
         None,

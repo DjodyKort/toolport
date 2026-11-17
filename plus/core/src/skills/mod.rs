@@ -10,6 +10,7 @@ pub mod bundle;
 pub mod client_scope;
 pub mod clock;
 pub mod collisions;
+pub mod fix;
 pub mod frontmatter;
 pub mod git;
 pub(crate) mod gitexec;
@@ -43,6 +44,8 @@ pub use parser::{discover_skills, Skill, SkillType};
 pub use sync::{sync_skills, SyncOptions};
 pub use transpiler::{Transpiler, TranspilerRegistry};
 
+#[cfg(test)]
+mod checks_tests;
 #[cfg(test)]
 mod frontmatter_tests;
 #[cfg(test)]

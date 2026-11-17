@@ -113,6 +113,45 @@
           "tier": 1
         },
         {
+          "description": "Apply the one safe lint fix: fix=chmod makes the hook scripts of skills executable; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "skills_fix",
+          "params": [
+            {
+              "description": "The fix to apply: chmod",
+              "name": "fix",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Limit to these skills",
+              "name": "names",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
           "description": "Drift between repository and client outputs, with a file-by-file verification",
           "dryRunDefault": false,
           "gate": "none",

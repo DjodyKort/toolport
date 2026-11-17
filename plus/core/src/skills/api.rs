@@ -6,10 +6,11 @@
 use super::assets::compute_skill_hash;
 use super::auto;
 use super::client_scope::{self, default_clients, ClientSource};
+use super::fix::chmod_hooks;
 use super::frontmatter::frontmatter_accepted;
 use super::lint::{
     lint_description_lengths, lint_files, lint_outputs, lint_parse_failures, lint_skills,
-    LintResult,
+    LintMessage, LintResult, FIX_CHMOD,
 };
 use super::lock::{get_entry, load_lockfile, lockfile_path, save_lockfile};
 use super::ops::{
@@ -18,6 +19,7 @@ use super::ops::{
 };
 use super::parser::{
     discover_skills, discover_skills_report, find_skill, Discovery, Skill, SkillType,
+    DESCRIPTION_LIMIT, SPEC_DESCRIPTION_LIMIT,
 };
 use super::snapshot::{self, Journal, Recording};
 use super::sync_report::sync_report;
@@ -142,12 +144,58 @@ fn row(skill: &Skill) -> Value {
     })
 }
 
+fn message_json(message: &LintMessage) -> Value {
+    let mut row = json!({"level": message.level, "name": message.name, "message": message.message});
+    let Some(detail) = &message.detail else {
+        return row;
+    };
+    row["code"] = json!(detail.code);
+    row["consequence"] = json!(detail.consequence);
+    for (key, value) in [
+        ("file", detail.file.as_deref()),
+        ("target", detail.target.as_deref()),
+        ("reason", detail.reason.as_deref()),
+        ("fixable", detail.fixable),
+    ] {
+        if let Some(value) = value {
+            row[key] = json!(value);
+        }
+    }
+    if let Some(line) = detail.line {
+        row["line"] = json!(line);
+    }
+    if let Some(meter) = detail.meter {
+        row["meter"] =
+            json!({"length": meter.length, "specLimit": meter.spec_limit, "limit": meter.limit});
+    }
+    row
+}
+
 pub(crate) fn lint_json(result: &LintResult) -> Value {
     json!({
         "errors": result.errors().count(),
         "warnings": result.warnings().count(),
-        "messages": result.messages.iter().map(|m| json!({"level": m.level, "name": m.name, "message": m.message})).collect::<Vec<_>>(),
+        "messages": result.messages.iter().map(message_json).collect::<Vec<_>>(),
     })
+}
+
+/// The skills lint: the rows plus the two description limits one meter draws and how many rows
+/// each consequence has.
+fn skills_lint_json(result: &LintResult) -> Value {
+    let mut data = lint_json(result);
+    let mut consequences = serde_json::Map::new();
+    for detail in result.messages.iter().filter_map(|m| m.detail.as_ref()) {
+        let key = json!(detail.consequence)
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        let count = consequences.get(&key).and_then(Value::as_u64).unwrap_or(0);
+        consequences.insert(key, json!(count + 1));
+    }
+    data["limits"] =
+        json!({"specDescription": SPEC_DESCRIPTION_LIMIT, "description": DESCRIPTION_LIMIT});
+    data["consequences"] = Value::Object(consequences);
+    data
 }
 
 fn library_origin(repo: &Path) -> Value {
@@ -213,8 +261,39 @@ pub fn lint(args: &Args) -> Result<Value, OpError> {
         .extend(lint_description_lengths(&skills, other_clients_on(args)).messages);
     result
         .messages
-        .extend(lint_parse_failures(&failures).messages);
-    Ok(lint_json(&result))
+        .extend(lint_parse_failures(&repo, &failures).messages);
+    Ok(skills_lint_json(&result))
+}
+
+/// Applies the one safe fix a lint row offers (`fixable`), to the skills in `args.names` or to
+/// all; `dry_run` reports what would change.
+pub fn fix(args: &Args, kind: &str) -> Result<Value, OpError> {
+    if kind != FIX_CHMOD {
+        return Err(OpError::usage(format!(
+            "unknown fix '{kind}'; the only safe fix is {FIX_CHMOD}"
+        )));
+    }
+    let (repo, mut skills) = load(args)?;
+    if let Some(names) = &args.names {
+        if let Some(missing) = names
+            .iter()
+            .find(|n| !skills.iter().any(|s| s.name() == *n))
+        {
+            return Err(OpError::not_found(format!("skill not found: {missing}")));
+        }
+        skills.retain(|s| names.iter().any(|n| n == s.name()));
+    }
+    let fixed = chmod_hooks(&skills, args.dry_run).map_err(backend)?;
+    Ok(json!({
+        "repo": repo.to_string_lossy(),
+        "fix": kind,
+        "dryRun": args.dry_run,
+        "count": fixed.len(),
+        "fixed": fixed
+            .iter()
+            .map(|f| json!({"skill": f.skill, "file": f.file, "event": f.event, "from": f.from, "to": f.to}))
+            .collect::<Vec<_>>(),
+    }))
 }
 
 /// A lock that syncs to any client besides Claude Code makes the spec's description limit binding.

@@ -1,0 +1,89 @@
+{
+  "argv": ["skills", "lint", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills lint",
+    "data": {
+      "consequences": {
+        "dead-link": 1,
+        "hidden": 1,
+        "hook-wont-run": 1,
+        "not-copied": 1,
+        "over-spec": 1,
+        "weak-trigger": 1
+      },
+      "errors": 2,
+      "limits": {
+        "description": 1536,
+        "specDescription": 1024
+      },
+      "messages": [
+        {
+          "code": "description-no-when",
+          "consequence": "weak-trigger",
+          "file": "SKILL.md",
+          "level": "info",
+          "message": "Description lacks 'when to use' guidance. Consider adding context for agent discovery.",
+          "name": "demo"
+        },
+        {
+          "code": "file-not-copied",
+          "consequence": "not-copied",
+          "file": ".DS_Store",
+          "level": "info",
+          "message": ".DS_Store is not installed by a sync: on the deny-list (.DS_Store)",
+          "name": "acceptance",
+          "reason": "on the deny-list (.DS_Store)"
+        },
+        {
+          "code": "link-missing",
+          "consequence": "dead-link",
+          "file": "SKILL.md",
+          "level": "warning",
+          "line": 11,
+          "message": "Link 'references/gone.md' in SKILL.md points to a file that does not exist.",
+          "name": "acceptance",
+          "target": "references/gone.md"
+        },
+        {
+          "code": "hook-not-executable",
+          "consequence": "hook-wont-run",
+          "file": "scripts/stop.sh",
+          "fixable": "chmod",
+          "level": "error",
+          "message": "Hook script 'scripts/stop.sh' of the Stop hook is not executable.",
+          "name": "acceptance"
+        },
+        {
+          "code": "description-over-spec",
+          "consequence": "over-spec",
+          "file": "SKILL.md",
+          "level": "warning",
+          "message": "Description is 1200 characters. Claude Code keeps it, but the Agent Skills spec allows 1024 and other clients cut it.",
+          "meter": {
+            "length": 1200,
+            "limit": 1536,
+            "specLimit": 1024
+          },
+          "name": "acceptance"
+        },
+        {
+          "code": "frontmatter-invalid-yaml",
+          "consequence": "hidden",
+          "file": "SKILL.md",
+          "level": "error",
+          "line": 4,
+          "message": "skills/broken/SKILL.md cannot be read and is not synced: invalid YAML: did not find expected ',' or ']' at line 3 column 1, while parsing a flow sequence at line 2 column 14",
+          "name": "broken"
+        }
+      ],
+      "warnings": 2
+    },
+    "error": {
+      "code": "unhealthy",
+      "message": "one or more checks failed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,7 @@
+{
+  "command": "skills fix",
+  "dryRun": "default-on",
+  "name": "skills_fix",
+  "tier": "write",
+  "toolTier": 2
+}

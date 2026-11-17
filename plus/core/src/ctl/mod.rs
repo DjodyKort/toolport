@@ -23,6 +23,7 @@ mod policy;
 mod secret;
 mod server;
 mod skills;
+mod skills_checks;
 mod skills_repo;
 mod skills_state;
 mod skills_taps;
@@ -308,6 +309,11 @@ pub const COMMANDS: &[Command] = &[
         &["skills", "lint"],
         "Lint skills, skipped files and links; exits 1 on errors (--repo, --home, --name <skill>)",
         skills::lint,
+    ),
+    cmd(
+        &["skills", "fix"],
+        "Apply the one safe lint fix: make hook scripts executable (chmod [<skill>...], --repo, --home, --dry-run)",
+        skills_checks::fix,
     ),
     cmd(
         &["skills", "diff"],

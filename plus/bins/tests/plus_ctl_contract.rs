@@ -159,6 +159,10 @@ fn context_files(world: &World) {
     world.context_files();
 }
 
+fn checks_files(world: &World) {
+    world.checks_files();
+}
+
 fn plugin_files(world: &World) {
     world.context_files();
     let put = |rel: &str, text: &str| {
@@ -1283,7 +1287,30 @@ const CASES: &[Case] = &[
     ),
     case(
         "skills lint",
-        &[read("", &["skills", "lint", "--repo", "{repo}"])],
+        &[
+            read("", &["skills", "lint", "--repo", "{repo}"]),
+            hook("files", checks_files),
+            read("checks", &["skills", "lint", "--repo", "{repo}"]).exit(1),
+        ],
+    ),
+    case(
+        "skills fix",
+        &[
+            hook("files", checks_files),
+            read(
+                "preview",
+                &["skills", "fix", "chmod", "--repo", "{repo}", "--dry-run"],
+            ),
+            apply("apply", &["skills", "fix", "chmod", "--repo", "{repo}"]),
+            read("again", &["skills", "fix", "chmod", "--repo", "{repo}"]),
+            read(
+                "unknown-skill",
+                &["skills", "fix", "chmod", "nope", "--repo", "{repo}"],
+            )
+            .exit(1),
+            usage("unknown", &["skills", "fix", "delete", "--repo", "{repo}"]),
+            usage("usage", &["skills", "fix"]),
+        ],
     ),
     case(
         "skills diff",

@@ -3,9 +3,19 @@
   "envelope": {
     "command": "skills lint",
     "data": {
+      "consequences": {
+        "weak-trigger": 1
+      },
       "errors": 0,
+      "limits": {
+        "description": 1536,
+        "specDescription": 1024
+      },
       "messages": [
         {
+          "code": "description-no-when",
+          "consequence": "weak-trigger",
+          "file": "SKILL.md",
           "level": "info",
           "message": "Description lacks 'when to use' guidance. Consider adding context for agent discovery.",
           "name": "demo"

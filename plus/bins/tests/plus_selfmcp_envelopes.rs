@@ -944,7 +944,43 @@ const CASES: &[Case] = &[
             fails("missing", "not_found", "skills_get", r#"{"name":"nope"}"#),
         ],
     ),
-    case("skills_lint", &[read("", "skills_lint", "{}")]),
+    case(
+        "skills_lint",
+        &[
+            read("", "skills_lint", "{}"),
+            hook("files", World::checks_files),
+            read("checks", "skills_lint", "{}"),
+        ],
+    ),
+    case(
+        "skills_fix",
+        &[
+            hook("files", World::checks_files),
+            read("preview", "skills_fix", r#"{"fix":"chmod"}"#),
+            refused(
+                "refused",
+                "skills_fix",
+                r#"{"fix":"chmod","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "skills_fix",
+                r#"{"fix":"chmod","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "unknown",
+                "invalid_arguments",
+                "skills_fix",
+                r#"{"fix":"delete"}"#,
+            ),
+            fails(
+                "missing_skill",
+                "not_found",
+                "skills_fix",
+                r#"{"fix":"chmod","names":["nope"]}"#,
+            ),
+        ],
+    ),
     case(
         "skills_status",
         &[

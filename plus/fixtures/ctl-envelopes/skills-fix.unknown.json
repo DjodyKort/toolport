@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "fix", "delete", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills fix",
+    "error": {
+      "code": "usage",
+      "message": "unknown fix 'delete'; the only safe fix is chmod\nusage: skills fix chmod [<skill>...] [--repo <dir>] [--home <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

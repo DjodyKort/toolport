@@ -126,6 +126,42 @@ impl World {
         std::fs::create_dir_all(world.home.join("proj/.git/info")).unwrap();
     }
 
+    /// What the checks of a library report: a skill with `references/`, a top-level `SETUP.md`,
+    /// a dotfile in `templates/`, a file the sync leaves out, a dead link, a hook script without
+    /// the execute bit and a 1,200 character description, next to a skill whose frontmatter does
+    /// not parse.
+    pub fn checks_files(&self) {
+        let put = |rel: &str, text: &str| {
+            let path = self.repo.join(rel);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, text).unwrap();
+        };
+        let lead = "Use when checking that a sync copies a whole skill folder. ";
+        let description = format!("{lead}{}", "x".repeat(1200 - lead.len()));
+        put(
+            "skills/acceptance/SKILL.md",
+            &format!("---\nname: acceptance\ndescription: \"{description}\"\nhooks:\n  Stop:\n    command: scripts/stop.sh\n---\n\n# Acceptance\n\nSee [setup](SETUP.md), [guide](references/guide.md) and [gone](references/gone.md).\n"),
+        );
+        put("skills/acceptance/SETUP.md", "# setup\n");
+        put("skills/acceptance/references/guide.md", "guide\n");
+        put("skills/acceptance/templates/x/.gitignore", "*.tmp\n");
+        put("skills/acceptance/scripts/stop.sh", "#!/bin/sh\n");
+        put("skills/acceptance/.DS_Store", "x");
+        put(
+            "skills/broken/SKILL.md",
+            "---\nname: broken\ndescription: [unclosed\n---\n\nbody\n",
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(
+                self.repo.join("skills/acceptance/scripts/stop.sh"),
+                std::fs::Permissions::from_mode(0o644),
+            )
+            .unwrap();
+        }
+    }
+
     /// A gateway binary in the data dir's `bin`, holding `content`.
     pub fn stub_gateway(&self, content: &[u8]) {
         std::fs::write(self.data.join("bin/toolport-gateway"), content).unwrap();

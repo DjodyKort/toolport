@@ -1,0 +1,70 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": ["--repo"],
+      "effect": "Skills repository (default: the configured one)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--path",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Home folder of the lock",
+      "escalates": false,
+      "hidden": false,
+      "name": "--home",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Report what would change",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "skills",
+  "id": "skills fix",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "fix",
+      "required": true,
+      "variadic": false
+    },
+    {
+      "name": "skill",
+      "required": false,
+      "variadic": true
+    }
+  ],
+  "parent": null,
+  "path": ["skills", "fix"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Apply the one safe lint fix: make hook scripts executable (chmod [<skill>...], --repo, --home, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["skills_fix"]
+}

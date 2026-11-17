@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "fix", "chmod", "nope", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills fix",
+    "error": {
+      "code": "skills",
+      "message": "skill not found: nope"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

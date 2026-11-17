@@ -1,0 +1,22 @@
+{
+  "arguments": {
+    "fix": "chmod"
+  },
+  "isError": false,
+  "result": {
+    "count": 1,
+    "dryRun": true,
+    "fix": "chmod",
+    "fixed": [
+      {
+        "event": "Stop",
+        "file": "scripts/stop.sh",
+        "from": "0644",
+        "skill": "acceptance",
+        "to": "0755"
+      }
+    ],
+    "repo": "<WORLD>/skills-repo"
+  },
+  "tool": "skills_fix"
+}

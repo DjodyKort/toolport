@@ -1,0 +1,24 @@
+{
+  "argv": ["skills", "fix", "chmod", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills fix",
+    "data": {
+      "count": 1,
+      "dryRun": false,
+      "fix": "chmod",
+      "fixed": [
+        {
+          "event": "Stop",
+          "file": "scripts/stop.sh",
+          "from": "0644",
+          "skill": "acceptance",
+          "to": "0755"
+        }
+      ],
+      "repo": "<WORLD>/skills-repo"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

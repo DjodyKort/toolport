@@ -1,0 +1,16 @@
+{
+  "argv": ["skills", "fix", "chmod", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills fix",
+    "data": {
+      "count": 0,
+      "dryRun": false,
+      "fix": "chmod",
+      "fixed": [],
+      "repo": "<WORLD>/skills-repo"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

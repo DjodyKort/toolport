@@ -567,7 +567,7 @@ fn test24_lint_names_a_skill_that_cannot_be_read_and_why() {
     put(&w.repo.0, "skills/empty/readme.md", "x");
     let found = super::parser::discover_skills_report(&w.repo.0);
     assert_eq!(found.skills.len(), 1);
-    let result = super::lint::lint_parse_failures(&found.failures);
+    let result = super::lint::lint_parse_failures(&w.repo.0, &found.failures);
     let errors: Vec<_> = result.errors().collect();
     assert_eq!(errors.len(), 2, "{errors:?}");
     assert_eq!(errors[0].name, "broken");

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "fix": "delete"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "unknown fix 'delete'; the only safe fix is chmod"
+    }
+  },
+  "text": "invalid_arguments: unknown fix 'delete'; the only safe fix is chmod",
+  "tool": "skills_fix"
+}
