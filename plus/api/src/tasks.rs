@@ -5,6 +5,8 @@
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, VecDeque};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::Arc;
 
 use serde_json::Value;
 
@@ -244,5 +246,90 @@ impl TaskHost for FakeTaskHost {
     fn task_approve_run(&self, ask: &RunApproval) -> RunDecision {
         self.approvals.borrow_mut().push(ask.clone());
         self.decision.get()
+    }
+}
+
+/// A [`FakeTaskHost`] that can move to a ticker thread: its clock is shared with the test, which
+/// keeps the other end and sets the time each tick sees.
+#[derive(Debug)]
+pub struct SharedClockTaskHost {
+    inner: FakeTaskHost,
+    clock: Arc<AtomicI64>,
+}
+
+impl SharedClockTaskHost {
+    pub fn new(base: PathBuf, clock: &Arc<AtomicI64>) -> Self {
+        Self {
+            inner: FakeTaskHost::at(base, clock.load(Ordering::SeqCst)),
+            clock: Arc::clone(clock),
+        }
+    }
+}
+
+impl TaskHost for SharedClockTaskHost {
+    fn tasks_base(&self) -> Option<PathBuf> {
+        self.inner.tasks_base()
+    }
+
+    fn now(&self) -> i64 {
+        self.clock.load(Ordering::SeqCst)
+    }
+
+    fn task_call_tool(&self, server: &str, tool: &str, args: Value) -> Result<Value, String> {
+        self.inner.task_call_tool(server, tool, args)
+    }
+
+    fn task_run_script(
+        &self,
+        source: &str,
+        args: Value,
+        servers: &[String],
+    ) -> Result<Value, String> {
+        self.inner.task_run_script(source, args, servers)
+    }
+
+    fn task_set_secret(&self, server: &str, key: &str, value: &str) -> Result<(), String> {
+        self.inner.task_set_secret(server, key, value)
+    }
+
+    fn task_secret_is_set(&self, server: &str, key: &str) -> bool {
+        self.inner.task_secret_is_set(server, key)
+    }
+
+    fn task_restart_server(&self, server: &str) -> Result<String, String> {
+        self.inner.task_restart_server(server)
+    }
+
+    fn task_server_installed(&self, server: &str) -> bool {
+        self.inner.task_server_installed(server)
+    }
+
+    fn task_run_process(
+        &self,
+        spec: &ProcessSpec,
+        cancelled: &dyn Fn() -> bool,
+        started: &dyn Fn(u32),
+    ) -> ProcessOutcome {
+        self.inner.task_run_process(spec, cancelled, started)
+    }
+
+    fn task_claude_program(&self) -> String {
+        self.inner.task_claude_program()
+    }
+
+    fn task_spawn_runner(&self, run_id: &str) -> Result<(), String> {
+        self.inner.task_spawn_runner(run_id)
+    }
+
+    fn task_process_alive(&self, pid: u32) -> bool {
+        self.inner.task_process_alive(pid)
+    }
+
+    fn task_kill_group(&self, pid: u32) {
+        self.inner.task_kill_group(pid);
+    }
+
+    fn task_approve_run(&self, ask: &RunApproval) -> RunDecision {
+        self.inner.task_approve_run(ask)
     }
 }

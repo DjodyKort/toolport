@@ -263,18 +263,22 @@ pub fn claim_minute(epoch: i64) -> bool {
 }
 
 /// For a loop that calls often (the gateway watch loop): at most one tick a minute, on its own
-/// thread, so the caller never waits for the ledger lock or a spawn.
-pub fn tick_in_thread<H: TaskHost + Send + 'static>(host: H) {
+/// thread, so the caller never waits for the ledger lock or a spawn. The handle is for tests; the
+/// loop lets it go. `None` when this call did not tick.
+pub fn tick_in_thread<H: TaskHost + Send + 'static>(
+    host: H,
+) -> Option<std::thread::JoinHandle<()>> {
     if disabled() || !claim_minute(host.now()) {
-        return;
+        return None;
     }
-    let _ = std::thread::Builder::new()
+    std::thread::Builder::new()
         .name("task-schedule".into())
         .spawn(move || {
             let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 tick(&host);
             }));
-        });
+        })
+        .ok()
 }
 
 /// The desktop app's ticker: the first pass runs at once, so a run missed while the app was off

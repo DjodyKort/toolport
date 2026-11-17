@@ -722,4 +722,56 @@ mod tests {
         assert_eq!(other.resource_server("s8://dyn/test04"), None);
         assert!(other.read_resource("s8://dyn/test04").is_err());
     }
+
+    #[test]
+    fn a_gateway_tick_starts_a_due_task_once_and_the_next_tick_in_its_slot_starts_nothing() {
+        use std::sync::atomic::{AtomicI64, AtomicU8};
+        use toolport_plus::tasks::{model, store};
+        use toolport_plus_api::SharedClockTaskHost;
+        /// 07:06:00 UTC, a minute before the slot of the hourly task below; a date no test
+        /// that ticks on the real clock can share a minute with.
+        const BEFORE_THE_SLOT: i64 = 1922511960;
+        let data = crate::registry::DataDirTestEnv::new("plus-gateway-tick-tasks");
+        let task = model::parse(
+            &json!({
+                "id": "nightly", "title": "Nightly", "enabled": true,
+                "requires": {"servers": [], "commands": ["echo"]},
+                "writesSecrets": [],
+                "steps": [{"id": "say", "title": "Say", "type": "exec",
+                           "program": "echo", "args": ["hi"]}],
+                "triggers": {"manual": true, "cli": true,
+                    "selfMcp": {"enabled": false, "approval": "every-run"},
+                    "schedule": {"cron": "7 * * * *", "autoRun": true}, "onAuthFailure": []}
+            })
+            .to_string(),
+        )
+        .unwrap();
+        store::save_task(&data.dir, &task).unwrap();
+        let live = Mutex::new(Arc::new(Router::new()));
+        let dirty = Arc::new(AtomicU8::new(0));
+        let clock = Arc::new(AtomicI64::new(BEFORE_THE_SLOT));
+        let tick = |seconds_in: i64| {
+            clock.store(BEFORE_THE_SLOT + seconds_in, Ordering::SeqCst);
+            let host = SharedClockTaskHost::new(data.dir.clone(), &clock);
+            crate::seam::gateway_tick_with(host, &live, &dirty, &Vec::new)
+        };
+        let runs = || store::list_runs(&data.dir, Some("nightly"));
+
+        tick(0).expect("the first tick of a minute").join().unwrap();
+        assert!(
+            runs().is_empty(),
+            "a task seen for the first time waits for its slot"
+        );
+        assert!(
+            tick(40).is_none(),
+            "a second tick in the same minute is skipped"
+        );
+
+        tick(65).expect("a new minute").join().unwrap();
+        assert_eq!(runs().len(), 1, "the due slot starts one run");
+        assert_eq!(runs()[0].trigger, "schedule");
+
+        tick(130).expect("another minute").join().unwrap();
+        assert_eq!(runs().len(), 1, "the handled slot is not started again");
+    }
 }

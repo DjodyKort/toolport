@@ -71,8 +71,26 @@ pub fn gateway_tick(
     pooled: &dyn Fn() -> Vec<PooledLaunch>,
 ) {
     #[cfg(feature = "plus")]
-    toolport_plus::tasks::schedule::tick_in_thread(crate::plus_adapter::HostAdapter);
-    #[cfg(feature = "plus")]
+    drop(gateway_tick_with(
+        crate::plus_adapter::HostAdapter,
+        router,
+        dirty,
+        pooled,
+    ));
+    #[cfg(not(feature = "plus"))]
+    let _ = (router, dirty, pooled);
+}
+
+/// [`gateway_tick`] for a given task host. Returns the scheduler thread of this tick, if it
+/// started one.
+#[cfg(feature = "plus")]
+pub(crate) fn gateway_tick_with<H: toolport_plus_api::TaskHost + Send + 'static>(
+    host: H,
+    router: &std::sync::Mutex<std::sync::Arc<crate::router::Router>>,
+    dirty: &std::sync::Arc<std::sync::atomic::AtomicU8>,
+    pooled: &dyn Fn() -> Vec<PooledLaunch>,
+) -> Option<std::thread::JoinHandle<()>> {
+    let scheduled = toolport_plus::tasks::schedule::tick_in_thread(host);
     if let Some(dir) =
         crate::registry::conduit_dir().filter(|dir| toolport_plus::servers::restart::awaiting(dir))
     {
@@ -92,8 +110,7 @@ pub fn gateway_tick(
             std::sync::Arc::new(gateway),
         ));
     }
-    #[cfg(not(feature = "plus"))]
-    let _ = (router, dirty, pooled);
+    scheduled
 }
 
 /// The desktop app is up: starts the fork's scheduler thread, whose first pass catches up the

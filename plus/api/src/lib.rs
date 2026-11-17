@@ -36,7 +36,10 @@ pub use servers::{
     ServerRules, ServerSpec,
 };
 pub use settings::SettingsStore;
-pub use tasks::{FakeTaskHost, ProcessOutcome, ProcessSpec, RunApproval, RunDecision, TaskHost};
+pub use tasks::{
+    FakeTaskHost, ProcessOutcome, ProcessSpec, RunApproval, RunDecision, SharedClockTaskHost,
+    TaskHost,
+};
 pub use view::{AccessSetInfo, FolderRoute, RegistryTx, RegistryView};
 
 /// Written into every binary that forwards upstream code to the fork logic, so

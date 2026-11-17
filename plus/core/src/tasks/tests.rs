@@ -1,8 +1,9 @@
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 use serde_json::{json, Value};
-use toolport_plus_api::{FakeTaskHost, ProcessOutcome, RunDecision, TaskHost};
+use toolport_plus_api::{FakeTaskHost, ProcessOutcome, RunDecision, SharedClockTaskHost, TaskHost};
 
 use super::cron::days_from_civil;
 use super::model::{self, Task};
@@ -12,6 +13,13 @@ use super::triggers::Raised;
 use super::{api, approval, runner};
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
+static SCHEDULER_SWITCH: Mutex<()> = Mutex::new(());
+
+fn scheduler_switch() -> std::sync::MutexGuard<'static, ()> {
+    SCHEDULER_SWITCH
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 
 struct Dir(PathBuf);
 
@@ -427,6 +435,7 @@ fn test15_a_self_mcp_run_starts_only_after_the_person_approves() {
 
 #[test]
 fn test16_the_scheduler_switch_turns_every_tick_into_a_no_op() {
+    let _switch = scheduler_switch();
     let (_dir, host) = fixture("switch", at(17, 7, 6, 0));
     save(
         &host,
@@ -439,4 +448,79 @@ fn test16_the_scheduler_switch_turns_every_tick_into_a_no_op() {
     std::env::remove_var("TOOLPORT_TASKS_SCHEDULER");
     assert!(report.raised.is_empty());
     assert!(runs(&host, "plugins-update").is_empty());
+}
+
+fn hourly_task_with_a_shared_clock(
+    dir: &Dir,
+) -> (Arc<AtomicI64>, impl Fn() -> SharedClockTaskHost + '_) {
+    store::save_task(
+        &dir.0,
+        &task("plugins-update", "7 * * * *", true, echo_steps()),
+    )
+    .unwrap();
+    let clock = Arc::new(AtomicI64::new(at(17, 7, 6, 0)));
+    let shared = Arc::clone(&clock);
+    (clock, move || {
+        SharedClockTaskHost::new(dir.0.clone(), &shared)
+    })
+}
+
+fn run_count(dir: &Dir) -> usize {
+    store::list_runs(&dir.0, Some("plugins-update")).len()
+}
+
+#[test]
+fn test17_a_ticker_thread_ticks_once_a_minute_and_a_handled_slot_starts_one_run() {
+    let _switch = scheduler_switch();
+    let dir = Dir::new("tick-in-thread");
+    let (clock, host) = hourly_task_with_a_shared_clock(&dir);
+    let at_clock = |time: i64| clock.store(time, Ordering::SeqCst);
+
+    at_clock(at(17, 7, 6, 0));
+    schedule::tick_in_thread(host())
+        .expect("the first call of a minute ticks")
+        .join()
+        .unwrap();
+    assert_eq!(
+        run_count(&dir),
+        0,
+        "a task seen for the first time waits for its slot"
+    );
+
+    at_clock(at(17, 7, 6, 40));
+    assert!(
+        schedule::tick_in_thread(host()).is_none(),
+        "a second call in the same minute does not tick"
+    );
+
+    at_clock(at(17, 7, 7, 5));
+    schedule::tick_in_thread(host()).unwrap().join().unwrap();
+    assert_eq!(run_count(&dir), 1);
+
+    at_clock(at(17, 7, 8, 10));
+    schedule::tick_in_thread(host()).unwrap().join().unwrap();
+    assert_eq!(run_count(&dir), 1, "the handled slot is not started again");
+}
+
+#[test]
+fn test18_the_app_ticker_catches_up_at_launch_without_waiting_for_its_interval() {
+    let _switch = scheduler_switch();
+    let dir = Dir::new("app-ticker");
+    let (clock, host) = hourly_task_with_a_shared_clock(&dir);
+    std::fs::write(
+        schedule::ledger_path(&dir.0),
+        json!({"tasks": {"plugins-update": {"handledSlot": at(17, 6, 7, 0)}}}).to_string(),
+    )
+    .unwrap();
+    clock.store(at(17, 7, 7, 5), Ordering::SeqCst);
+
+    schedule::spawn_app_ticker(host());
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while run_count(&dir) == 0 && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    assert_eq!(run_count(&dir), 1);
+    let run = &store::list_runs(&dir.0, Some("plugins-update"))[0];
+    assert_eq!(run.trigger, "schedule");
 }
