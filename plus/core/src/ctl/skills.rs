@@ -195,11 +195,6 @@ fn sync_text(data: &Value) -> String {
             "\n{prefix}Updated AGENTS.md with <available_skills> block."
         ));
     }
-    if synced_to("zed") {
-        lines.push(format!(
-            "{prefix}Updated .rules with concatenated skills for Zed."
-        ));
-    }
     lines.extend(stale_lines(data, prefix));
     let (replaced, kept) = (
         data["replaced"].as_u64().unwrap_or(0),

@@ -51,38 +51,8 @@ impl fmt::Display for Reason {
     }
 }
 
-/// How much of the check a client's output gets.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Strictness {
-    /// The frontmatter must parse as YAML and contain no unindented continuation line.
-    Strict,
-    /// Only the unindented continuation check: the client reads `globs: **/*.py` and similar in a
-    /// dialect of its own, which a YAML parser refuses.
-    Shape,
-}
-
-/// Clients whose skill files are plain YAML frontmatter.
-pub fn strictness_for(client_key: &str) -> Strictness {
-    match client_key {
-        "claude-code" | "codex-cli" | "gemini-cli" | "goose-cli" => Strictness::Strict,
-        _ => Strictness::Shape,
-    }
-}
-
 /// `Ok` for a file without frontmatter: there is nothing to reject.
 pub fn frontmatter_accepted(text: &str) -> Result<(), Reason> {
-    check(text, Strictness::Strict)
-}
-
-/// The check at the strictness `client_key` is held to.
-pub fn output_accepted(client_key: &str, text: &str) -> Result<(), Reason> {
-    match strictness_for(client_key) {
-        Strictness::Strict => frontmatter_accepted(text),
-        Strictness::Shape => check(text, Strictness::Shape),
-    }
-}
-
-fn check(text: &str, strictness: Strictness) -> Result<(), Reason> {
     let Some(newline) = text.find('\n') else {
         return Ok(());
     };
@@ -99,9 +69,6 @@ fn check(text: &str, strictness: Strictness) -> Result<(), Reason> {
             line: index + 2,
             text: line,
         });
-    }
-    if strictness == Strictness::Shape {
-        return Ok(());
     }
     match serde_yaml::from_str::<Value>(yaml) {
         Ok(Value::Mapping(_) | Value::Null) => Ok(()),

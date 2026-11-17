@@ -39,13 +39,9 @@ fn skill(root: &Path, dir: &str, front: &str, body: &str) -> Skill {
 
 #[test]
 fn registry_order_follows_mcpm_import_order() {
-    let mut reg = TranspilerRegistry::new();
-    register_wave1(&mut reg);
+    let reg = registry();
     let keys: Vec<&str> = reg.all().map(|t| t.client_key()).collect();
-    assert_eq!(
-        keys,
-        ["agents-md", "claude-code", "cline", "cursor", "windsurf"]
-    );
+    assert_eq!(keys, ["agents-md", "claude-code"]);
 }
 
 #[test]
@@ -97,96 +93,6 @@ fn claude_manual_skill_disables_model_invocation() {
         out.content,
         "---\nname: m\ndescription: \"d\"\nallowed-tools: Read\ndisable-model-invocation: true\n---\n\nBody\n"
     );
-}
-
-#[test]
-fn cursor_activations() {
-    let t = Tmp::new("cursor");
-    let cases = [
-        (
-            "always",
-            "description: \"d\"\nglobs: *.rs\nalwaysApply: true\n",
-        ),
-        ("auto", "description: \"d\"\nglobs: *.rs\n"),
-        ("agent", "description: \"d\"\n"),
-        ("manual", "description: \"d\"\n"),
-    ];
-    for (act, expect) in cases {
-        let s = skill(
-            &t.0,
-            act,
-            &format!("name: {act}\ndescription: d\nactivation: {act}\nglobs: \"*.rs\"\n"),
-            "B",
-        );
-        let out = cursor::Cursor.transpile(&s, &t.0).unwrap();
-        assert_eq!(out.content, format!("---\n{expect}---\n\nB\n"), "{act}");
-    }
-}
-
-#[test]
-fn windsurf_truncates_at_twelve_thousand_chars() {
-    let t = Tmp::new("ws");
-    let body = "é".repeat(13_000);
-    let s = skill(&t.0, "big", "name: big\ndescription: d\n", &body);
-    let out = windsurf::Windsurf.transpile(&s, &t.0).unwrap();
-    assert!(out
-        .content
-        .ends_with("\n\n[truncated -- see full skill at source]\n"));
-    assert_eq!(
-        out.warnings,
-        vec![format!(
-            "windsurf: body truncated from {} to fit 12000 char limit",
-            s.body.chars().count()
-        )]
-    );
-    assert!(out.content.chars().count() < 12_000);
-}
-
-#[test]
-fn windsurf_trigger_mapping() {
-    let t = Tmp::new("ws-trigger");
-    for (front, trigger) in [
-        ("activation: always\n", "always_on"),
-        ("activation: auto\nglobs: \"*.md\"\n", "glob"),
-        ("activation: auto\n", "model_decision"),
-        ("activation: agent\n", "model_decision"),
-        ("activation: manual\n", "manual"),
-    ] {
-        let s = skill(&t.0, "w", &format!("name: w\ndescription: d\n{front}"), "B");
-        let out = windsurf::Windsurf.transpile(&s, &t.0).unwrap();
-        assert!(
-            out.content.contains(&format!("trigger: {trigger}\n")),
-            "{front}"
-        );
-    }
-}
-
-#[test]
-fn cline_downgrade_warnings() {
-    let t = Tmp::new("cline");
-    let s = skill(
-        &t.0,
-        "a",
-        "name: a\ndescription: d\nactivation: agent\nglobs: \"*.py\"\n",
-        "B",
-    );
-    let out = cline::Cline.transpile(&s, &t.0).unwrap();
-    assert_eq!(
-        out.warnings,
-        ["cline: activation 'agent' downgraded to 'auto' (paths-based)"]
-    );
-    let s = skill(
-        &t.0,
-        "b",
-        "name: b\ndescription: d\nactivation: manual\n",
-        "B",
-    );
-    let out = cline::Cline.transpile(&s, &t.0).unwrap();
-    assert_eq!(
-        out.warnings,
-        ["cline: activation 'manual' downgraded to 'always'"]
-    );
-    assert_eq!(out.content, "B\n");
 }
 
 const HOOKED: &str = "name: h\ndescription: d\nhooks:\n  SessionStart:\n    command: scripts/a.sh\n  PreCompact:\n    command: scripts/b.sh\n    matcher: auto\n";
@@ -443,20 +349,4 @@ fn claude_allowed_tools_are_quoted_only_when_yaml_would_misread_them() {
             out.content
         );
     }
-}
-
-#[test]
-fn clients_with_their_own_glob_dialect_keep_globs_unquoted() {
-    let t = Tmp::new("lenient-globs");
-    let s = skill(
-        &t.0,
-        "n",
-        "name: n\ndescription: |-\n  one\n  two\nactivation: auto\nglobs: \"**/*.py\"\n",
-        "B",
-    );
-    let out = cursor::Cursor.transpile(&s, &t.0).unwrap();
-    assert_eq!(
-        out.content,
-        "---\ndescription: |-\n  one\n  two\nglobs: **/*.py\n---\n\nB\n"
-    );
 }

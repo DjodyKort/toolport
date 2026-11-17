@@ -3,7 +3,7 @@ use super::lint::{lint_description_lengths, lint_files};
 use super::lock::{load_lockfile, save_lockfile};
 use super::parser::discover_skills;
 use super::sync::{sync_skills, Op, SyncOptions, SyncResult};
-use super::transpilers::registry_with_home;
+use super::transpilers::registry;
 use super::verify::verify_installed;
 use std::collections::BTreeMap;
 use std::fs;
@@ -63,7 +63,7 @@ impl World {
             unix_secs: 1_700_000_000,
             micros: 0,
         });
-        let registry = registry_with_home(Some(self.home.0.clone()));
+        let registry = registry();
         let opts = SyncOptions {
             output_root: self.home.0.clone(),
             lock_dir: self.home.0.clone(),
@@ -281,7 +281,7 @@ fn test10_a_dry_run_changes_nothing() {
 fn test11_verification_is_clean_after_a_sync_and_names_a_stale_copy() {
     let w = World::new("verify");
     w.sync(false, false);
-    let registry = registry_with_home(Some(w.home.0.clone()));
+    let registry = registry();
     let lock = load_lockfile(&w.home.0).unwrap();
     let skills = discover_skills(&w.repo.0);
     let report = verify_installed(&skills, &lock, &registry, &w.home.0);
@@ -530,7 +530,7 @@ fn test22_a_removal_of_an_edited_file_keeps_a_copy_and_a_plain_one_does_not() {
 fn test23_verification_names_a_file_changed_by_hand_since_the_sync() {
     let w = World::new("verify-edited");
     w.sync(false, false);
-    let registry = registry_with_home(Some(w.home.0.clone()));
+    let registry = registry();
     let skills = discover_skills(&w.repo.0);
     fs::write(w.installed().join("SETUP.md"), "stale").unwrap();
     let lock = load_lockfile(&w.home.0).unwrap();

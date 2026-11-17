@@ -654,7 +654,7 @@ fn global_mode_skips_project_only_clients_and_filters_by_key() {
         }
         fn capabilities(&self) -> Capabilities {
             Capabilities {
-                project_only: self.0 == "vscode-copilot",
+                project_only: self.0 == "project-only",
                 append_mode: false,
             }
         }
@@ -672,18 +672,18 @@ fn global_mode_skips_project_only_clients_and_filters_by_key() {
     let t = Tmp::new("global");
     put(&t.0, "skills/a/SKILL.md", &skill_md("a", ""));
     let mut reg = TranspilerRegistry::new();
-    for k in ["claude-code", "vscode-copilot", "cursor"] {
+    for k in ["claude-code", "project-only", "other"] {
         reg.register(Box::new(Keyed(k)));
     }
     let skills = discover_skills(&t.0);
     let clock = clock();
     let mut o = opts(&t.0, &clock);
     o.global_mode = true;
-    o.client_keys = Some(vec!["claude-code".into(), "vscode-copilot".into()]);
+    o.client_keys = Some(vec!["claude-code".into(), "project-only".into()]);
     let res = sync_skills(&skills, &reg, &o).unwrap();
     assert_eq!(res.lockfile.skills[0].1.clients_synced, ["claude-code"]);
     assert_eq!(res.lockfile.scope, "global");
-    assert!(!t.0.join("cursor").exists());
+    assert!(!t.0.join("other").exists());
 }
 
 #[test]

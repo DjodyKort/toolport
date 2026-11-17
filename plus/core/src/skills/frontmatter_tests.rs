@@ -1,6 +1,4 @@
-use super::frontmatter::{
-    frontmatter_accepted, output_accepted, strictness_for, Reason, Strictness,
-};
+use super::frontmatter::{frontmatter_accepted, Reason};
 use serde_yaml::Value;
 
 const LEGACY_UNINDENTED: &str =
@@ -201,31 +199,4 @@ fn reasons_have_stable_codes_and_readable_messages() {
         assert_eq!(reason.code(), code);
         assert_eq!(reason.to_string(), message);
     }
-}
-
-#[test]
-fn only_clients_with_plain_yaml_frontmatter_are_held_to_a_strict_parse() {
-    for key in ["claude-code", "codex-cli", "gemini-cli", "goose-cli"] {
-        assert_eq!(strictness_for(key), Strictness::Strict, "{key}");
-    }
-    for key in [
-        "cursor", "windsurf", "cline", "continue", "roo-code", "trae", "vscode", "unknown",
-    ] {
-        assert_eq!(strictness_for(key), Strictness::Shape, "{key}");
-    }
-}
-
-#[test]
-fn clients_with_their_own_glob_dialect_keep_unquoted_globs_but_not_broken_continuations() {
-    let globs = file("description: \"d\"\nglobs: **/*.py\n");
-    assert!(matches!(
-        output_accepted("claude-code", &globs),
-        Err(Reason::InvalidYaml(_))
-    ));
-    assert_eq!(output_accepted("cursor", &globs), Ok(()));
-    assert!(matches!(
-        output_accepted("cursor", LEGACY_UNINDENTED),
-        Err(Reason::UnindentedContinuation { .. })
-    ));
-    assert_eq!(output_accepted("cursor", LIBRARY_SINGLE_QUOTED), Ok(()));
 }

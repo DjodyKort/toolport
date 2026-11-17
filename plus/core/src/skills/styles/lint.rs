@@ -1,6 +1,6 @@
+use super::transpilers::WINDSURF_WORKSPACE_CHAR_LIMIT;
 use super::Style;
 use crate::skills::lint::{stripped_lines, LintResult};
-use crate::skills::transpilers::windsurf::WINDSURF_WORKSPACE_CHAR_LIMIT;
 
 pub fn lint_style(style: &Style) -> LintResult {
     let mut result = LintResult::default();

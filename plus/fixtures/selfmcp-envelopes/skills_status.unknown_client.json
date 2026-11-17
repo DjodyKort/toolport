@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "client_keys": ["cursor"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "skills are not synced to cursor; supported clients: agents-md, claude-code"
+    }
+  },
+  "text": "invalid_arguments: skills are not synced to cursor; supported clients: agents-md, claude-code",
+  "tool": "skills_status"
+}

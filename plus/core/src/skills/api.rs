@@ -5,7 +5,7 @@
 
 use super::assets::compute_skill_hash;
 use super::client_scope::{self, default_clients, ClientSource};
-use super::frontmatter::output_accepted;
+use super::frontmatter::frontmatter_accepted;
 use super::lint::{
     lint_description_lengths, lint_files, lint_outputs, lint_parse_failures, lint_skills,
     LintResult,
@@ -20,7 +20,7 @@ use super::parser::{
 };
 use super::sync_report::sync_report;
 use super::transpiler::TranspilerRegistry;
-use super::transpilers::{self, registry_with_home};
+use super::transpilers::registry;
 use super::{sync_skills, SyncOptions, SystemClock};
 use crate::args::{list, nonempty_strings, str_arg};
 use crate::op::OpError;
@@ -166,7 +166,7 @@ pub fn list_skills(args: &Args) -> Result<Value, OpError> {
     let (repo, skills) = load(args)?;
     let origin = library_origin(&repo);
     let home = home()?;
-    let registry = registry_with_home(Some(home.clone()));
+    let registry = registry();
     let rows: Vec<Value> = skills
         .iter()
         .map(|s| library_row(s, &origin, invisible_reason(&registry, s, &home)))
@@ -196,7 +196,7 @@ pub fn lint(args: &Args) -> Result<Value, OpError> {
     }
     let skills = found;
     let mut result = lint_skills(&skills);
-    let outputs = lint_outputs(&skills, &registry_with_home(crate::fsx::home()));
+    let outputs = lint_outputs(&skills, &registry());
     result.messages.extend(outputs.messages);
     result.messages.extend(lint_files(&skills).messages);
     result
@@ -214,14 +214,13 @@ fn other_clients_on(args: &Args) -> bool {
         return false;
     };
     let lock = read_lock_in(&repo, args.global).map(|r| r.lock);
-    let registry = registry_with_home(crate::fsx::home());
+    let registry = registry();
     let (clients, _) = default_clients(lock.as_ref(), &registry);
     clients.iter().any(|c| c != client_scope::FALLBACK_CLIENT)
 }
 
 pub fn transpilers() -> Value {
-    let mut reg = TranspilerRegistry::new();
-    transpilers::register_all(&mut reg);
+    let reg = registry();
     json!({"transpilers": reg.all().map(|t| t.client_key().to_string()).collect::<Vec<_>>()})
 }
 
@@ -278,7 +277,8 @@ pub fn status(args: &Args) -> Result<Value, OpError> {
             "clientsSynced": entry.map(|e| e.clients_synced.clone()).unwrap_or_default(),
         }));
     }
-    let transpilers = registry_with_home(crate::fsx::home());
+    let transpilers = registry();
+    check_clients(args, &transpilers)?;
     let targeted = args.clients.clone().unwrap_or_else(|| {
         transpilers
             .all()
@@ -336,13 +336,19 @@ pub fn status(args: &Args) -> Result<Value, OpError> {
     }))
 }
 
+fn check_clients(args: &Args, registry: &TranspilerRegistry) -> Result<(), OpError> {
+    let keys = args.clients.iter().flatten().map(String::as_str);
+    client_scope::ensure_supported(keys, registry).map_err(OpError::usage)
+}
+
 pub fn sync(args: &Args) -> Result<Value, OpError> {
     let repo = resolve_repo(args.repo.as_deref())?;
     let skills = discover_skills(&repo);
     let global = args.global;
     let output_root = if global { home()? } else { repo.clone() };
     let dir = lock_dir(global, &repo);
-    let registry = registry_with_home(Some(home()?));
+    let registry = registry();
+    check_clients(args, &registry)?;
     let (targeted, source) = match &args.clients {
         Some(keys) => (keys.clone(), ClientSource::Requested),
         None => default_clients(load_lockfile(&dir).as_ref(), &registry),
@@ -389,11 +395,11 @@ pub fn invisible_reason(
 ) -> Option<String> {
     let claude = registry.get("claude-code")?;
     let out = claude.transpile(skill, home).ok()?;
-    if let Err(why) = output_accepted("claude-code", &out.content) {
+    if let Err(why) = frontmatter_accepted(&out.content) {
         return Some(why.to_string());
     }
     let deployed = std::fs::read_to_string(&out.output_path).ok()?;
-    output_accepted("claude-code", &deployed)
+    frontmatter_accepted(&deployed)
         .err()
         .map(|why| format!("the deployed copy is rejected: {why}"))
 }

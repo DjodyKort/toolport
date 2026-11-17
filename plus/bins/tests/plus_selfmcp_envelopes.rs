@@ -564,7 +564,6 @@ const CASES: &[Case] = &[
             write("apply", "styles_remove", AIDER_REMOVE),
         ],
     ),
-    // compression
     prepared(
         "library_status",
         library_home,
@@ -951,6 +950,12 @@ const CASES: &[Case] = &[
             read("fresh", "skills_status", "{}"),
             setup("skills_sync", CLAUDE_APPLY),
             read("synced", "skills_status", CLAUDE),
+            fails(
+                "unknown_client",
+                "invalid_arguments",
+                "skills_status",
+                r#"{"client_keys":["cursor"]}"#,
+            ),
         ],
     ),
     case(
@@ -992,10 +997,11 @@ const CASES: &[Case] = &[
             read("preview", "skills_sync", CLAUDE),
             refused("refused", "skills_sync", CLAUDE_UNCONFIRMED),
             write("apply", "skills_sync", CLAUDE_APPLY),
-            read(
+            fails(
                 "unknown_client",
+                "invalid_arguments",
                 "skills_sync",
-                r#"{"client_keys":["no-such-client"],"dry_run":false,"confirm":true}"#,
+                r#"{"client_keys":["cursor"],"dry_run":false,"confirm":true}"#,
             ),
         ],
     ),
@@ -1105,6 +1111,12 @@ const CASES: &[Case] = &[
             setup("skills_sync", CLAUDE_APPLY),
             read("preview", "skills_clean", "{}"),
             refused("refused", "skills_clean", UNCONFIRMED),
+            fails(
+                "unknown_client",
+                "backend_error",
+                "skills_clean",
+                r#"{"client":"cursor"}"#,
+            ),
             write("apply", "skills_clean", APPLY),
         ],
     ),

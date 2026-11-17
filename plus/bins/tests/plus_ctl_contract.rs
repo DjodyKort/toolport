@@ -1294,7 +1294,14 @@ const CASES: &[Case] = &[
     ),
     case(
         "skills status",
-        &[read("", &["skills", "status", "--repo", "{repo}"])],
+        &[
+            read("", &["skills", "status", "--repo", "{repo}"]),
+            read(
+                "unknown_client",
+                &["skills", "status", "--repo", "{repo}", "--client", "cursor"],
+            )
+            .exit(1),
+        ],
     ),
     case(
         "skills sync",
@@ -1304,6 +1311,19 @@ const CASES: &[Case] = &[
                 &["skills", "sync", "--repo", "{repo}", "--dry-run"],
             ),
             apply("apply", &["skills", "sync", "--repo", "{repo}"]),
+            read(
+                "unknown_client",
+                &[
+                    "skills",
+                    "sync",
+                    "--repo",
+                    "{repo}",
+                    "--client",
+                    "cursor",
+                    "--dry-run",
+                ],
+            )
+            .exit(1),
         ],
     ),
     case(

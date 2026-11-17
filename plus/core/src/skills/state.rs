@@ -2,6 +2,7 @@
 //! snake_case keys; `global_mode` (default true) selects user-level scope like `plus.skills.sync`.
 //! `clean` and `uninstall` take `repo_path` literally (default: the working directory), as mcpm does.
 
+use super::client_scope::{ensure_supported, lock_records_outputs};
 use super::clock::SystemClock;
 use super::collisions::{CollisionSummary, BACKUP_DIR_NAME};
 use super::lock::load_lockfile;
@@ -9,7 +10,7 @@ use super::ops::{self, ResolveRequest, Scope};
 use super::parser::discover_skills;
 use super::repo::{find_repo, resolve_path};
 use super::sync_report::collision_rows;
-use super::transpilers::registry_with_home;
+use super::transpilers::registry;
 use crate::args::{flag, flag_or, str_nonempty};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -39,12 +40,21 @@ pub fn clean_handler(args: Value) -> Result<Value, String> {
     let dry_run = flag(&args, "dry_run");
     let scope = Scope::new(global, &literal_repo(&args))?;
     let lock = load_lockfile(&scope.lock_dir);
-    let registry = registry_with_home(crate::fsx::home());
+    let registry = registry();
+    let client = str_nonempty(&args, "client");
+    if let Some(client) = client.filter(|c| registry.get(c).is_none()) {
+        if !lock
+            .as_ref()
+            .is_some_and(|l| lock_records_outputs(l, client))
+        {
+            ensure_supported([client], &registry)?;
+        }
+    }
     let out = ops::clean_skills(
         &scope.lock_dir,
         &scope.output_root,
         &registry,
-        str_nonempty(&args, "client"),
+        client,
         lock.as_ref(),
         dry_run,
     );
@@ -72,7 +82,7 @@ pub fn uninstall_handler(args: Value) -> Result<Value, String> {
     let name = str_nonempty(&args, "name").ok_or("name is required")?;
     let repo = literal_repo(&args);
     let scope = Scope::new(global, &repo)?;
-    let registry = registry_with_home(crate::fsx::home());
+    let registry = registry();
     let out = ops::uninstall_skill(&repo, name, &scope, &registry, dry_run)?;
     Ok(json!({
         "repo": display(&repo),
@@ -106,7 +116,8 @@ pub fn resolve_handler(args: Value) -> Result<Value, String> {
             output_root: &scope.output_root,
             clock: &SystemClock,
         };
-        let registry = registry_with_home(crate::fsx::home());
+        let registry = registry();
+        ensure_supported(request.client, &registry)?;
         ops::resolve_skill_collisions(&skills, &registry, &request)?.1
     };
     Ok(json!({

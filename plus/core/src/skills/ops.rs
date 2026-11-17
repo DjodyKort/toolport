@@ -4,11 +4,12 @@
 
 use super::agents::{Agent, AgentTranspiler};
 use super::assets::compute_skill_hash;
+use super::client_scope::drop_client;
 use super::clock::Clock;
 use super::collisions::{
     detect_collisions, resolve_collisions, resolve_mode, Collision, CollisionSummary,
 };
-use super::frontmatter::{output_accepted, Reason};
+use super::frontmatter::{frontmatter_accepted, Reason};
 use super::json;
 use super::lock::OrderedMap;
 use super::lock::{get_entry, load_lockfile, lockfile_path, save_lockfile, LockFile};
@@ -295,7 +296,7 @@ pub fn check_outputs(lock: &LockFile, registry: &TranspilerRegistry, root: &Path
                 continue;
             };
             check.checked += 1;
-            if let Err(reason) = output_accepted(client, &text) {
+            if let Err(reason) = frontmatter_accepted(&text) {
                 check.rejected.push(RejectedOutput {
                     name: name.clone(),
                     client: client.clone(),
@@ -413,6 +414,15 @@ pub fn clean_skills(
     let path = lockfile_path(lock_dir);
     if client.is_none() && path.exists() && (dry_run || fs::remove_file(&path).is_ok()) {
         out.lockfile_removed = true;
+    }
+    if let Some(retired) = client.filter(|c| registry.get(c).is_none()) {
+        if !dry_run {
+            let mut lock = lock.clone();
+            drop_client(&mut lock, retired);
+            if let Err(e) = save_lockfile(lock_dir, &lock) {
+                out.skipped.push((retired.to_string(), e));
+            }
+        }
     }
     out
 }

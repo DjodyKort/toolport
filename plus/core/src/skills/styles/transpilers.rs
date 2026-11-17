@@ -3,9 +3,21 @@ use crate::skills::json::{self, J};
 use crate::skills::pyfs::{read_text, title};
 use crate::skills::scalar;
 use crate::skills::transpiler::TranspileResult;
-use crate::skills::transpilers::windsurf::{py_prefix, WINDSURF_WORKSPACE_CHAR_LIMIT};
 use std::fs;
 use std::path::{Path, PathBuf};
+
+pub const WINDSURF_WORKSPACE_CHAR_LIMIT: usize = 12000;
+
+/// Python `s[:n]` on code points, including its negative-index behaviour.
+pub(crate) fn py_prefix(s: &str, n: isize) -> String {
+    let total = s.chars().count() as isize;
+    let take = if n < 0 {
+        (total + n).max(0)
+    } else {
+        n.min(total)
+    };
+    s.chars().take(take as usize).collect()
+}
 
 pub const STYLE_BLOCK_START: &str = "<!-- mcpm-style:start -->";
 pub const STYLE_BLOCK_END: &str = "<!-- mcpm-style:end -->";

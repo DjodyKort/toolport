@@ -141,13 +141,3 @@ pub(crate) fn plain(value: &str) -> String {
         safe_scalar(value)
     }
 }
-
-/// Unquoted text for clients that read their own loose dialect (`globs: **/*.py`): kept as it is
-/// unless it spans lines.
-pub(crate) fn loose(value: &str) -> String {
-    if one_line(value) {
-        value.to_string()
-    } else {
-        safe_scalar(value)
-    }
-}

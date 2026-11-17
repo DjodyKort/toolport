@@ -17,6 +17,7 @@
 //! moved to the backup folder first.
 
 use super::assets::{compute_skill_hash, inventory, is_plain_relative, rel_string, SkillFile};
+use super::client_scope::carry_retired_clients;
 use super::clock::Clock;
 use super::collisions::{
     backup_path_aside, detect_collisions, resolve_collisions, resolve_mode, CollisionSummary,
@@ -733,6 +734,10 @@ pub fn sync_skills(
         if !opts.dry_run {
             revoke_stale_hooks(prev, &lock, &selected, output_root);
         }
+    }
+
+    if let Some(prev) = &previous {
+        carry_retired_clients(prev, &mut lock, registry);
     }
 
     let found = detect_collisions(skills, &per_file, output_root);

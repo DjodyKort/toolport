@@ -1,16 +1,17 @@
 use super::agents::{discover_agents, lint::lint_agents, sync_agents, AgentSyncOptions};
 use super::audit::audit_skills;
 use super::bundle::{create_bundle, extract_bundle, BundleOptions};
+use super::client_scope::lock_records_outputs;
 use super::clock::{FixedClock, Instant};
 use super::git::{GitRunner, SystemGit};
 use super::lint::{lint_outputs, lint_skills, LintLevel};
-use super::lock::{load_lockfile, save_lockfile, LockFile};
+use super::lock::{load_lockfile, save_lockfile, set_entry, LockEntry, LockFile};
 use super::ops::{self, ResolveRequest};
 use super::parser::discover_skills;
 use super::styles::{apply_style, discover_styles, remove_style, sync_styles, StyleOptions};
 use super::sync::{sync_skills, SyncOptions};
 use super::transpiler::{Capabilities, TranspileResult, Transpiler};
-use super::transpilers::{register_all_with_home, register_vscode_copilot};
+use super::transpilers::registry;
 use super::TranspilerRegistry;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -344,12 +345,6 @@ fn lint_flags_duplicates_and_identical_globs() {
     );
 }
 
-fn full_registry(home: &Path) -> TranspilerRegistry {
-    let mut r = TranspilerRegistry::new();
-    register_all_with_home(&mut r, Some(home.to_path_buf()));
-    r
-}
-
 fn sync_all(repo: &Path, home: &Path, registry: &TranspilerRegistry, c: &FixedClock) -> LockFile {
     let opts = SyncOptions {
         output_root: repo.to_path_buf(),
@@ -377,7 +372,7 @@ fn diff_status_and_clean_work_over_lock_and_tree() {
     let t = Tmp::new("ops");
     put(&t.0, "skills/a/SKILL.md", &simple_skill("a"));
     put(&t.0, "skills/b/SKILL.md", &simple_skill("b"));
-    let reg = full_registry(&t.0);
+    let reg = registry();
     let c = clock();
     let lock = sync_all(&t.0, &t.0, &reg, &c);
 
@@ -414,13 +409,87 @@ fn diff_status_and_clean_work_over_lock_and_tree() {
     );
 
     let loaded = load_lockfile(&t.0);
-    let out = ops::clean_skills(&t.0, &t.0, &reg, Some("cursor"), loaded.as_ref(), false);
-    assert_eq!(out.removed.len(), 2);
+    let out = ops::clean_skills(&t.0, &t.0, &reg, Some("agents-md"), loaded.as_ref(), false);
+    assert_eq!(out.removed, [t.0.join("AGENTS.md")]);
     assert!(!out.lockfile_removed);
     let out = ops::clean_skills(&t.0, &t.0, &reg, None, loaded.as_ref(), false);
     assert!(out.lockfile_removed);
     assert!(!t.0.join("mcpm-skills.lock").exists());
     assert!(!t.0.join(".claude/skills/b").exists());
+}
+
+fn lock_with_retired_cursor_output(root: &Path) {
+    put(root, "skills/a/SKILL.md", &simple_skill("a"));
+    put(
+        root,
+        ".cursor/rules/a.mdc",
+        "written by the retired transpiler\n",
+    );
+    let mut lock = LockFile::new("t".into());
+    let mut entry = LockEntry::new(None, "h".into());
+    entry.clients_synced = vec!["cursor".into()];
+    entry.push_output("cursor", ".cursor/rules/a.mdc".into());
+    set_entry(&mut lock.skills, "a", entry);
+    save_lockfile(root, &lock).unwrap();
+}
+
+fn sync_to_claude_code(root: &Path, c: &FixedClock) -> LockFile {
+    let opts = SyncOptions {
+        output_root: root.to_path_buf(),
+        lock_dir: root.to_path_buf(),
+        global_mode: false,
+        dry_run: false,
+        migrate: None,
+        client_keys: Some(vec!["claude-code".into()]),
+        apply_held: false,
+        allow_tap_hooks: false,
+        clock: c,
+    };
+    let result = sync_skills(&discover_skills(root), &registry(), &opts).unwrap();
+    save_lockfile(root, &result.lockfile).unwrap();
+    result.lockfile
+}
+
+#[test]
+fn a_sync_keeps_the_outputs_a_retired_client_recorded() {
+    let t = Tmp::new("retired-sync");
+    lock_with_retired_cursor_output(&t.0);
+    sync_to_claude_code(&t.0, &clock());
+    let lock = load_lockfile(&t.0).unwrap();
+    assert!(lock_records_outputs(&lock, "cursor"));
+    assert!(lock_records_outputs(&lock, "claude-code"));
+    assert_eq!(lock.skills[0].1.clients_synced, ["claude-code"]);
+}
+
+#[test]
+fn clean_of_a_retired_client_deletes_its_files_and_drops_it_from_the_lock() {
+    let t = Tmp::new("retired-clean");
+    lock_with_retired_cursor_output(&t.0);
+    sync_to_claude_code(&t.0, &clock());
+    let lock = load_lockfile(&t.0).unwrap();
+    let reg = registry();
+
+    let plan = ops::clean_skills(&t.0, &t.0, &reg, Some("cursor"), Some(&lock), true);
+    assert_eq!(plan.removed, [t.0.join(".cursor/rules/a.mdc")]);
+    assert!(t.0.join(".cursor/rules/a.mdc").exists());
+
+    let out = ops::clean_skills(&t.0, &t.0, &reg, Some("cursor"), Some(&lock), false);
+    assert_eq!(out.removed, [t.0.join(".cursor/rules/a.mdc")]);
+    assert!(!t.0.join(".cursor").exists());
+    let after = load_lockfile(&t.0).unwrap();
+    assert!(!lock_records_outputs(&after, "cursor"));
+    assert!(lock_records_outputs(&after, "claude-code"));
+    assert!(t.0.join(".claude/skills/a/SKILL.md").exists());
+}
+
+#[test]
+fn a_full_clean_also_deletes_the_files_of_a_retired_client() {
+    let t = Tmp::new("retired-full-clean");
+    lock_with_retired_cursor_output(&t.0);
+    let lock = load_lockfile(&t.0).unwrap();
+    let out = ops::clean_skills(&t.0, &t.0, &registry(), None, Some(&lock), false);
+    assert_eq!(out.removed, [t.0.join(".cursor/rules/a.mdc")]);
+    assert!(out.lockfile_removed);
 }
 
 #[test]
@@ -433,7 +502,7 @@ fn clean_targets_plan_exactly_what_clean_removes_for_every_transpiler() {
         "rules/r/SKILL.md",
         "---\nname: r\ndescription: Use when a rule is needed\nactivation: always\n---\nRule\n",
     );
-    let reg = full_registry(&t.0);
+    let reg = registry();
     let c = clock();
     let lock = sync_all(&t.0, &t.0, &reg, &c);
     let managed = ["a".to_string(), "b".to_string(), "r".to_string()];
@@ -453,7 +522,7 @@ fn clean_targets_plan_exactly_what_clean_removes_for_every_transpiler() {
         planned_total += planned.len();
         assert!(transpiler.clean_targets(&t.0, &managed).is_empty());
     }
-    assert!(planned_total >= 30, "{planned_total}");
+    assert_eq!(planned_total, 3);
 
     sync_all(&t.0, &t.0, &reg, &c);
     let before = ops_tree(&t.0);
@@ -471,12 +540,11 @@ fn ops_tree(root: &Path) -> std::collections::BTreeMap<String, Option<Vec<u8>>> 
 }
 
 #[test]
-fn resolve_backs_up_shadowing_files_for_per_file_clients_only() {
+fn resolve_backs_up_shadowing_files() {
     let t = Tmp::new("resolve");
     put(&t.0, "skills/a/SKILL.md", &simple_skill("a"));
     put(&t.0, ".claude/commands/a.md", "legacy\n");
-    put(&t.0, ".cursor/rules/a.mdc", "legacy\n");
-    let reg = full_registry(&t.0);
+    let reg = registry();
     let c = clock();
     let skills = discover_skills(&t.0);
     let req = ResolveRequest {
@@ -491,7 +559,6 @@ fn resolve_backs_up_shadowing_files_for_per_file_clients_only() {
     assert_eq!(found.len(), 1);
     assert_eq!(summary.replaced().count(), 1);
     assert!(!t.0.join(".claude/commands/a.md").exists());
-    assert!(t.0.join(".cursor/rules/a.mdc").exists());
     assert!(t
         .0
         .join(".mcpm-backups/.claude/commands/a.md.20260101T000000Z")
@@ -634,15 +701,6 @@ fn system_git_clones_and_fast_forwards_a_local_repo() {
     assert!(runner.clone_repo("--evil", &t.0.join("x")).is_err());
 }
 
-#[test]
-fn vscode_registration_is_opt_in() {
-    let mut r = TranspilerRegistry::new();
-    register_all_with_home(&mut r, None);
-    assert!(r.get("vscode").is_none());
-    register_vscode_copilot(&mut r);
-    assert!(r.get("vscode").is_some());
-}
-
 const MULTILINE_LIBRARY: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/tests/fixtures/skills-core/claude-code-multiline-description/input/repo"
@@ -681,34 +739,25 @@ impl Transpiler for LegacyEmitter {
     }
 }
 
-fn lint_registry(home: &Path) -> TranspilerRegistry {
-    let mut registry = TranspilerRegistry::new();
-    register_all_with_home(&mut registry, Some(home.to_path_buf()));
-    register_vscode_copilot(&mut registry);
-    registry
-}
-
 #[test]
 fn output_lint_accepts_the_multi_line_description_fixture_for_every_client() {
-    let t = Tmp::new("lint-outputs-clean");
     let skills = load_skills(Path::new(MULTILINE_LIBRARY));
     let names: Vec<&str> = skills.iter().map(|s| s.name()).collect();
     assert_eq!(names, ["doc-drift", "release-gate", "session-handoff"]);
     assert!(skills
         .iter()
         .all(|s| s.frontmatter.description.contains('\n')));
-    let result = lint_outputs(&skills, &lint_registry(&t.0));
+    let result = lint_outputs(&skills, &registry());
     assert!(result.messages.is_empty(), "{:?}", result.messages);
 }
 
 #[test]
 fn output_lint_fails_a_client_that_would_write_the_rejected_shape() {
-    let t = Tmp::new("lint-outputs-broken");
     let mut skills = load_skills(Path::new(MULTILINE_LIBRARY));
     let mut quoted = super::Skill::placeholder("quoted", super::SkillType::Skill);
     quoted.frontmatter.description = "Say \"hi\" to start".into();
     skills.push(quoted);
-    let mut registry = lint_registry(&t.0);
+    let mut registry = registry();
     registry.register(Box::new(LegacyEmitter {
         key: "claude-code",
         capabilities: Capabilities::PER_FILE,

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "client": "cursor"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "backend_error",
+      "message": "skills are not synced to cursor; supported clients: agents-md, claude-code"
+    }
+  },
+  "text": "backend_error: skills are not synced to cursor; supported clients: agents-md, claude-code",
+  "tool": "skills_clean"
+}

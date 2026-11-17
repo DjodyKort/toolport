@@ -1,11 +1,10 @@
 //! Lint checks for skills, agents and styles; message texts and ordering match mcpm.
 
 use super::assets::{inventory, Inventory, SKILL_FILE};
-use super::frontmatter::output_accepted;
+use super::frontmatter::frontmatter_accepted;
 use super::kind::ParseFailure;
 use super::parser::{Activation, Skill, SPEC_DESCRIPTION_LIMIT};
 use super::transpiler::TranspilerRegistry;
-use super::transpilers::windsurf::WINDSURF_WORKSPACE_CHAR_LIMIT;
 use regex::Regex;
 use serde::Serialize;
 use std::path::{Component, Path, PathBuf};
@@ -144,16 +143,6 @@ pub fn lint_skill(skill: &Skill) -> LintResult {
     }
     if skill.body.trim().is_empty() {
         result.warning(name, "Body is empty. Add instructions for the agent.");
-    }
-
-    let body_len = skill.body.chars().count();
-    if body_len > WINDSURF_WORKSPACE_CHAR_LIMIT {
-        result.warning(
-            name,
-            format!(
-                "Body ({body_len} chars) exceeds Windsurf workspace limit ({WINDSURF_WORKSPACE_CHAR_LIMIT}). Will be truncated during sync."
-            ),
-        );
     }
 
     if let Some(globs) = fm.globs.as_deref().filter(|g| !g.is_empty()) {
@@ -425,7 +414,7 @@ pub fn lint_outputs(skills: &[Skill], registry: &TranspilerRegistry) -> LintResu
             let Ok(out) = transpiler.transpile(skill, Path::new(".")) else {
                 continue;
             };
-            if let Err(reason) = output_accepted(transpiler.client_key(), &out.content) {
+            if let Err(reason) = frontmatter_accepted(&out.content) {
                 result.error(
                     skill.name(),
                     format!(

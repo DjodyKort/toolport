@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "sync", "--repo", "{repo}", "--client", "cursor", "--dry-run"],
+  "envelope": {
+    "command": "skills sync",
+    "error": {
+      "code": "skills",
+      "message": "skills are not synced to cursor; supported clients: agents-md, claude-code"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}
