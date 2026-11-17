@@ -127,7 +127,7 @@ pub fn read_ledger(paths: &Paths) -> Result<Ledger, String> {
 }
 
 fn write_ledger(paths: &Paths, ledger: &Ledger) -> Result<(), String> {
-    super::sys::atomic_write(
+    crate::fsx::write_private(
         &ledger_path(paths),
         &serde_json::to_string_pretty(ledger).map_err(|e| e.to_string())?,
     )

@@ -140,7 +140,7 @@ fn write_artifact(file: &GeneratedFile) -> Result<(), String> {
     if unchanged {
         return Ok(());
     }
-    super::sys::atomic_write(&file.path, &file.content)?;
+    crate::fsx::write_private(&file.path, &file.content)?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

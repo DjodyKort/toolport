@@ -2,7 +2,6 @@
 //! the derived `--settings` file and starts nothing; `use` applies a bundle (D-139).
 
 use super::bundle_apply::{self as apply, World};
-use super::bundle_io;
 use super::bundle_ledger as ledger;
 use super::bundle_store::{self, BundleError};
 use super::config;
@@ -109,7 +108,7 @@ pub fn launch(w: &World, name: &str, cwd: Option<&Path>) -> Result<Value, Bundle
     let text = serde_json::to_string_pretty(&settings_value(&want))
         .map_err(|e| failed(e.to_string()))?
         + "\n";
-    bundle_io::write_atomic(&file, text.as_bytes())
+    crate::fsx::atomic_write(&file, &text, crate::fsx::Mode::KeepOrDefault)
         .map_err(|e| failed(format!("{}: {e}", file.display())))?;
     let mut notes = want.warnings.clone();
     if !loaded.bundle.layers_add.is_empty() {

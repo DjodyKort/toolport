@@ -597,7 +597,7 @@ pub(super) fn remove_excludes(
                 if after.is_empty() && created {
                     let _ = fs::remove_file(&file);
                 } else {
-                    bundle_io::write_atomic(&file, after.as_bytes())
+                    crate::fsx::atomic_write(&file, &after, crate::fsx::Mode::KeepOrDefault)
                         .map_err(|x| format!("{}: {x}", file.display()))?;
                 }
                 if !changed.contains(&e.file) {

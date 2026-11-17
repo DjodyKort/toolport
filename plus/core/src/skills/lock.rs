@@ -315,5 +315,5 @@ pub fn save_lockfile(dir: &Path, lock: &LockFile) -> Result<(), String> {
     if path.is_file() && load_lockfile(dir).is_none() {
         crate::fsx::quarantine_existing(&path);
     }
-    crate::fsx::atomic_write(&path, &lock.serialize())
+    crate::fsx::write_private(&path, &lock.serialize())
 }

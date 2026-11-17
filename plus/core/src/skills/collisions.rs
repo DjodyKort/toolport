@@ -185,7 +185,7 @@ fn append_index(backup_root: &Path, entry: J) -> Result<(), String> {
         .unwrap_or_default();
     backups.push(entry);
     let doc = J::Obj(vec![("backups".into(), J::Arr(backups))]);
-    crate::fsx::atomic_write(&index_path, &doc.dumps())
+    crate::fsx::write_private(&index_path, &doc.dumps())
 }
 
 pub fn resolve_collisions(

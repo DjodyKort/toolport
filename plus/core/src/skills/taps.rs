@@ -3,7 +3,7 @@
 //! back from the file. The operations live in `tap_ops.rs`.
 
 use super::json::{self, J};
-use crate::fsx::atomic_write;
+use crate::fsx::write_private;
 use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -213,7 +213,7 @@ pub fn save_taps(config_dir: &Path, taps: &[Tap]) -> Result<(), String> {
             })
             .collect(),
     );
-    atomic_write(&taps_path(config_dir), &doc.dumps())
+    write_private(&taps_path(config_dir), &doc.dumps())
 }
 
 pub fn tap_dir(taps_root: &Path, tap: &Tap) -> PathBuf {

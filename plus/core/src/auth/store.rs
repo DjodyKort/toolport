@@ -3,7 +3,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -97,25 +97,6 @@ fn private_options() -> std::fs::OpenOptions {
     options
 }
 
-/// Writes through a temp file in the same directory, so a reader never sees half a file.
-fn write_private(path: &Path, text: &str) -> Result<(), String> {
-    let tmp = path.with_extension(format!("tmp{}", std::process::id()));
-    let result = private_options()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&tmp)
-        .and_then(|mut file| {
-            file.write_all(text.as_bytes())?;
-            file.sync_all()
-        })
-        .and_then(|()| std::fs::rename(&tmp, path));
-    if result.is_err() {
-        let _ = std::fs::remove_file(&tmp);
-    }
-    result.map_err(|error| format!("cannot write {}: {error}", path.display()))
-}
-
 impl AuthStore {
     pub fn new(dir: &Path) -> Self {
         AuthStore {
@@ -198,7 +179,7 @@ impl Locked<'_> {
 
     pub fn save_status(&self, status: &StatusFile) -> Result<(), String> {
         let text = serde_json::to_string_pretty(status).map_err(|error| error.to_string())?;
-        write_private(&self.store.status_path(), &text)
+        crate::fsx::write_private(&self.store.status_path(), &text)
     }
 
     /// Appends the events and, past the byte cap, keeps the newest lines only.
@@ -217,6 +198,6 @@ impl Locked<'_> {
         if bytes > EVENTS_MAX_BYTES && lines.len() > EVENTS_KEEP_LINES {
             lines.drain(..lines.len() - EVENTS_KEEP_LINES);
         }
-        write_private(&path, &(lines.join("\n") + "\n"))
+        crate::fsx::write_private(&path, &(lines.join("\n") + "\n"))
     }
 }

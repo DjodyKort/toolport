@@ -121,7 +121,7 @@ pub fn list(roots: &Roots) -> Vec<Listed> {
 }
 
 fn write(path: &Path, text: &str) -> Result<(), BundleError> {
-    super::bundle_io::write_atomic(path, text.as_bytes())
+    crate::fsx::atomic_write(path, text, crate::fsx::Mode::KeepOrDefault)
         .map_err(|e| BundleError::new("write_failed", format!("{}: {e}", path.display())))
 }
 

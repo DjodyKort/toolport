@@ -265,5 +265,5 @@ pub fn render(config: &CompressionConfig) -> Result<String, String> {
 }
 
 pub fn save(paths: &Paths, config: &CompressionConfig) -> Result<(), String> {
-    super::sys::atomic_write(&paths.config(), &render(config)?)
+    crate::fsx::write_private(&paths.config(), &render(config)?)
 }

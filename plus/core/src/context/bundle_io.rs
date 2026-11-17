@@ -1,34 +1,8 @@
-//! The one way bundle code writes a file: next to the target, then renamed over it, so a reader
-//! (Claude Code writes the same settings file) never sees half a file.
+//! Read, compare and write files that Claude Code also writes.
 
 use std::fs;
 use std::io;
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static SEQ: AtomicU64 = AtomicU64::new(0);
-
-pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let tmp = path.with_file_name(format!(
-        ".{name}.toolport-{}-{}",
-        std::process::id(),
-        SEQ.fetch_add(1, Ordering::Relaxed)
-    ));
-    fs::write(&tmp, bytes)?;
-    if let Ok(meta) = fs::metadata(path) {
-        let _ = fs::set_permissions(&tmp, meta.permissions());
-    }
-    fs::rename(&tmp, path).inspect_err(|_| {
-        let _ = fs::remove_file(&tmp);
-    })
-}
 
 #[derive(Clone, Debug)]
 pub enum Action {
@@ -51,8 +25,10 @@ pub fn update<T>(
             continue;
         }
         match action {
-            Action::Write(text) => write_atomic(path, text.as_bytes())
-                .map_err(|e| format!("{}: {e}", path.display()))?,
+            Action::Write(text) => {
+                crate::fsx::atomic_write(path, &text, crate::fsx::Mode::KeepOrDefault)
+                    .map_err(|e| format!("{}: {e}", path.display()))?
+            }
             Action::Delete => match fs::remove_file(path) {
                 Ok(()) => {}
                 Err(e) if e.kind() == io::ErrorKind::NotFound => {}

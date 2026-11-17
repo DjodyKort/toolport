@@ -32,7 +32,7 @@ pub fn record_origin(repo: &Path, skill: &str, source: &str) -> Result<(), Strin
             .map(|(k, v)| (k.clone(), J::str(v)))
             .collect(),
     );
-    crate::fsx::atomic_write(&repo.join(ORIGINS_FILE), &doc.dumps())
+    crate::fsx::write_private(&repo.join(ORIGINS_FILE), &doc.dumps())
 }
 
 pub fn is_tap(source: &str) -> bool {

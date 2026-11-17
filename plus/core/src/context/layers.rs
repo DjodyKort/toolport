@@ -73,8 +73,12 @@ pub fn ensure_exclude_line(repo: &Path, line: &str) -> Result<bool, String> {
         return Ok(false);
     }
     lines.push(line);
-    super::bundle_io::write_atomic(&exclude, format!("{}\n", lines.join("\n")).as_bytes())
-        .map_err(|e| format!("{}: {e}", exclude.display()))?;
+    crate::fsx::atomic_write(
+        &exclude,
+        &format!("{}\n", lines.join("\n")),
+        crate::fsx::Mode::KeepOrDefault,
+    )
+    .map_err(|e| format!("{}: {e}", exclude.display()))?;
     Ok(true)
 }
 

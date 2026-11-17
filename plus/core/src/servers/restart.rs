@@ -223,10 +223,8 @@ fn dir(base: &Path) -> PathBuf {
     base.join(DIR)
 }
 
-fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
-    let tmp = path.with_extension("tmp");
-    std::fs::write(&tmp, text)?;
-    std::fs::rename(&tmp, path)
+fn write_keep(path: &Path, text: &str) -> std::io::Result<()> {
+    crate::fsx::atomic_write(path, text, crate::fsx::Mode::KeepOrDefault)
 }
 
 fn read_all<T: Record>(base: &Path, prefix: &str) -> Vec<(PathBuf, T)> {
@@ -266,7 +264,7 @@ pub fn request(base: &Path, kind: Kind, server_id: &str, server: &str) -> std::i
     };
     std::fs::create_dir_all(dir(base))?;
     let text = request.to_value().to_string();
-    write_atomic(&dir(base).join(format!("{REQUEST}{nonce}.json")), &text)?;
+    write_keep(&dir(base).join(format!("{REQUEST}{nonce}.json")), &text)?;
     Ok(request)
 }
 
@@ -333,7 +331,7 @@ fn process_claims() -> &'static Claims {
 fn record(base: &Path, outcome: &Outcome) -> std::io::Result<()> {
     std::fs::create_dir_all(dir(base))?;
     let text = outcome.to_value().to_string();
-    write_atomic(
+    write_keep(
         &dir(base).join(format!("{OUTCOME}{}-{}.json", outcome.nonce, outcome.pid)),
         &text,
     )
@@ -346,7 +344,7 @@ fn acknowledge(base: &Path, nonce: &str, pid: u32) -> std::io::Result<()> {
     };
     std::fs::create_dir_all(dir(base))?;
     let text = ack.to_value().to_string();
-    write_atomic(&dir(base).join(format!("{ACK}{nonce}-{pid}.json")), &text)
+    write_keep(&dir(base).join(format!("{ACK}{nonce}-{pid}.json")), &text)
 }
 
 fn acknowledged(base: &Path, nonce: &str) -> Vec<u32> {

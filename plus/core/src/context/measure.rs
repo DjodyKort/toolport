@@ -18,7 +18,6 @@
 //! flagged, until a fresh run is asked for.
 
 use super::bundle_apply::{self, Desired};
-use super::bundle_io;
 use super::bundle_store;
 use super::fsx;
 use super::globs::glob_match;
@@ -344,7 +343,7 @@ fn store(dir: &Path, entry: &Entry) -> Result<(), MeasureError> {
     );
     let text =
         serde_json::to_string_pretty(entry).map_err(|e| failed("cache_failed", e.to_string()))?;
-    bundle_io::write_atomic(&path, text.as_bytes())
+    crate::fsx::atomic_write(&path, &text, crate::fsx::Mode::KeepOrDefault)
         .map_err(|e| failed("cache_failed", format!("{}: {e}", path.display())))
 }
 

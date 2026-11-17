@@ -45,27 +45,8 @@ pub fn task_path(base: &Path, id: &str) -> Result<PathBuf, OpError> {
 }
 
 pub fn write(path: &Path, text: &str) -> Result<(), OpError> {
-    atomic_write(path, text)
+    crate::fsx::atomic_write(path, text, crate::fsx::Mode::Private)
         .map_err(|e| OpError::failed("write", format!("cannot write {}: {e}", path.display())))
-}
-
-fn atomic_write(path: &Path, text: &str) -> std::io::Result<()> {
-    use std::io::Write;
-    let dir = path.parent().unwrap_or_else(|| Path::new("."));
-    fs::create_dir_all(dir)?;
-    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
-    let tmp = dir.join(format!(".{name}.{}.tmp", std::process::id()));
-    let mut options = OpenOptions::new();
-    options.write(true).create(true).truncate(true);
-    #[cfg(unix)]
-    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
-    let mut file = options.open(&tmp)?;
-    file.write_all(text.as_bytes())?;
-    file.sync_all()?;
-    drop(file);
-    fs::rename(&tmp, path).inspect_err(|_| {
-        let _ = fs::remove_file(&tmp);
-    })
 }
 
 /// An exclusive advisory lock on `path`, released when the returned file is dropped or the
