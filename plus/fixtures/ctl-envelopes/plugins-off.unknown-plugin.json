@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "off", "ghost@x", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "plugins off",
+    "error": {
+      "code": "not_found",
+      "message": "ghost@x is not among the installed plugins; `claude plugin list` shows the ids"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -16,6 +16,7 @@ use super::hash::sha256_hex;
 use super::layers;
 use super::loads::LoadSource;
 use super::plan::{Diff, Effects, PlanV1, ResultV1, Step, TokenEffect};
+use super::plugin_adapters::{bundle_env, Registry};
 use super::roots::Roots;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -178,6 +179,10 @@ pub fn desired(w: &World, bundle: &Bundle, cwd: &Path) -> Desired {
             )),
         }
     }
+    let registry = Registry::load(Some(w.data_dir));
+    let (env, mut notes) = bundle_env(&registry, &bundle.plugins_config);
+    out.env = env;
+    out.warnings.append(&mut notes);
     out.deny_servers = bundle.mcp_deny.clone();
     out
 }

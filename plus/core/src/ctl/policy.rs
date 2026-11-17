@@ -16,6 +16,7 @@ use super::context;
 use super::flags::{Flag, Spec};
 use super::mcp;
 use super::secret;
+use super::plugins;
 use super::server;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -345,6 +346,18 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&context::LEAVE_OUT])
         .args(&[req("action"), opt("path")])
+        .requires(&["--cwd"])
+        .skip("writes a folder's settings; its --dry-run is a golden step"),
+    row("plugins off", W)
+        .dry()
+        .spec(&[&plugins::OFF])
+        .args(&[req("id")])
+        .requires(&["--cwd"])
+        .skip("writes a folder's settings; its --dry-run is a golden step"),
+    row("plugins on", W)
+        .dry()
+        .spec(&[&plugins::ON])
+        .args(&[req("id")])
         .requires(&["--cwd"])
         .skip("writes a folder's settings; its --dry-run is a golden step"),
     row("context bundle apply", W)

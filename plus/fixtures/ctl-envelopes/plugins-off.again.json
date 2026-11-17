@@ -1,0 +1,45 @@
+{
+  "argv": ["plugins", "off", "ecc@ecc", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "plugins off",
+    "data": {
+      "changes": [
+        {
+          "action": "none",
+          "key": "enabledPlugins.ecc@ecc",
+          "value": null
+        }
+      ],
+      "conflicts": [],
+      "cwd": "<WORLD>/home/proj",
+      "dryRun": false,
+      "id": "ecc@ecc",
+      "ledger": null,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "stays: your own skills, agents, commands and hooks, every other plugin and the servers behind the Toolport gateway; the setting in your user settings (on) is not changed",
+            "op": "note"
+          }
+        ],
+        "summary": "Turn off ecc@ecc in <WORLD>/home/proj",
+        "undo": "toolportctl plugins on ecc@ecc --cwd <WORLD>/home/proj",
+        "warnings": [
+          "already turned off in this folder by `plugins off`; nothing is written",
+          "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [],
+        "undo": "toolportctl plugins on ecc@ecc --cwd <WORLD>/home/proj"
+      },
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

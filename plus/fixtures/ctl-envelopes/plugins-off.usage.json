@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "off"],
+  "envelope": {
+    "command": "plugins off",
+    "error": {
+      "code": "usage",
+      "message": "usage: plugins off <id> --cwd <dir> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

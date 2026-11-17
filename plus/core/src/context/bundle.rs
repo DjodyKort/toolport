@@ -3,6 +3,7 @@
 //! file is the format: parse, lint, edit and render. Unknown keys stay in the document and are
 //! reported by lint; `plugins.config` (adapter knobs) and `mcp.deny` ride the same ledger.
 
+use super::plugin_adapters::{check_value, Registry};
 use serde::Serialize;
 use serde_yaml::{Mapping, Value as Yaml};
 
@@ -266,6 +267,10 @@ fn repeated(list: &[String], key: &str, out: &mut Vec<Issue>) {
 
 /// Everything a reader of the file should know, errors first. An unreadable file is one error.
 pub fn lint(name: &str, text: &str) -> Vec<Issue> {
+    lint_with(name, text, &Registry::load(None))
+}
+
+pub fn lint_with(name: &str, text: &str, registry: &Registry) -> Vec<Issue> {
     let bundle = match parse(name, text) {
         Ok(b) => b,
         Err(message) => return vec![issue("error", "", message)],
@@ -336,12 +341,31 @@ pub fn lint(name: &str, text: &str) -> Vec<Issue> {
             "a plain skills list is read as skills.allow",
         ));
     }
-    for (plugin, _) in &bundle.plugins_config {
-        out.push(issue(
-            "warning",
-            &format!("plugins.config.{plugin}"),
-            "plugin settings are not applied any more; the key stays in the file",
-        ));
+    for (plugin, knobs) in &bundle.plugins_config {
+        let at = format!("plugins.config.{plugin}");
+        let Some(adapter) = registry.for_plugin(plugin) else {
+            out.push(issue(
+                "error",
+                &at,
+                format!("no adapter for {plugin}: its knobs cannot be written"),
+            ));
+            continue;
+        };
+        for (knob, value) in knobs {
+            let key = format!("{at}.{knob}");
+            match adapter.knob(knob) {
+                None => out.push(issue(
+                    "error",
+                    &key,
+                    format!("unknown knob; {plugin} has {}", adapter.knob_names()),
+                )),
+                Some(k) => {
+                    if let Err(e) = check_value(k, value) {
+                        out.push(issue("error", &key, e));
+                    }
+                }
+            }
+        }
     }
     for dir in &bundle.dirs_add {
         if !dir.trim().is_empty() && !(dir.starts_with('/') || dir.starts_with("~/")) {

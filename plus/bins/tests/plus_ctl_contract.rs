@@ -137,6 +137,23 @@ fn context_files(world: &World) {
     world.context_files();
 }
 
+fn plugin_files(world: &World) {
+    world.context_files();
+    let put = |rel: &str, text: &str| {
+        let path = world.home.join(rel);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    };
+    put(
+        ".claude/plugins/installed_plugins.json",
+        "{\"version\": 2, \"plugins\": {\"ecc@ecc\": [{\"scope\": \"user\"}]}}",
+    );
+    put(
+        ".claude/settings.json",
+        "{\"enabledPlugins\": {\"ecc@ecc\": true}}",
+    );
+}
+
 fn unreadable_registry(world: &World) {
     std::fs::write(world.data.join("registry.json"), "{ not json").unwrap();
 }
@@ -747,6 +764,53 @@ const CASES: &[Case] = &[
             )
             .exit(1),
             usage("usage", &["context", "leave-out", "add"]),
+        ],
+    ),
+    case(
+        "plugins off",
+        &[
+            hook("files", plugin_files),
+            read(
+                "plan",
+                &[
+                    "plugins",
+                    "off",
+                    "ecc@ecc",
+                    "--cwd",
+                    "{home}/proj",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &["plugins", "off", "ecc@ecc", "--cwd", "{home}/proj"],
+            ),
+            apply(
+                "again",
+                &["plugins", "off", "ecc@ecc", "--cwd", "{home}/proj"],
+            ),
+            read(
+                "unknown-plugin",
+                &["plugins", "off", "ghost@x", "--cwd", "{home}/proj"],
+            )
+            .exit(1),
+            usage("usage", &["plugins", "off"]),
+        ],
+    ),
+    case(
+        "plugins on",
+        &[
+            hook("files", plugin_files),
+            read(
+                "nothing-to-remove",
+                &["plugins", "on", "ecc@ecc", "--cwd", "{home}/proj"],
+            ),
+            apply(
+                "off",
+                &["plugins", "off", "ecc@ecc", "--cwd", "{home}/proj"],
+            ),
+            apply("on", &["plugins", "on", "ecc@ecc", "--cwd", "{home}/proj"]),
+            usage("usage", &["plugins", "on"]),
         ],
     ),
     case(

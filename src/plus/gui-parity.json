@@ -175,7 +175,7 @@
     "context.use": {
       "route": "context",
       "status": "planned",
-      "summary": "Apply a bundle and route the folder to its access set, or drop both (context use)"
+      "summary": "Apply a bundle and route the folder to its access set, or drop both (context use); planned and not ported: the 1.x switch that turns folder routing off (context folders --enable|--disable), because upstream always routes; removing it waits for the owner's decision"
     },
     "context.leave-out": {
       "route": "context",
@@ -196,6 +196,11 @@
       "route": "context",
       "status": "planned",
       "summary": "Measure for real: confirmation first, the measured total with the not-itemised part, stale and cached states (context measure, context_measure)"
+    },
+    "context.plugin-switch": {
+      "route": "context",
+      "status": "planned",
+      "summary": "Turn a plugin off or back on in one folder, one click with Undo, on the leave-out ledger (plugins off|on); a bundle's plugins.config is applied again as env keys"
     }
   },
   "owners": {
@@ -206,7 +211,8 @@
     "server": "MIG-2X-S2",
     "secret": "MIG-2X-S3",
     "auth": "MIG-2X-S3",
-    "context": "MIG-2X-S5"
+    "context": "MIG-2X-S5",
+    "plugins": "MIG-2X-S5"
   },
   "commands": {
     "status": {
@@ -402,6 +408,16 @@
     "context measure": {
       "route": "context",
       "action": "context.measure",
+      "surface": "screen"
+    },
+    "plugins off": {
+      "route": "context",
+      "action": "context.plugin-switch",
+      "surface": "screen"
+    },
+    "plugins on": {
+      "route": "context",
+      "action": "context.plugin-switch",
       "surface": "screen"
     }
   },

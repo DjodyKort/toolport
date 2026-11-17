@@ -699,7 +699,7 @@ fn apply_then_undo_is_byte_identical_for_any_foreign_settings_file() {
 const CONTROLS: &str = "format: 1\nname: ctl\nplugins:\n  config:\n    ecc@ecc: {gateguard: off}\nmcp:\n  deny: [\"plugin:ecc:chrome-devtools\"]\n";
 
 #[test]
-fn a_bundle_denies_mcp_servers_ignores_plugin_knobs_and_undoes_cleanly() {
+fn a_bundle_denies_mcp_servers_writes_plugin_knobs_as_env_and_undoes_cleanly() {
     let fx = Fx::new("bundle-controls");
     put(
         &fx.roots.skills_repo_path().join("profiles/ctl.yaml"),
@@ -710,13 +710,13 @@ fn a_bundle_denies_mcp_servers_ignores_plugin_knobs_and_undoes_cleanly() {
     let plan = bundle_apply::apply(&fx.world(), "ctl", &fx.cwd, true).unwrap();
     assert_eq!(
         plan["plan"]["steps"][0]["keys"],
-        json!(["deniedMcpServers"])
+        json!(["env", "deniedMcpServers"])
     );
     assert_eq!(tree_snapshot(&fx.cwd), before);
 
     fx.apply("ctl");
     let v: Value = serde_json::from_str(&fx.text(".claude/settings.local.json").unwrap()).unwrap();
-    assert_eq!(v["env"], json!({"FOO": "1"}));
+    assert_eq!(v["env"], json!({"FOO": "1", "ECC_GATEGUARD": "off"}));
     assert_eq!(
         v["deniedMcpServers"],
         json!([{"serverName": "other"}, {"serverName": "plugin:ecc:chrome-devtools"}])
@@ -730,6 +730,7 @@ fn a_bundle_denies_mcp_servers_ignores_plugin_knobs_and_undoes_cleanly() {
     let left: Value =
         serde_json::from_str(&fx.text(".claude/settings.local.json").unwrap()).unwrap();
     assert_eq!(left["deniedMcpServers"], json!([{"serverName": "other"}]));
+    assert_eq!(left["env"], json!({"FOO": "1"}));
 }
 
 #[test]
@@ -778,7 +779,7 @@ fn bundles_and_folder_controls_share_a_folder_and_leave_in_any_order() {
 }
 
 #[test]
-fn launch_settings_carry_the_denied_servers_and_no_plugin_env() {
+fn launch_settings_carry_the_denied_servers_and_the_plugin_env() {
     let fx = Fx::new("bundle-launch-controls");
     put(
         &fx.roots.skills_repo_path().join("profiles/ctl.yaml"),
@@ -788,7 +789,7 @@ fn launch_settings_carry_the_denied_servers_and_no_plugin_env() {
     let file: Value =
         serde_json::from_str(&fs::read_to_string(out["settingsFile"].as_str().unwrap()).unwrap())
             .unwrap();
-    assert!(file.get("env").is_none());
+    assert_eq!(file["env"], json!({"ECC_GATEGUARD": "off"}));
     assert_eq!(
         file["deniedMcpServers"],
         json!([{"serverName": "plugin:ecc:chrome-devtools"}])
@@ -796,15 +797,21 @@ fn launch_settings_carry_the_denied_servers_and_no_plugin_env() {
 }
 
 #[test]
-fn lint_says_plugin_settings_are_ignored_and_wants_plugin_prefixed_server_names() {
+fn lint_checks_plugin_knobs_against_the_adapter_and_wants_plugin_prefixed_server_names() {
     let text = "plugins:\n  config:\n    ecc@ecc: {nope: 1}\nmcp:\n  deny: [chrome-devtools, \"plugin:ecc:chrome-devtools\"]\n";
     let issues = crate::context::bundle::lint("x", text);
     let got: Vec<(&str, &str)> = issues.iter().map(|i| (i.level, i.key.as_str())).collect();
     assert_eq!(
         got,
-        [("error", "mcp.deny"), ("warning", "plugins.config.ecc@ecc")]
+        [
+            ("error", "plugins.config.ecc@ecc.nope"),
+            ("error", "mcp.deny")
+        ]
     );
-    assert!(issues[0].message.contains("bare name does not block"));
+    assert!(issues[0]
+        .message
+        .contains("unknown knob; ecc@ecc has hook_profile"));
+    assert!(issues[1].message.contains("bare name does not block"));
 }
 
 const FOREIGN_DIRS: &str = "{\n  \"permissions\": {\n    \"additionalDirectories\": [\n      \"/mine\"\n    ],\n    \"deny\": [\n      \"Read(./x)\"\n    ]\n  }\n}\n";

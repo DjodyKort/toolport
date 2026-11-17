@@ -1,0 +1,58 @@
+{
+  "argv": ["plugins", "on", "ecc@ecc", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "plugins on",
+    "data": {
+      "changes": [
+        {
+          "action": "remove",
+          "key": "enabledPlugins.ecc@ecc",
+          "value": null
+        }
+      ],
+      "conflicts": [],
+      "cwd": "<WORLD>/home/proj",
+      "dryRun": false,
+      "id": "ecc@ecc",
+      "ledger": "<WORLD>/data/plus/profile-ledger.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "put back 1 key(s) owned by off:ecc@ecc",
+            "keys": ["enabledPlugins"],
+            "op": "delete",
+            "path": "<WORLD>/home/proj/.claude/settings.local.json"
+          },
+          {
+            "detail": "drop the record of off:ecc@ecc in this folder",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          },
+          {
+            "detail": "stays: your own skills, agents, commands and hooks, every other plugin and the servers behind the Toolport gateway; the setting in your user settings (on) is not changed",
+            "op": "note"
+          }
+        ],
+        "summary": "Turn on ecc@ecc in <WORLD>/home/proj",
+        "undo": "toolportctl plugins off ecc@ecc --cwd <WORLD>/home/proj",
+        "warnings": [
+          "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "<WORLD>/home/proj/.claude/settings.local.json",
+          "<WORLD>/home/proj/.git/info/exclude"
+        ],
+        "undo": "toolportctl plugins off ecc@ecc --cwd <WORLD>/home/proj"
+      },
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

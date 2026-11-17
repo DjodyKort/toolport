@@ -108,7 +108,7 @@ pub(super) const USE: Spec = Spec {
 
 /// The shared operations name a bad argument (`cwd is not a folder`); the command line calls it
 /// by its flag.
-fn flagged(err: CtlError) -> CtlError {
+pub(super) fn flagged(err: CtlError) -> CtlError {
     if err.kind == ErrorKind::Usage && err.message.starts_with("cwd ") {
         CtlError::usage(format!("--{}", err.message))
     } else {

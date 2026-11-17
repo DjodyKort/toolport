@@ -9,6 +9,8 @@ use super::bundle_use;
 use super::fsx;
 use super::leave_out::{self, Op, Target};
 use super::loads::{InstructionLoads, LoadSource, POLICY_CLAUDE_MD};
+use super::plugin_adapters::Registry;
+use super::plugin_switch::{self, Switch};
 use super::Roots;
 use crate::op::OpError;
 use serde_json::{json, Value};
@@ -57,10 +59,11 @@ fn counts(b: &bundle::Bundle) -> Value {
 
 pub fn ls(host: &dyn Host) -> Result<Value, OpError> {
     with_world(host, |w| {
+        let adapters = Registry::load(Some(w.data_dir));
         let rows: Vec<Value> = bundle_store::list(w.roots)
             .into_iter()
             .map(|l| {
-                let issues = bundle::lint(&l.name, &l.text);
+                let issues = bundle::lint_with(&l.name, &l.text, &adapters);
                 let applied = apply::applied_to(w.data_dir, &l.name);
                 match &l.parsed {
                     Ok(b) => {
@@ -103,6 +106,7 @@ fn plugins_config_value(config: &[(String, Vec<(String, String)>)]) -> Value {
 
 pub fn show(host: &dyn Host, name: &str) -> Result<Value, OpError> {
     with_world(host, |w| {
+        let adapters = Registry::load(Some(w.data_dir));
         let l = bundle_store::load(w.roots, name)?;
         let b = &l.bundle;
         let mut shown = json!({
@@ -113,7 +117,7 @@ pub fn show(host: &dyn Host, name: &str) -> Result<Value, OpError> {
             "layers": { "add": b.layers_add, "exclude": b.layers_exclude },
             "dirs": { "add": b.dirs_add },
             "agents": { "off": b.agents_off }, "bind": b.bind, "legacy": b.legacy_list,
-            "yaml": l.text, "issues": issues_value(&bundle::lint(name, &l.text)),
+            "yaml": l.text, "issues": issues_value(&bundle::lint_with(name, &l.text, &adapters)),
             "appliedTo": apply::applied_to(w.data_dir, name),
         });
         if b.memory_off {
@@ -138,6 +142,7 @@ pub fn save(
     dry_run: bool,
 ) -> Result<Value, OpError> {
     with_world(host, |w| {
+        let adapters = Registry::load(Some(w.data_dir));
         if let Some(dir) = from_folder {
             let base = bundle_store::edit_from_folder(Path::new(dir))?;
             edit = Edit {
@@ -155,7 +160,7 @@ pub fn save(
         }
         let done = bundle_store::save(w.roots, name, &edit, create, dry_run)?;
         let path = fsx::display(&done.path);
-        let issues = bundle::lint(name, &done.after);
+        let issues = bundle::lint_with(name, &done.after, &adapters);
         let step = json!({
             "op": if create { "create" } else { "update" }, "path": path,
             "detail": if create { format!("write the new bundle {name}") } else { format!("change bundle {name}") },
@@ -297,6 +302,36 @@ pub fn leave_out(
         &leave_out::Args {
             op: op_kind,
             target,
+            cwd: Path::new(cwd),
+            dry_run,
+        },
+    )
+}
+
+pub fn plugin_switch(
+    host: &dyn Host,
+    op_kind: Switch,
+    id: &str,
+    cwd: Option<&str>,
+    dry_run: bool,
+) -> Result<Value, OpError> {
+    let cwd = cwd.ok_or_else(|| {
+        OpError::usage("cwd is required: a plugin is turned off or on per folder")
+    })?;
+    let home = host
+        .home_dir()
+        .ok_or_else(|| OpError::failed("no_home", "home directory could not be resolved"))?;
+    let data = host.data_dir().ok_or_else(|| {
+        OpError::failed("no_data_dir", "the data directory could not be resolved")
+    })?;
+    plugin_switch::run(
+        &plugin_switch::World {
+            claude_home: &home.join(".claude"),
+            data_dir: &data,
+        },
+        &plugin_switch::Args {
+            op: op_kind,
+            id,
             cwd: Path::new(cwd),
             dry_run,
         },

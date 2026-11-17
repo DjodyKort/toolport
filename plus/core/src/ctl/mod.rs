@@ -13,6 +13,7 @@ mod context;
 mod flags;
 mod mcp;
 mod output;
+mod plugins;
 mod policy;
 mod secret;
 mod server;
@@ -240,6 +241,16 @@ pub const COMMANDS: &[Command] = &[
         &["context", "leave-out"],
         "Leave a CLAUDE.md or rule out of a folder, or turn auto memory off there (add|rm <path> or --memory, --cwd, --dry-run)",
         context::leave_out,
+    ),
+    cmd(
+        &["plugins", "off"],
+        "Turn a plugin off in one folder: enabledPlugins in .claude/settings.local.json, undone by `plugins on` (<id>, --cwd, --dry-run)",
+        plugins::off,
+    ),
+    cmd(
+        &["plugins", "on"],
+        "Turn a plugin back on in a folder: removes the entry `plugins off` wrote (<id>, --cwd, --dry-run)",
+        plugins::on,
     ),
     cmd(
         &["mcp"],

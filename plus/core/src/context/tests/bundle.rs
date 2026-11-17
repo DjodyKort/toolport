@@ -60,13 +60,16 @@ fn lint_reports_unknown_keys_and_unknown_plugins_and_edit_keeps_them() {
     assert_eq!(
         keys,
         [
+            "plugins.config.tools-pack@tools-market",
             "extra",
-            "skills.future",
-            "plugins.config.tools-pack@tools-market"
+            "skills.future"
         ]
     );
-    assert!(issues.iter().all(|i| i.level == "warning"));
-    assert!(issues[2].message.contains("not applied any more"));
+    assert_eq!(issues[0].level, "error");
+    assert!(issues[0]
+        .message
+        .contains("no adapter for tools-pack@tools-market"));
+    assert!(issues[1..].iter().all(|i| i.level == "warning"));
     let edit = Edit {
         plugins_off: list(&["other@market"]),
         ..Edit::default()
