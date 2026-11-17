@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "compression",
+    "enable",
+    "--provider",
+    "parsec",
+    "--accept-egress",
+    "headroom",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "compression enable",
+    "error": {
+      "code": "usage",
+      "message": "parsec has a closed engine and sends code off this machine: pass --accept-egress parsec to accept that"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["compression", "hook", "rtk"],
+  "envelope": {
+    "command": "compression hook",
+    "error": {
+      "code": "usage",
+      "message": "usage: toolportctl compression hook <provider> -- <command...>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

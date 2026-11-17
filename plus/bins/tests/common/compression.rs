@@ -80,3 +80,21 @@ pub fn fake_proxy(_world: &World) {
         }
     });
 }
+
+/// Claude settings with a foreign rtk hook, an unrelated hook and a setting Toolport must not touch.
+pub fn rtk_home(world: &World) {
+    let dir = world.home.join(".claude");
+    std::fs::create_dir_all(&dir).unwrap();
+    let settings = json!({
+        "theme": "dark",
+        "hooks": {"PreToolUse": [
+            {"matcher": "Bash", "hooks": [{"type": "command", "command": "rtk hook claude"}]},
+            {"matcher": "Write", "hooks": [{"type": "command", "command": "echo unrelated"}]}
+        ]}
+    });
+    std::fs::write(
+        dir.join("settings.json"),
+        serde_json::to_string_pretty(&settings).unwrap(),
+    )
+    .unwrap();
+}

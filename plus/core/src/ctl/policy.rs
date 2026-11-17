@@ -25,7 +25,7 @@ use super::skills_repo;
 use super::skills_state;
 use super::skills_taps;
 use super::styles;
-use super::{compression, compression_cfg};
+use super::{compression, compression_cfg, compression_hooks};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
@@ -310,6 +310,11 @@ pub(super) const SUBS: &[Sub] = &[
     sub("compression proxy", "up", "Start the local compression proxy"),
     sub("compression proxy", "down", "Stop the local compression proxy"),
     sub("compression proxy", "restart", "Stop and start the local compression proxy"),
+    sub("compression hooks", "status", "Show the hook entries, whether they are wrapped, and the counted calls"),
+    sub("compression hooks", "apply", "Wrap the existing rtk and read-once entries (--provider, --dry-run)"),
+    sub("compression hooks", "undo", "Restore the wrapped entries exactly (--provider, --dry-run)"),
+    sub("compression hooks", "pause", "Make the wrapped entries answer nothing until resumed"),
+    sub("compression hooks", "resume", "Let the wrapped entries answer again"),
     sub("compression ledger", "summary", "Summarise the token-savings ledger (--provider, --since)"),
     sub("compression ledger", "record", "Append a savings record to the ledger (--provider, --before, --after, --source, --session)"),
     sub("mcp", "call", "Run one self-management tool in-process (<tool>, --args, --args-stdin)"),
@@ -588,7 +593,7 @@ pub(super) const ROWS: &[Row] = &[
         .skip("removes generated files; its --dry-run is a golden step"),
     row("compression set-provider", W)
         .dry()
-        .spec(&[&compression_cfg::DRY])
+        .spec(&[&compression_cfg::SET_PROVIDER])
         .args(&[req("provider")])
         .skip("switches the provider; its --dry-run is a golden step"),
     row("compression use", W)
@@ -639,6 +644,22 @@ pub(super) const ROWS: &[Row] = &[
     row("compression proxy restart", W)
         .needs(&[Needs::LongRunning])
         .skip("restarts a process; the no-engine run is a golden step"),
+    row("compression hooks status", R),
+    row("compression hooks apply", W)
+        .dry()
+        .spec(&[&compression_hooks::HOOKS])
+        .skip("edits the hook entries of Claude settings; plus_ctl_contract runs it in a scratch home"),
+    row("compression hooks undo", W)
+        .dry()
+        .spec(&[&compression_hooks::HOOKS])
+        .skip("restores the hook entries of Claude settings; plus_ctl_contract runs it in a scratch home"),
+    row("compression hooks pause", W).skip("records a pause in the hooks ledger; plus_ctl_contract step"),
+    row("compression hooks resume", W).skip("ends a pause in the hooks ledger; plus_ctl_contract step"),
+    row("compression hook", W)
+        .needs(&[Needs::TerminalOnly])
+        .terminal()
+        .args(&[many("command")])
+        .skip("run by Claude Code with the hook payload on stdin; unit tests cover the wrapper"),
     row("compression ledger summary", R).spec(&[&compression::LEDGER_SUMMARY]),
     row("compression ledger record", W)
         .spec(&[&compression::LEDGER_RECORD])

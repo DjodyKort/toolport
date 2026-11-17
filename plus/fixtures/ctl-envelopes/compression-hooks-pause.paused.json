@@ -1,0 +1,79 @@
+{
+  "argv": ["compression", "hooks", "status"],
+  "envelope": {
+    "command": "compression hooks",
+    "data": {
+      "cannotTell": "Counts hook calls, latency and how often the hook answered. It cannot see the size of the tool output a rewrite later saves; that needs the billed measurement in `compression verify`.",
+      "counters": [
+        {
+          "answered": 0,
+          "basis": "mechanical",
+          "calls": 0,
+          "failed": 0,
+          "firstCall": null,
+          "lastCall": null,
+          "maxLatencyMs": null,
+          "medianLatencyMs": null,
+          "provider": "rtk"
+        },
+        {
+          "answered": 0,
+          "basis": "mechanical",
+          "calls": 0,
+          "failed": 0,
+          "firstCall": null,
+          "lastCall": null,
+          "maxLatencyMs": null,
+          "medianLatencyMs": null,
+          "provider": "read-once"
+        }
+      ],
+      "entries": [],
+      "epochs": 1,
+      "paused": true,
+      "pausedSince": "<TIME>",
+      "trust": [
+        {
+          "provider": "headroom",
+          "trust": {
+            "closedEngine": false,
+            "installsGlobalHooks": false,
+            "needsEgressConsent": false,
+            "sendsCodeOffMachine": false
+          }
+        },
+        {
+          "provider": "rtk-only",
+          "trust": {
+            "closedEngine": false,
+            "installsGlobalHooks": true,
+            "needsEgressConsent": false,
+            "sendsCodeOffMachine": false
+          }
+        },
+        {
+          "provider": "parsec",
+          "trust": {
+            "closedEngine": true,
+            "installsGlobalHooks": true,
+            "needsEgressConsent": true,
+            "sendsCodeOffMachine": true
+          }
+        },
+        {
+          "provider": "none",
+          "trust": {
+            "closedEngine": false,
+            "installsGlobalHooks": false,
+            "needsEgressConsent": false,
+            "sendsCodeOffMachine": false
+          }
+        }
+      ],
+      "wrapped": 0
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

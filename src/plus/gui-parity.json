@@ -329,6 +329,16 @@
       "route": "compression",
       "status": "planned",
       "summary": "Start, stop and restart the local proxy (proxy up, down, restart)"
+    },
+    "compression.hooks": {
+      "route": "compression",
+      "status": "planned",
+      "summary": "The rtk and read-once hook entries: wrapped or not, counted calls and latency, apply and Undo, pause and resume (hooks status, apply, undo, pause, resume)"
+    },
+    "compression.hook-wrapper": {
+      "route": "compression",
+      "status": "planned",
+      "summary": "The wrapper a hook entry runs; terminal only, never started from the screen (hook)"
     }
   },
   "owners": {
@@ -852,6 +862,36 @@
       "route": "compression",
       "action": "compression.proxy",
       "surface": "screen"
+    },
+    "compression hooks status": {
+      "route": "compression",
+      "action": "compression.hooks",
+      "surface": "screen"
+    },
+    "compression hooks apply": {
+      "route": "compression",
+      "action": "compression.hooks",
+      "surface": "screen"
+    },
+    "compression hooks undo": {
+      "route": "compression",
+      "action": "compression.hooks",
+      "surface": "screen"
+    },
+    "compression hooks pause": {
+      "route": "compression",
+      "action": "compression.hooks",
+      "surface": "screen"
+    },
+    "compression hooks resume": {
+      "route": "compression",
+      "action": "compression.hooks",
+      "surface": "screen"
+    },
+    "compression hook": {
+      "route": "compression",
+      "action": "compression.hook-wrapper",
+      "surface": "terminal"
     }
   },
   "tools": {

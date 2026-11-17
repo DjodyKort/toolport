@@ -1052,6 +1052,12 @@ const CASES: &[Case] = &[
                 "compression_enable",
                 r#"{"port":"29213","dry_run":false,"confirm":true}"#,
             ),
+            fails(
+                "parsec",
+                "invalid_arguments",
+                "compression_enable",
+                r#"{"provider":"parsec","dry_run":false,"confirm":true}"#,
+            ),
             write(
                 "apply",
                 "compression_enable",

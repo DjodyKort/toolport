@@ -1,0 +1,28 @@
+{
+  "argv": ["compression", "hooks", "apply", "--dry-run"],
+  "envelope": {
+    "command": "compression hooks",
+    "data": {
+      "dryRun": true,
+      "rows": [
+        {
+          "action": "would wrap",
+          "command": "rtk hook claude",
+          "file": "<WORLD>/home/.claude/settings.json",
+          "provider": "rtk",
+          "state": "foreign"
+        },
+        {
+          "action": "none to wrap",
+          "command": null,
+          "file": "<WORLD>/home/.claude/settings.json",
+          "provider": "read-once",
+          "state": "absent"
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

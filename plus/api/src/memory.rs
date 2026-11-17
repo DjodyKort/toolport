@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -742,6 +742,43 @@ pub struct MemoryHost {
     pub http: ScriptedHttp,
     pub auth: ScriptedAuth,
     pub now: Cell<i64>,
+    /// The settings files `SettingsStore` reports; they are read and written as plain files.
+    pub settings_paths: Vec<PathBuf>,
+}
+
+impl crate::SettingsStore for MemoryHost {
+    fn claude_settings_paths(&self) -> Vec<PathBuf> {
+        self.settings_paths.clone()
+    }
+
+    fn read_settings(&self, path: &Path) -> Result<(Value, Option<String>), String> {
+        match std::fs::read_to_string(path) {
+            Ok(text) => serde_json::from_str(&text)
+                .map(|value| (value, Some(text)))
+                .map_err(|e| e.to_string()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                Ok((Value::Object(Map::new()), None))
+            }
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    fn write_hooks(&self, path: &Path, original: Option<&str>, root: &Value) -> Result<(), String> {
+        let mut current: Value = match original {
+            Some(text) => serde_json::from_str(text).map_err(|e| e.to_string())?,
+            None => Value::Object(Map::new()),
+        };
+        match root.get("hooks") {
+            Some(hooks) => current["hooks"] = hooks.clone(),
+            None => {
+                if let Some(map) = current.as_object_mut() {
+                    map.remove("hooks");
+                }
+            }
+        }
+        std::fs::write(path, serde_json::to_string_pretty(&current).unwrap())
+            .map_err(|e| e.to_string())
+    }
 }
 
 impl RegistryAccess for MemoryHost {

@@ -10,6 +10,7 @@ use crate::compression::manage::{
     self, parse_mode, parse_provider, parse_telemetry, with_system, CmdError, EnableReq, Kind,
     SealReq,
 };
+use crate::compression::model::ProviderName;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use toolport_plus_api::Host;
@@ -50,11 +51,28 @@ pub(super) fn status(host: &dyn Host, _args: &Value) -> Outcome {
     with_system(host, |cx| Ok(manage::status(cx)?.data))
 }
 
+fn refuse_egress(provider: Option<ProviderName>) -> Result<(), ToolError> {
+    match provider {
+        Some(p) if crate::compression::hooks::trust_of(p).needs_egress_consent() => {
+            Err(ToolError::new(
+                "invalid_arguments",
+                format!(
+                    "{0} has a closed engine and sends code off this machine: accept that with toolportctl compression enable --provider {0} --accept-egress {0}",
+                    p.as_str()
+                ),
+            ))
+        }
+        _ => Ok(()),
+    }
+}
+
 pub(super) fn enable(host: &dyn Host, args: &Value) -> Outcome {
+    let provider = str_nonempty(args, "provider")
+        .map(parse_provider)
+        .transpose()?;
+    refuse_egress(provider)?;
     let req = EnableReq {
-        provider: str_nonempty(args, "provider")
-            .map(parse_provider)
-            .transpose()?,
+        provider,
         port: port(args)?,
         telemetry: str_nonempty(args, "telemetry")
             .map(parse_telemetry)
@@ -74,6 +92,7 @@ pub(super) fn disable(host: &dyn Host, args: &Value) -> Outcome {
 
 pub(super) fn set_provider(host: &dyn Host, args: &Value) -> Outcome {
     let provider = parse_provider(required(args, "provider")?)?;
+    refuse_egress(Some(provider))?;
     with_system(host, |cx| {
         Ok(manage::set_provider(cx, provider, dry_run(args))?)
     })

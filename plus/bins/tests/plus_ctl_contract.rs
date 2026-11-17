@@ -17,7 +17,7 @@ use serde_json::{json, Value};
 use toolport_plus::ctl::{registry, rows, Smoke, Tier, COMMANDS, SCHEMA_VERSION};
 
 mod common;
-use common::compression::{fake_proxy, transcripts};
+use common::compression::{fake_proxy, rtk_home, transcripts};
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
@@ -1373,6 +1373,57 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "compression hooks status",
+        &[
+            hook("home", rtk_home),
+            read("", &["compression", "hooks", "status"]),
+        ],
+    ),
+    case(
+        "compression hooks apply",
+        &[
+            hook("home", rtk_home),
+            read("preview", &["compression", "hooks", "apply", "--dry-run"]),
+            apply("apply", &["compression", "hooks", "apply"]),
+            apply("again", &["compression", "hooks", "apply"]),
+            read("after", &["compression", "hooks", "status"]),
+            usage(
+                "unknown-provider",
+                &["compression", "hooks", "apply", "--provider", "nope"],
+            ),
+        ],
+    ),
+    case(
+        "compression hooks undo",
+        &[
+            hook("home", rtk_home),
+            setup("setup", &["compression", "hooks", "apply"]),
+            read("preview", &["compression", "hooks", "undo", "--dry-run"]),
+            apply("apply", &["compression", "hooks", "undo"]),
+            read("after", &["compression", "hooks", "status"]),
+        ],
+    ),
+    case(
+        "compression hooks pause",
+        &[
+            apply("pause", &["compression", "hooks", "pause"]),
+            apply("again", &["compression", "hooks", "pause"]),
+            read("paused", &["compression", "hooks", "status"]),
+        ],
+    ),
+    case(
+        "compression hooks resume",
+        &[
+            setup("setup", &["compression", "hooks", "pause"]),
+            apply("apply", &["compression", "hooks", "resume"]),
+            apply("again", &["compression", "hooks", "resume"]),
+        ],
+    ),
+    case(
+        "compression hook",
+        &[usage("usage", &["compression", "hook", "rtk"])],
+    ),
+    case(
         "compression status",
         &[read("", &["compression", "status"])],
     ),
@@ -1407,6 +1458,45 @@ const CASES: &[Case] = &[
             apply(
                 "apply",
                 &["compression", "enable", "--provider", "rtk-only"],
+            ),
+            usage(
+                "parsec-refused",
+                &["compression", "enable", "--provider", "parsec", "--dry-run"],
+            ),
+            usage(
+                "parsec-wrong-name",
+                &[
+                    "compression",
+                    "enable",
+                    "--provider",
+                    "parsec",
+                    "--accept-egress",
+                    "headroom",
+                    "--dry-run",
+                ],
+            ),
+            read(
+                "parsec-preview",
+                &[
+                    "compression",
+                    "enable",
+                    "--provider",
+                    "parsec",
+                    "--accept-egress",
+                    "parsec",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "parsec-apply",
+                &[
+                    "compression",
+                    "enable",
+                    "--provider",
+                    "parsec",
+                    "--accept-egress",
+                    "parsec",
+                ],
             ),
         ],
     ),

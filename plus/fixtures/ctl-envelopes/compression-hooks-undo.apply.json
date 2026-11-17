@@ -1,0 +1,19 @@
+{
+  "argv": ["compression", "hooks", "undo"],
+  "envelope": {
+    "command": "compression hooks",
+    "data": {
+      "dryRun": false,
+      "rows": [
+        {
+          "action": "restored",
+          "file": "<WORLD>/home/.claude/settings.json",
+          "provider": "rtk"
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

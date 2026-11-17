@@ -1,0 +1,38 @@
+{
+  "argv": [
+    "compression",
+    "enable",
+    "--provider",
+    "parsec",
+    "--accept-egress",
+    "parsec",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "compression enable",
+    "data": {
+      "actions": ["would save config (provider=parsec)"],
+      "adopted": null,
+      "dryRun": true,
+      "nextSteps": [
+        "verify: toolportctl compression status / doctor   (MCP entry already registered)"
+      ],
+      "preset": {
+        "mode": "cache",
+        "name": "interactive",
+        "port": 8787,
+        "savingsProfile": null
+      },
+      "provider": "parsec",
+      "removed": [],
+      "runtime": "plugin",
+      "warnings": [
+        "parsec is a Claude Code plugin; install and enable it with `claude plugin`, Toolport+ does not drive it"
+      ],
+      "written": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

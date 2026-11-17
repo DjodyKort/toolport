@@ -12,6 +12,7 @@ mod commands;
 mod commands_json;
 pub(crate) mod compression;
 mod compression_cfg;
+mod compression_hooks;
 mod context;
 mod flags;
 mod library;
@@ -522,6 +523,16 @@ pub const COMMANDS: &[Command] = &[
         &["compression", "verify"],
         "Check provider health, pin, shims and measure cache behaviour",
         compression::verify,
+    ),
+    cmd(
+        &["compression", "hooks"],
+        "Own the rtk and read-once hook entries: status apply undo pause resume (--dry-run, --provider)",
+        compression_hooks::hooks,
+    ),
+    cmd(
+        &["compression", "hook"],
+        "The wrapper a hook entry runs: <provider> -- <command...> (counts the call, passes the answer through)",
+        compression_hooks::hook,
     ),
     cmd(
         &["compression", "ledger"],

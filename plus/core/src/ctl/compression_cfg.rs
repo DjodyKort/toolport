@@ -37,9 +37,11 @@ pub(super) const ENABLE: Spec = spec(&[
     value("--telemetry"),
     value("--preset"),
     value("--mode"),
+    value("--accept-egress"),
     switch("--dry-run"),
 ]);
 pub(super) const DISABLE: Spec = spec(&[switch("--teardown"), switch("--dry-run")]);
+pub(super) const SET_PROVIDER: Spec = spec(&[switch("--dry-run"), value("--accept-egress")]);
 pub(super) const DRY: Spec = spec(&[switch("--dry-run")]);
 pub(super) const SYNC: Spec = spec(&[value("--mcpm-root"), switch("--dry-run")]);
 pub(super) const PIN: Spec = spec(&[
@@ -108,11 +110,37 @@ fn no_operands(flags: &super::flags::Flags) -> Result<(), CtlError> {
     super::output::no_args(flags.operands())
 }
 
+fn consent(
+    cx: &Ctx,
+    provider: Option<ProviderName>,
+    flags: &super::flags::Flags,
+) -> Result<(), CtlError> {
+    let Some(provider) = provider else {
+        return Ok(());
+    };
+    if !crate::compression::hooks::trust_of(provider).needs_egress_consent() {
+        return Ok(());
+    }
+    let name = provider.as_str();
+    if flags.one("--accept-egress") != Some(name) {
+        return Err(CtlError::usage(format!(
+            "{name} has a closed engine and sends code off this machine: pass --accept-egress {name} to accept that"
+        )));
+    }
+    if !flags.on("--dry-run") {
+        crate::compression::hooks::record_egress_consent(cx.paths, provider)
+            .map_err(|e| CtlError::failed("ledger_write", e))?;
+    }
+    Ok(())
+}
+
 pub(super) fn enable_with(cx: &mut Ctx, rest: &[String]) -> Result<Output, CtlError> {
     let flags = ENABLE.parse(rest)?;
     no_operands(&flags)?;
+    let provider = flags.one("--provider").map(parse_provider).transpose()?;
+    consent(cx, provider, &flags)?;
     let req = EnableReq {
-        provider: flags.one("--provider").map(parse_provider).transpose()?,
+        provider,
         port: flags.number::<u16>("--port")?,
         telemetry: flags.one("--telemetry").map(parse_telemetry).transpose()?,
         preset: flags.one("--preset").map(String::from),
@@ -158,12 +186,13 @@ pub fn disable(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub(super) fn set_provider_with(cx: &mut Ctx, rest: &[String]) -> Result<Output, CtlError> {
-    let flags = DRY.parse(rest)?;
+    let flags = SET_PROVIDER.parse(rest)?;
     let name = flags.single(&format!(
         "set-provider needs a provider ({})",
         ProviderName::ALL.map(ProviderName::as_str).join(", ")
     ))?;
     let provider = parse_provider(name)?;
+    consent(cx, Some(provider), &flags)?;
     let data = manage::set_provider(cx, provider, flags.on("--dry-run"))?;
     let mut out = vec![format!("Switching provider \u{2192} {}", provider.as_str())];
     report(&data, &mut out);

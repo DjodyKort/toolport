@@ -5,6 +5,7 @@
 pub mod apply;
 pub mod capability;
 pub mod engine;
+pub mod hooks;
 pub mod launch;
 pub mod ledger;
 pub mod legacy;

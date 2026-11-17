@@ -1,6 +1,6 @@
 //! Implements the `toolport-plus-api` traits over upstream items.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 use toolport_plus_api::{
@@ -545,6 +545,20 @@ impl HostEnv for HostAdapter {
         "https://toolport.app/"
             .parse()
             .is_ok_and(|uri| crate::seam::egress_check(&uri).is_err())
+    }
+}
+
+impl toolport_plus_api::SettingsStore for HostAdapter {
+    fn claude_settings_paths(&self) -> Vec<PathBuf> {
+        crate::clients::claude_settings_paths()
+    }
+
+    fn read_settings(&self, path: &Path) -> Result<(Value, Option<String>), String> {
+        crate::clients::read_settings_json(path)
+    }
+
+    fn write_hooks(&self, path: &Path, original: Option<&str>, root: &Value) -> Result<(), String> {
+        crate::clients::write_settings_json(path, original, root)
     }
 }
 

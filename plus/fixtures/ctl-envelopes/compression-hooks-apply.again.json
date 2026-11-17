@@ -1,0 +1,28 @@
+{
+  "argv": ["compression", "hooks", "apply"],
+  "envelope": {
+    "command": "compression hooks",
+    "data": {
+      "dryRun": false,
+      "rows": [
+        {
+          "action": "kept",
+          "command": "toolportctl compression hook rtk -- /bin/sh -c 'rtk hook claude'",
+          "file": "<WORLD>/home/.claude/settings.json",
+          "provider": "rtk",
+          "state": "ours"
+        },
+        {
+          "action": "none to wrap",
+          "command": null,
+          "file": "<WORLD>/home/.claude/settings.json",
+          "provider": "read-once",
+          "state": "absent"
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
