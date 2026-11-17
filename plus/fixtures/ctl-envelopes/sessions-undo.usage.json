@@ -1,0 +1,13 @@
+{
+  "argv": ["sessions", "undo", "a", "b"],
+  "envelope": {
+    "command": "sessions undo",
+    "error": {
+      "code": "usage",
+      "message": "usage: sessions undo [<id>] [--cwd <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

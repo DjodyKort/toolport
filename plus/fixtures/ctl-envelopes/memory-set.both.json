@@ -1,0 +1,13 @@
+{
+  "argv": ["memory", "set", "on", "--cwd", "{home}/proj", "--global"],
+  "envelope": {
+    "command": "memory set",
+    "error": {
+      "code": "usage",
+      "message": "usage: memory set default|on|off (--cwd <dir> | --global) [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

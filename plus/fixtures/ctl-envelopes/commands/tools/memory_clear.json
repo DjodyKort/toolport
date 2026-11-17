@@ -1,0 +1,7 @@
+{
+  "command": "memory clear",
+  "dryRun": "none",
+  "name": "memory_clear",
+  "tier": "read",
+  "toolTier": 1
+}

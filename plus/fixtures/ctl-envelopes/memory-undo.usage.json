@@ -1,0 +1,13 @@
+{
+  "argv": ["memory", "undo", "a", "b"],
+  "envelope": {
+    "command": "memory undo",
+    "error": {
+      "code": "usage",
+      "message": "usage: memory undo [<id>] [--cwd <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

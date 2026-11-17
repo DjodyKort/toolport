@@ -1,0 +1,62 @@
+{
+  "argv": ["sessions", "clear", "--cwd", "{home}/proj", "--older-than", "7", "--dry-run"],
+  "envelope": {
+    "command": "sessions clear",
+    "data": {
+      "confirm": null,
+      "cwd": "<WORLD>/home/proj",
+      "dryRun": true,
+      "name": "proj",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "1 session(s), 18 bytes, to Toolport's trash; kept 30 days",
+            "op": "move",
+            "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj"
+          },
+          {
+            "detail": "1 session(s), 8 bytes, to Toolport's trash; kept 30 days",
+            "op": "move",
+            "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj-wt"
+          }
+        ],
+        "summary": "Clear 2 session(s) of proj",
+        "undo": "toolportctl sessions undo --cwd <WORLD>/home/proj",
+        "warnings": [
+          "Sessions are moved, never copied, so --resume <id> still finds each one exactly once",
+          "Prompt history, the project entry in ~/.claude.json and per-session task and debug folders are left alone"
+        ]
+      },
+      "result": null,
+      "root": "<WORLD>/home/proj",
+      "sessions": [
+        {
+          "ageDays": 10,
+          "bytes": 8,
+          "daysLeft": 20,
+          "expiresAt": "<masked>",
+          "expiring": false,
+          "folder": "<WORLD>/home/proj-wt",
+          "id": "sess-wt",
+          "modified": "<TIME>"
+        },
+        {
+          "ageDays": 27,
+          "bytes": 18,
+          "daysLeft": 3,
+          "expiresAt": "<masked>",
+          "expiring": true,
+          "folder": "<WORLD>/home/proj",
+          "id": "sess-old",
+          "modified": "<TIME>"
+        }
+      ],
+      "to": "trash",
+      "totalBytes": 26
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

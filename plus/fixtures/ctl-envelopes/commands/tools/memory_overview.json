@@ -1,0 +1,7 @@
+{
+  "command": "memory overview",
+  "dryRun": "none",
+  "name": "memory_overview",
+  "tier": "read",
+  "toolTier": 1
+}

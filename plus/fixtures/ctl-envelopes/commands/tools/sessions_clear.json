@@ -1,0 +1,7 @@
+{
+  "command": "sessions clear",
+  "dryRun": "none",
+  "name": "sessions_clear",
+  "tier": "read",
+  "toolTier": 1
+}

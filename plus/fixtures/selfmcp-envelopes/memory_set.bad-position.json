@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj",
+    "position": "maybe"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "position must be default, on or off"
+    }
+  },
+  "text": "invalid_arguments: position must be default, on or off",
+  "tool": "memory_set"
+}

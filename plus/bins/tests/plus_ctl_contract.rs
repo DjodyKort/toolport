@@ -162,6 +162,10 @@ fn context_files(world: &World) {
     world.context_files();
 }
 
+fn memory_files(world: &World) {
+    world.memory_files();
+}
+
 fn checks_files(world: &World) {
     world.checks_files();
 }
@@ -1197,6 +1201,273 @@ const CASES: &[Case] = &[
             ),
             apply("on", &["plugins", "on", "ecc@ecc", "--cwd", "{home}/proj"]),
             usage("usage", &["plugins", "on"]),
+        ],
+    ),
+    case(
+        "memory ls",
+        &[
+            hook("files", memory_files),
+            read("folder", &["memory", "ls", "--cwd", "{home}/proj-wt"]),
+            read("all", &["memory", "ls", "--all"]),
+            read("nothing", &["memory", "ls", "--cwd", "{home}/other-gone"]).exit(2),
+            usage("usage", &["memory", "ls", "extra"]),
+        ],
+    ),
+    case(
+        "memory status",
+        &[
+            hook("files", memory_files),
+            read("folder", &["memory", "status", "--cwd", "{home}/proj"]),
+            setup(
+                "switch-off",
+                &["memory", "set", "off", "--cwd", "{home}/proj-wt"],
+            ),
+            read("off", &["memory", "status", "--cwd", "{home}/proj"]),
+            read("by-hand", &["memory", "status", "--cwd", "{home}/other"]),
+            usage("usage", &["memory", "status", "extra"]),
+        ],
+    ),
+    case(
+        "memory set",
+        &[
+            hook("files", memory_files),
+            read(
+                "preview",
+                &[
+                    "memory",
+                    "set",
+                    "off",
+                    "--cwd",
+                    "{home}/proj-wt",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &["memory", "set", "off", "--cwd", "{home}/proj-wt"],
+            ),
+            apply(
+                "default",
+                &["memory", "set", "default", "--cwd", "{home}/proj"],
+            ),
+            read(
+                "global-preview",
+                &["memory", "set", "off", "--global", "--dry-run"],
+            ),
+            apply("global", &["memory", "set", "off", "--global"]),
+            usage("usage", &["memory", "set", "maybe", "--cwd", "{home}/proj"]),
+            usage(
+                "both",
+                &["memory", "set", "on", "--cwd", "{home}/proj", "--global"],
+            ),
+        ],
+    ),
+    case(
+        "memory clear",
+        &[
+            hook("files", memory_files),
+            read(
+                "plan",
+                &["memory", "clear", "--cwd", "{home}/proj-wt", "--dry-run"],
+            ),
+            read(
+                "forever-plan",
+                &[
+                    "memory",
+                    "clear",
+                    "--cwd",
+                    "{home}/proj",
+                    "--forever",
+                    "--dry-run",
+                ],
+            ),
+            read(
+                "forever-unconfirmed",
+                &["memory", "clear", "--cwd", "{home}/proj", "--forever"],
+            )
+            .exit(2),
+            apply(
+                "apply",
+                &["memory", "clear", "--cwd", "{home}/proj", "--also-off"],
+            ),
+            read("nothing", &["memory", "clear", "--cwd", "{home}/proj"]).exit(1),
+            usage("usage", &["memory", "clear"]),
+        ],
+    ),
+    case(
+        "memory undo",
+        &[
+            hook("files", memory_files),
+            read("nothing", &["memory", "undo", "--cwd", "{home}/proj"]).exit(1),
+            setup(
+                "clear",
+                &["memory", "clear", "--cwd", "{home}/proj", "--also-off"],
+            ),
+            read(
+                "preview",
+                &["memory", "undo", "--cwd", "{home}/proj-wt", "--dry-run"],
+            ),
+            apply("apply", &["memory", "undo", "--cwd", "{home}/proj"]),
+            usage("usage", &["memory", "undo", "a", "b"]),
+        ],
+    ),
+    case(
+        "memory overview",
+        &[
+            hook("files", memory_files),
+            read("all", &["memory", "overview", "--all"]),
+            read("folder", &["memory", "overview", "--cwd", "{home}/proj-wt"]),
+            read(
+                "filtered",
+                &[
+                    "memory",
+                    "overview",
+                    "--all",
+                    "--filter",
+                    "memory-off",
+                    "--sort",
+                    "size",
+                ],
+            ),
+            read(
+                "bad-filter",
+                &["memory", "overview", "--all", "--filter", "bogus"],
+            )
+            .exit(2),
+            usage(
+                "both",
+                &["memory", "overview", "--all", "--cwd", "{home}/proj"],
+            ),
+        ],
+    ),
+    case(
+        "sessions ls",
+        &[
+            hook("files", memory_files),
+            read("folder", &["sessions", "ls", "--cwd", "{home}/proj-wt"]),
+            read("all", &["sessions", "ls", "--all"]),
+            usage("usage", &["sessions", "ls", "extra"]),
+        ],
+    ),
+    case(
+        "sessions clear",
+        &[
+            hook("files", memory_files),
+            read(
+                "plan",
+                &[
+                    "sessions",
+                    "clear",
+                    "--cwd",
+                    "{home}/proj",
+                    "--older-than",
+                    "7",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "trash",
+                &[
+                    "sessions",
+                    "clear",
+                    "--cwd",
+                    "{home}/proj",
+                    "--ids",
+                    "sess-new",
+                ],
+            ),
+            apply(
+                "archive",
+                &[
+                    "sessions",
+                    "clear",
+                    "--cwd",
+                    "{home}/proj",
+                    "--ids",
+                    "sess-wt",
+                    "--to",
+                    "archive",
+                ],
+            ),
+            read(
+                "forever-unconfirmed",
+                &[
+                    "sessions",
+                    "clear",
+                    "--cwd",
+                    "{home}/proj",
+                    "--ids",
+                    "sess-old",
+                    "--forever",
+                ],
+            )
+            .exit(2),
+            read(
+                "unknown",
+                &["sessions", "clear", "--cwd", "{home}/proj", "--ids", "nope"],
+            )
+            .exit(1),
+            usage("usage", &["sessions", "clear", "--cwd", "{home}/proj"]),
+        ],
+    ),
+    case(
+        "sessions undo",
+        &[
+            hook("files", memory_files),
+            read("nothing", &["sessions", "undo", "--cwd", "{home}/proj"]).exit(1),
+            setup(
+                "clear",
+                &[
+                    "sessions",
+                    "clear",
+                    "--cwd",
+                    "{home}/proj",
+                    "--ids",
+                    "sess-old,sess-new",
+                ],
+            ),
+            read(
+                "preview",
+                &["sessions", "undo", "--cwd", "{home}/proj", "--dry-run"],
+            ),
+            apply("apply", &["sessions", "undo", "--cwd", "{home}/proj"]),
+            usage("usage", &["sessions", "undo", "a", "b"]),
+        ],
+    ),
+    case(
+        "sessions restore",
+        &[
+            hook("files", memory_files),
+            setup(
+                "archive",
+                &[
+                    "sessions",
+                    "clear",
+                    "--cwd",
+                    "{home}/proj",
+                    "--ids",
+                    "sess-old",
+                    "--to",
+                    "archive",
+                ],
+            ),
+            read("unknown", &["sessions", "restore", "archive-nope"]).exit(1),
+            usage("usage", &["sessions", "restore"]),
+        ],
+    ),
+    case(
+        "sessions retention",
+        &[
+            hook("files", memory_files),
+            read("current", &["sessions", "retention"]),
+            read(
+                "preview",
+                &["sessions", "retention", "--set", "90", "--dry-run"],
+            ),
+            apply("apply", &["sessions", "retention", "--set", "90"]),
+            read("after", &["sessions", "retention"]),
+            read("zero", &["sessions", "retention", "--set", "0"]).exit(2),
+            usage("not-a-number", &["sessions", "retention", "--set", "many"]),
         ],
     ),
     case(

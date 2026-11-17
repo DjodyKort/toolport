@@ -1,0 +1,13 @@
+{
+  "argv": ["sessions", "clear", "--cwd", "{home}/proj", "--ids", "sess-old", "--forever"],
+  "envelope": {
+    "command": "sessions clear",
+    "error": {
+      "code": "usage",
+      "message": "deleting for good needs the repository name typed with --confirm proj"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

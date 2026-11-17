@@ -1,0 +1,84 @@
+{
+  "argv": ["sessions", "ls", "--cwd", "{home}/proj-wt"],
+  "envelope": {
+    "command": "sessions ls",
+    "data": {
+      "archive": [],
+      "cwd": "<WORLD>/home/proj-wt",
+      "folders": [
+        {
+          "bytes": 26,
+          "exists": true,
+          "expiringThisWeek": 1,
+          "oldest": "<TIME>",
+          "path": "<WORLD>/home/proj",
+          "projectDir": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj",
+          "sessions": 2
+        },
+        {
+          "bytes": 8,
+          "exists": true,
+          "expiringThisWeek": 0,
+          "oldest": "<TIME>",
+          "path": "<WORLD>/home/proj-wt",
+          "projectDir": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj-wt",
+          "sessions": 1
+        }
+      ],
+      "name": "proj",
+      "note": "Claude Code keeps one retention value for every project and has no per-repository switch for transcripts",
+      "retention": {
+        "days": 30,
+        "default": 30,
+        "file": "<WORLD>/home/.claude/settings.json",
+        "min": 1,
+        "perRepository": false,
+        "source": "default"
+      },
+      "root": "<WORLD>/home/proj",
+      "scope": "repository",
+      "sessions": [
+        {
+          "ageDays": 1,
+          "bytes": 8,
+          "daysLeft": 29,
+          "expiresAt": "<masked>",
+          "expiring": false,
+          "folder": "<WORLD>/home/proj",
+          "id": "sess-new",
+          "modified": "<TIME>"
+        },
+        {
+          "ageDays": 10,
+          "bytes": 8,
+          "daysLeft": 20,
+          "expiresAt": "<masked>",
+          "expiring": false,
+          "folder": "<WORLD>/home/proj-wt",
+          "id": "sess-wt",
+          "modified": "<TIME>"
+        },
+        {
+          "ageDays": 27,
+          "bytes": 18,
+          "daysLeft": 3,
+          "expiresAt": "<masked>",
+          "expiring": true,
+          "folder": "<WORLD>/home/proj",
+          "id": "sess-old",
+          "modified": "<TIME>"
+        }
+      ],
+      "totals": {
+        "bytes": 34,
+        "count": 3,
+        "expiringThisWeek": 1,
+        "oldest": "<TIME>"
+      },
+      "trash": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

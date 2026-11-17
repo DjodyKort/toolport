@@ -1,0 +1,72 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Any folder of the repository (default: the current folder)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "One row per repository Toolport knows, with the folders that match none",
+      "escalates": false,
+      "hidden": false,
+      "name": "--all",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "choices": ["name", "memory", "sessions", "size", "active"],
+      "effect": "Order of the rows (default: name)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--sort",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "choices": ["memory-off", "has-local-file", "expiring", "large"],
+      "effect": "Keep only the repositories with memory off, a local instruction file, sessions expiring this week or more than 100 MB",
+      "escalates": false,
+      "hidden": false,
+      "name": "--filter",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    }
+  ],
+  "group": "memory",
+  "id": "memory overview",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["memory", "overview"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "One row per repository: auto memory, instruction files and sessions, with the folders that match none (--all, --cwd, --sort, --filter)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["memory_overview"]
+}

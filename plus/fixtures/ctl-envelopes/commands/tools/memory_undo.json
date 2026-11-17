@@ -1,0 +1,7 @@
+{
+  "command": "memory undo",
+  "dryRun": "default-on",
+  "name": "memory_undo",
+  "tier": "write",
+  "toolTier": 2
+}

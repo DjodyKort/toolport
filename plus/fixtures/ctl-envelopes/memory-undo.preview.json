@@ -1,0 +1,29 @@
+{
+  "argv": ["memory", "undo", "--cwd", "{home}/proj-wt", "--dry-run"],
+  "envelope": {
+    "command": "memory undo",
+    "data": {
+      "dryRun": true,
+      "id": "memory-<STAMP>",
+      "name": "proj",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "move 246 bytes back from Toolport's trash",
+            "op": "move",
+            "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory"
+          }
+        ],
+        "summary": "Put back the auto memory of proj",
+        "undo": "toolportctl memory clear --cwd <WORLD>/home/proj",
+        "warnings": ["The switch the clear turned off is put back too"]
+      },
+      "result": null,
+      "root": "<WORLD>/home/proj"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

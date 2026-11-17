@@ -10,6 +10,7 @@ mod compression_tests;
 mod content;
 mod context;
 mod library;
+mod memory;
 pub mod register;
 mod servers;
 mod skills;

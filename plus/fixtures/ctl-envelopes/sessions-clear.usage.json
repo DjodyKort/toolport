@@ -1,0 +1,13 @@
+{
+  "argv": ["sessions", "clear", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "sessions clear",
+    "error": {
+      "code": "usage",
+      "message": "give --ids or --older-than"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

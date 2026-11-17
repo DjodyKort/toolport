@@ -1,0 +1,75 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj"
+  },
+  "isError": false,
+  "result": {
+    "filter": null,
+    "filters": ["memory-off", "has-local-file", "expiring", "large"],
+    "global": {
+      "enabled": null,
+      "file": "<WORLD>/home/.claude/settings.json"
+    },
+    "other": null,
+    "retention": {
+      "days": 30,
+      "default": 30,
+      "file": "<WORLD>/home/.claude/settings.json",
+      "min": 1,
+      "perRepository": false,
+      "source": "default"
+    },
+    "rows": [
+      {
+        "bytes": 280,
+        "instructions": {
+          "basis": "estimate",
+          "excluded": 0,
+          "files": 2,
+          "flags": [],
+          "imports": 0,
+          "localFiles": 0,
+          "tokens": 30
+        },
+        "key": "<WORLD-SLUG>-home-proj",
+        "lastActive": "<TIME>",
+        "memory": {
+          "bytes": 246,
+          "custom": false,
+          "directory": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory",
+          "enabled": true,
+          "exists": true,
+          "files": 3,
+          "lastWritten": "<TIME>",
+          "locked": false,
+          "setBy": "default",
+          "switch": "default"
+        },
+        "name": "proj",
+        "root": "<WORLD>/home/proj",
+        "sessions": {
+          "bytes": 34,
+          "count": 3,
+          "expiringThisWeek": 1,
+          "oldest": "<TIME>"
+        },
+        "worktrees": 1
+      }
+    ],
+    "scope": "repository",
+    "sort": "name",
+    "sorts": ["name", "memory", "sessions", "size", "active"],
+    "staleDays": 90,
+    "totals": {
+      "asOf": "<TIME>",
+      "bytes": 280,
+      "expiringThisWeek": 1,
+      "memoryBytes": 246,
+      "memoryFiles": 3,
+      "repositories": 1,
+      "sessionBytes": 34,
+      "sessions": 3
+    }
+  },
+  "tool": "memory_overview"
+}

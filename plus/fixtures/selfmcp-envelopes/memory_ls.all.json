@@ -1,0 +1,48 @@
+{
+  "arguments": {
+    "all": true
+  },
+  "isError": false,
+  "result": {
+    "global": {
+      "default": true,
+      "enabled": null,
+      "file": "<WORLD>/home/.claude/settings.json",
+      "overrides": 1
+    },
+    "otherFolders": [],
+    "repositories": [
+      {
+        "bytes": 12,
+        "custom": false,
+        "directory": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-other/memory",
+        "enabled": false,
+        "exists": true,
+        "files": 1,
+        "key": "<WORLD-SLUG>-home-other",
+        "lastWritten": "<TIME>",
+        "name": "other",
+        "ownSwitch": true,
+        "root": "<WORLD>/home/other",
+        "setBy": "repository",
+        "switch": "off"
+      },
+      {
+        "bytes": 246,
+        "custom": false,
+        "directory": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory",
+        "enabled": true,
+        "exists": true,
+        "files": 3,
+        "key": "<WORLD-SLUG>-home-proj",
+        "lastWritten": "<TIME>",
+        "name": "proj",
+        "ownSwitch": false,
+        "root": "<WORLD>/home/proj",
+        "setBy": "default",
+        "switch": "default"
+      }
+    ]
+  },
+  "tool": "memory_ls"
+}

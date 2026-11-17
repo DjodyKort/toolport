@@ -1,0 +1,13 @@
+{
+  "argv": ["sessions", "clear", "--cwd", "{home}/proj", "--ids", "nope"],
+  "envelope": {
+    "command": "sessions clear",
+    "error": {
+      "code": "not_found",
+      "message": "no session nope in this repository"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

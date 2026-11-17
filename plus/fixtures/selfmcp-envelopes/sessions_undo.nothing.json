@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "nothing of sessions to undo in the trash"
+    }
+  },
+  "text": "not_found: nothing of sessions to undo in the trash",
+  "tool": "sessions_undo"
+}

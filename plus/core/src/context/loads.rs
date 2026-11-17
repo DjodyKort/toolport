@@ -32,6 +32,8 @@ pub struct LoadItem {
     pub left_out_by: Option<&'static str>,
     /// What a measured run's `InstructionsLoaded` log says about the row: `loaded`, `absent` or `mismatch`.
     pub confirmed: Option<&'static str>,
+    /// The file an `@import` row was pulled in by.
+    pub parent: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -152,6 +154,7 @@ fn markdown_files(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
 }
 
 impl InstructionLoads<'_> {
+    #[allow(clippy::too_many_arguments)]
     fn row(
         &self,
         kind: &'static str,
@@ -160,6 +163,7 @@ impl InstructionLoads<'_> {
         text: &str,
         lazy: bool,
         settings: &Settings,
+        parent: Option<&Path>,
     ) -> LoadItem {
         let shown = fsx::display(path);
         let excluded =
@@ -186,6 +190,7 @@ impl InstructionLoads<'_> {
             tokens: (self.count_tokens)(text),
             left_out_by: None,
             confirmed: None,
+            parent: parent.map(fsx::display),
         }
     }
 
@@ -196,6 +201,7 @@ impl InstructionLoads<'_> {
         source: &'static str,
         path: &Path,
         hop: usize,
+        parent: Option<&Path>,
     ) {
         if walk.items.len() >= MAX_ITEMS {
             return;
@@ -208,7 +214,7 @@ impl InstructionLoads<'_> {
             return;
         };
         let lazy = kind == "rule" && has_paths_front_matter(&text);
-        let row = self.row(kind, source, path, &text, lazy, &walk.settings);
+        let row = self.row(kind, source, path, &text, lazy, &walk.settings, parent);
         let followed = row.loaded;
         walk.items.push(row);
         if !followed || hop >= MAX_IMPORT_HOPS {
@@ -221,7 +227,7 @@ impl InstructionLoads<'_> {
                 None if token.starts_with('/') => PathBuf::from(&token),
                 None => base.join(&token),
             };
-            self.push_file(walk, "import", source, &target, hop + 1);
+            self.push_file(walk, "import", source, &target, hop + 1, Some(path));
         }
     }
 }
@@ -246,7 +252,7 @@ impl LoadSource for InstructionLoads<'_> {
             settings,
         };
         if let Some(policy) = self.policy_file {
-            self.push_file(&mut walk, "memory", "policy", policy, 0);
+            self.push_file(&mut walk, "memory", "policy", policy, 0, None);
         }
         self.push_file(
             &mut walk,
@@ -254,11 +260,12 @@ impl LoadSource for InstructionLoads<'_> {
             "user",
             &user_claude.join("CLAUDE.md"),
             0,
+            None,
         );
         let mut rules = Vec::new();
         markdown_files(&user_claude.join("rules"), 0, &mut rules);
         for rule in rules {
-            self.push_file(&mut walk, "rule", "user", &rule, 0);
+            self.push_file(&mut walk, "rule", "user", &rule, 0, None);
         }
         let mut chain: Vec<&Path> = cwd.ancestors().collect();
         chain.reverse();
@@ -268,12 +275,12 @@ impl LoadSource for InstructionLoads<'_> {
                 (".claude/CLAUDE.md", "project"),
                 ("CLAUDE.local.md", "local"),
             ] {
-                self.push_file(&mut walk, "memory", source, &dir.join(file), 0);
+                self.push_file(&mut walk, "memory", source, &dir.join(file), 0, None);
             }
             let mut rules = Vec::new();
             markdown_files(&dir.join(".claude/rules"), 0, &mut rules);
             for rule in rules {
-                self.push_file(&mut walk, "rule", "project", &rule, 0);
+                self.push_file(&mut walk, "rule", "project", &rule, 0, None);
             }
         }
         let mut items = walk.items;
@@ -305,6 +312,7 @@ impl LoadSource for InstructionLoads<'_> {
                 tokens: (self.count_tokens)(&text),
                 left_out_by: None,
                 confirmed: None,
+                parent: None,
             });
         }
         let total_tokens = items.iter().filter(|i| i.loaded).map(|i| i.tokens).sum();

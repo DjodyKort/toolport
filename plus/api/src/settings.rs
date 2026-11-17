@@ -15,4 +15,17 @@ pub trait SettingsStore {
     /// Writes `root["hooks"]` back after a backup of what was there; nothing else changes.
     /// `original` is the text `read_settings` returned.
     fn write_hooks(&self, path: &Path, original: Option<&str>, root: &Value) -> Result<(), String>;
+
+    /// [`write_hooks`](Self::write_hooks) for another top-level key: `root[key]` is written back
+    /// (or removed when `root` has no such key) after a backup, and every other key and comment
+    /// stays as it was. Fails when the key changed since `original` was read.
+    fn write_key(
+        &self,
+        _path: &Path,
+        _original: Option<&str>,
+        _root: &Value,
+        key: &str,
+    ) -> Result<(), String> {
+        Err(format!("this host cannot write the settings key {key}"))
+    }
 }

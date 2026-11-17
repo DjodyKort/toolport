@@ -1,0 +1,13 @@
+{
+  "argv": ["memory", "ls", "--cwd", "{home}/other-gone"],
+  "envelope": {
+    "command": "memory ls",
+    "error": {
+      "code": "usage",
+      "message": "--cwd <WORLD>/home/other-gone does not exist"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

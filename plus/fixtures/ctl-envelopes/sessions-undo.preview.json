@@ -1,0 +1,39 @@
+{
+  "argv": ["sessions", "undo", "--cwd", "{home}/proj", "--dry-run"],
+  "envelope": {
+    "command": "sessions undo",
+    "data": {
+      "dryRun": true,
+      "id": "sessions-<STAMP>",
+      "name": "proj",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "move 8 bytes back",
+            "op": "move",
+            "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/sess-new.jsonl"
+          },
+          {
+            "detail": "move 3 bytes back",
+            "op": "move",
+            "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/sess-old"
+          },
+          {
+            "detail": "move 15 bytes back",
+            "op": "move",
+            "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/sess-old.jsonl"
+          }
+        ],
+        "summary": "Put back 3 session item(s) of proj",
+        "undo": "toolportctl sessions clear --cwd <WORLD>/home/proj",
+        "warnings": []
+      },
+      "result": null,
+      "root": "<WORLD>/home/proj"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

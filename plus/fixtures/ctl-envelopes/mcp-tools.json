@@ -2184,6 +2184,245 @@
           "tier": 2
         },
         {
+          "description": "List the auto memory files Claude Code keeps for a folder's repository (name, size, type, last written), or with all=true every repository's memory with the global default. Every worktree and subfolder of a repository share one memory folder. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "memory_ls",
+          "params": [
+            {
+              "description": "Any folder of the repository; required unless all is true",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "List every repository that keeps memory instead of one",
+              "name": "all",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Everything about one repository's memory and history, read only: whether auto memory is on and what decides it (managed settings, the environment, this repository's switch, the global default), where the memory folder is, the instruction files in the order Claude Code reads them with their estimated tokens and whether they are left out, and the sessions with their size and expiry. Sizes are exact; token counts are estimates",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "memory_status",
+          "params": [
+            {
+              "description": "The folder where Claude Code starts",
+              "name": "cwd",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Set auto memory for a repository to default, on or off by writing autoMemoryEnabled in the git-ignored .claude/settings.local.json at the repository root, or set the global default in ~/.claude/settings.json with global=true. A managed policy wins and refuses the change. Undo is reported in the result. dry_run is on by default: the call previews and writes only with dry_run=false. Takes effect from the next session",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "memory_set",
+          "params": [
+            {
+              "description": "default (no switch of its own), on or off",
+              "name": "position",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Any folder of the repository; leave empty when global is true",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Set the global default instead of one repository",
+              "name": "global",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Plan clearing a repository's auto memory: lists the files, the total, the worktrees that share them and the undo, and changes nothing. An agent does not clear memory; the person does it from Context > This folder, where the folder moves to Toolport's trash for 30 days",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "memory_clear",
+          "params": [
+            {
+              "description": "The folder where Claude Code starts",
+              "name": "cwd",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Plan turning memory off for the repository as well",
+              "name": "also_off",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Put a cleared auto memory back from Toolport's trash (the newest for the folder's repository, or the one called id). dry_run is on by default: the call previews and restores only with dry_run=false. Refuses when the original folder exists again",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "memory_undo",
+          "params": [
+            {
+              "description": "Trash entry, as the clear reported it; the newest when empty",
+              "name": "id",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Any folder of the repository when no id is given",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "One row per repository, read only: auto memory (state, who set it, size), instruction files at launch (count, estimated tokens, flags), sessions (count, size, oldest, how many expire this week) and size on disk, with a row for transcript folders that belong to no known repository and the totals. all=true covers every repository; otherwise the folder's repository",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "memory_overview",
+          "params": [
+            {
+              "description": "Any folder of the repository; required unless all is true",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Every repository",
+              "name": "all",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "name (default), memory, sessions, size or active",
+              "name": "sort",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "memory-off, has-local-file, expiring or large",
+              "name": "filter",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "List a repository's sessions (Claude Code transcripts) with size, age, expiry under the retention period and the folders they come from, or with all=true every repository's totals. Names, sizes and times only: no transcript is opened. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "sessions_ls",
+          "params": [
+            {
+              "description": "Any folder of the repository; required unless all is true",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Totals for every repository",
+              "name": "all",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Plan clearing sessions of a repository by id or by age: lists the sessions and sizes and the undo, and changes nothing. An agent does not clear sessions; the person moves them to Toolport's trash or archive from Context > This folder",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "sessions_clear",
+          "params": [
+            {
+              "description": "The folder where Claude Code starts",
+              "name": "cwd",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Session ids",
+              "name": "ids",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Sessions not written for more than this many days",
+              "name": "older_than_days",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "description": "trash (default) or archive",
+              "name": "to",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Put sessions cleared to Toolport's trash back where they were (the newest for the folder's repository, or the one called id). dry_run is on by default: the call previews and restores only with dry_run=false",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "sessions_undo",
+          "params": [
+            {
+              "description": "Trash entry, as the clear reported it; the newest when empty",
+              "name": "id",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Any folder of the repository when no id is given",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "How long Claude Code keeps sessions (cleanupPeriodDays in the user settings, default 30, at least 1): one value for every project, with no per-repository retention. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "sessions_retention",
+          "params": [],
+          "tier": 1
+        },
+        {
           "description": "List the instruction files a Claude Code session in a folder loads (CLAUDE.md files, rules, imports, auto memory index) with an estimated token cost, which are left out and by whom, and the folder's calibration factor from its last measurement. With measured=true the rows the last measured run's InstructionsLoaded log confirms are marked loaded, absent or mismatch. Skills, plugins, agents and tools are not rows. Read only",
           "dryRunDefault": false,
           "gate": "none",

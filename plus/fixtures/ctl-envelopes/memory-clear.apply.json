@@ -1,0 +1,102 @@
+{
+  "argv": ["memory", "clear", "--cwd", "{home}/proj", "--also-off"],
+  "envelope": {
+    "command": "memory clear",
+    "data": {
+      "alsoOff": true,
+      "confirm": null,
+      "cwd": "<WORLD>/home/proj",
+      "directory": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory",
+      "dryRun": false,
+      "files": [
+        {
+          "bytes": 86,
+          "description": null,
+          "index": true,
+          "modified": "<TIME>",
+          "name": "MEMORY.md",
+          "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory/MEMORY.md",
+          "type": null
+        },
+        {
+          "bytes": 83,
+          "description": "how to test",
+          "index": false,
+          "modified": "<TIME>",
+          "name": "feedback_testing.md",
+          "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory/feedback_testing.md",
+          "type": "feedback"
+        },
+        {
+          "bytes": 77,
+          "description": "who the user is",
+          "index": false,
+          "modified": "<TIME>",
+          "name": "user_role.md",
+          "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory/user_role.md",
+          "type": "user"
+        }
+      ],
+      "forever": false,
+      "name": "proj",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "move 3 file(s), 246 bytes, to Toolport's trash; kept 30 days",
+            "op": "move",
+            "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory"
+          },
+          {
+            "detail": "1 key(s) owned by leave-out",
+            "diff": {
+              "after": "autoMemoryEnabled: false\n",
+              "before": "autoMemoryEnabled: (absent)\n"
+            },
+            "keys": ["autoMemoryEnabled"],
+            "op": "create",
+            "path": "<WORLD>/home/proj/.claude/settings.local.json"
+          },
+          {
+            "detail": "git-ignore .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/proj/.git/info/exclude"
+          },
+          {
+            "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          }
+        ],
+        "summary": "Clear the auto memory of proj",
+        "undo": "toolportctl memory undo memory-<STAMP>",
+        "warnings": [
+          "Undo from the trash works for 30 days",
+          "1 worktree(s) share this memory"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory",
+          "<WORLD>/home/proj/.claude/settings.local.json",
+          "<WORLD>/home/proj/.git/info/exclude"
+        ],
+        "trashId": "memory-<STAMP>",
+        "undo": "toolportctl memory undo memory-<STAMP>"
+      },
+      "root": "<WORLD>/home/proj",
+      "sharedBy": ["<WORLD>/home/proj-wt"],
+      "totals": {
+        "bytes": 246,
+        "count": 3,
+        "lastWritten": "<TIME>",
+        "topicFiles": 2
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

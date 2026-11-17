@@ -1,0 +1,44 @@
+{
+  "argv": ["memory", "set", "off", "--global"],
+  "envelope": {
+    "command": "memory set",
+    "data": {
+      "dryRun": false,
+      "file": "<WORLD>/home/.claude/settings.json",
+      "overrides": 1,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "autoMemoryEnabled in the user settings",
+            "diff": {
+              "after": "autoMemoryEnabled: false\n",
+              "before": "autoMemoryEnabled: (absent)\n"
+            },
+            "keys": ["autoMemoryEnabled"],
+            "op": "create",
+            "path": "<WORLD>/home/.claude/settings.json"
+          }
+        ],
+        "summary": "Set the global auto memory default to off",
+        "undo": "toolportctl memory set default --global",
+        "warnings": [
+          "1 repository has its own switch and keeps it",
+          "Open sessions keep what they loaded; the change applies from the next session"
+        ]
+      },
+      "position": "off",
+      "previous": "default",
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["<WORLD>/home/.claude/settings.json"],
+        "undo": "toolportctl memory set default --global"
+      },
+      "scope": "global"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

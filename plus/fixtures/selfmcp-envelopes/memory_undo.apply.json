@@ -1,0 +1,33 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "id": "memory-<STAMP>"
+  },
+  "isError": false,
+  "result": {
+    "dryRun": false,
+    "id": "memory-<STAMP>",
+    "name": "proj",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "move 246 bytes back from Toolport's trash",
+          "op": "move",
+          "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory"
+        }
+      ],
+      "summary": "Put back the auto memory of proj",
+      "undo": "toolportctl memory clear --cwd <WORLD>/home/proj",
+      "warnings": []
+    },
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": ["<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory"],
+      "undo": "toolportctl memory clear --cwd <WORLD>/home/proj"
+    },
+    "root": "<WORLD>/home/proj"
+  },
+  "tool": "memory_undo"
+}

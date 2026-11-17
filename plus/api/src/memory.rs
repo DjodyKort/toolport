@@ -737,15 +737,25 @@ impl crate::SettingsStore for MemoryHost {
     }
 
     fn write_hooks(&self, path: &Path, original: Option<&str>, root: &Value) -> Result<(), String> {
+        self.write_key(path, original, root, "hooks")
+    }
+
+    fn write_key(
+        &self,
+        path: &Path,
+        original: Option<&str>,
+        root: &Value,
+        key: &str,
+    ) -> Result<(), String> {
         let mut current: Value = match original {
             Some(text) => serde_json::from_str(text).map_err(|e| e.to_string())?,
             None => Value::Object(Map::new()),
         };
-        match root.get("hooks") {
-            Some(hooks) => current["hooks"] = hooks.clone(),
+        match root.get(key) {
+            Some(value) => current[key] = value.clone(),
             None => {
                 if let Some(map) = current.as_object_mut() {
-                    map.remove("hooks");
+                    map.remove(key);
                 }
             }
         }

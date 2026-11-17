@@ -2,7 +2,8 @@ use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
 use super::{
-    backend, compression, content, context, library, servers, skills, sources, tasks, ToolError,
+    backend, compression, content, context, library, memory, servers, skills, sources, tasks,
+    ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -974,6 +975,115 @@ pub const TOOLS: &[ToolDef] = &[
             DRY_ON
         ],
         context::leave_out
+    ),
+    tool!(
+        "memory_ls",
+        1,
+        None,
+        "List the auto memory files Claude Code keeps for a folder's repository (name, size, type, last written), or with all=true every repository's memory with the global default. Every worktree and subfolder of a repository share one memory folder. Read only",
+        [
+            p("cwd", Ty::Str, false, "Any folder of the repository; required unless all is true"),
+            p("all", Ty::Bool, false, "List every repository that keeps memory instead of one")
+        ],
+        memory::ls
+    ),
+    tool!(
+        "memory_status",
+        1,
+        None,
+        "Everything about one repository's memory and history, read only: whether auto memory is on and what decides it (managed settings, the environment, this repository's switch, the global default), where the memory folder is, the instruction files in the order Claude Code reads them with their estimated tokens and whether they are left out, and the sessions with their size and expiry. Sizes are exact; token counts are estimates",
+        [CWD],
+        memory::status
+    ),
+    tool!(
+        "memory_set",
+        2,
+        None,
+        "Set auto memory for a repository to default, on or off by writing autoMemoryEnabled in the git-ignored .claude/settings.local.json at the repository root, or set the global default in ~/.claude/settings.json with global=true. A managed policy wins and refuses the change. Undo is reported in the result. dry_run is on by default: the call previews and writes only with dry_run=false. Takes effect from the next session",
+        [
+            p("position", Ty::Str, true, "default (no switch of its own), on or off"),
+            p("cwd", Ty::Str, false, "Any folder of the repository; leave empty when global is true"),
+            p("global", Ty::Bool, false, "Set the global default instead of one repository"),
+            DRY_ON
+        ],
+        memory::set
+    ),
+    tool!(
+        "memory_clear",
+        1,
+        None,
+        "Plan clearing a repository's auto memory: lists the files, the total, the worktrees that share them and the undo, and changes nothing. An agent does not clear memory; the person does it from Context > This folder, where the folder moves to Toolport's trash for 30 days",
+        [CWD, p("also_off", Ty::Bool, false, "Plan turning memory off for the repository as well")],
+        memory::clear
+    ),
+    tool!(
+        "memory_undo",
+        2,
+        None,
+        "Put a cleared auto memory back from Toolport's trash (the newest for the folder's repository, or the one called id). dry_run is on by default: the call previews and restores only with dry_run=false. Refuses when the original folder exists again",
+        [
+            p("id", Ty::Str, false, "Trash entry, as the clear reported it; the newest when empty"),
+            p("cwd", Ty::Str, false, "Any folder of the repository when no id is given"),
+            DRY_ON
+        ],
+        memory::undo
+    ),
+    tool!(
+        "memory_overview",
+        1,
+        None,
+        "One row per repository, read only: auto memory (state, who set it, size), instruction files at launch (count, estimated tokens, flags), sessions (count, size, oldest, how many expire this week) and size on disk, with a row for transcript folders that belong to no known repository and the totals. all=true covers every repository; otherwise the folder's repository",
+        [
+            p("cwd", Ty::Str, false, "Any folder of the repository; required unless all is true"),
+            p("all", Ty::Bool, false, "Every repository"),
+            p("sort", Ty::Str, false, "name (default), memory, sessions, size or active"),
+            p("filter", Ty::Str, false, "memory-off, has-local-file, expiring or large")
+        ],
+        memory::overview
+    ),
+    tool!(
+        "sessions_ls",
+        1,
+        None,
+        "List a repository's sessions (Claude Code transcripts) with size, age, expiry under the retention period and the folders they come from, or with all=true every repository's totals. Names, sizes and times only: no transcript is opened. Read only",
+        [
+            p("cwd", Ty::Str, false, "Any folder of the repository; required unless all is true"),
+            p("all", Ty::Bool, false, "Totals for every repository")
+        ],
+        memory::sessions_ls
+    ),
+    tool!(
+        "sessions_clear",
+        1,
+        None,
+        "Plan clearing sessions of a repository by id or by age: lists the sessions and sizes and the undo, and changes nothing. An agent does not clear sessions; the person moves them to Toolport's trash or archive from Context > This folder",
+        [
+            CWD,
+            p("ids", Ty::StrList, false, "Session ids"),
+            p("older_than_days", Ty::Int, false, "Sessions not written for more than this many days"),
+            p("to", Ty::Str, false, "trash (default) or archive")
+        ],
+        memory::sessions_clear
+    ),
+    tool!(
+        "sessions_undo",
+        2,
+        None,
+        "Put sessions cleared to Toolport's trash back where they were (the newest for the folder's repository, or the one called id). dry_run is on by default: the call previews and restores only with dry_run=false",
+        [
+            p("id", Ty::Str, false, "Trash entry, as the clear reported it; the newest when empty"),
+            p("cwd", Ty::Str, false, "Any folder of the repository when no id is given"),
+            DRY_ON
+        ],
+        memory::sessions_undo
+    ),
+    tool!(
+        "sessions_retention",
+        1,
+        None,
+        "How long Claude Code keeps sessions (cleanupPeriodDays in the user settings, default 30, at least 1): one value for every project, with no per-repository retention. Read only",
+        [],
+        memory::sessions_retention
     ),
     tool!(
         "context_loads",

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "id": "sessions-<STAMP>"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "sessions-<STAMP> holds sessions, not memory"
+    }
+  },
+  "text": "invalid_arguments: sessions-<STAMP> holds sessions, not memory",
+  "tool": "memory_undo"
+}

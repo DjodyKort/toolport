@@ -1,0 +1,13 @@
+{
+  "argv": ["memory", "overview", "--all", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "memory overview",
+    "error": {
+      "code": "usage",
+      "message": "use --all or --cwd, not both"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

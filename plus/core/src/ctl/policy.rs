@@ -17,6 +17,7 @@ use super::context;
 use super::flags::{switch, value, Flag, Spec};
 use super::library;
 use super::mcp;
+use super::memory;
 use super::plugins;
 use super::secret;
 use super::server;
@@ -414,6 +415,47 @@ pub(super) const ROWS: &[Row] = &[
         .args(&[req("action"), opt("path")])
         .requires(&["--cwd"])
         .skip("writes a folder's settings; its --dry-run is a golden step"),
+    row("memory ls", R).spec(&[&memory::LS]),
+    row("memory status", R).spec(&[&memory::STATUS]),
+    row("memory set", W)
+        .dry()
+        .spec(&[&memory::SET])
+        .args(&[req("position")])
+        .one_of(&[&["--cwd", "--global"]])
+        .skip("writes the switch in a repository's or the user's settings; its --dry-run is a golden step"),
+    row("memory clear", D)
+        .dry()
+        .spec(&[&memory::CLEAR])
+        .requires(&["--cwd"])
+        .skip("moves the memory folder to the trash; its --dry-run is a golden step"),
+    row("memory undo", W)
+        .dry()
+        .spec(&[&memory::UNDO])
+        .args(&[opt("id")])
+        .skip("moves a cleared memory back; its --dry-run is a golden step"),
+    row("memory overview", R).spec(&[&memory::OVERVIEW]),
+    row("sessions ls", R).spec(&[&memory::LS]),
+    row("sessions clear", D)
+        .dry()
+        .spec(&[&memory::SESSIONS_CLEAR])
+        .requires(&["--cwd"])
+        .one_of(&[&["--ids", "--older-than"]])
+        .skip("moves sessions to the trash or archive; its --dry-run is a golden step"),
+    row("sessions undo", W)
+        .dry()
+        .spec(&[&memory::SESSIONS_UNDO])
+        .args(&[opt("id")])
+        .skip("moves cleared sessions back; its --dry-run is a golden step"),
+    row("sessions restore", W)
+        .dry()
+        .spec(&[&memory::RESTORE])
+        .args(&[req("id")])
+        .skip("moves archived sessions back; its --dry-run is a golden step"),
+    row("sessions retention", W)
+        .reads(&["--set"])
+        .dry()
+        .spec(&[&memory::RETENTION])
+        .smoke(&[]),
     row("plugins off", W)
         .dry()
         .spec(&[&plugins::OFF])
@@ -907,6 +949,16 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("context_bundle_undo", W, "context bundle undo").param(),
     maps("context_leave_out", W, "context leave-out").on(),
     maps("context_loads", R, "context loads"),
+    maps("memory_ls", R, "memory ls"),
+    maps("memory_status", R, "memory status"),
+    maps("memory_set", W, "memory set").on(),
+    maps("memory_clear", R, "memory clear"),
+    maps("memory_undo", W, "memory undo").on(),
+    maps("memory_overview", R, "memory overview"),
+    maps("sessions_ls", R, "sessions ls"),
+    maps("sessions_clear", R, "sessions clear"),
+    maps("sessions_undo", W, "sessions undo").on(),
+    maps("sessions_retention", R, "sessions retention"),
     maps("context_measure", W, "context measure"),
     maps("context_status", R, "context status"),
     maps("context_compose", R, "context compose"),

@@ -1,0 +1,7 @@
+{
+  "command": "sessions retention",
+  "dryRun": "none",
+  "name": "sessions_retention",
+  "tier": "read",
+  "toolTier": 1
+}

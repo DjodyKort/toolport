@@ -1,0 +1,13 @@
+{
+  "argv": ["sessions", "retention", "--set", "many"],
+  "envelope": {
+    "command": "sessions retention",
+    "error": {
+      "code": "usage",
+      "message": "--set needs a whole number of days"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}
