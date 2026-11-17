@@ -10,13 +10,14 @@
 //! that leaves the world as it was, then the apply step.
 
 use std::collections::BTreeSet;
-use std::io::Write;
+use std::io::{BufRead, Write};
 use std::process::{Command, Stdio};
 
 use serde_json::{json, Value};
 use toolport_plus::ctl::{registry, rows, Smoke, Tier, COMMANDS, SCHEMA_VERSION};
 
 mod common;
+use common::oauth_mock::{self, OauthMock};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
 
@@ -31,6 +32,9 @@ struct Step {
     /// The step prints the vaulted value on purpose; the golden holds `<VAULTED>` for it.
     reveals: bool,
     hook: Option<fn(&World)>,
+    /// The step signs in through the loopback authorization server: the run plays the user's
+    /// browser, and nothing is allowed to find a real one on `PATH`.
+    browser: bool,
 }
 
 /// A step that must leave the world as it was: a read or a `--dry-run`.
@@ -44,6 +48,7 @@ const fn read(label: &'static str, argv: &'static [&'static str]) -> Step {
         golden: true,
         reveals: false,
         hook: None,
+        browser: false,
     }
 }
 
@@ -83,6 +88,13 @@ const fn hook(label: &'static str, prepare: fn(&World)) -> Step {
 impl Step {
     const fn exit(self, exit: i32) -> Self {
         Self { exit, ..self }
+    }
+
+    const fn browser(self) -> Self {
+        Self {
+            browser: true,
+            ..self
+        }
     }
 
     const fn reveals(self) -> Self {
@@ -152,6 +164,14 @@ fn plugin_files(world: &World) {
         ".claude/settings.json",
         "{\"enabledPlugins\": {\"ecc@ecc\": true}}",
     );
+}
+
+fn point_beta_at_a_loopback_authorization_server(world: &World) {
+    let idp = OauthMock::start();
+    let mut registry = world.registry();
+    registry["servers"][1]["url"] = json!(idp.mcp_url());
+    world.write_registry(&registry);
+    *world.idp.borrow_mut() = Some(idp);
 }
 
 fn unreadable_registry(world: &World) {
@@ -319,7 +339,11 @@ const CASES: &[Case] = &[
         "auth login",
         &[
             read("signed-in", &["auth", "login", "alpha", "--no-open"]),
-            apply("remote-no-open", &["auth", "login", "beta", "--no-open"]).exit(1),
+            hook(
+                "loopback-idp",
+                point_beta_at_a_loopback_authorization_server,
+            ),
+            apply("remote-no-open", &["auth", "login", "beta", "--no-open"]).browser(),
             usage("usage", &["auth", "login"]),
         ],
     ),
@@ -917,6 +941,10 @@ fn expand(world: &World, word: &str) -> String {
 }
 
 fn run_ctl(world: &World, argv: &[String], stdin: Option<&str>) -> Run {
+    run_ctl_as(world, argv, stdin, false)
+}
+
+fn run_ctl_as(world: &World, argv: &[String], stdin: Option<&str>, browser: bool) -> Run {
     let mut command = Command::new(env!("CARGO_BIN_EXE_toolportctl"));
     command
         .arg("--json")
@@ -933,6 +961,11 @@ fn run_ctl(world: &World, argv: &[String], stdin: Option<&str>) -> Run {
     for (key, value) in world.env() {
         command.env(key, value);
     }
+    if browser {
+        let empty = world.base.join("no-browser-on-path");
+        std::fs::create_dir_all(&empty).unwrap();
+        command.env("PATH", &empty);
+    }
     let mut child = command.spawn().expect("spawn toolportctl");
     if let Some(text) = stdin {
         child
@@ -942,11 +975,37 @@ fn run_ctl(world: &World, argv: &[String], stdin: Option<&str>) -> Run {
             .write_all(text.as_bytes())
             .unwrap();
     }
+    let user = browser.then(|| {
+        let stderr = child.stderr.take().unwrap();
+        let prefix = world
+            .idp
+            .borrow()
+            .as_ref()
+            .expect("a browser step needs the loopback authorization server")
+            .authorize_prefix();
+        std::thread::spawn(move || {
+            let mut seen = String::new();
+            for line in std::io::BufReader::new(stderr)
+                .lines()
+                .map_while(Result::ok)
+            {
+                seen.push_str(&line);
+                seen.push('\n');
+                if line.trim().starts_with(&prefix) {
+                    oauth_mock::approve_in_browser(line.trim());
+                }
+            }
+            seen
+        })
+    });
     let output = child.wait_with_output().expect("wait for toolportctl");
     Run {
         code: output.status.code().expect("exit code, not a signal"),
         stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        stderr: match user {
+            Some(user) => user.join().expect("the browser stand-in finished"),
+            None => String::from_utf8_lossy(&output.stderr).into_owned(),
+        },
     }
 }
 
@@ -995,7 +1054,7 @@ fn run_case(case: &Case) {
         }
         let argv: Vec<String> = step.argv.iter().map(|w| expand(&world, w)).collect();
         let before = world.snapshot();
-        let run = run_ctl(&world, &argv, step.stdin);
+        let run = run_ctl_as(&world, &argv, step.stdin, step.browser);
         let name = format!("{} {}", case.id, step.label);
 
         assert_eq!(
@@ -1031,9 +1090,20 @@ fn run_case(case: &Case) {
             );
         }
         let canaries: &[&str] = if step.reveals {
-            &[FAKE_SECRET, SECRET_KEY]
+            &[
+                FAKE_SECRET,
+                SECRET_KEY,
+                oauth_mock::ACCESS_TOKEN,
+                oauth_mock::REFRESH_TOKEN,
+            ]
         } else {
-            &[FAKE_SECRET, SECRET_KEY, VAULTED]
+            &[
+                FAKE_SECRET,
+                SECRET_KEY,
+                VAULTED,
+                oauth_mock::ACCESS_TOKEN,
+                oauth_mock::REFRESH_TOKEN,
+            ]
         };
         for canary in canaries {
             assert!(

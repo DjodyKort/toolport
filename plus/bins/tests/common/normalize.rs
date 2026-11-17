@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 
 //! What a golden keeps of an output: paths, times and backup stamps that differ per run become
-//! placeholders (`<WORLD>`, `<MOCK>`, `<BIN>`, `<TIME>`, `<STAMP>`), and values that change between
+//! placeholders (`<WORLD>`, `<MOCK>`, `<BIN>`, `<TIME>`, `<STAMP>`; `<PORT>`, `<PKCE>` and `<STATE>` for the loopback port and random parts of
+//! a consent URL), and values that change between
 //! machines or releases are masked to a value of the same JSON type.
 
 use regex::Regex;
@@ -80,6 +81,9 @@ pub fn normalize(world: &World, envelope: &Value) -> Value {
     let backup_stamp = Regex::new(r"/\d{13}-").unwrap();
     let stamp = Regex::new(r"\b\d{8}-\d{6}\b").unwrap();
     let run_id = Regex::new(r"run-\d{10}-[0-9a-f]{8}").unwrap();
+    let loopback_port = Regex::new(r"(?i)(127\.0\.0\.1(?::|%3A))\d+").unwrap();
+    let pkce_challenge = Regex::new(r"code_challenge=[^&\x22]+").unwrap();
+    let oauth_state = Regex::new(r"\bstate=[^&\x22]+").unwrap();
     let mut text = serde_json::to_string(envelope).unwrap();
     for root in world_roots(world) {
         let name = std::path::Path::new(&world.mock).file_name().unwrap();
@@ -99,6 +103,11 @@ pub fn normalize(world: &World, envelope: &Value) -> Value {
     let text = stamp.replace_all(&text, "<STAMP>").into_owned();
     let text = run_id.replace_all(&text, "run-<RUN>").into_owned();
     let text = backup_stamp.replace_all(&text, "/<STAMP>-").into_owned();
+    let text = loopback_port.replace_all(&text, "${1}<PORT>").into_owned();
+    let text = pkce_challenge
+        .replace_all(&text, "code_challenge=<PKCE>")
+        .into_owned();
+    let text = oauth_state.replace_all(&text, "state=<STATE>").into_owned();
     let mut value: Value = serde_json::from_str(&text).unwrap();
     mask(&mut value);
     value

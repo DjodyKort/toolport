@@ -23,6 +23,8 @@ pub struct World {
     pub data: PathBuf,
     pub home: PathBuf,
     pub mock: String,
+    /// A loopback authorization server, once a step has started one.
+    pub idp: std::cell::RefCell<Option<super::oauth_mock::OauthMock>>,
 }
 
 impl World {
@@ -38,6 +40,7 @@ impl World {
             data: base.join("data"),
             home: base.join("home"),
             mock: mock.to_string_lossy().into_owned(),
+            idp: Default::default(),
             base,
         };
         for dir in [&world.data, &world.home, &world.data.join("bin")] {

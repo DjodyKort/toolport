@@ -2,12 +2,18 @@
   "argv": ["auth", "login", "beta", "--no-open"],
   "envelope": {
     "command": "auth login",
-    "error": {
-      "code": "auth_login",
-      "message": "authorization server points at a private or loopback address (example.invalid); refusing (a hostile metadata document could use this to reach your internal network)."
+    "data": {
+      "consentUrl": "http://127.0.0.1:<PORT>/authorize?response_type=code&client_id=synthetic-client&redirect_uri=http%3A%2F%2F127.0.0.1%3A<PORT>%2Fcallback&code_challenge=<PKCE>&code_challenge_method=S256&state=<STATE>&resource=http%3A%2F%2F127.0.0.1%3A<PORT>%2Fmcp",
+      "flow": "browser",
+      "message": "Signed in to beta.",
+      "name": "beta",
+      "probe": null,
+      "server": "srv-beta",
+      "servers": [],
+      "signedIn": true
     },
-    "ok": false,
+    "ok": true,
     "schemaVersion": 1
   },
-  "exitCode": 1
+  "exitCode": 0
 }
