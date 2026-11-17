@@ -66,6 +66,8 @@
           "lowerQuartile": null,
           "medianCost": null,
           "relative": null,
+          "relativeHigh": null,
+          "relativeLow": null,
           "sessions": 0,
           "state": "off",
           "upperQuartile": null
@@ -85,6 +87,8 @@
           "lowerQuartile": null,
           "medianCost": null,
           "relative": null,
+          "relativeHigh": null,
+          "relativeLow": null,
           "sessions": 0,
           "state": "on",
           "upperQuartile": null
@@ -100,6 +104,8 @@
           "lowerQuartile": 35000.0,
           "medianCost": 35000.0,
           "relative": null,
+          "relativeHigh": null,
+          "relativeLow": null,
           "sessions": 3,
           "state": "paused",
           "upperQuartile": 35000.0

@@ -505,6 +505,12 @@ fn outcome_and_rework(
         .iter()
         .find(|g| g.state == State::On)
         .and_then(Group::median);
+    let relative = |cost: Option<f64>| {
+        reference
+            .filter(|r| *r > 0.0)
+            .zip(cost)
+            .map(|(r, c)| round(c / r * 100.0, 0))
+    };
     let rows: Vec<Value> = groups
         .iter()
         .map(|g| {
@@ -517,10 +523,9 @@ fn outcome_and_rework(
                 "medianCost": percentile(&costs, 0.5).map(|v| round(v, 0)),
                 "lowerQuartile": percentile(&costs, 0.25).map(|v| round(v, 0)),
                 "upperQuartile": percentile(&costs, 0.75).map(|v| round(v, 0)),
-                "relative": reference
-                    .filter(|r| *r > 0.0)
-                    .zip(percentile(&costs, 0.5))
-                    .map(|(r, m)| round(m / r * 100.0, 0)),
+                "relative": relative(percentile(&costs, 0.5)),
+                "relativeLow": relative(percentile(&costs, 0.25)),
+                "relativeHigh": relative(percentile(&costs, 0.75)),
             })
         })
         .collect();

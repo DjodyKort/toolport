@@ -339,8 +339,13 @@ fn test08_a_paused_window_with_too_few_sessions_gets_a_refusal() {
     let groups = report["outcome"]["groups"].as_array().unwrap();
     let on = groups.iter().find(|g| g["state"] == "on").unwrap();
     assert_eq!(
-        (on["sessions"].clone(), on["relative"].clone()),
-        (json!(9), json!(100.0))
+        (
+            on["sessions"].clone(),
+            on["relative"].clone(),
+            on["relativeLow"].clone(),
+            on["relativeHigh"].clone()
+        ),
+        (json!(9), json!(100.0), json!(100.0), json!(100.0))
     );
 }
 

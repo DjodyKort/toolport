@@ -64,6 +64,8 @@
             "lowerQuartile": 39600.0,
             "medianCost": 39600.0,
             "relative": 120.0,
+            "relativeHigh": 120.0,
+            "relativeLow": 120.0,
             "sessions": 2,
             "state": "off",
             "upperQuartile": 39600.0
@@ -83,6 +85,8 @@
             "lowerQuartile": 33000.0,
             "medianCost": 33000.0,
             "relative": 100.0,
+            "relativeHigh": 100.0,
+            "relativeLow": 100.0,
             "sessions": 9,
             "state": "on",
             "upperQuartile": 33000.0
@@ -98,6 +102,8 @@
             "lowerQuartile": 35000.0,
             "medianCost": 35000.0,
             "relative": 106.0,
+            "relativeHigh": 106.0,
+            "relativeLow": 106.0,
             "sessions": 3,
             "state": "paused",
             "upperQuartile": 35000.0
