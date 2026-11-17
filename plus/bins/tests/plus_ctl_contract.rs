@@ -2470,3 +2470,29 @@ fn a_secret_key_never_shows_in_any_golden() {
         }
     }
 }
+
+#[test]
+fn a_golden_that_is_being_blessed_is_never_read_half_written() {
+    let dir = std::env::temp_dir()
+        .join(format!("toolport-golden-{}", std::process::id()))
+        .join("envelopes");
+    let value = json!({"rows": vec!["a long enough row to span several writes"; 400]});
+    golden::write_in(&dir, "status", &value);
+    let stop = std::sync::atomic::AtomicBool::new(false);
+    std::thread::scope(|scope| {
+        let reader = scope.spawn(|| {
+            let mut reads = 0;
+            while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                assert_eq!(golden::read_in(&dir, "status"), Some(value.clone()));
+                reads += 1;
+            }
+            reads
+        });
+        for _ in 0..300 {
+            golden::write_in(&dir, "status", &value);
+        }
+        stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        assert!(reader.join().unwrap() > 0);
+    });
+    std::fs::remove_dir_all(dir.parent().unwrap()).unwrap();
+}

@@ -7,6 +7,7 @@
 
 use serde_json::Value;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub const BLESS_VAR: &str = "CTL_ENVELOPE_BLESS";
 
@@ -95,12 +96,22 @@ pub fn first_difference(expected: &Value, actual: &Value) -> Option<String> {
     walk("", expected, actual)
 }
 
+/// Replaces the file in one step, so a test that reads the golden while another blesses it never
+/// sees it empty. The temporary file sits next to `dir`, not in it: the tests that list `dir` would
+/// otherwise trip over it.
 pub fn write_in(dir: &Path, case: &str, value: &Value) {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
     let path = path_in(dir, case);
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::create_dir_all(dir).unwrap();
     let mut text = serde_json::to_string_pretty(value).unwrap();
     text.push('\n');
-    std::fs::write(&path, text).unwrap();
+    let scratch = dir.parent().unwrap_or(dir).join(format!(
+        ".golden-{}-{}.tmp",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    std::fs::write(&scratch, text).unwrap();
+    std::fs::rename(&scratch, &path).unwrap();
 }
 
 pub fn read_in(dir: &Path, case: &str) -> Option<Value> {
