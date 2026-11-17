@@ -1,10 +1,11 @@
-import { Fragment, useEffect } from "react";
-import { ChevronRight, PackagePlus, RotateCw } from "lucide-react";
+import { Fragment, useEffect, useState } from "react";
+import { ChevronRight, PackagePlus, RotateCw, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusCard } from "@/components/ui/status-card";
 import type { Registry, ServerEntry } from "@/lib/types";
-import { listServers } from "./commands";
+import { checkLogin, listServers, loadLogins } from "./commands";
 import { clock } from "./format";
+import { loginFailed } from "./loginModel";
 import { restart, useFailedRestarts } from "./restartStore";
 import type { PlusHost } from "./ServerOperations";
 import { plural } from "../settings/model";
@@ -44,12 +45,15 @@ export interface ServersBannerProps {
   host: PlusHost;
 }
 
-/** Fork rows under upstream's sign-in or status card: a new server that is not set up yet, and a
- * restart that failed in a gateway. Each row names its servers, and a name opens that server. */
+/** Fork rows under upstream's sign-in or status card: a new server that is not set up yet, a
+ * restart that failed in a gateway and a login check that came back refused. Each row names its
+ * servers, and a name opens that server. */
 export default function ServersBanner({ registry, host }: ServersBannerProps) {
   const watch = useServerWatch();
   const failures = useFailedRestarts();
   const servers = registry?.servers ?? [];
+  const logins = useLoad(loadLogins, registry);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     if (registry) observeServers(registry.servers);
@@ -57,7 +61,19 @@ export default function ServersBanner({ registry, host }: ServersBannerProps) {
 
   const fresh = watch.open.filter((id) => servers.some((s) => s.id === id));
   const failed = failures.filter((f) => servers.some((s) => s.id === f.id));
-  if (fresh.length === 0 && failed.length === 0) return null;
+  const refused = (logins.data?.servers ?? []).filter(
+    (row) =>
+      loginFailed(row) &&
+      servers.some((s) => s.id === row.server && s.transport === "stdio"),
+  );
+  if (fresh.length === 0 && failed.length === 0 && refused.length === 0) return null;
+
+  async function checkAgain() {
+    setChecking(true);
+    await Promise.allSettled(refused.map((row) => checkLogin(row.server)));
+    logins.reload();
+    setChecking(false);
+  }
 
   return (
     <div className="-mt-3 flex flex-col gap-2" data-plus="servers-banner">
@@ -105,6 +121,41 @@ export default function ServersBanner({ registry, host }: ServersBannerProps) {
               }
             >
               <RotateCw /> Retry
+            </Button>
+          }
+        />
+      )}
+      {refused.length > 0 && (
+        <StatusCard
+          variant="warning"
+          icon={<ShieldAlert />}
+          title={
+            refused.length === 1
+              ? "1 login check failed"
+              : `${refused.length} login checks failed`
+          }
+          detail={
+            <>
+              <NameLinks
+                ids={refused.map((r) => r.server)}
+                servers={servers}
+                host={host}
+              />
+              {refused.length === 1 && refused[0].lastProbe !== null
+                ? ` · ${clock(refused[0].lastProbe * 1000)}`
+                : ""}
+              . The server still starts, but calls that need the login fail. Open it to
+              sign in again.
+            </>
+          }
+          actions={
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={checking}
+              onClick={() => void checkAgain()}
+            >
+              <RotateCw /> Check again
             </Button>
           }
         />

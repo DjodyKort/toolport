@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { getRegistry } from "@/lib/api";
 import {
   isEnabled,
@@ -8,14 +8,17 @@ import {
 } from "@/lib/types";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Badge } from "@/components/ui/badge";
-import { listAccessSets, serverInfo } from "./commands";
+import { listAccessSets, loadLogins, serverInfo } from "./commands";
 import { FinishSetup } from "./FinishSetup";
 import { useMembershipSync, type MembershipChange } from "./membership";
+import { LoginRow } from "./LoginRow";
+import { loginNeedsYou, loginRowOf } from "./loginModel";
 import { leftOutOfDefault } from "./model";
 import { ReachRow } from "./ReachRow";
 import { RemoveRow } from "./RemoveRow";
 import { useRestartState } from "./restartStore";
 import { RuntimeRow } from "./RuntimeRow";
+import { SecretsRow } from "./SecretsRow";
 import { useLoad } from "./useLoad";
 import { fingerprint, observeServers, useServerWatch } from "./watch";
 
@@ -51,6 +54,8 @@ export default function ServerOperations({
   const key = `${fingerprint(server)}|${enabled}|${sets}|${registry?.defaultAccessContextId ?? ""}`;
   const info = useLoad(() => serverInfo(server.id), key);
   const accessSets = useLoad(listAccessSets, key);
+  const logins = useLoad(loadLogins, key);
+  const [secretsVersion, setSecretsVersion] = useState(0);
   const restart = useRestartState(server.id);
   const syncRegistry = useMembershipSync(registry, onRegistryChange);
 
@@ -64,8 +69,18 @@ export default function ServerOperations({
     accessSets.reload();
   }
 
+  async function secretsChanged() {
+    setSecretsVersion((value) => value + 1);
+    logins.reload();
+    info.reload();
+    onRegistryChange(await getRegistry());
+  }
+
+  const login =
+    server.transport === "stdio" ? loginRowOf(logins.data, server.id) : undefined;
   const needsYou =
     (restart.last?.status === "failed" ? 1 : 0) +
+    (login && loginNeedsYou(login) ? 1 : 0) +
     (leftOutOfDefault(enabled, accessSets.data, info.data) ? 1 : 0);
 
   return (
@@ -76,6 +91,7 @@ export default function ServerOperations({
           enabled={enabled}
           health={health}
           registry={registry}
+          refreshKey={secretsVersion}
           sets={accessSets}
           onRegistryChange={onRegistryChange}
           onMembershipChanged={refresh}
@@ -94,6 +110,15 @@ export default function ServerOperations({
             info={info}
             changedAt={watch.changed[server.id]}
           />
+          {login && (
+            <LoginRow
+              key={server.id}
+              serverId={server.id}
+              serverName={server.name}
+              row={login}
+              onChanged={logins.reload}
+            />
+          )}
           <ReachRow
             server={server}
             enabled={enabled}
@@ -102,6 +127,15 @@ export default function ServerOperations({
             sets={accessSets}
             onChanged={refresh}
             onOpenAccessSets={host.openAccessSets}
+          />
+          <SecretsRow
+            key={server.id}
+            serverId={server.id}
+            serverName={server.name}
+            info={info}
+            plain={server.env.filter((e) => !e.secret)}
+            login={login}
+            onChanged={secretsChanged}
           />
           <RemoveRow
             server={server}

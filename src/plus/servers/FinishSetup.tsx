@@ -32,6 +32,8 @@ export interface FinishSetupProps {
   health?: ProbeResult;
   registry: Registry | null;
   sets: Loaded<AccessSetsData>;
+  /** Changes when a secret was set or removed elsewhere on the page, so the vault is asked again. */
+  refreshKey?: number;
   onRegistryChange: (registry: Registry) => void;
   onMembershipChanged: (change: MembershipChange) => void | Promise<void>;
 }
@@ -132,6 +134,7 @@ export function FinishSetup({
   health,
   registry,
   sets,
+  refreshKey = 0,
   onRegistryChange,
   onMembershipChanged,
 }: FinishSetupProps) {
@@ -143,7 +146,7 @@ export function FinishSetup({
         : (await secretStatus(server.id, secretKeys))
             .filter(([, set]) => !set)
             .map(([key]) => key),
-    `${server.id}:${secretKeys.join()}`,
+    `${server.id}:${secretKeys.join()}:${refreshKey}`,
   );
   const facts = setupFacts(server, enabled, health, status.data, registry, sets.data);
   const done = setupDone(facts);

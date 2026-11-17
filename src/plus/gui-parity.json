@@ -134,28 +134,33 @@
     },
     "servers.secret-set": {
       "route": "servers",
-      "status": "planned",
-      "summary": "Set or replace a secret of a server, or the access token of a remote one, through a write-only field in upstream's Secrets dialog; the value goes to stdin only, a placeholder is refused (secret set)"
+      "status": "built",
+      "summary": "Set or replace a secret a server declares through a write-only field in the Secrets row; the value goes to stdin only, a placeholder is refused, and a server with a login check can be checked right after saving (secret set). A remote server's access token stays in upstream's Secrets dialog",
+      "test": "src/plus/servers/SecretsRow.test.tsx"
     },
     "servers.secret-reveal": {
       "route": "servers",
-      "status": "planned",
-      "summary": "Say which declared keys of a server are set, and reveal one after a confirmation; it hides after 10 seconds and the access token is never shown (secret get)"
+      "status": "built",
+      "summary": "Say which declared keys of a server are set, and reveal one after a confirmation; the value hides after 10 seconds, when the window loses focus, and is never shown for the access token or asked through the self-MCP (secret get)",
+      "test": "src/plus/servers/SecretsRow.test.tsx"
     },
     "servers.secret-remove": {
       "route": "servers",
-      "status": "planned",
-      "summary": "Remove a secret and its declaration after a confirmation, typed when the policy tier is destructive (secret rm)"
+      "status": "built",
+      "summary": "Remove a secret and its declaration after a preview of what goes; the key is typed when the policy tier of secret rm is destructive (secret rm)",
+      "test": "src/plus/servers/SecretsRow.test.tsx"
     },
     "servers.login": {
       "route": "servers",
-      "status": "planned",
-      "summary": "Sign in to a server again from its Login row: a remote server through the Sign in button's flow, a stdio or Google server through its own auth command with the consent link shown (auth login, servers_auth)"
+      "status": "built",
+      "summary": "Sign in again from the Login row of a stdio or Google server through its own auth command, with the consent link shown while the browser sign-in runs; remote servers keep upstream's Sign in button (auth login, servers_auth)",
+      "test": "src/plus/servers/LoginRow.test.tsx"
     },
     "servers.login-check": {
       "route": "servers",
-      "status": "planned",
-      "summary": "Check now on the Login row of a stdio or Google server, with the state, its reason and when it was last checked; remote servers have no Login row (auth probe)"
+      "status": "built",
+      "summary": "The Login row of a stdio or Google server: the state, its reason, when it was last checked and Check now; the list banner names the servers whose check failed; remote servers have no Login row (auth probe, status)",
+      "test": "src/plus/servers/LoginRow.test.tsx"
     },
     "servers.login-summary": {
       "route": "servers",

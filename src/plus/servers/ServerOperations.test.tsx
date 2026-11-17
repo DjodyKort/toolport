@@ -109,12 +109,13 @@ describe("Operations list", () => {
     expect(screen.getByText("~/work/alpha-api")).toBeInTheDocument();
     expect(screen.getByText(/only a fixed set \(PATH, HOME/)).toBeInTheDocument();
     expect(screen.getByText(/Use my shell environment/)).toBeInTheDocument();
-    expect(screen.getByText(/API_KEY/).closest("[data-slot=badge]")).toHaveTextContent(
-      "API_KEY · secret",
-    );
-    expect(screen.getByText(/REGION/).closest("[data-slot=badge]")).toHaveTextContent(
-      "REGION · plain",
-    );
+    const badge = (key: string) =>
+      screen
+        .getAllByText(new RegExp(key))
+        .map((node) => node.closest("[data-slot=badge]"))
+        .find(Boolean);
+    expect(badge("API_KEY")).toHaveTextContent("API_KEY · secret");
+    expect(badge("REGION")).toHaveTextContent("REGION · plain");
     expect(invokeLog.some((e) => e.command === "plus_ctl")).toBe(true);
     expect(ranArgv()).toContainEqual(["server", "info", "srv-alpha"]);
   });
