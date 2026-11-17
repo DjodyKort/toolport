@@ -12,3 +12,24 @@ export function clientName(id: string): string {
 }
 
 export const MAX_WAIT_SECONDS = 20;
+
+const DAY_MS = 86_400_000;
+
+/** `09:41` for today, `Thu 09:41` for an earlier day. */
+export function since(ms: number, now = Date.now()): string {
+  const sameDay = new Date(ms).toDateString() === new Date(now).toDateString();
+  if (sameDay || now - ms < 0) return clock(ms);
+  const day = new Date(ms).toLocaleDateString([], { weekday: "short" });
+  return now - ms < 6 * DAY_MS
+    ? `${day} ${clock(ms)}`
+    : new Date(ms).toLocaleDateString();
+}
+
+/** `3 h`, `2 days`; whole units, rounded down, never shorter than a minute. */
+export function span(seconds: number): string {
+  const minutes = Math.max(1, Math.floor(seconds / 60));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours} h`;
+  return `${Math.floor(hours / 24)} days`;
+}

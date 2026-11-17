@@ -40,18 +40,32 @@ export const NO_LOGINS: AuthSection = {
   servers: [],
 };
 
+/** The one step that fixes a row, as the status file's presentation layer names it. */
+export interface AuthFix {
+  action: "reauth" | "reconsent" | "fix_config" | "retry";
+  server: string;
+  label: string;
+  /** The `toolportctl` line that runs the fix; `null` when the fix is a change of configuration. */
+  command: string | null;
+}
+
+export interface AuthRow {
+  /** The server id. */
+  server: string;
+  state: LoginState;
+  reason: string;
+  /** Unix seconds since the state last changed. */
+  since: number;
+  /** Unix seconds; `null` until the first probe ran. */
+  lastProbe: number | null;
+  expiresAt: number | null;
+  ttlSecs: number | null;
+  fix: AuthFix | null;
+}
+
 export interface AuthSection {
   counts: Record<LoginState, number>;
-  servers: Array<{
-    server: string;
-    state: LoginState;
-    reason: string;
-    since: number;
-    lastProbe: number;
-    expiresAt: number | null;
-    ttlSecs: number | null;
-    fix: string | null;
-  }>;
+  servers: AuthRow[];
 }
 
 export type CheckStatus = "ok" | "warn" | "fail";

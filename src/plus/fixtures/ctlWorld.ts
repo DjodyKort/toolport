@@ -14,7 +14,6 @@ import type {
   SelfMcpState,
   StatusData,
 } from "../bridge/data";
-import { NO_LOGINS } from "../bridge/data";
 
 export const SELF_ID = "toolport-plus-self";
 const DATA_DIR = "/Users/example/Library/Application Support/Toolport";
@@ -27,6 +26,8 @@ export interface CtlReply {
   error?: { code: string; message: string };
   /** How long the fixture takes to answer, for a restart that waits on the gateways. */
   delayMs?: number;
+  /** Lines the command prints on stderr while it runs, such as a sign-in link. */
+  stderr?: string[];
 }
 
 export interface WorldOptions {
@@ -179,7 +180,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
       defaultAccess: broken ? null : defaultAccess,
       secretsBackend: "encrypted-file",
       gateway: { path: `${DATA_DIR}/bin/toolport-gateway`, present: true },
-      auth: NO_LOGINS,
+      auth: serverWorld.authSection(),
       registry: {
         path: `${DATA_DIR}/registry.json`,
         exists: true,
@@ -276,6 +277,8 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "doctor") return doctor();
       if (first === "commands") return { ok: true, data: commands };
       if (first === "server") return serverWorld.run(key);
+      if (first === "secret") return serverWorld.secret(key, stdin);
+      if (first === "auth") return serverWorld.auth(key);
       if (first === "mcp") {
         if (second === "install") return install(key);
         if (second === "uninstall") return uninstall();

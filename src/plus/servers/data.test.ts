@@ -2,10 +2,16 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createServerWorld } from "../fixtures/serverWorld";
+import { stdioServer } from "../fixtures/serverWorld";
 import type {
   AccessSetsData,
+  LoginData,
   MembershipData,
+  ProbeData,
   RestartData,
+  SecretGetData,
+  SecretRemoveData,
+  SecretSetData,
   ServerInfoData,
   ServerListData,
   UninstallData,
@@ -104,5 +110,93 @@ describe("the server envelope types match the Rust goldens", () => {
     expect(keys(ask("uninstall", "fixture-0", "--dry-run"))).toEqual(
       keys(ctl("server-uninstall")[0].envelope.data),
     );
+  });
+});
+
+describe("the S3 envelope types match the Rust goldens", () => {
+  const goldenData = (file: string) =>
+    JSON.parse(
+      readFileSync(join(root, "ctl-envelopes", `${file}.json`), "utf8"),
+    ) as Golden;
+
+  it("test07_secret_answers_carry_the_server_the_key_and_the_outcome", () => {
+    const get = ctl("secret-get").filter((g) => g.envelope.ok);
+    expect(get.length).toBeGreaterThan(1);
+    const keysOf = get.map((g) => keys(g.envelope.data as SecretGetData));
+    expect(keysOf).toContainEqual(["key", "server", "set"]);
+    expect(keysOf).toContainEqual(["key", "server", "set", "value"]);
+    expect(keys(ctl("secret-set")[0].envelope.data as SecretSetData)).toEqual([
+      "key",
+      "server",
+      "stored",
+    ]);
+    expect(
+      keys(
+        ctl("secret-rm").find((g) => g.envelope.ok)!.envelope.data as SecretRemoveData,
+      ),
+    ).toEqual(["key", "removed", "server"]);
+  });
+
+  it("test08_auth_probe_and_login_answers_have_the_fields_the_login_row_reads", () => {
+    const probe = ctl("auth-probe").find((g) => g.envelope.ok)!.envelope
+      .data as ProbeData;
+    expect(keys(probe)).toEqual(["counts", "failures", "mode", "probes", "servers"]);
+    expect(keys(probe.probes[0])).toEqual([
+      "nextDueAt",
+      "ran",
+      "server",
+      "skipped",
+      "tracked",
+    ]);
+    expect(keys(probe.servers[0])).toEqual([
+      "expiresAt",
+      "fix",
+      "lastProbe",
+      "reason",
+      "server",
+      "since",
+      "state",
+      "ttlSecs",
+    ]);
+    const login = ctl("auth-login").find((g) => g.envelope.ok)!.envelope
+      .data as LoginData;
+    expect(keys(login)).toEqual([
+      "consentUrl",
+      "flow",
+      "message",
+      "name",
+      "probe",
+      "server",
+      "servers",
+      "signedIn",
+    ]);
+  });
+
+  it("test09_the_fixture_toolportctl_answers_secrets_and_logins_with_the_golden_shapes", () => {
+    const alpha = stdioServer("srv-alpha", "alpha", {
+      env: [{ key: "API_TOKEN", secret: true }],
+    });
+    const world = createServerWorld({
+      servers: [alpha],
+      vault: ["srv-alpha/API_TOKEN"],
+      logins: { "srv-alpha": { state: "ok", checkedAgo: 10 } },
+    });
+    const ask = (...argv: string[]) => world.secret(["secret", ...argv], "value\n").data;
+    expect(keys(ask("get", "alpha", "API_TOKEN"))).toEqual(
+      keys(goldenData("secret-get.set").envelope.data),
+    );
+    expect(keys(ask("get", "alpha", "API_TOKEN", "--reveal"))).toEqual(
+      keys(goldenData("secret-get.reveal").envelope.data),
+    );
+    expect(keys(ask("set", "alpha", "API_TOKEN"))).toEqual(
+      keys(goldenData("secret-set.apply").envelope.data),
+    );
+    expect(keys(ask("rm", "alpha", "API_TOKEN"))).toEqual(
+      keys(goldenData("secret-rm.apply").envelope.data),
+    );
+    const probe = world.auth(["auth", "probe", "--server", "alpha", "--force"]).data;
+    expect(keys(probe)).toEqual(keys(goldenData("auth-probe.apply").envelope.data));
+    const login = world.auth(["auth", "login", "alpha"]).data;
+    expect(keys(login)).toEqual(keys(goldenData("auth-login.signed-in").envelope.data));
   });
 });

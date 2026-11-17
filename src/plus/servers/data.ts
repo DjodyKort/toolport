@@ -2,6 +2,8 @@
  * plus/fixtures/ctl-envelopes and plus/fixtures/selfmcp-envelopes are the source; data.test.ts
  * parses every server golden against these shapes. */
 
+import type { AuthRow, LoginState } from "../bridge/data";
+
 export type ServerTransport = "stdio" | "http" | "sse";
 
 export interface ServerListRow {
@@ -86,4 +88,52 @@ export interface MembershipData {
   name: string;
   enabled: boolean;
   accessSets: string[];
+}
+
+export interface SecretGetData {
+  server: string;
+  key: string;
+  set: true;
+  /** Only in the answer of `--reveal`. */
+  value?: string;
+}
+
+export interface SecretSetData {
+  server: string;
+  key: string;
+  stored: true;
+}
+
+export interface SecretRemoveData {
+  server: string;
+  key: string;
+  removed: true;
+}
+
+export interface ProbeReport {
+  server: string;
+  ran: boolean;
+  skipped: string | null;
+  tracked: { reason: string; since: number; state: string };
+  /** Unix seconds. */
+  nextDueAt: number;
+}
+
+export interface ProbeData {
+  counts: Record<LoginState, number>;
+  mode: "due" | "all" | "server";
+  probes: ProbeReport[];
+  failures: Array<{ server: string; error: string }>;
+  servers: AuthRow[];
+}
+
+export interface LoginData {
+  server: string;
+  name: string;
+  flow: "stdio" | "browser";
+  consentUrl: string | null;
+  signedIn: boolean;
+  message: string;
+  probe: ProbeReport | null;
+  servers: AuthRow[];
 }

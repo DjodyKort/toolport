@@ -71,7 +71,8 @@ const handlers = new Map<string, Handler>();
 const pending = new Map<string, CtlJobEvent[]>();
 let hub: Promise<unknown> | null = null;
 
-function route(event: CtlJobEvent) {
+/** Hands an event to the job it belongs to; the fixture calls it for the lines its stand-in prints. */
+export function route(event: CtlJobEvent) {
   const handler = handlers.get(event.job);
   if (handler) return handler(event);
   const queue = pending.get(event.job) ?? [];
@@ -154,12 +155,16 @@ function failure(result: CtlResult): CtlError {
   return new CtlError(why, "bridge", result);
 }
 
+/** The `data` of a finished command; a failed envelope throws a `CtlError`. */
+export function ctlResultData<T = unknown>(result: CtlResult<T>): T {
+  if (!result.envelope?.ok) throw failure(result);
+  return result.envelope.data as T;
+}
+
 /** Runs a command and returns its `data`; a failed envelope throws a `CtlError`. */
 export async function ctlData<T = unknown>(
   argv: string[],
   options?: CtlRunOptions,
 ): Promise<T> {
-  const result = await runCtl<T>(argv, options).result;
-  if (!result.envelope?.ok) throw failure(result);
-  return result.envelope.data as T;
+  return ctlResultData(await runCtl<T>(argv, options).result);
 }

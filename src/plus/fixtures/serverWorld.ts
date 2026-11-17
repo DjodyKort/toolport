@@ -1,3 +1,4 @@
+import type { AuthFix, AuthRow, AuthSection, LoginState } from "../bridge/data";
 import type { CtlReply } from "./ctlWorld";
 import type {
   AccessSetsData,
@@ -5,6 +6,12 @@ import type {
   RestartData,
   RestartGateway,
   ServerInfoData,
+  LoginData,
+  ProbeData,
+  ProbeReport,
+  SecretGetData,
+  SecretRemoveData,
+  SecretSetData,
   ServerListData,
   ServerTransport,
   UninstallData,
@@ -41,6 +48,25 @@ export type RestartScript =
   | { kind: "none" }
   | { kind: "busy"; busyProbes?: number };
 
+/** The login check of a stdio server as the world starts: what it found and what brings it back. */
+export interface LoginSeed {
+  state: LoginState;
+  reason?: string;
+  /** Seconds before now. */
+  checkedAgo?: number;
+  sinceAgo?: number;
+  expiresIn?: number;
+  /** `secret`: the next check passes once a secret was set. `sign-in`: once the sign-in ran. */
+  fixedBy?: "secret" | "sign-in" | "never";
+}
+
+/** How the server's own sign-in answers: it prints a consent link and finishes after `delayMs`,
+ * says it is signed in already, or fails. */
+export type SignInScript =
+  | { kind: "consent"; delayMs?: number; url?: string }
+  | { kind: "already" }
+  | { kind: "fail"; message: string };
+
 export interface ServerWorldOptions {
   servers?: WorldServer[];
   sets?: WorldSet[];
@@ -50,7 +76,72 @@ export interface ServerWorldOptions {
   restart?: Record<string, RestartScript>;
   /** Vault entries that exist, as `<server id>/<KEY>`. */
   vault?: string[];
+  /** Login checks by server id; a server without one has no probe. */
+  logins?: Record<string, LoginSeed>;
+  signIn?: Record<string, SignInScript>;
+  /** Every vault command fails the way a locked keychain does. */
+  vaultLocked?: boolean;
 }
+
+const PLACEHOLDER = /^<.*>$|^(changeme|your[-_ ]?(api[-_ ]?)?key.*)$/i;
+const CONSENT_URL = "https://accounts.example.test/consent?client=fixture";
+const HTTP_AUTH_KEY = "__http_auth__";
+
+interface LoginRuntime {
+  seed: LoginSeed;
+  state: LoginState;
+  reason: string;
+  since: number;
+  lastProbe: number | null;
+  expiresAt: number | null;
+  healed: boolean;
+}
+
+function fixOf(server: string, state: LoginState): AuthFix | null {
+  switch (state) {
+    case "expiring":
+    case "needs_reauth":
+      return {
+        action: "reauth",
+        server,
+        label: `Sign in to ${server} again`,
+        command: `toolportctl auth login ${server}`,
+      };
+    case "revoked":
+      return {
+        action: "reconsent",
+        server,
+        label: `Re-consent access for ${server}`,
+        command: `toolportctl auth login ${server}`,
+      };
+    case "misconfigured":
+      return {
+        action: "fix_config",
+        server,
+        label: `Check the OAuth client configuration of ${server}`,
+        command: null,
+      };
+    case "unreachable":
+      return {
+        action: "retry",
+        server,
+        label: `Re-check ${server}`,
+        command: `toolportctl auth probe --server ${server} --force`,
+      };
+    default:
+      return null;
+  }
+}
+
+const SEVERITY: LoginState[] = [
+  "revoked",
+  "needs_reauth",
+  "misconfigured",
+  "expiring",
+  "unreachable",
+  "unknown",
+  "ok",
+];
 
 const GATEWAYS = [4121, 4188, 4302];
 
@@ -120,7 +211,27 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
   const defaultAccess =
     options.defaultAccess === undefined ? null : options.defaultAccess;
   const script = options.restart ?? {};
-  const vault = new Set(options.vault ?? []);
+  const vault = new Map(
+    (options.vault ?? []).map((entry) => [
+      entry,
+      `fake-${entry.split("/").pop()?.toLowerCase()}-0000-demo`,
+    ]),
+  );
+  const now = () => Math.floor(Date.now() / 1000);
+  const logins = new Map<string, LoginRuntime>(
+    Object.entries(options.logins ?? {}).map(([id, seed]) => [
+      id,
+      {
+        seed,
+        state: seed.state,
+        reason: seed.reason ?? "ok",
+        since: now() - (seed.sinceAgo ?? 3600),
+        lastProbe: seed.checkedAgo === undefined ? null : now() - seed.checkedAgo,
+        expiresAt: seed.expiresIn === undefined ? null : now() + seed.expiresIn,
+        healed: false,
+      },
+    ]),
+  );
   const probes = new Map<string, number>();
 
   const find = (key: string) => servers.find((s) => s.id === key || s.name === key);
@@ -229,6 +340,7 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
       for (const set of sets)
         set.serverIds = set.serverIds.filter((id) => id !== server.id);
       for (const key of removed) vault.delete(`${server.id}/${key}`);
+      logins.delete(server.id);
     }
     return {
       ok: true,
@@ -285,9 +397,175 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
     return null;
   }
 
+  function row(server: string, entry: LoginRuntime): AuthRow {
+    return {
+      server,
+      state: entry.state,
+      reason: entry.reason,
+      since: entry.since,
+      lastProbe: entry.lastProbe,
+      expiresAt: entry.expiresAt,
+      ttlSecs: entry.expiresAt === null ? null : entry.expiresAt - now(),
+      fix: fixOf(server, entry.state),
+    };
+  }
+
+  function authRows(): AuthRow[] {
+    return [...logins.entries()]
+      .filter(([id]) => servers.some((server) => server.id === id))
+      .map(([id, entry]) => row(id, entry))
+      .sort(
+        (a, b) =>
+          SEVERITY.indexOf(a.state) - SEVERITY.indexOf(b.state) ||
+          a.server.localeCompare(b.server),
+      );
+  }
+
+  function authSection(): AuthSection {
+    const rows = authRows();
+    const counts = Object.fromEntries(
+      SEVERITY.map((state) => [state, rows.filter((r) => r.state === state).length]),
+    ) as AuthSection["counts"];
+    return { counts, servers: rows };
+  }
+
+  function probe(id: string): ProbeReport {
+    const entry = logins.get(id)!;
+    const at = now();
+    const fixed = entry.healed && entry.seed.fixedBy !== "never";
+    const next: LoginState = fixed ? "ok" : entry.seed.state;
+    if (next !== entry.state) entry.since = at;
+    entry.state = next;
+    entry.reason = fixed ? "ok" : (entry.seed.reason ?? "ok");
+    entry.lastProbe = at;
+    entry.expiresAt = fixed ? null : entry.expiresAt;
+    return {
+      server: id,
+      ran: true,
+      skipped: null,
+      tracked: { reason: entry.reason, since: entry.since, state: entry.state },
+      nextDueAt: at + 1800,
+    };
+  }
+
+  function locked(): CtlReply | null {
+    return options.vaultLocked
+      ? fail("vault", "the keychain is locked; unlock it and try again")
+      : null;
+  }
+
+  function secret(argv: string[], stdin: string | undefined): CtlReply {
+    const [, verb, key, name] = argv;
+    const flags = argv.slice(2);
+    if (!key || !name) return fail("usage", `usage: secret ${verb} <server> <KEY>`);
+    const server = find(key);
+    if (!server) return fail("not_found", `unknown server: ${key}`);
+    const secretKey = name;
+    const path = `${server.id}/${secretKey}`;
+    const refused = locked();
+    if (refused) return refused;
+    if (verb === "get") {
+      if (secretKey === HTTP_AUTH_KEY && flags.includes("--reveal"))
+        return fail("usage", `${HTTP_AUTH_KEY} is an access token and is never printed`);
+      const value = vault.get(path);
+      if (value === undefined)
+        return fail("not_found", `${secretKey} is not set for ${server.id}`);
+      const data: SecretGetData = { server: server.id, key: secretKey, set: true };
+      if (flags.includes("--reveal")) data.value = value;
+      return { ok: true, data };
+    }
+    if (verb === "set") {
+      const value = (stdin ?? "").replace(/\r?\n$/, "");
+      if (value === "") return fail("input", "value is empty");
+      if (PLACEHOLDER.test(value))
+        return fail(
+          "vault",
+          "Enter a credential value. Placeholder values cannot be saved.",
+        );
+      vault.set(path, value);
+      if (!server.env.some((e) => e.key === secretKey))
+        server.env.push({ key: secretKey, secret: true });
+      const entry = logins.get(server.id);
+      if (entry?.seed.fixedBy === "secret") entry.healed = true;
+      return {
+        ok: true,
+        data: { server: server.id, key: secretKey, stored: true } satisfies SecretSetData,
+      };
+    }
+    if (verb === "rm") {
+      vault.delete(path);
+      server.env = server.env.filter((e) => e.key !== secretKey);
+      return {
+        ok: true,
+        data: {
+          server: server.id,
+          key: secretKey,
+          removed: true,
+        } satisfies SecretRemoveData,
+      };
+    }
+    return fail("usage", `unsupported in the fixture: secret ${verb}`);
+  }
+
+  function auth(argv: string[]): CtlReply {
+    const [, verb, target] = argv;
+    if (verb === "probe") {
+      const id = flagValues(argv, "--server")[0];
+      const found = id ? find(id) : undefined;
+      if (id && (!found || !logins.has(found.id)))
+        return fail(
+          "not_found",
+          `no auth probe is registered for ${id}; \`toolportctl auth login ${id}\` shows its sign-in step`,
+        );
+      const ids = found ? [found.id] : [...logins.keys()];
+      const probes = ids.map(probe);
+      const data: ProbeData = {
+        counts: authSection().counts,
+        mode: found ? "server" : "all",
+        probes,
+        failures: [],
+        servers: authRows().filter((r) => ids.includes(r.server)),
+      };
+      return { ok: true, data };
+    }
+    if (verb === "login") {
+      const server = target ? find(target) : undefined;
+      if (!server) return fail("not_found", `unknown server: ${target ?? ""}`);
+      const how = options.signIn?.[server.id] ?? ({ kind: "consent" } as SignInScript);
+      const base = { server: server.id, name: server.name, flow: "stdio" as const };
+      if (how.kind === "fail") return fail("auth_login", how.message);
+      const entry = logins.get(server.id);
+      if (entry && entry.seed.fixedBy === "sign-in") entry.healed = true;
+      const report = entry ? probe(server.id) : null;
+      const data: LoginData = {
+        ...base,
+        consentUrl: how.kind === "consent" ? (how.url ?? CONSENT_URL) : null,
+        signedIn: true,
+        message:
+          how.kind === "consent"
+            ? `Signed in to ${server.name}.`
+            : `${server.name} reports it is already signed in.`,
+        probe: report,
+        servers: authRows().filter((r) => r.server === server.id),
+      };
+      return how.kind === "consent"
+        ? {
+            ok: true,
+            data,
+            stderr: [`Open this URL to sign in:`, `  ${how.url ?? CONSENT_URL}`],
+            delayMs: how.delayMs ?? 1500,
+          }
+        : { ok: true, data };
+    }
+    return fail("usage", `unsupported in the fixture: auth ${verb}`);
+  }
+
   return {
     servers,
     sets,
+    authSection,
+    secret,
+    auth,
     secretStatus(serverId: string, keys: string[]): Array<[string, boolean]> {
       return keys.map((key) => [key, vault.has(`${serverId}/${key}`)]);
     },

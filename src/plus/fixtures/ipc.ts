@@ -1,6 +1,11 @@
 import type { CtlEnvelope, CtlResult } from "../bridge/ctl";
 import { registerAttentionFeed } from "../shell/attentionFeed";
-import { fixtureServers, type RestartScript } from "./serverWorld";
+import {
+  fixtureServers,
+  type LoginSeed,
+  type RestartScript,
+  type SignInScript,
+} from "./serverWorld";
 import {
   createCtlWorld,
   type CtlReply,
@@ -94,6 +99,44 @@ const RESTART_SCENARIOS: Record<string, RestartScript> = {
   slow: { kind: "ok", delayMs: 6000 },
 };
 
+const LOGIN_SCENARIOS: Record<string, Record<string, LoginSeed>> = {
+  ok: { "fixture-1": { state: "ok", checkedAgo: 300, fixedBy: "secret" } },
+  rejected: {
+    "fixture-1": {
+      state: "needs_reauth",
+      reason: "the key was rejected with HTTP 401 on the last 3 checks",
+      checkedAgo: 240,
+      sinceAgo: 26 * 3600,
+      fixedBy: "secret",
+    },
+    "fixture-2": {
+      state: "revoked",
+      reason: "access was revoked at the provider",
+      checkedAgo: 600,
+      sinceAgo: 3 * 3600,
+      fixedBy: "sign-in",
+    },
+  },
+};
+
+/** `?plus-login=ok|rejected` gives servers a login check, `?plus-signin=wait` makes a sign-in wait
+ * on the browser and `?plus-vault=locked|empty` changes the keychain. */
+function loginWorld(params: URLSearchParams) {
+  const seeds = LOGIN_SCENARIOS[params.get("plus-login") ?? ""];
+  const signIn: Record<string, SignInScript> =
+    params.get("plus-signin") === "wait"
+      ? { "fixture-1": { kind: "consent", delayMs: 600_000 } }
+      : {};
+  const vault =
+    params.get("plus-vault") === "empty" || !seeds ? [] : ["fixture-1/API_KEY"];
+  return {
+    logins: seeds ?? {},
+    signIn,
+    vault,
+    vaultLocked: params.get("plus-vault") === "locked",
+  };
+}
+
 /** `?plus-bell` shows the footer bell with three rows. `?plus-self=missing|enabled|disabled|opted-out|not-enabled`, `?plus-doctor=warn|fail` and
  * `?plus-bridge=down` pick the state the fixture page starts in. `?plus-restart=busy|partial|none|slow`
  * picks how a server restart answers and `?plus-default=<access set id>` the default access; the servers follow
@@ -114,6 +157,7 @@ export function plusFixtureFromSearch(search: string) {
       servers: fixtureServers(params.has("auth-guidance")),
       restart: restartScripts(params.get("plus-restart")),
       defaultAccess: params.get("plus-default"),
+      ...loginWorld(params),
     },
   });
   if (params.has("plus-bell")) registerFixtureBell();
@@ -148,12 +192,21 @@ function resultOf(job: string, run: Job): CtlResult | Promise<CtlResult> {
     cancelled: false,
     envelope: envelopeOf(run.argv[0], reply),
     parseError: null,
-    stderr: [],
+    stderr: reply.stderr ?? [],
     truncated: false,
   };
-  return reply.delayMs
-    ? new Promise((resolve) => setTimeout(() => resolve(result), reply.delayMs))
-    : result;
+  const answer = () =>
+    reply.delayMs
+      ? new Promise<CtlResult>((resolve) =>
+          setTimeout(() => resolve(result), reply.delayMs),
+        )
+      : result;
+  if (!reply.stderr?.length) return answer();
+  // Imported here: ctl.ts imports the mocked tauri module, whose factory imports this file.
+  return import("../bridge/ctl").then(({ route }) => {
+    reply.stderr?.forEach((line, seq) => route({ job, seq, kind: "stderr", line }));
+    return answer();
+  });
 }
 
 /** The three IPC commands of the fork bridge, answered by the in-memory toolportctl. */
