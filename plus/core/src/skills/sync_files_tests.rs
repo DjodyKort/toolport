@@ -667,7 +667,7 @@ fn test28_a_hook_that_cannot_be_revoked_stays_in_the_lock_with_a_warning() {
         .hooks_installed
         .clone();
     assert!(!installed.is_empty());
-    put(&w.repo.0, "skills/nacht/SKILL.md", &format!("{SKILL_MD}"));
+    put(&w.repo.0, "skills/nacht/SKILL.md", SKILL_MD);
     put(&w.home.0, ".claude/settings.json", "{ not json");
     w.sync(true, false);
     let entry = &load_lockfile(&w.home.0).unwrap().skills[0].1;
