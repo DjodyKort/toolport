@@ -1,4 +1,6 @@
+import process from "node:process";
 import readline from "node:readline";
+import { setTimeout } from "node:timers";
 
 const instructions = process.env.FAKE_INSTRUCTIONS;
 let initializeParams = null;
