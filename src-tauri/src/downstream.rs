@@ -8750,13 +8750,14 @@ impl DownstreamServer {
             "initialize",
             json!({
                 "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {},
+                "capabilities": crate::seam::downstream_capabilities(&id),
                 "clientInfo": { "name": "toolport-gateway", "version": env!("CARGO_PKG_VERSION") }
             }),
         );
         transport.initialize_complete();
         let (era, caps) = match initialize_result {
             Ok(init) => {
+                crate::seam::handshake_seen(&id, &init);
                 let version = init
                     .get("protocolVersion")
                     .and_then(Value::as_str)
@@ -8852,6 +8853,7 @@ impl DownstreamServer {
                         discovered.get("supportedVersions")
                     )
                 })?;
+                crate::seam::handshake_seen(&id, &discovered);
                 let capabilities = discovered.get("capabilities").cloned();
                 // From here every request carries its own protocol metadata;
                 // there is no handshake and no `notifications/initialized`.

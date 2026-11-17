@@ -488,4 +488,132 @@ mod tests {
             "a server held elsewhere is not answered here"
         );
     }
+
+    struct Recording {
+        initializes: Arc<Mutex<Vec<Value>>>,
+    }
+
+    impl Transport for Recording {
+        fn request(&mut self, method: &str, params: Value) -> Result<Value, TransportError> {
+            Ok(match method {
+                "initialize" => {
+                    self.initializes.lock().unwrap().push(params);
+                    json!({"protocolVersion": "2025-06-18", "capabilities": {}})
+                }
+                "tools/list" => json!({"tools": []}),
+                _ => json!({}),
+            })
+        }
+
+        fn notify(&mut self, _method: &str, _params: Value) -> Result<(), TransportError> {
+            Ok(())
+        }
+    }
+
+    fn recorded_slot(router: &mut Router, id: &str) -> Arc<Mutex<Vec<Value>>> {
+        let initializes = Arc::new(Mutex::new(Vec::new()));
+        let seen = Arc::clone(&initializes);
+        let name = id.to_string();
+        let connect: Connect = Arc::new(move || {
+            Ok(DownstreamServer::connect(
+                name.clone(),
+                Box::new(Recording {
+                    initializes: Arc::clone(&seen),
+                }),
+            )
+            .unwrap())
+        });
+        router.add_supervised(
+            id.to_string(),
+            Vec::new(),
+            Arc::clone(&connect),
+            ReconnectBackoff::default(),
+            json!({}),
+        );
+        let slot = Arc::clone(router.servers.last().unwrap());
+        *slot.inner.lock().unwrap() = connect().ok().unwrap();
+        slot.supervisor.as_ref().unwrap().lock().unwrap().state = SupervisorState::Ready;
+        initializes
+    }
+
+    fn declared(initializes: &Mutex<Vec<Value>>) -> Vec<Value> {
+        initializes
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|params| params["capabilities"].clone())
+            .collect()
+    }
+
+    fn handshake(
+        capabilities: Value,
+        registry: &Mutex<crate::registry::Registry>,
+        router: &Mutex<Arc<Router>>,
+    ) {
+        crate::seam::client_handshake(
+            &json!({ "method": "initialize", "params": { "capabilities": capabilities } }),
+            None,
+            registry,
+            router,
+            &std::sync::atomic::AtomicBool::new(true),
+        );
+    }
+
+    #[test]
+    fn test01_a_server_that_opted_in_restarts_once_per_new_client_declaration() {
+        let _env = crate::registry::DataDirTestEnv::new("s8-redeclare");
+        toolport_plus::handshake::DECLARATIONS.reset();
+        let mut reg = crate::registry::Registry::default();
+        for (id, on) in [("odh", true), ("plain", false)] {
+            let mut entry: crate::registry::ServerEntry = serde_json::from_value(json!({
+                "id": id, "name": id, "transport": "stdio", "command": "node", "enabled": true
+            }))
+            .unwrap();
+            if on {
+                entry
+                    .unknown_fields
+                    .insert("declareClientCapabilities".into(), json!(true));
+            }
+            reg.servers.push(entry);
+        }
+        crate::registry::save(&reg).unwrap();
+        let mut router = Router::new();
+        let odh = recorded_slot(&mut router, "odh");
+        let plain = recorded_slot(&mut router, "plain");
+        let (registry, router) = (Mutex::new(reg), Mutex::new(Arc::new(router)));
+
+        handshake(json!({ "tasks": {} }), &registry, &router);
+        assert_eq!(
+            declared(&odh),
+            [json!({})],
+            "nothing relayable was declared"
+        );
+
+        handshake(
+            json!({ "elicitation": {}, "tasks": {} }),
+            &registry,
+            &router,
+        );
+        assert_eq!(declared(&odh), [json!({}), json!({ "elicitation": {} })]);
+
+        handshake(json!({ "elicitation": {} }), &registry, &router);
+        assert_eq!(
+            declared(&odh).len(),
+            2,
+            "the same declaration restarts nothing"
+        );
+
+        handshake(json!({ "roots": {} }), &registry, &router);
+        assert_eq!(
+            declared(&odh).last().unwrap(),
+            &json!({ "elicitation": {}, "roots": {} }),
+            "the declaration is the union of the clients seen"
+        );
+        assert_eq!(
+            declared(&plain),
+            [json!({})],
+            "a server that did not opt in is left alone"
+        );
+        toolport_plus::handshake::DECLARATIONS.reset();
+    }
 }

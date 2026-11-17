@@ -2,7 +2,9 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
-use crate::downstream::{StdioTransport, Transport, TransportError};
+use std::sync::{Arc, Mutex};
+
+use crate::downstream::{DownstreamServer, StdioTransport, Transport, TransportError};
 use crate::registry::{self, DataDirTestEnv, Registry, ServerEntry};
 
 const FAKE_SERVER: &str = concat!(
@@ -111,5 +113,116 @@ fn test03_max_request_timeout_ends_a_call_that_keeps_reporting_progress() {
     assert!(
         took >= Duration::from_millis(1400) && took < Duration::from_millis(4000),
         "{took:?}"
+    );
+}
+
+struct Tee {
+    inner: StdioTransport,
+    replies: Arc<Mutex<Vec<(String, Value)>>>,
+}
+
+impl Transport for Tee {
+    fn request(&mut self, method: &str, params: Value) -> Result<Value, TransportError> {
+        let reply = self.inner.request(method, params)?;
+        self.replies
+            .lock()
+            .unwrap()
+            .push((method.to_string(), reply.clone()));
+        Ok(reply)
+    }
+
+    fn notify(&mut self, method: &str, params: Value) -> Result<(), TransportError> {
+        self.inner.notify(method, params)
+    }
+}
+
+fn connect_through_tee(
+    id: &str,
+    env: &[(&str, &str)],
+) -> (DownstreamServer, Arc<Mutex<Vec<(String, Value)>>>) {
+    let replies = Arc::new(Mutex::new(Vec::new()));
+    let transport = Tee {
+        inner: spawn(env),
+        replies: Arc::clone(&replies),
+    };
+    let server = DownstreamServer::connect(id.to_string(), Box::new(transport)).expect("connect");
+    (server, replies)
+}
+
+fn received_capabilities(replies: &Mutex<Vec<(String, Value)>>) -> Value {
+    let replies = replies.lock().unwrap();
+    let (_, init) = replies.iter().find(|(m, _)| m == "initialize").unwrap();
+    init["serverInfo"]["received"].clone()
+}
+
+fn registry_with(flags: &[(&str, &str, bool)]) {
+    let mut reg = Registry::default();
+    for (id, key, on) in flags {
+        let mut entry: ServerEntry = serde_json::from_value(json!({
+            "id": id, "name": id, "transport": "stdio", "command": "node", "enabled": true
+        }))
+        .unwrap();
+        if *on {
+            entry.unknown_fields.insert((*key).into(), json!(true));
+        }
+        reg.servers.push(entry);
+    }
+    registry::save(&reg).unwrap();
+}
+
+struct DeclarationsReset;
+
+impl Drop for DeclarationsReset {
+    fn drop(&mut self) {
+        toolport_plus::handshake::DECLARATIONS.reset();
+    }
+}
+
+#[test]
+fn test04_a_server_that_opted_in_is_told_the_capabilities_its_client_declared() {
+    let _env = DataDirTestEnv::new("s8-declare");
+    let _reset = DeclarationsReset;
+    toolport_plus::handshake::DECLARATIONS.reset();
+    registry_with(&[
+        ("odh", "declareClientCapabilities", true),
+        ("plain", "declareClientCapabilities", false),
+    ]);
+
+    let (_, before) = connect_through_tee("odh", &[]);
+    assert_eq!(received_capabilities(&before), json!({}), "no client yet");
+
+    toolport_plus::handshake::DECLARATIONS.note_client(Some(&json!({
+        "elicitation": { "form": {} }, "roots": { "listChanged": true }, "tasks": {}
+    })));
+    let (_, opted) = connect_through_tee("odh", &[]);
+    assert_eq!(
+        received_capabilities(&opted),
+        json!({ "elicitation": { "form": {} }, "roots": { "listChanged": true } }),
+        "only the capabilities the gateway relays"
+    );
+    let (_, plain) = connect_through_tee("plain", &[]);
+    assert_eq!(received_capabilities(&plain), json!({}));
+    let (_, unknown) = connect_through_tee("not-in-the-registry", &[]);
+    assert_eq!(received_capabilities(&unknown), json!({}));
+}
+
+#[test]
+fn test05_a_servers_instructions_are_kept_from_its_handshake() {
+    let _env = DataDirTestEnv::new("s8-instructions-kept");
+    let _ = connect_through_tee("s8-told", &[("FAKE_INSTRUCTIONS", "FAKE-odh-instructions")]);
+    assert_eq!(
+        toolport_plus::handshake::stored_instructions("s8-told").as_deref(),
+        Some("FAKE-odh-instructions")
+    );
+    let _ = connect_through_tee("s8-quiet", &[]);
+    assert_eq!(
+        toolport_plus::handshake::stored_instructions("s8-quiet"),
+        None
+    );
+    let _ = connect_through_tee("s8-told", &[]);
+    assert_eq!(
+        toolport_plus::handshake::stored_instructions("s8-told"),
+        None,
+        "a reconnect that sends none clears the old text"
     );
 }

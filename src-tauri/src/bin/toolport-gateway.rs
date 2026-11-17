@@ -1527,14 +1527,16 @@ fn discovery_instructions(mode: DiscoveryMode, client: Option<&str>) -> String {
 fn server_instructions(
     reg: &Registry,
     profile: Option<&str>,
+    allowed: Option<&std::collections::HashSet<String>>,
     built_in: impl FnOnce() -> String,
 ) -> Option<String> {
     let connection = active_connection_profile();
-    match reg.configured_instructions(connection.as_deref().or(profile)) {
+    let own = match reg.configured_instructions(connection.as_deref().or(profile)) {
         None => Some(built_in()),
         Some(text) if text.trim().is_empty() => None,
         Some(text) => Some(text.to_string()),
-    }
+    };
+    conduit_lib::seam::forward_instructions(own, reg, allowed)
 }
 
 /// The `toolport_run_script` "code mode" meta-tool (advertised only when
@@ -8431,7 +8433,7 @@ fn handle_request_with_cancel(
                 // reuse one client's answer for another.
                 "cacheScope": "private"
             });
-            if let Some(text) = server_instructions(reg, profile, || {
+            if let Some(text) = server_instructions(reg, profile, allowed, || {
                 discovery_instructions(
                     listed_discovery_mode(host, reg, router, cached, allowed, client, mode),
                     client,
@@ -8462,7 +8464,7 @@ fn handle_request_with_cancel(
                 "capabilities": gateway_capabilities(host, router, allowed, reg, mode),
                 "serverInfo": { "name": "toolport-gateway", "version": env!("CARGO_PKG_VERSION") },
             });
-            if let Some(text) = server_instructions(reg, profile, || {
+            if let Some(text) = server_instructions(reg, profile, allowed, || {
                 discovery_instructions(
                     listed_discovery_mode(host, reg, router, cached, allowed, client, mode),
                     client,
@@ -17429,6 +17431,7 @@ fn process_request_wire(
             })
     };
     let method = req["method"].as_str().unwrap_or("");
+    conduit_lib::seam::client_handshake(req, allowed, &state.registry, &state.router, &state.ready);
     let label = approval::client_info_label(req.get("params"));
     let reason = if method == "initialize" {
         "initialize"

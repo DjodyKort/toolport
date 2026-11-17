@@ -10,6 +10,8 @@ mod bridge;
 #[cfg(all(feature = "plus", feature = "desktop"))]
 mod plus_ctl;
 
+#[cfg(feature = "plus")]
+mod handshake;
 #[cfg(all(test, feature = "plus"))]
 mod interop_tests;
 
@@ -233,6 +235,58 @@ pub fn progress_seen(notification: &serde_json::Value) {
     toolport_plus::progress::note(notification);
     #[cfg(not(feature = "plus"))]
     let _ = notification;
+}
+
+/// What the legacy `initialize` to a server declares as client capabilities: `{}`, unless the
+/// server opted in and a client has declared some.
+pub fn downstream_capabilities(server_id: &str) -> serde_json::Value {
+    #[cfg(feature = "plus")]
+    return handshake::downstream_capabilities(server_id);
+    #[cfg(not(feature = "plus"))]
+    {
+        let _ = server_id;
+        serde_json::json!({})
+    }
+}
+
+/// A server answered `initialize` or `server/discover` with `result`.
+pub fn handshake_seen(server_id: &str, result: &serde_json::Value) {
+    #[cfg(feature = "plus")]
+    toolport_plus::handshake::store_instructions(server_id, result);
+    #[cfg(not(feature = "plus"))]
+    let _ = (server_id, result);
+}
+
+/// Adds the instructions of the servers that opted in, within the caller's scope, to the
+/// gateway's own text.
+pub fn forward_instructions(
+    own: Option<String>,
+    reg: &crate::registry::Registry,
+    allowed: Option<&std::collections::HashSet<String>>,
+) -> Option<String> {
+    #[cfg(feature = "plus")]
+    return handshake::forward_instructions(own, reg, allowed);
+    #[cfg(not(feature = "plus"))]
+    {
+        let _ = (reg, allowed);
+        own
+    }
+}
+
+/// A client's request reached the gateway: notes the capabilities it declares, restarts the
+/// servers that opted in to be told, and holds an `initialize` or `server/discover` for the
+/// router to connect the servers whose instructions it forwards. The waits are bounded.
+pub fn client_handshake(
+    req: &serde_json::Value,
+    allowed: Option<&std::collections::HashSet<String>>,
+    registry: &std::sync::Mutex<crate::registry::Registry>,
+    router: &std::sync::Mutex<std::sync::Arc<crate::router::Router>>,
+    ready: &std::sync::atomic::AtomicBool,
+) {
+    #[cfg(feature = "plus")]
+    handshake::client_handshake(req, allowed, registry, router, ready);
+    #[cfg(not(feature = "plus"))]
+    let _ = (req, allowed, registry, router, ready);
 }
 
 /// The secrets host the hooks below use. Unit tests never reach the real keychain

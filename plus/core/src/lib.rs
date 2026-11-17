@@ -8,6 +8,7 @@ pub mod context;
 pub mod ctl;
 pub mod egress;
 pub mod fsx;
+pub mod handshake;
 mod hashing;
 pub mod health;
 pub mod http;

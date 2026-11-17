@@ -50,7 +50,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       return reply(message.id, {
         protocolVersion: "2025-06-18",
         capabilities: { tools: {}, resources: {} },
-        serverInfo: { name: "fake-mcp", version: "0" },
+        serverInfo: { name: "fake-mcp", version: "0", received: message.params.capabilities },
         ...(instructions === undefined ? {} : { instructions }),
       });
     case "tools/list":
