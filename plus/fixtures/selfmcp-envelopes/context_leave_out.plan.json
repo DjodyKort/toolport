@@ -48,6 +48,7 @@
       ]
     },
     "result": null,
+    "root": "<WORLD>/home/proj",
     "scope": "folder"
   },
   "tool": "context_leave_out"

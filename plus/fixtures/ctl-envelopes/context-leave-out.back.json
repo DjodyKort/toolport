@@ -46,6 +46,7 @@
         "changed": ["<WORLD>/home/proj/.claude/settings.local.json"],
         "undo": "toolportctl context leave-out add <WORLD>/home/.claude/CLAUDE.md --cwd <WORLD>/home/proj"
       },
+      "root": "<WORLD>/home/proj",
       "scope": "folder"
     },
     "ok": true,

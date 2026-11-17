@@ -123,6 +123,8 @@ export interface WriteData {
   id?: string;
   scope?: "folder" | string;
   cwd?: string;
+  /** Where the settings file is written: the repository root (the main checkout in a worktree). */
+  root?: string;
   folder?: string;
   dryRun: boolean;
   plan: Plan;

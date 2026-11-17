@@ -1,13 +1,17 @@
 //! `context leave-out add|rm`: leaving one CLAUDE.md or rule file out of a folder's stack, and
 //! turning auto memory off there. Both ride the plugin-control path of the bundle ledger
 //! (`bundle_controls`): the keys are `claudeMdExcludes` entries and `autoMemoryEnabled` in the
-//! folder's `settings.local.json`, recorded under the control `leave-out`, so a bundle and this
-//! control never undo each other's keys. The file itself is never touched.
+//! settings file at the repository root (where Claude Code reads and writes its local settings,
+//! the main checkout inside a linked worktree), recorded under the control `leave-out`, so a
+//! bundle and this control never undo each other's keys. Switches an older version wrote in a
+//! subfolder are still read, and move to the root on the next write. The file itself is never
+//! touched.
 
 use super::bundle_apply::Desired;
 use super::bundle_controls::{self as controls, Run};
 use super::bundle_store::op as bundle_op;
 use super::fsx;
+use super::gitlayout::settings_root;
 use super::loads::LoadSource;
 use super::plan::{Effects, PlanV1, ResultV1, TokenEffect};
 use super::roots::Roots;
@@ -46,12 +50,22 @@ pub struct World<'a> {
     pub data_dir: &'a Path,
 }
 
-/// What the control owns in a folder: the left-out files (as written) and whether auto memory is off.
-pub fn owned(data_dir: &Path, cwd: &Path) -> (Vec<String>, bool) {
-    let Some(rec) = controls::record(data_dir, cwd, CONTROL) else {
-        return (Vec::new(), false);
+/// What the control owns in one folder: the files left out (as written) and the value it set
+/// for `autoMemoryEnabled`.
+pub struct Held {
+    pub files: Vec<String>,
+    pub memory: Option<bool>,
+}
+
+fn held(data_dir: &Path, folder: &Path) -> Held {
+    let none = Held {
+        files: Vec::new(),
+        memory: None,
     };
-    let drift = controls::drifted(data_dir, cwd, CONTROL);
+    let Some(rec) = controls::record(data_dir, folder, CONTROL) else {
+        return none;
+    };
+    let drift = controls::drifted(data_dir, folder, CONTROL);
     let files = rec
         .settings
         .owned
@@ -59,11 +73,68 @@ pub fn owned(data_dir: &Path, cwd: &Path) -> (Vec<String>, bool) {
         .filter(|o| o.kind == "entry" && o.path == ["claudeMdExcludes"])
         .filter_map(|o| serde_json::from_str::<String>(&o.written).ok())
         .collect();
-    let memory =
-        rec.settings.owned.iter().any(|o| {
-            o.kind == "set" && o.path == ["autoMemoryEnabled"] && !drift.contains(&o.label())
-        });
-    (files, memory)
+    let memory = rec
+        .settings
+        .owned
+        .iter()
+        .find(|o| o.kind == "set" && o.path == ["autoMemoryEnabled"] && !drift.contains(&o.label()))
+        .and_then(|o| o.written.parse().ok());
+    Held { files, memory }
+}
+
+/// What the control owns for a session in `cwd`: the repository root's record plus one an older
+/// version left in the folder itself.
+pub fn held_in(data_dir: &Path, cwd: &Path) -> Held {
+    let cwd = fsx::canonical(cwd);
+    let root = settings_root(&cwd);
+    let mut out = held(data_dir, &root);
+    if root != cwd {
+        let older = held(data_dir, &cwd);
+        for file in older.files {
+            if !out.files.contains(&file) {
+                out.files.push(file);
+            }
+        }
+        out.memory = out.memory.or(older.memory);
+    }
+    out
+}
+
+/// What the control owns in a folder: the left-out files (as written) and whether auto memory is off.
+pub fn owned(data_dir: &Path, cwd: &Path) -> (Vec<String>, bool) {
+    let held = held_in(data_dir, cwd);
+    (held.files, held.memory == Some(false))
+}
+
+/// Writes the whole of what the control owns for `cwd` at the repository root, after putting back
+/// what an older version wrote in the folder itself.
+pub fn write_state(
+    data_dir: &Path,
+    cwd: &Path,
+    files: &[String],
+    memory: Option<bool>,
+    dry_run: bool,
+) -> Result<Run, OpError> {
+    let cwd = fsx::canonical(cwd);
+    let root = settings_root(&cwd);
+    let want = Desired {
+        excludes: files.to_vec(),
+        memory_off: memory == Some(false),
+        memory_on: memory == Some(true),
+        ..Desired::default()
+    };
+    let older = (root != cwd && controls::record(data_dir, &cwd, CONTROL).is_some())
+        .then(|| controls::undo(data_dir, &cwd, CONTROL, dry_run))
+        .transpose()
+        .map_err(bundle_op)?;
+    let mut run = controls::apply(data_dir, &root, CONTROL, &want, dry_run).map_err(bundle_op)?;
+    if let Some(older) = older {
+        run.steps.splice(0..0, older.steps);
+        run.warnings.extend(older.warnings);
+        run.changed.extend(older.changed);
+        run.conflicts.extend(older.conflicts);
+    }
+    Ok(run)
 }
 
 /// Say who keeps each left-out row out: the `leave-out` control, or settings Toolport did not write.
@@ -139,7 +210,8 @@ fn plan_of(
 
 pub fn run(world: &World, args: &Args) -> Result<Value, OpError> {
     let cwd = folder(args.cwd)?;
-    let (mut files, mut memory) = owned(world.data_dir, &cwd);
+    let held = held_in(world.data_dir, &cwd);
+    let (mut files, mut memory) = (held.files, held.memory);
     let cwd_text = quote(&fsx::display(&cwd));
     let mut warnings = Vec::new();
     let mut tokens = None;
@@ -220,7 +292,7 @@ pub fn run(world: &World, args: &Args) -> Result<Value, OpError> {
             )
         }
         (Op::Add, Target::Memory) => {
-            memory = true;
+            memory = Some(false);
             warnings.push(
                 "Claude then neither reads from nor writes to this project's auto memory directory"
                     .into(),
@@ -232,7 +304,7 @@ pub fn run(world: &World, args: &Args) -> Result<Value, OpError> {
             )
         }
         (Op::Rm, Target::Memory) => {
-            memory = false;
+            memory = None;
             warnings.push(NEXT_SESSION.into());
             (
                 format!("Turn auto memory back on in {}", cwd.display()),
@@ -240,13 +312,7 @@ pub fn run(world: &World, args: &Args) -> Result<Value, OpError> {
             )
         }
     };
-    let want = Desired {
-        excludes: files.clone(),
-        memory_off: memory,
-        ..Desired::default()
-    };
-    let run =
-        controls::apply(world.data_dir, &cwd, CONTROL, &want, args.dry_run).map_err(bundle_op)?;
+    let run = write_state(world.data_dir, &cwd, &files, memory, args.dry_run)?;
     let plan = plan_of(summary, &run, warnings, undo.clone(), tokens);
     let result = (!args.dry_run).then(|| ResultV1 {
         applied: true,
@@ -258,10 +324,11 @@ pub fn run(world: &World, args: &Args) -> Result<Value, OpError> {
         "id": CONTROL,
         "scope": "folder",
         "cwd": fsx::display(&cwd),
+        "root": fsx::display(&settings_root(&cwd)),
         "dryRun": args.dry_run,
         "plan": plan,
         "result": result,
         "leftOut": files,
-        "memoryOff": memory,
+        "memoryOff": memory == Some(false),
     }))
 }

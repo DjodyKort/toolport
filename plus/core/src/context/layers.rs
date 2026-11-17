@@ -60,13 +60,12 @@ pub fn body_of(path: &Path) -> String {
     }
 }
 
-/// Adds `line` to the repository's `.git/info/exclude`; true when it was not there yet.
+/// Adds `line` to the repository's `info/exclude` (shared by a linked worktree's main checkout); true when it was not there yet.
 pub fn ensure_exclude_line(repo: &Path, line: &str) -> Result<bool, String> {
-    let git_dir = repo.join(".git");
-    if !git_dir.is_dir() {
+    let Some(layout) = super::gitlayout::at(repo) else {
         return Ok(false);
-    }
-    let exclude = git_dir.join("info").join("exclude");
+    };
+    let exclude = layout.exclude_file();
     let text = fs::read_to_string(&exclude).unwrap_or_default();
     let mut lines: Vec<&str> = text.lines().collect();
     if lines.contains(&line) {
