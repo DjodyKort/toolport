@@ -141,7 +141,7 @@ function loginWorld(params: URLSearchParams) {
 
 /** `?plus-bell` shows the footer bell with three rows. `?plus-self=missing|enabled|disabled|opted-out|not-enabled`, `?plus-doctor=warn|fail` and
  * `?plus-bridge=down` pick the state the fixture page starts in. `?plus-restart=busy|partial|none|slow`
- * picks how a server restart answers and `?plus-default=<access set id>` the default access; the servers follow
+ * picks how a server restart answers, `?plus-measured=fresh|stale`, `?plus-measure=slow|fail` and `?plus-bundles=none` set the Context screen's world, and `?plus-default=<access set id>` the default access; the servers follow
  * `?auth-guidance` of the app fixture. */
 export function plusFixtureFromSearch(search: string) {
   const params = new URLSearchParams(search);
@@ -154,6 +154,15 @@ export function plusFixtureFromSearch(search: string) {
       ? (self as WorldOptions["self"])
       : "enabled",
     doctor: doctor === "warn" || doctor === "fail" ? doctor : "ok",
+    context: {
+      measured: ["fresh", "stale"].includes(params.get("plus-measured") ?? "")
+        ? (params.get("plus-measured") as "fresh" | "stale")
+        : "none",
+      measure: ["slow", "fail"].includes(params.get("plus-measure") ?? "")
+        ? (params.get("plus-measure") as "slow" | "fail")
+        : "ok",
+      bundles: params.get("plus-bundles") !== "none",
+    },
     down: params.get("plus-bridge") === "down",
     servers: {
       servers: fixtureServers(params.has("auth-guidance")),

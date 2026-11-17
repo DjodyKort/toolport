@@ -1,5 +1,6 @@
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Registry, View } from "@/lib/types";
+import ContextScreen from "../context/ContextScreen";
 import ToolportPlusPage from "../settings/ToolportPlusPage";
 import TasksPage from "../tasks/TasksPage";
 import { isPlusView, PLUS_SCREENS, type PlusScreen } from "./views";
@@ -35,6 +36,7 @@ export default function PlusViews({
   onOpenSettings,
 }: PlusViewsProps) {
   if (view === "tasks") return <TasksPage onOpenSettings={onOpenSettings} />;
+  if (view === "context") return <ContextScreen />;
   if (isPlusView(view)) return <NotBuiltYet screen={PLUS_SCREENS[view]} />;
   return (
     <ToolportPlusPage
