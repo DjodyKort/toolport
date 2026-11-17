@@ -2539,3 +2539,7 @@ mod tests {
         assert_eq!(done.enabled, vec!["focus".to_string(), "wide".to_string()]);
     }
 }
+
+#[cfg(test)]
+#[path = "plus_adapter_oauth_tests.rs"]
+mod oauth_tests;

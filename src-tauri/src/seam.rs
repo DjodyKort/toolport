@@ -35,6 +35,14 @@ pub(crate) fn egress_check(uri: &ureq::http::Uri) -> Result<(), ureq::Error> {
     Ok(())
 }
 
+/// Whether the resource a protected-resource document names is the configured server URL.
+pub(crate) fn same_resource(expected: &str, advertised: &str) -> bool {
+    #[cfg(feature = "plus")]
+    return toolport_plus::oauth::same_resource(expected, advertised);
+    #[cfg(not(feature = "plus"))]
+    return expected == advertised;
+}
+
 /// A launch the gateway keeps for one project folder: the server id, the folder and the slot.
 pub type PooledLaunch = (String, String, crate::router::SharedServerSlot);
 

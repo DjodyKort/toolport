@@ -10,6 +10,7 @@ pub mod health;
 pub mod http;
 pub mod keychain_trust;
 pub mod login_keychain;
+pub mod oauth;
 pub mod op;
 mod redact;
 pub mod selfmcp;

@@ -652,7 +652,7 @@ fn validated_protected_resource(
         "protected-resource metadata has no resource identifier; refusing OAuth discovery"
             .to_string()
     })?;
-    if resource != expected_resource {
+    if !crate::seam::same_resource(expected_resource, &resource) {
         return Err(
             "protected-resource metadata describes a different resource; refusing OAuth discovery"
                 .to_string(),

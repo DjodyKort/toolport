@@ -32,6 +32,11 @@
 # lib.rs, 3 lines: the two fork modules, and seam is pub (was pub(crate)) so the gateway binary can call
 # seam::gateway_tick.
 3	src-tauri/src/lib.rs
+# oauth.rs, 2 changed lines: `validated_protected_resource` compares the protected-resource `resource` through
+# seam::same_resource (scheme and host case, a default port and one trailing slash do not tell two spellings of a
+# server URL apart), because upstream's exact comparison refuses a server whose metadata says `https://host/mcp/`
+# for the configured `https://host/mcp`. Without the plus feature the seam compares exactly, as upstream does.
+2	src-tauri/src/oauth.rs
 # oauth_controller.rs, 2 changed lines: `start_attempt` also exists in the plus build, so `toolportctl auth login`
 # starts a remote sign-in through `authenticate`, the call of the app's Sign in button, without the desktop feature.
 2	src-tauri/src/oauth_controller.rs
