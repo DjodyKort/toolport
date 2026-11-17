@@ -28,10 +28,28 @@ pub fn item_dirs<K: ContentKind>(repo: &Path) -> Vec<PathBuf> {
     dirs
 }
 
+/// A directory whose file exists but does not parse, so it never reaches sync.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ParseFailure {
+    /// The directory's name.
+    pub name: String,
+    /// The file's path relative to the repository.
+    pub path: String,
+    pub reason: String,
+}
+
+#[derive(Debug)]
+pub struct Found<T> {
+    pub items: Vec<T>,
+    pub warnings: Vec<String>,
+    pub failures: Vec<ParseFailure>,
+}
+
 /// The items that parse, and a warning for each directory that does not hold one.
-pub fn discover_report<K: ContentKind>(repo: &Path) -> (Vec<K::Item>, Vec<String>) {
+pub fn discover_report<K: ContentKind>(repo: &Path) -> Found<K::Item> {
     let mut items = Vec::new();
     let mut warnings = Vec::new();
+    let mut failures = Vec::new();
     for dir in item_dirs::<K>(repo) {
         let file = dir.join(K::FILE);
         if !file.exists() {
@@ -46,12 +64,30 @@ pub fn discover_report<K: ContentKind>(repo: &Path) -> (Vec<K::Item>, Vec<String
         }
         match K::parse(&file) {
             Ok(item) => items.push(item),
-            Err(e) => warnings.push(format!("Failed to parse {}: {e}", file.display())),
+            Err(e) => {
+                warnings.push(format!("Failed to parse {}: {e}", file.display()));
+                failures.push(ParseFailure {
+                    name: dir
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_default(),
+                    path: file
+                        .strip_prefix(repo)
+                        .unwrap_or(&file)
+                        .to_string_lossy()
+                        .into_owned(),
+                    reason: e,
+                });
+            }
         }
     }
-    (items, warnings)
+    Found {
+        items,
+        warnings,
+        failures,
+    }
 }
 
 pub fn discover<K: ContentKind>(repo: &Path) -> Vec<K::Item> {
-    discover_report::<K>(repo).0
+    discover_report::<K>(repo).items
 }

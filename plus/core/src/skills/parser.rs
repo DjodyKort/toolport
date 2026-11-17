@@ -1,6 +1,6 @@
 //! SKILL.md parsing: YAML frontmatter plus Markdown body, validated like mcpm's pydantic schema.
 
-use super::kind::{discover_report, item_dirs, ContentKind};
+use super::kind::{discover_report, item_dirs, ContentKind, ParseFailure};
 use regex::Regex;
 use serde_yaml::{Mapping, Value};
 use std::path::{Path, PathBuf};
@@ -397,6 +397,7 @@ fn infer_skill_type(path: &Path, activation: Activation) -> SkillType {
 pub struct Discovery {
     pub skills: Vec<Skill>,
     pub warnings: Vec<String>,
+    pub failures: Vec<ParseFailure>,
 }
 
 pub struct SkillKind;
@@ -413,8 +414,12 @@ impl ContentKind for SkillKind {
 }
 
 pub fn discover_skills_report(repo: &Path) -> Discovery {
-    let (skills, warnings) = discover_report::<SkillKind>(repo);
-    Discovery { skills, warnings }
+    let found = discover_report::<SkillKind>(repo);
+    Discovery {
+        skills: found.items,
+        warnings: found.warnings,
+        failures: found.failures,
+    }
 }
 
 /// The first skill `discover_skills` would list under `name`, without parsing the ones after it.

@@ -6,13 +6,18 @@
 use super::assets::compute_skill_hash;
 use super::client_scope::{self, default_clients, ClientSource};
 use super::frontmatter::output_accepted;
-use super::lint::{lint_description_lengths, lint_files, lint_outputs, lint_skills, LintResult};
+use super::lint::{
+    lint_description_lengths, lint_files, lint_outputs, lint_parse_failures, lint_skills,
+    LintResult,
+};
 use super::lock::{get_entry, load_lockfile, save_lockfile};
 use super::ops::{
     check_outputs, diff_skills, find_skills_repo, has_drift, lock_dir, lock_output_root,
     read_lock_in, skills_status as output_rows, LockRead,
 };
-use super::parser::{discover_skills, find_skill, Skill, SkillType};
+use super::parser::{
+    discover_skills, discover_skills_report, find_skill, Discovery, Skill, SkillType,
+};
 use super::sync_report::sync_report;
 use super::transpiler::TranspilerRegistry;
 use super::transpilers::{self, registry_with_home};
@@ -175,10 +180,17 @@ pub fn get(args: &Args) -> Result<Value, OpError> {
 }
 
 pub fn lint(args: &Args) -> Result<Value, OpError> {
-    let (_, mut skills) = load(args)?;
+    let repo = resolve_repo(args.repo.as_deref())?;
+    let Discovery {
+        skills: mut found,
+        mut failures,
+        ..
+    } = discover_skills_report(&repo);
     if let Some(names) = &args.names {
-        skills.retain(|s| names.iter().any(|n| n == s.name()));
+        found.retain(|s| names.iter().any(|n| n == s.name()));
+        failures.retain(|f| names.contains(&f.name));
     }
+    let skills = found;
     let mut result = lint_skills(&skills);
     let outputs = lint_outputs(&skills, &registry_with_home(crate::fsx::home()));
     result.messages.extend(outputs.messages);
@@ -186,6 +198,9 @@ pub fn lint(args: &Args) -> Result<Value, OpError> {
     result
         .messages
         .extend(lint_description_lengths(&skills, other_clients_on(args)).messages);
+    result
+        .messages
+        .extend(lint_parse_failures(&failures).messages);
     Ok(lint_json(&result))
 }
 

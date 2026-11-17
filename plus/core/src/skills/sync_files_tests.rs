@@ -540,3 +540,29 @@ fn test23_verification_names_a_file_changed_by_hand_since_the_sync() {
     assert_eq!(report.differing.len(), 1);
     assert!(report.edited.is_empty());
 }
+
+#[test]
+fn test24_lint_names_a_skill_that_cannot_be_read_and_why() {
+    let w = World::new("unparsable");
+    put(
+        &w.repo.0,
+        "skills/broken/SKILL.md",
+        "no frontmatter at all\n",
+    );
+    put(
+        &w.repo.0,
+        "skills/hooked/SKILL.md",
+        "---\nname: hooked\ndescription: \"Has a hook that points nowhere. Use when testing lint.\"\nhooks:\n  Stop:\n    command: scripts/gone.sh\n---\n\n# Hooked\n",
+    );
+    put(&w.repo.0, "skills/empty/readme.md", "x");
+    let found = super::parser::discover_skills_report(&w.repo.0);
+    assert_eq!(found.skills.len(), 1);
+    let result = super::lint::lint_parse_failures(&found.failures);
+    let errors: Vec<_> = result.errors().collect();
+    assert_eq!(errors.len(), 2, "{errors:?}");
+    assert_eq!(errors[0].name, "broken");
+    assert!(errors[0].message.contains("skills/broken/SKILL.md"));
+    assert!(errors[0].message.contains("No YAML frontmatter"));
+    assert_eq!(errors[1].name, "hooked");
+    assert!(errors[1].message.contains("scripts/gone.sh"));
+}

@@ -2,6 +2,7 @@
 
 use super::assets::{inventory, Inventory, SKILL_FILE};
 use super::frontmatter::output_accepted;
+use super::kind::ParseFailure;
 use super::parser::{Activation, Skill, SPEC_DESCRIPTION_LIMIT};
 use super::transpiler::TranspilerRegistry;
 use super::transpilers::windsurf::WINDSURF_WORKSPACE_CHAR_LIMIT;
@@ -209,6 +210,22 @@ pub fn lint_skills(skills: &[Skill]) -> LintResult {
                 );
             }
         }
+    }
+    result
+}
+
+/// A skill whose file exists but does not parse is dropped from discovery, so nothing else
+/// mentions it.
+pub fn lint_parse_failures(failures: &[ParseFailure]) -> LintResult {
+    let mut result = LintResult::default();
+    for failure in failures {
+        result.error(
+            &failure.name,
+            format!(
+                "{} cannot be read and is not synced: {}",
+                failure.path, failure.reason
+            ),
+        );
     }
     result
 }
