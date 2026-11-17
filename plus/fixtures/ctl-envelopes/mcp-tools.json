@@ -211,6 +211,12 @@
               "type": "boolean"
             },
             {
+              "description": "With apply_held, also install the hooks of skills that came from a tap",
+              "name": "allow_tap_hooks",
+              "required": false,
+              "type": "boolean"
+            },
+            {
               "description": "Must be true to run this tool",
               "name": "confirm",
               "required": false,
@@ -248,6 +254,125 @@
             }
           ],
           "tier": 1
+        },
+        {
+          "description": "List the registered skill taps (git sources) and whether each is cloned",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_tap_list",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Search the cloned taps for skills by name, description or tags",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_search",
+          "params": [
+            {
+              "description": "Text to look for",
+              "name": "query",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Register a tap and clone it; dry_run is on by default",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "skills_tap_add",
+          "params": [
+            {
+              "description": "user/repo on GitHub, or an https, ssh or file git URL",
+              "name": "repo",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Tap name, default derived from the source",
+              "name": "name",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Unregister a tap and delete its clone; dry_run is on by default",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "skills_tap_remove",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Pull one tap or all of them; dry_run is on by default",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "skills_tap_update",
+          "params": [
+            {
+              "description": "Limit to one tap",
+              "name": "name",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Install the skills of @user/repo[/skill] from a tap into the skills repository after a security audit; dry_run is on by default",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "skills_install",
+          "params": [
+            {
+              "description": "@user/repo, @user/repo/skill or with @version",
+              "name": "spec",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
         },
         {
           "description": "Pack skills into a new .zip bundle; never overwrites a file; dry_run is on by default",

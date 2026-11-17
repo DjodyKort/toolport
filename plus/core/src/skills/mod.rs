@@ -9,11 +9,14 @@ pub mod client_scope;
 pub mod clock;
 pub mod collisions;
 pub mod frontmatter;
+pub mod git;
+mod gitexec;
 pub mod json;
 pub mod kind;
 pub mod lint;
 pub mod lock;
 pub mod ops;
+pub mod origin;
 pub mod parser;
 pub mod pyfs;
 pub mod repo;
@@ -22,6 +25,9 @@ pub(crate) mod scalar;
 pub mod state;
 pub mod sync;
 pub mod sync_report;
+pub mod tap_handlers;
+pub mod tap_ops;
+pub mod taps;
 pub mod transpiler;
 pub mod transpilers;
 pub mod verify;
@@ -36,6 +42,10 @@ pub use transpiler::{Transpiler, TranspilerRegistry};
 mod frontmatter_tests;
 #[cfg(test)]
 mod sync_files_tests;
+#[cfg(test)]
+mod tap_fixtures;
+#[cfg(test)]
+mod tap_ops_tests;
 #[cfg(test)]
 mod tests;
 

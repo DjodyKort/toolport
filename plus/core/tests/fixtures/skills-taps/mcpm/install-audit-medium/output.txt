@@ -1,0 +1,7 @@
+Resolving @acme/mild...
+Found 1 skill(s)
+
+Audit: 1 finding(s) (none high severity)
+  Installed tidy (skill)
+
+Installed 1 skill(s). Run 'mcpm skills sync' to transpile to clients.

@@ -1,0 +1,15 @@
+{
+  "argv": ["skills", "search", "tapskill"],
+  "envelope": {
+    "command": "skills search",
+    "data": {
+      "discoveryWarnings": [],
+      "query": "tapskill",
+      "results": [],
+      "tapCount": 0
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

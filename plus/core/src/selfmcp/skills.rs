@@ -10,7 +10,7 @@ use super::ToolError;
 use crate::args::{flag_or, str_arg, str_nonempty};
 use crate::skills::api::{self, Args};
 use crate::skills::repo::{skill_bucket, skill_template};
-use crate::skills::{repo_handlers, state};
+use crate::skills::{repo_handlers, state, tap_handlers as taps};
 
 type Outcome = Result<Value, ToolError>;
 type Handler = fn(Value) -> Result<Value, String>;
@@ -282,4 +282,71 @@ fn unbundle_in(args: &Value) -> Outcome {
     }
     map.insert("dry_run".into(), json!(false));
     repo_handlers::unbundle_handler(Value::Object(map)).map_err(failed)
+}
+
+fn tapped(outcome: Result<Value, crate::skills::tap_ops::TapError>) -> Outcome {
+    use crate::skills::tap_ops::Kind;
+    outcome.map_err(|e| {
+        let kind = match e.kind {
+            Kind::Invalid => "invalid_arguments",
+            Kind::NotFound => "not_found",
+            Kind::Conflict => "conflict",
+            Kind::Backend => "backend_error",
+        };
+        ToolError::new(kind, e.message)
+    })
+}
+
+fn applies(args: &Value) -> bool {
+    !flag_or(args, "dry_run", true)
+}
+
+pub(super) fn tap_list(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || tapped(taps::tap_list_value(args)))
+}
+
+pub(super) fn search(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || tapped(taps::search_value(args)))
+}
+
+pub(super) fn tap_add(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || {
+        tapped(taps::tap_add_value(&json!({
+            "repo": str_arg(args, "repo"),
+            "name": str_arg(args, "name"),
+            "dry_run": !applies(args),
+        })))
+    })
+}
+
+pub(super) fn tap_remove(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || {
+        tapped(taps::tap_remove_value(&json!({
+            "name": str_arg(args, "name"),
+            "dry_run": !applies(args),
+        })))
+    })
+}
+
+pub(super) fn tap_update(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || {
+        tapped(taps::tap_update_value(&json!({
+            "name": str_arg(args, "name"),
+            "dry_run": !applies(args),
+        })))
+    })
+}
+
+/// Installs into the discovered skills repository, never into the working directory, and always
+/// with the audit on.
+pub(super) fn install(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || {
+        let repo = repo_of(args)?;
+        tapped(taps::install_value(&json!({
+            "spec": str_arg(args, "spec"),
+            "repo_path": repo.to_string_lossy(),
+            "dry_run": !applies(args),
+            "no_audit": false,
+        })))
+    })
 }

@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "tap", "ls"],
+  "envelope": {
+    "command": "skills tap ls",
+    "data": {
+      "taps": [],
+      "tapsRoot": "<WORLD>/data/taps"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

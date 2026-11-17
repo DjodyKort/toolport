@@ -1,0 +1,3 @@
+home/.config/mcpm/taps/acme-mild/skills/tidy/SKILL.md
+home/.config/mcpm/taps_index.json
+target/skills/tidy/SKILL.md

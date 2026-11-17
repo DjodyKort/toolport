@@ -1,0 +1,8 @@
+home/.config/mcpm/taps/team/README.md
+home/.config/mcpm/taps/team/rules/style-guide/SKILL.md
+home/.config/mcpm/taps/team/skills/code-review/SKILL.md
+home/.config/mcpm/taps/team/skills/code-review/reference/checklist.md
+home/.config/mcpm/taps/team/skills/code-review/scripts/summarize.sh
+home/.config/mcpm/taps/team/skills/escape/SKILL.md
+home/.config/mcpm/taps/team/skills/terraform-helper/SKILL.md
+home/.config/mcpm/taps_index.json

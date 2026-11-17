@@ -21,6 +21,7 @@ use super::server;
 use super::skills;
 use super::skills_repo;
 use super::skills_state;
+use super::skills_taps;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
@@ -108,6 +109,22 @@ const fn opt(name: &'static str) -> Operand {
         name,
         required: false,
         variadic: false,
+    }
+}
+
+const fn opt(name: &'static str) -> Operand {
+    Operand {
+        name,
+        required: false,
+        variadic: false,
+    }
+}
+
+const fn some(name: &'static str) -> Operand {
+    Operand {
+        name,
+        required: true,
+        variadic: true,
     }
 }
 
@@ -404,6 +421,34 @@ pub(super) const ROWS: &[Row] = &[
         .args(&[req("name")])
         .skip("creates a skill folder; its --dry-run is a golden step"),
     row("skills audit", R).spec(&[&skills_repo::AUDIT]),
+    row("skills tap add", W)
+        .dry()
+        .needs(&[Needs::Network])
+        .spec(&[&skills_taps::TAP_ADD])
+        .args(&[req("repo")])
+        .skip("clones a git repository; its --dry-run is a golden step"),
+    row("skills tap ls", R).spec(&[&skills_taps::TAP_LS]),
+    row("skills tap remove", W)
+        .dry()
+        .spec(&[&skills_taps::TAP_REMOVE])
+        .args(&[req("name")])
+        .skip("deletes a clone; its --dry-run is a golden step"),
+    row("skills tap update", W)
+        .dry()
+        .needs(&[Needs::Network])
+        .spec(&[&skills_taps::TAP_UPDATE])
+        .args(&[opt("name")])
+        .skip("pulls the clones; its --dry-run is a golden step"),
+    row("skills search", R)
+        .spec(&[&skills_taps::SEARCH])
+        .args(&[some("query")])
+        .smoke(&["tapskill"]),
+    row("skills install", W)
+        .dry()
+        .needs(&[Needs::Network])
+        .spec(&[&skills_taps::INSTALL])
+        .args(&[req("spec")])
+        .skip("copies skills out of a tap; its --dry-run is a golden step"),
     row("skills bundle", W)
         .dry()
         .spec(&[&skills_repo::BUNDLE])
@@ -561,6 +606,12 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("skills_list_transpilers", R),
     maps("skills_scaffold", W, "skills add"),
     maps("skills_audit", R, "skills audit"),
+    maps("skills_tap_list", R, "skills tap ls"),
+    maps("skills_search", R, "skills search"),
+    maps("skills_tap_add", W, "skills tap add").on(),
+    maps("skills_tap_remove", W, "skills tap remove").on(),
+    maps("skills_tap_update", W, "skills tap update").on(),
+    maps("skills_install", W, "skills install").on(),
     maps("skills_bundle", W, "skills bundle").on(),
     maps("skills_unbundle", W, "skills unbundle").on(),
     maps("skills_clean", D, "skills clean").on(),

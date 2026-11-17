@@ -31,6 +31,8 @@ pub(super) const SYNC: Spec = Spec {
         switch("--dry-run"),
         switch("--migrate"),
         switch("--no-migrate"),
+        switch("--apply-held"),
+        switch("--allow-tap-hooks"),
     ],
     ..BASE
 };
@@ -93,6 +95,8 @@ pub fn sync(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
         global: !flags.on("--project"),
         migrate: (flags.on("--migrate") || flags.on("--no-migrate")).then(|| flags.on("--migrate")),
         clients: (!clients.is_empty()).then_some(clients),
+        apply_held: flags.on("--apply-held"),
+        allow_tap_hooks: flags.on("--allow-tap-hooks"),
         ..repo_args(&flags)
     };
     let data = served(api::sync(&args))?;

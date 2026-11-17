@@ -22,6 +22,7 @@ use super::collisions::{
     backup_path_aside, detect_collisions, resolve_collisions, resolve_mode, CollisionSummary,
 };
 use super::lock::{get_entry, get_entry_mut, load_lockfile, set_entry, LockEntry, LockFile};
+use super::origin::{is_tap, read_origins};
 use super::parser::{Skill, SkillType};
 use super::pyfs::write_text;
 use super::transpiler::{Transpiler, TranspilerRegistry};
@@ -40,6 +41,8 @@ pub struct SyncOptions<'a> {
     pub client_keys: Option<Vec<String>>,
     /// Also apply removals, hooks that are new and replacements of files that differ.
     pub apply_held: bool,
+    /// With `apply_held`, also install the hooks of skills whose lock source is a tap.
+    pub allow_tap_hooks: bool,
     pub clock: &'a dyn Clock,
 }
 
@@ -424,6 +427,13 @@ fn sync_one(
     sync_hooks(t, skill, ctx, entry)
 }
 
+/// The recorded origin of a skill that did not start in the library; the origins file sits at the
+/// repository root, two levels above the skill's folder.
+fn library_origin(skill: &Skill) -> Option<String> {
+    let repo = skill.source_dir().parent()?.parent()?;
+    read_origins(repo).remove(skill.name())
+}
+
 fn sync_hooks(
     t: &dyn Transpiler,
     skill: &Skill,
@@ -442,7 +452,14 @@ fn sync_hooks(
     let known = previous_hooks(ctx.previous, skill, key);
     let wanted = t.hook_ids(skill, ctx.output_root);
     let new: Vec<&String> = wanted.iter().filter(|id| !known.contains(id)).collect();
-    if !new.is_empty() && !ctx.apply_held {
+    let tap_hooks_wait = is_tap(&entry.source) && !ctx.allow_tap_hooks;
+    if !new.is_empty() && (!ctx.apply_held || tap_hooks_wait) {
+        if ctx.apply_held {
+            entry.warnings.push(format!(
+                "{key}: hooks of a skill from {} wait for confirmation of tap hooks",
+                entry.source
+            ));
+        }
         for id in new {
             ctx.plan.changes.push(Change {
                 skill: skill.name().to_string(),
@@ -484,6 +501,7 @@ struct Ctx<'a> {
     previous: Option<&'a LockFile>,
     dry_run: bool,
     apply_held: bool,
+    allow_tap_hooks: bool,
     clock: &'a dyn Clock,
     plan: Plan,
     desired_abs: BTreeSet<PathBuf>,
@@ -608,6 +626,7 @@ pub fn sync_skills(
         previous: previous.as_ref(),
         dry_run: opts.dry_run,
         apply_held: opts.apply_held,
+        allow_tap_hooks: opts.allow_tap_hooks,
         clock: opts.clock,
         plan: Plan::default(),
         desired_abs: BTreeSet::new(),
@@ -615,6 +634,9 @@ pub fn sync_skills(
 
     for skill in skills {
         let mut entry = LockEntry::new(skill.version(), compute_skill_hash(skill)?);
+        if let Some(source) = library_origin(skill) {
+            entry.source = source;
+        }
         for t in &per_file {
             if let Err(e) = sync_one(*t, skill, &mut ctx, &mut entry) {
                 let key = t.client_key();

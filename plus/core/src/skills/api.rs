@@ -47,6 +47,8 @@ pub struct Args {
     pub migrate: Option<bool>,
     /// `sync`: also apply removals, new hooks and replacements of files that differ.
     pub apply_held: bool,
+    /// `sync`: also install the hooks of skills that came from a tap.
+    pub allow_tap_hooks: bool,
     /// `list`: only the items of this source (`library`, `repo:odh`, `plugin:ecc@ecc`).
     pub source: Option<String>,
 }
@@ -62,6 +64,7 @@ impl Default for Args {
             global: true,
             migrate: None,
             apply_held: false,
+            allow_tap_hooks: false,
             source: None,
         }
     }
@@ -85,6 +88,7 @@ impl Args {
             global: crate::args::flag_or(args, "global_mode", true),
             migrate: args.get("migrate").and_then(Value::as_bool),
             apply_held: crate::args::flag(args, "apply_held"),
+            allow_tap_hooks: crate::args::flag(args, "allow_tap_hooks"),
             source: str_arg(args, "source").map(String::from),
         }
     }
@@ -351,6 +355,7 @@ pub fn sync(args: &Args) -> Result<Value, OpError> {
         migrate: args.migrate,
         client_keys: Some(targeted.clone()),
         apply_held: args.apply_held,
+        allow_tap_hooks: args.allow_tap_hooks,
         clock: &SystemClock,
     };
     let result = sync_skills(&skills, &registry, &opts).map_err(backend)?;

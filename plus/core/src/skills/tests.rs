@@ -94,6 +94,7 @@ fn opts<'a>(root: &Path, clock: &'a FixedClock) -> SyncOptions<'a> {
         migrate: None,
         client_keys: None,
         apply_held: false,
+        allow_tap_hooks: false,
         clock,
     }
 }

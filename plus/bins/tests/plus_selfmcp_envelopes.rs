@@ -108,6 +108,7 @@ const fn context_case(tool: &'static str, calls: &'static [Call]) -> Case {
 }
 
 const BUNDLE: &str = r#"{"bundle_path":"{repo}/skills-repo-bundle.zip"}"#;
+const ADD_TAP: &str = r#"{"repo":"{base}/tap-src","name":"local","dry_run":false}"#;
 const APPLY: &str = r#"{"dry_run":false,"confirm":true}"#;
 const UNCONFIRMED: &str = r#"{"dry_run":false}"#;
 const CLAUDE: &str = r#"{"client_keys":["claude-code"]}"#;
@@ -511,6 +512,57 @@ const CASES: &[Case] = &[
         ],
     ),
     case("skills_audit", &[read("", "skills_audit", "{}")]),
+    case("skills_tap_list", &[read("empty", "skills_tap_list", "{}")]),
+    case(
+        "skills_search",
+        &[read("empty", "skills_search", r#"{"query":"tapskill"}"#)],
+    ),
+    case(
+        "skills_tap_add",
+        &[
+            read("preview", "skills_tap_add", r#"{"repo":"acme/skills"}"#),
+            fails(
+                "escaping_name",
+                "invalid_arguments",
+                "skills_tap_add",
+                r#"{"repo":"acme/skills","name":"../x"}"#,
+            ),
+        ],
+    ),
+    case(
+        "skills_tap_remove",
+        &[
+            fails(
+                "unknown",
+                "not_found",
+                "skills_tap_remove",
+                r#"{"name":"local"}"#,
+            ),
+            setup("skills_tap_add", ADD_TAP),
+            read("preview", "skills_tap_remove", r#"{"name":"local"}"#),
+            write(
+                "apply",
+                "skills_tap_remove",
+                r#"{"name":"local","dry_run":false}"#,
+            ),
+        ],
+    ),
+    case(
+        "skills_tap_update",
+        &[read("none", "skills_tap_update", "{}")],
+    ),
+    case(
+        "skills_install",
+        &[
+            read("preview", "skills_install", r#"{"spec":"@acme/skills"}"#),
+            fails(
+                "malformed_spec",
+                "invalid_arguments",
+                "skills_install",
+                r#"{"spec":"no-owner-or-repo"}"#,
+            ),
+        ],
+    ),
     case(
         "skills_bundle",
         &[
@@ -637,15 +689,57 @@ fn arguments(world: &World, case: &Case, call: &Call) -> Value {
     let expanded = call
         .args
         .replace("{home}", &world.path(&world.home))
-        .replace("{repo}", &world.repo.to_string_lossy());
+        .replace("{repo}", &world.repo.to_string_lossy())
+        .replace("{base}", &world.base.to_string_lossy());
     serde_json::from_str(&expanded)
         .unwrap_or_else(|e| panic!("{} {}: arguments are not JSON: {e}", case.tool, call.label))
 }
 
+/// A local git repository with one commit, so a tap can be added without a network.
+fn tap_source(world: &World) {
+    let dir = world.base.join("tap-src");
+    let skill = dir.join("skills/tapskill/SKILL.md");
+    std::fs::create_dir_all(skill.parent().unwrap()).unwrap();
+    std::fs::write(
+        skill,
+        "---\nname: tapskill\ndescription: A synthetic tap skill\n---\nTap body\n",
+    )
+    .unwrap();
+    for args in [
+        &["init", "-q"][..],
+        &["symbolic-ref", "HEAD", "refs/heads/main"],
+        &["add", "-A"],
+        &["commit", "-q", "-m", "fixture"],
+    ] {
+        let status = std::process::Command::new("git")
+            .args(args)
+            .current_dir(&dir)
+            .env_clear()
+            .env("PATH", "/usr/bin:/bin")
+            .env("HOME", &world.home)
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .env("GIT_AUTHOR_NAME", "fixture")
+            .env("GIT_AUTHOR_EMAIL", "fixture@example.invalid")
+            .env("GIT_COMMITTER_NAME", "fixture")
+            .env("GIT_COMMITTER_EMAIL", "fixture@example.invalid")
+            .env("GIT_AUTHOR_DATE", "2026-01-01T00:00:00Z")
+            .env("GIT_COMMITTER_DATE", "2026-01-01T00:00:00Z")
+            .status()
+            .expect("run git");
+        assert!(status.success(), "git {args:?}");
+    }
+}
+
 fn run_case(case: &Case) {
     let world = World::new(case.tool);
+    if case.tool == "skills_tap_remove" {
+        tap_source(&world);
+    }
     if let Some(prepare) = case.prepare {
         prepare(&world);
+    }
+    if case.tool == "skills_tap_remove" {
+        tap_source(&world);
     }
     let mut client = Client::spawn(&world, &[FAKE_SECRET, SECRET_KEY]);
     client.handshake();

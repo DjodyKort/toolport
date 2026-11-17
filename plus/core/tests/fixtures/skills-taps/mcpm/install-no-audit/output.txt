@@ -1,0 +1,6 @@
+Resolving @acme/audit...
+Found 2 skill(s)
+  Installed injector (skill)
+  Installed safe-helper (skill)
+
+Installed 2 skill(s). Run 'mcpm skills sync' to transpile to clients.

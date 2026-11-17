@@ -55,6 +55,10 @@ impl World {
     }
 
     fn sync(&self, apply_held: bool, dry_run: bool) -> SyncResult {
+        self.sync_hooks(apply_held, false, dry_run)
+    }
+
+    fn sync_hooks(&self, apply_held: bool, allow_tap_hooks: bool, dry_run: bool) -> SyncResult {
         let clock = FixedClock(Instant {
             unix_secs: 1_700_000_000,
             micros: 0,
@@ -68,6 +72,7 @@ impl World {
             migrate: None,
             client_keys: Some(vec!["claude-code".into()]),
             apply_held,
+            allow_tap_hooks,
             clock: &clock,
         };
         let result = sync_skills(&discover_skills(&self.repo.0), &registry, &opts).unwrap();
@@ -565,4 +570,64 @@ fn test24_lint_names_a_skill_that_cannot_be_read_and_why() {
     assert!(errors[0].message.contains("No YAML frontmatter"));
     assert_eq!(errors[1].name, "hooked");
     assert!(errors[1].message.contains("scripts/gone.sh"));
+}
+
+fn with_hook(w: &World) {
+    put(
+        &w.repo.0,
+        "skills/nacht/SKILL.md",
+        "---\nname: nacht\ndescription: \"Runs night jobs. Use when work should continue unattended.\"\nhooks:\n  Stop:\n    command: scripts/stop.sh\n---\n\n# Nacht\n",
+    );
+    put(&w.repo.0, "skills/nacht/scripts/stop.sh", "#!/bin/sh\n");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let script = w.repo.0.join("skills/nacht/scripts/stop.sh");
+        fs::set_permissions(script, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+}
+
+fn hook_ops(result: &SyncResult) -> Vec<bool> {
+    result
+        .plan
+        .changes
+        .iter()
+        .filter(|c| c.op == Op::Hook)
+        .map(|c| c.held)
+        .collect()
+}
+
+#[test]
+fn test25_a_new_hook_of_a_library_skill_installs_with_apply_held() {
+    let w = World::new("hook-local");
+    with_hook(&w);
+    assert_eq!(hook_ops(&w.sync(false, false)), [true]);
+    assert_eq!(hook_ops(&w.sync(true, false)), [false]);
+    assert!(!load_lockfile(&w.home.0).unwrap().skills[0]
+        .1
+        .hooks_installed
+        .is_empty());
+}
+
+#[test]
+fn test26_a_hook_of_a_tap_skill_waits_for_a_second_confirmation() {
+    let w = World::new("hook-tap");
+    with_hook(&w);
+    super::origin::record_origin(&w.repo.0, "nacht", "tap:acme-skills").unwrap();
+
+    let held = w.sync(true, false);
+    assert_eq!(hook_ops(&held), [true]);
+    let entry = &load_lockfile(&w.home.0).unwrap().skills[0].1;
+    assert_eq!(entry.source, "tap:acme-skills");
+    assert!(entry.hooks_installed.is_empty());
+    assert!(entry
+        .warnings
+        .iter()
+        .any(|m| m.contains("tap:acme-skills") && m.contains("wait")));
+
+    assert_eq!(hook_ops(&w.sync_hooks(true, true, false)), [false]);
+    assert!(!load_lockfile(&w.home.0).unwrap().skills[0]
+        .1
+        .hooks_installed
+        .is_empty());
 }

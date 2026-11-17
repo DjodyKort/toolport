@@ -1017,6 +1017,39 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "skills tap add",
+        &[usage("usage", &["skills", "tap", "add"])],
+    ),
+    case("skills tap ls", &[read("", &["skills", "tap", "ls"])]),
+    case(
+        "skills tap remove",
+        &[
+            apply("unknown", &["skills", "tap", "remove", "local"]).exit(1),
+            usage("usage", &["skills", "tap", "remove"]),
+        ],
+    ),
+    case(
+        "skills tap update",
+        &[read("none", &["skills", "tap", "update", "--dry-run"])],
+    ),
+    case(
+        "skills search",
+        &[
+            read("empty", &["skills", "search", "tapskill"]),
+            usage("usage", &["skills", "search"]),
+        ],
+    ),
+    case(
+        "skills install",
+        &[
+            read(
+                "preview",
+                &["skills", "install", "@acme/skills", "--dry-run"],
+            ),
+            usage("usage", &["skills", "install"]),
+        ],
+    ),
+    case(
         "skills bundle",
         &[
             read(

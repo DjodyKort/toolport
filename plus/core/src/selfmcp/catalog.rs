@@ -199,6 +199,12 @@ pub const TOOLS: &[ToolDef] = &[
                 Ty::Bool,
                 false,
                 "Also remove files that left the library, install new hooks and replace files that differ (after a backup)"
+            ),
+            p(
+                "allow_tap_hooks",
+                Ty::Bool,
+                false,
+                "With apply_held, also install the hooks of skills that came from a tap"
             )
         ],
         skills::sync
@@ -218,6 +224,62 @@ pub const TOOLS: &[ToolDef] = &[
         "Scan skills for prompt injection and risky commands",
         [REPO],
         skills::audit
+    ),
+    tool!(
+        "skills_tap_list",
+        1,
+        None,
+        "List the registered skill taps (git sources) and whether each is cloned",
+        [],
+        skills::tap_list
+    ),
+    tool!(
+        "skills_search",
+        1,
+        None,
+        "Search the cloned taps for skills by name, description or tags",
+        [p("query", Ty::Str, true, "Text to look for")],
+        skills::search
+    ),
+    tool!(
+        "skills_tap_add",
+        2,
+        None,
+        "Register a tap and clone it; dry_run is on by default",
+        [
+            p("repo", Ty::Str, true, "user/repo on GitHub, or an https, ssh or file git URL"),
+            p("name", Ty::Str, false, "Tap name, default derived from the source"),
+            DRY_ON
+        ],
+        skills::tap_add
+    ),
+    tool!(
+        "skills_tap_remove",
+        2,
+        None,
+        "Unregister a tap and delete its clone; dry_run is on by default",
+        [NAME, DRY_ON],
+        skills::tap_remove
+    ),
+    tool!(
+        "skills_tap_update",
+        2,
+        None,
+        "Pull one tap or all of them; dry_run is on by default",
+        [p("name", Ty::Str, false, "Limit to one tap"), DRY_ON],
+        skills::tap_update
+    ),
+    tool!(
+        "skills_install",
+        2,
+        None,
+        "Install the skills of @user/repo[/skill] from a tap into the skills repository after a security audit; dry_run is on by default",
+        [
+            p("spec", Ty::Str, true, "@user/repo, @user/repo/skill or with @version"),
+            REPO,
+            DRY_ON
+        ],
+        skills::install
     ),
     tool!(
         "skills_bundle",

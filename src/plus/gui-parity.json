@@ -245,6 +245,11 @@
       "route": "library",
       "status": "planned",
       "summary": "Pack skills into a portable zip or extract one into the library (skills bundle, unbundle; skills_bundle, skills_unbundle)"
+    },
+    "library.taps": {
+      "route": "library",
+      "status": "planned",
+      "summary": "Taps: add, list, update and remove git sources of skills, search them and install a skill with its audit (skills tap add|ls|remove|update, search, install; skills_tap_list, skills_tap_add, skills_tap_remove, skills_tap_update, skills_search, skills_install)"
     }
   },
   "owners": {
@@ -534,6 +539,36 @@
       "route": "library",
       "action": "library.bundle",
       "surface": "screen"
+    },
+    "skills tap add": {
+      "route": "library",
+      "action": "library.taps",
+      "surface": "screen"
+    },
+    "skills tap ls": {
+      "route": "library",
+      "action": "library.taps",
+      "surface": "screen"
+    },
+    "skills tap remove": {
+      "route": "library",
+      "action": "library.taps",
+      "surface": "screen"
+    },
+    "skills tap update": {
+      "route": "library",
+      "action": "library.taps",
+      "surface": "screen"
+    },
+    "skills search": {
+      "route": "library",
+      "action": "library.taps",
+      "surface": "screen"
+    },
+    "skills install": {
+      "route": "library",
+      "action": "library.taps",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -720,6 +755,36 @@
     "skills_unbundle": {
       "route": "library",
       "action": "library.bundle",
+      "surface": "screen"
+    },
+    "skills_tap_list": {
+      "route": "library",
+      "action": "library.taps",
+      "surface": "screen"
+    },
+    "skills_tap_add": {
+      "route": "library",
+      "action": "library.taps",
+      "surface": "screen"
+    },
+    "skills_tap_remove": {
+      "route": "library",
+      "action": "library.taps",
+      "surface": "screen"
+    },
+    "skills_tap_update": {
+      "route": "library",
+      "action": "library.taps",
+      "surface": "screen"
+    },
+    "skills_search": {
+      "route": "library",
+      "action": "library.taps",
+      "surface": "screen"
+    },
+    "skills_install": {
+      "route": "library",
+      "action": "library.taps",
       "surface": "screen"
     }
   }

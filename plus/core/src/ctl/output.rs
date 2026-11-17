@@ -138,6 +138,61 @@ fn cell_width(text: &str) -> usize {
     text.chars().map(char_width).sum()
 }
 
+/// `text` word-wrapped to `width` characters the way rich wraps a table cell: a word that cannot
+/// fit even on its own line is folded, spacing inside a line is kept.
+pub(super) fn wrap_cell(text: &str, width: usize) -> String {
+    text.split('\n')
+        .map(|line| wrap_line(line, width))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn wrap_line(text: &str, width: usize) -> String {
+    let mut lines: Vec<String> = Vec::new();
+    let mut current = String::new();
+    let mut used = 0;
+    let mut rest = text;
+    while !rest.is_empty() {
+        let end = rest
+            .char_indices()
+            .skip_while(|(_, c)| c.is_whitespace())
+            .find(|(_, c)| c.is_whitespace())
+            .map(|(i, _)| i)
+            .unwrap_or(rest.len());
+        let tail = rest[end..]
+            .char_indices()
+            .find(|(_, c)| !c.is_whitespace())
+            .map_or(rest.len() - end, |(i, _)| i);
+        let (word, spaces) = (&rest[..end], &rest[end..end + tail]);
+        rest = &rest[end + tail..];
+        let len = word.chars().count();
+        if used > 0 && used + len > width {
+            lines.push(current.trim_end().to_string());
+            current.clear();
+            used = 0;
+        }
+        if len > width {
+            let chars: Vec<char> = word.chars().collect();
+            let mut chunks = chars.chunks(width).peekable();
+            while let Some(chunk) = chunks.next() {
+                if chunks.peek().is_some() {
+                    lines.push(chunk.iter().collect());
+                } else {
+                    current = chunk.iter().collect();
+                    used = chunk.len();
+                }
+            }
+        } else {
+            current.push_str(word);
+            used += len;
+        }
+        current.push_str(spaces);
+        used += spaces.chars().count();
+    }
+    lines.push(current.trim_end().to_string());
+    lines.join("\n")
+}
+
 /// A box-drawn table in the layout rich prints for mcpm's skills tables. A cell holding newlines
 /// spans that many lines.
 pub(super) fn table(headers: &[&str], rows: &[Vec<String>]) -> String {

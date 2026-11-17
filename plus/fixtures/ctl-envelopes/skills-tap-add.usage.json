@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "tap", "add"],
+  "envelope": {
+    "command": "skills tap add",
+    "error": {
+      "code": "usage",
+      "message": "missing tap source\nusage: skills tap add <user/repo|url> [--name <alias>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

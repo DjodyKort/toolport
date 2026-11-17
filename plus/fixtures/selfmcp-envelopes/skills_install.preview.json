@@ -1,0 +1,32 @@
+{
+  "arguments": {
+    "spec": "@acme/skills"
+  },
+  "isError": false,
+  "result": {
+    "audit": {
+      "findings": [],
+      "high": 0,
+      "low": 0,
+      "medium": 0,
+      "ran": true
+    },
+    "blocked": false,
+    "cloneUrl": "https://github.com/acme/skills.git",
+    "discoveryWarnings": [],
+    "dryRun": true,
+    "foundCount": 0,
+    "installedCount": 0,
+    "skills": [],
+    "skippedCount": 0,
+    "spec": "@acme/skills",
+    "symlinksSkipped": [],
+    "tap": "acme-skills",
+    "tapAdded": false,
+    "tapMissing": true,
+    "target": "<WORLD>/skills-repo",
+    "version": null,
+    "versionIgnored": false
+  },
+  "tool": "skills_install"
+}
