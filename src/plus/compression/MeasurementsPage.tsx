@@ -1,10 +1,16 @@
-import { ArrowLeft, FileSearch, TriangleAlert } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, Copy, Download, FileSearch, TriangleAlert } from "lucide-react";
+import { save } from "@tauri-apps/plugin-dialog";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { StatusCard } from "@/components/ui/status-card";
+import { toastError } from "@/lib/toast";
 import { useLoad } from "../servers/useLoad";
-import { measureCompression } from "./commands";
+import { errorText } from "../settings/useCtl";
+import { openView } from "../shell/navigate";
+import { exportMeasurements, measureCompression } from "./commands";
 import type {
   HooksSection,
   MeasureReport,
@@ -13,6 +19,7 @@ import type {
   SourcesSection,
 } from "./data";
 import { HOOK_INFO, count, dayRange, intervalText, pct, windowText } from "./model";
+import { copyLine } from "./useHookWrites";
 
 const SHADES = [
   "bg-foreground/80",
@@ -326,7 +333,15 @@ function Report({ report }: { report: MeasureReport }) {
         <Rework section={report.rework} />
       </div>
       <p className="text-meta text-muted-foreground" data-testid="upstream-note">
-        <strong>Upstream&apos;s number stays separate.</strong> {report.upstream.note}
+        <strong>Upstream&apos;s number stays separate.</strong> {report.upstream.note}{" "}
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0 text-meta"
+          onClick={() => openView("activity")}
+        >
+          Open Activity
+        </Button>
       </p>
     </div>
   );
@@ -336,6 +351,28 @@ function Report({ report }: { report: MeasureReport }) {
  * questions, each with the population it was computed over and what it cannot tell. */
 export default function MeasurementsPage({ onBack }: { onBack: () => void }) {
   const report = useLoad(measureCompression, "measure");
+  const [exporting, setExporting] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const path = await save({
+        title: "Export the compression measurements",
+        defaultPath: "toolport-compression-measurements.csv",
+        filters: [{ name: "CSV", extensions: ["csv"] }],
+      });
+      if (!path) return;
+      const done = await exportMeasurements(path);
+      setSaved(done.out);
+      toast.success("Exported the measurements");
+    } catch (error) {
+      toastError("Could not export the measurements", { description: errorText(error) });
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -344,10 +381,38 @@ export default function MeasurementsPage({ onBack }: { onBack: () => void }) {
           Back to Hooks and compression
         </Button>
         <h2 className="text-base font-semibold">Compression measurements</h2>
-        <Button size="sm" variant="outline" className="ml-auto" onClick={report.reload}>
-          Recompute
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={report.reload}>
+            Recompute
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={exporting}
+            onClick={() => void exportCsv()}
+          >
+            <Download data-icon="inline-start" />
+            Export CSV
+          </Button>
+        </div>
       </div>
+      {saved && (
+        <p
+          className="flex flex-wrap items-center gap-2 text-meta"
+          data-testid="export-saved"
+        >
+          Saved to <code className="break-all">{saved}</code>
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label={`Copy path ${saved}`}
+            onClick={() => copyLine(saved)}
+          >
+            <Copy data-icon="inline-start" />
+            Copy path
+          </Button>
+        </p>
+      )}
       <p className="text-meta text-muted-foreground">
         No headline number: every figure carries its population and one line on what it
         cannot tell you, two kinds of figure are never added together, and every input is

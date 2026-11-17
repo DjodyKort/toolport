@@ -670,7 +670,10 @@ pub(super) const ROWS: &[Row] = &[
     row("compression verify", R)
         .needs(&[Needs::LongRunning])
         .spec(&[&compression::VERIFY]),
-    row("compression measure", R).spec(&[&compression::MEASURE]),
+    row("compression measure", W)
+        .reads(&["--out"])
+        .spec(&[&compression::MEASURE])
+        .smoke(&[]),
     row("compression update", W)
         .reads(&["--accept"])
         .unless("--accept")

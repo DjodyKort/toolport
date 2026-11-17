@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "compression",
+    "measure",
+    "--transcripts",
+    "{home}/.claude/projects",
+    "--format",
+    "csv",
+    "--out",
+    "{home}/export/measure.csv"
+  ],
+  "envelope": {
+    "command": "compression measure",
+    "data": {
+      "bytes": 12263,
+      "format": "csv",
+      "out": "<WORLD>/home/export/measure.csv",
+      "rows": 37
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { LucideIcon } from "lucide-react";
 import type { SourceMessage } from "@/lib/i18n";
+import { openView } from "./navigate";
 import { PlusNavGroup } from "./PlusNavGroup";
 
 function row(
@@ -44,5 +45,17 @@ describe("PlusNavGroup", () => {
   it("test03_hides_the_label_with_upstreams_rail_class", () => {
     render(<PlusNavGroup view="servers" onSelectView={vi.fn()} row={row} />);
     expect(screen.getByText("Claude")).toHaveClass("sidebar-label");
+  });
+
+  it("test04_opens_a_page_another_fork_screen_asks_for", () => {
+    const onSelectView = vi.fn();
+    const { unmount } = render(
+      <PlusNavGroup view="context" onSelectView={onSelectView} row={row} />,
+    );
+    openView("activity");
+    expect(onSelectView).toHaveBeenCalledWith("activity");
+    unmount();
+    openView("servers");
+    expect(onSelectView).toHaveBeenCalledTimes(1);
   });
 });

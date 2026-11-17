@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { resetPlusFixture } from "../fixtures/ipc";
 import type { CompressionWorldOptions } from "../fixtures/compressionWorld";
@@ -19,6 +20,7 @@ vi.mock("@tauri-apps/api/core", async () => {
   };
 });
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn().mockResolvedValue(() => {}) }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn() }));
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), message: vi.fn() }),
 }));
@@ -530,5 +532,52 @@ describe("Compression measurements", () => {
       screen.getByRole("button", { name: "Back to Hooks and compression" }),
     );
     expect(await screen.findByRole("region", { name: "Providers" })).toBeVisible();
+  });
+
+  it("test31_export_csv_saves_through_the_dialog_and_names_the_file_with_copy_path", async () => {
+    vi.mocked(save).mockResolvedValue("/Users/example/Desktop/measurements.csv");
+    await open();
+    await userEvent.click(screen.getByRole("button", { name: "Export CSV" }));
+    expect(await screen.findByTestId("export-saved")).toHaveTextContent(
+      "Saved to /Users/example/Desktop/measurements.csv",
+    );
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defaultPath: "toolport-compression-measurements.csv",
+        filters: [{ name: "CSV", extensions: ["csv"] }],
+      }),
+    );
+    expect(ranArgv()).toContainEqual([
+      "compression",
+      "measure",
+      "--format",
+      "csv",
+      "--out",
+      "/Users/example/Desktop/measurements.csv",
+    ]);
+    expect(
+      screen.getByRole("button", {
+        name: "Copy path /Users/example/Desktop/measurements.csv",
+      }),
+    ).toBeVisible();
+  });
+
+  it("test32_cancelling_the_save_dialog_writes_nothing", async () => {
+    vi.mocked(save).mockResolvedValue(null);
+    await open();
+    await userEvent.click(screen.getByRole("button", { name: "Export CSV" }));
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    expect(screen.queryByTestId("export-saved")).toBeNull();
+    expect(ranArgv().some((argv) => argv.includes("--out"))).toBe(false);
+  });
+
+  it("test33_open_activity_asks_the_shell_to_open_the_upstream_page", async () => {
+    const opened: string[] = [];
+    const listener = (event: Event) => opened.push((event as CustomEvent<string>).detail);
+    window.addEventListener("plus-navigate", listener);
+    await open();
+    await userEvent.click(screen.getByRole("button", { name: "Open Activity" }));
+    window.removeEventListener("plus-navigate", listener);
+    expect(opened).toEqual(["activity"]);
   });
 });

@@ -3,6 +3,7 @@ import type {
   CompressionDoctorData,
   CompressionStatusData,
   EntryHealth,
+  ExportData,
   EntryState,
   HookCounter,
   HookEntry,
@@ -650,7 +651,13 @@ export function createCompressionWorld(options: CompressionWorldOptions = {}) {
       }
       if (sub === "status") return ok(compressionStatus());
       if (sub === "doctor") return ok(DOCTOR);
-      if (sub === "measure") return ok(measureReport(options.measure ?? "refused"));
+      if (sub === "measure") {
+        const out = flags[flags.indexOf("--out") + 1];
+        if (flags.includes("--out")) {
+          return ok({ format: "csv", rows: 31, out, bytes: 5120 } satisfies ExportData);
+        }
+        return ok(measureReport(options.measure ?? "refused"));
+      }
       return fail(
         "usage",
         `Unimplemented fixture command: compression ${argv.slice(1).join(" ")}`,

@@ -1558,6 +1558,12 @@
               "name": "since",
               "required": false,
               "type": "string"
+            },
+            {
+              "description": "json (default) is the report; csv is one row per figure with its population and what it cannot tell, returned as text",
+              "name": "format",
+              "required": false,
+              "type": "string"
             }
           ],
           "tier": 1

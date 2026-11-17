@@ -6,6 +6,7 @@ import type {
   CompressionDoctorData,
   AdoptEditData,
   CompressionStatusData,
+  ExportData,
   HooksStatusData,
   HooksWriteData,
   MeasureReport,
@@ -174,5 +175,18 @@ describe("the compression envelope types match the Rust goldens", () => {
     expect(shape({ ...fixture, rows: fixture.rows[0] })).toEqual(
       shape({ ...verified, rows: verified.rows[0] }),
     );
+  });
+
+  it("test09_the_csv_export_answers_with_the_file_it_wrote", () => {
+    const golden = ctl("compression-measure.csv-saved").envelope.data as ExportData;
+    const fixture = createCompressionWorld({ hooks: "on" }).run([
+      "compression",
+      "measure",
+      "--format",
+      "csv",
+      "--out",
+      "/tmp/x.csv",
+    ]);
+    expect(shape(fixture.data)).toEqual(shape(golden));
   });
 });

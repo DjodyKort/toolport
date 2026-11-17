@@ -5,6 +5,18 @@
   "flags": [
     {
       "aliases": [],
+      "choices": ["json", "csv"],
+      "effect": "json is the report itself; csv is one row per figure with its population and what it cannot tell",
+      "escalates": false,
+      "hidden": false,
+      "name": "--format",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
       "effect": "Sessions with fewer turns are left out of the billed outcome and the rework check",
       "escalates": false,
       "hidden": false,
@@ -13,6 +25,17 @@
       "required": false,
       "sensitive": false,
       "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "Write the report to this file instead of printing it; the answer names the file",
+      "escalates": true,
+      "hidden": false,
+      "name": "--out",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
     },
     {
       "aliases": [],
@@ -52,8 +75,8 @@
     "flag": null,
     "mode": "none"
   },
-  "summary": "Four honest questions about compression, each with its population (--transcripts, --min-turns, --since)",
+  "summary": "Four honest questions about compression, each with its population (--transcripts, --min-turns, --since, --format, --out)",
   "surface": "screen",
-  "tier": "read",
+  "tier": "write",
   "tools": ["compression_measure"]
 }

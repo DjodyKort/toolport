@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "format": "xml"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "format must be json or csv, not 'xml'"
+    }
+  },
+  "text": "invalid_arguments: format must be json or csv, not 'xml'",
+  "tool": "compression_measure"
+}

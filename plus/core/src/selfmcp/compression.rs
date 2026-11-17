@@ -14,6 +14,7 @@ use crate::compression::manage::{
     SealReq,
 };
 use crate::compression::measure;
+use crate::compression::measure_csv;
 use crate::compression::model::ProviderName;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -85,7 +86,18 @@ pub(super) fn measure(host: &dyn Host, args: &Value) -> Outcome {
         min_turns,
         since_ms,
     };
-    measure::report(&paths, &options).map_err(ToolError::backend)
+    let report = measure::report(&paths, &options).map_err(ToolError::backend)?;
+    match str_trimmed(args, "format").unwrap_or("json") {
+        "json" => Ok(report),
+        "csv" => {
+            let (csv, rows) = measure_csv::to_csv(&report);
+            Ok(json!({"format": "csv", "rows": rows, "csv": csv}))
+        }
+        other => Err(ToolError::new(
+            "invalid_arguments",
+            format!("format must be json or csv, not '{other}'"),
+        )),
+    }
 }
 
 fn hook_paths(host: &dyn Host) -> Result<crate::compression::store::Paths, ToolError> {

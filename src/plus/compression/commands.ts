@@ -2,6 +2,7 @@ import { CtlError, ctlData } from "../bridge/ctl";
 import type {
   AdoptEditData,
   CompressionDoctorData,
+  ExportData,
   CompressionStatusData,
   HookProviderId,
   HooksStatusData,
@@ -78,3 +79,6 @@ export async function verifyHooks(provider?: HookProviderId): Promise<VerifyData
     throw error;
   }
 }
+
+export const exportMeasurements = (path: string) =>
+  ctlData<ExportData>(["compression", "measure", "--format", "csv", "--out", path]);

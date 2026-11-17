@@ -595,7 +595,7 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["compression", "measure"],
-        "Four honest questions about compression, each with its population (--transcripts, --min-turns, --since)",
+        "Four honest questions about compression, each with its population (--transcripts, --min-turns, --since, --format, --out)",
         compression::measure,
     ),
     cmd(

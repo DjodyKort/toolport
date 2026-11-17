@@ -2277,6 +2277,31 @@ const CASES: &[Case] = &[
                 "bad-since",
                 &["compression", "measure", "--since", "last week"],
             ),
+            read(
+                "csv",
+                &[
+                    "compression",
+                    "measure",
+                    "--transcripts",
+                    "{home}/.claude/projects",
+                    "--format",
+                    "csv",
+                ],
+            ),
+            apply(
+                "csv-saved",
+                &[
+                    "compression",
+                    "measure",
+                    "--transcripts",
+                    "{home}/.claude/projects",
+                    "--format",
+                    "csv",
+                    "--out",
+                    "{home}/export/measure.csv",
+                ],
+            ),
+            usage("bad-format", &["compression", "measure", "--format", "xml"]),
         ],
     ),
     case(

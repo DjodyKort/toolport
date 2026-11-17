@@ -692,7 +692,8 @@ pub const TOOLS: &[ToolDef] = &[
         "Four honest questions about compression, each with its population and what it cannot tell: where context tokens come from, what the hooks did, the billed outcome per epoch and a rework check; reads Claude Code transcripts and the hook counters, writes nothing",
         [
             p("min_turns", Ty::Int, false, "Sessions with fewer turns are left out of the billed outcome and the rework check (default 5)"),
-            p("since", Ty::Str, false, "Only sessions that started on this date or later, e.g. 2026-11-01")
+            p("since", Ty::Str, false, "Only sessions that started on this date or later, e.g. 2026-11-01"),
+            p("format", Ty::Str, false, "json (default) is the report; csv is one row per figure with its population and what it cannot tell, returned as text")
         ],
         compression::measure
     ),

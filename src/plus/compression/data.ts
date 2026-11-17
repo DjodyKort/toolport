@@ -128,6 +128,14 @@ export interface VerifyData {
   rows: VerifyRow[];
 }
 
+/** What `compression measure --format csv --out <path>` answers: the file it wrote. */
+export interface ExportData {
+  format: "csv";
+  rows: number;
+  out: string;
+  bytes: number;
+}
+
 export interface CompressionStatusData {
   configExists: boolean;
   provider: ProviderName;

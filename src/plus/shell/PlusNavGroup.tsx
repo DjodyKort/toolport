@@ -1,7 +1,8 @@
-import { useId } from "react";
+import { useEffect, useId } from "react";
 import type { LucideIcon } from "lucide-react";
 import { useI18n, type SourceMessage } from "@/lib/i18n";
 import type { View } from "@/lib/types";
+import { PLUS_NAVIGATE_EVENT } from "./navigate";
 import { CLAUDE_GROUP_LABEL, PLUS_SCREENS, PLUS_VIEWS } from "./views";
 
 type NavRow = (
@@ -26,6 +27,11 @@ export function PlusNavGroup({
 }) {
   const { t } = useI18n();
   const labelId = useId();
+  useEffect(() => {
+    const open = (event: Event) => onSelectView((event as CustomEvent<View>).detail);
+    window.addEventListener(PLUS_NAVIGATE_EVENT, open);
+    return () => window.removeEventListener(PLUS_NAVIGATE_EVENT, open);
+  }, [onSelectView]);
   return (
     <nav aria-labelledby={labelId} className="flex flex-col gap-0.5 px-3">
       <div

@@ -287,6 +287,8 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("compression run", m("--plan", Bool, "Print what would run instead of launching")),
     ("compression run", m("--force", Bool, "Launch even when the installed engine does not match the pin")),
     ("compression run", m("--cwd", Path, "Directory whose policy applies")),
+    ("compression measure", m("--format", Choice(&["json", "csv"]), "json is the report itself; csv is one row per figure with its population and what it cannot tell")),
+    ("compression measure", m("--out", Path, "Write the report to this file instead of printing it; the answer names the file")),
     ("compression measure", m("--min-turns", Int, "Sessions with fewer turns are left out of the billed outcome and the rework check")),
     ("compression measure", m("--since", Str, "Only sessions that started on this date or later (2026-11-01)")),
     ("compression measure", m("--transcripts", Path, "Directory of Claude Code transcripts to read")),

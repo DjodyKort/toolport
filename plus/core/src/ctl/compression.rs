@@ -10,6 +10,7 @@ use crate::compression::launch::{
 use crate::compression::ledger::{self, SavingsEntry};
 use crate::compression::manage::{self, preset_json, with_system, Ctx};
 use crate::compression::measure;
+use crate::compression::measure_csv;
 use crate::compression::model::{env_for_preset, CompressionConfig, ProviderName};
 use crate::compression::store::{self, Loaded, Paths};
 use crate::compression::verify::{self, HealthProbe};
@@ -245,7 +246,9 @@ pub(super) const VERIFY: Spec = spec(&[
     value("--transcripts"),
 ]);
 pub(super) const MEASURE: Spec = spec(&[
+    value("--format"),
     value("--min-turns"),
+    value("--out"),
     value("--since"),
     value("--transcripts"),
 ]);
@@ -474,6 +477,42 @@ pub fn measure(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     };
     let data =
         measure::report(&paths, &options).map_err(|e| CtlError::failed("measure_failed", e))?;
+    let format = flags.one("--format").unwrap_or("json");
+    if !["json", "csv"].contains(&format) {
+        return Err(CtlError::usage(format!(
+            "unknown format '{format}' (have: json, csv)"
+        )));
+    }
+    let out = flags.one("--out");
+    if format == "json" && out.is_none() {
+        let human = measure_text(&data);
+        return Ok(Output::new(data, human));
+    }
+    let (body, rows) = if format == "csv" {
+        measure_csv::to_csv(&data)
+    } else {
+        (
+            serde_json::to_string_pretty(&data).unwrap_or_default() + "\n",
+            0,
+        )
+    };
+    let Some(out) = out else {
+        return Ok(Output::new(
+            json!({"format": format, "rows": rows, "csv": body}),
+            body,
+        ));
+    };
+    let path = std::path::absolute(out).map_err(|e| CtlError::usage(format!("--out: {e}")))?;
+    crate::fsx::atomic_write(&path, &body, crate::fsx::Mode::KeepOrDefault)
+        .map_err(|e| CtlError::failed("save_failed", format!("{}: {e}", path.display())))?;
+    let shown = path.to_string_lossy().into_owned();
+    Ok(Output::new(
+        json!({"format": format, "rows": rows, "out": shown, "bytes": body.len()}),
+        format!("Saved to {shown}"),
+    ))
+}
+
+fn measure_text(data: &Value) -> String {
     let mut human = Vec::new();
     let sources = &data["sources"];
     human.push(format!(
@@ -522,7 +561,7 @@ pub fn measure(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
             g["sessions"]
         ));
     }
-    Ok(Output::new(data, human.join("\n")))
+    human.join("\n")
 }
 
 fn summary_json(s: &ledger::ProviderSummary) -> Value {

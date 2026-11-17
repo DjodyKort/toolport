@@ -1337,6 +1337,13 @@ const CASES: &[Case] = &[
                 "compression_measure",
                 r#"{"min_turns":"five"}"#,
             ),
+            read("csv", "compression_measure", r#"{"format":"csv"}"#),
+            fails(
+                "bad_format",
+                "invalid_arguments",
+                "compression_measure",
+                r#"{"format":"xml"}"#,
+            ),
         ],
     ),
     case(
