@@ -14,6 +14,7 @@
           "lastCall": null,
           "maxLatencyMs": null,
           "medianLatencyMs": null,
+          "p95LatencyMs": null,
           "provider": "rtk"
         },
         {
@@ -25,6 +26,7 @@
           "lastCall": null,
           "maxLatencyMs": null,
           "medianLatencyMs": null,
+          "p95LatencyMs": null,
           "provider": "read-once"
         }
       ],
@@ -32,14 +34,18 @@
         {
           "command": "rtk hook claude",
           "file": "<WORLD>/home/.claude/settings.json",
+          "health": "foreign",
           "provider": "rtk",
-          "state": "foreign"
+          "state": "foreign",
+          "wrappedAt": null
         },
         {
           "command": null,
           "file": "<WORLD>/home/.claude/settings.json",
+          "health": "absent",
           "provider": "read-once",
-          "state": "absent"
+          "state": "absent",
+          "wrappedAt": null
         }
       ],
       "epochs": 0,

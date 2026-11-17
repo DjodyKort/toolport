@@ -584,6 +584,11 @@ pub const COMMANDS: &[Command] = &[
         compression::verify,
     ),
     cmd(
+        &["compression", "measure"],
+        "Four honest questions about compression, each with its population (--transcripts, --min-turns, --since)",
+        compression::measure,
+    ),
+    cmd(
         &["compression", "hooks"],
         "Own the rtk and read-once hook entries: status apply undo pause resume (--dry-run, --provider)",
         compression_hooks::hooks,
@@ -610,7 +615,7 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["compression"],
-        "Compression: status presets enable disable set-provider use sync pin seal env doctor run verify ledger proxy update",
+        "Compression: status presets enable disable set-provider use sync pin seal env doctor run verify measure ledger proxy update",
         compression_cfg::group,
     ),
     cmd(

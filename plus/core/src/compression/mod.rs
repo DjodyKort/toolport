@@ -11,6 +11,7 @@ pub mod ledger;
 pub mod legacy;
 pub mod manage;
 pub mod mcp_entry;
+pub mod measure;
 pub mod model;
 pub mod ops;
 pub mod provider;
@@ -23,6 +24,8 @@ pub mod verify;
 mod ledger_prop_tests;
 #[cfg(test)]
 pub(crate) mod manage_tests;
+#[cfg(test)]
+mod measure_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

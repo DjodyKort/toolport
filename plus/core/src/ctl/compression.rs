@@ -9,6 +9,7 @@ use crate::compression::launch::{
 };
 use crate::compression::ledger::{self, SavingsEntry};
 use crate::compression::manage::{self, preset_json, with_system, Ctx};
+use crate::compression::measure;
 use crate::compression::model::{env_for_preset, CompressionConfig, ProviderName};
 use crate::compression::store::{self, Loaded, Paths};
 use crate::compression::verify::{self, HealthProbe};
@@ -243,6 +244,11 @@ pub(super) const VERIFY: Spec = spec(&[
     value("--min-turns"),
     value("--transcripts"),
 ]);
+pub(super) const MEASURE: Spec = spec(&[
+    value("--min-turns"),
+    value("--since"),
+    value("--transcripts"),
+]);
 pub(super) const LEDGER_RECORD: Spec = spec(&[
     value("--provider"),
     value("--before"),
@@ -432,6 +438,91 @@ pub(super) fn verify_with(
         human,
         failed,
     })
+}
+
+fn pct_of(value: &Value) -> String {
+    value
+        .as_f64()
+        .map_or("-".into(), |share| format!("{:.0}%", share * 100.0))
+}
+
+fn num(value: &Value) -> String {
+    value.as_f64().map_or("-".into(), |v| format!("{v:.0}"))
+}
+
+/// `compression measure`: the four questions of the screen, each with its population and what it
+/// cannot tell. A file on this machine is the only input.
+pub fn measure(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let flags = MEASURE.parse(rest)?;
+    no_args(flags.operands())?;
+    let (paths, _) = load(host)?;
+    let since = match flags.one("--since") {
+        Some(text) => Some(measure::parse_since(text).ok_or_else(|| {
+            CtlError::usage("--since needs a date (2026-11-01) or an RFC 3339 timestamp")
+        })?),
+        None => None,
+    };
+    let options = measure::Options {
+        root: flags
+            .one("--transcripts")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(verify::transcript_root),
+        min_turns: flags
+            .number::<usize>("--min-turns")?
+            .unwrap_or(measure::MIN_TURNS),
+        since_ms: since,
+    };
+    let data =
+        measure::report(&paths, &options).map_err(|e| CtlError::failed("measure_failed", e))?;
+    let mut human = Vec::new();
+    let sources = &data["sources"];
+    human.push(format!(
+        "1. Where context tokens come from ({} sessions, estimate)",
+        sources["population"]["sessions"]
+    ));
+    for row in sources["rows"].as_array().into_iter().flatten() {
+        human.push(format!(
+            "   {:<12} {}",
+            row["kind"].as_str().unwrap_or("-"),
+            pct_of(&row["share"])
+        ));
+    }
+    human.push("2. What the hooks did (counted at the hook)".into());
+    for p in data["hooks"]["providers"].as_array().into_iter().flatten() {
+        human.push(format!(
+            "   {:<10} {} calls, {} answered, p50 {} ms, p95 {} ms",
+            p["provider"].as_str().unwrap_or("-"),
+            p["calls"],
+            p["answered"],
+            num(&p["p50Ms"]),
+            num(&p["p95Ms"])
+        ));
+    }
+    human.push("3. Billed outcome, by epoch (relative cost, hooks on = 100)".into());
+    for g in data["outcome"]["groups"].as_array().into_iter().flatten() {
+        human.push(format!(
+            "   {:<10} {} sessions, median {}, relative {}",
+            g["label"].as_str().unwrap_or("-"),
+            g["sessions"],
+            num(&g["medianCost"]),
+            num(&g["relative"])
+        ));
+    }
+    human.push(format!(
+        "   verdict: {}",
+        data["outcome"]["verdict"]["reason"].as_str().unwrap_or("-")
+    ));
+    human.push("4. Rework check (per session)".into());
+    for g in data["rework"]["groups"].as_array().into_iter().flatten() {
+        human.push(format!(
+            "   {:<10} repeated commands {}, repeat reads {} (n = {})",
+            g["label"].as_str().unwrap_or("-"),
+            g["repeatedCommands"],
+            g["repeatedReads"],
+            g["sessions"]
+        ));
+    }
+    Ok(Output::new(data, human.join("\n")))
 }
 
 fn summary_json(s: &ledger::ProviderSummary) -> Value {

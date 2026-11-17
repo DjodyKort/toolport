@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use toolport_plus_api::Host;
 
 pub(super) const USAGE: &str = "usage: compression \
-     status|presets|enable|disable|set-provider|use|sync|pin|seal|env|doctor|run|verify|ledger|proxy|update \
+     status|presets|enable|disable|set-provider|use|sync|pin|seal|env|doctor|run|verify|measure|ledger|proxy|update \
      (enable: [--provider <name>] [--port <n>] [--telemetry on|off] [--preset <name>] \
      [--mode cache|token] [--dry-run]; disable: [--teardown] [--dry-run]; \
      set-provider: <provider> [--dry-run]; use: <preset> [--dry-run]; \

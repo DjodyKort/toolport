@@ -1512,6 +1512,27 @@
           "tier": 1
         },
         {
+          "description": "Four honest questions about compression, each with its population and what it cannot tell: where context tokens come from, what the hooks did, the billed outcome per epoch and a rework check; reads Claude Code transcripts and the hook counters, writes nothing",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "compression_measure",
+          "params": [
+            {
+              "description": "Sessions with fewer turns are left out of the billed outcome and the rework check (default 5)",
+              "name": "min_turns",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "description": "Only sessions that started on this date or later, e.g. 2026-11-01",
+              "name": "since",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
           "description": "Enable compression: writes the policy config, the shell shims and the registry entry of the provider (default headroom); dry_run is on by default (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",

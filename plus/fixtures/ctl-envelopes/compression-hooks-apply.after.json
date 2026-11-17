@@ -14,6 +14,7 @@
           "lastCall": null,
           "maxLatencyMs": null,
           "medianLatencyMs": null,
+          "p95LatencyMs": null,
           "provider": "rtk"
         },
         {
@@ -25,6 +26,7 @@
           "lastCall": null,
           "maxLatencyMs": null,
           "medianLatencyMs": null,
+          "p95LatencyMs": null,
           "provider": "read-once"
         }
       ],
@@ -32,14 +34,18 @@
         {
           "command": "toolportctl compression hook rtk -- /bin/sh -c 'rtk hook claude'",
           "file": "<WORLD>/home/.claude/settings.json",
+          "health": "ok",
           "provider": "rtk",
-          "state": "ours"
+          "state": "ours",
+          "wrappedAt": "<TIME>"
         },
         {
           "command": null,
           "file": "<WORLD>/home/.claude/settings.json",
+          "health": "absent",
           "provider": "read-once",
-          "state": "absent"
+          "state": "absent",
+          "wrappedAt": null
         }
       ],
       "epochs": 1,

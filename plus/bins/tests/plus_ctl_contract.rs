@@ -18,7 +18,7 @@ use toolport_plus::ctl::{registry, rows, Smoke, Tier, COMMANDS, SCHEMA_VERSION};
 use toolport_plus::selfmcp::TOOLS;
 
 mod common;
-use common::compression::{fake_proxy, rtk_home, transcripts};
+use common::compression::{fake_proxy, lose_hooks, measure_world, rtk_home, transcripts};
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
 use common::tasks_world::{scheduler_extras, tasks_home};
@@ -1946,6 +1946,13 @@ const CASES: &[Case] = &[
             apply("apply", &["compression", "hooks", "apply"]),
             apply("again", &["compression", "hooks", "apply"]),
             read("after", &["compression", "hooks", "status"]),
+            hook("lose", lose_hooks),
+            read("lost", &["compression", "hooks", "status"]),
+            read(
+                "preview-reapply",
+                &["compression", "hooks", "apply", "--dry-run"],
+            ),
+            apply("reapply", &["compression", "hooks", "apply"]),
             usage(
                 "unknown-provider",
                 &["compression", "hooks", "apply", "--provider", "nope"],
@@ -2141,6 +2148,42 @@ const CASES: &[Case] = &[
                     "--min-turns",
                     "1",
                 ],
+            ),
+        ],
+    ),
+    case(
+        "compression measure",
+        &[
+            hook("world", measure_world),
+            read(
+                "no-transcripts",
+                &["compression", "measure", "--transcripts", "{base}/none"],
+            ),
+            read(
+                "measured",
+                &[
+                    "compression",
+                    "measure",
+                    "--transcripts",
+                    "{home}/.claude/projects",
+                ],
+            ),
+            read(
+                "since",
+                &[
+                    "compression",
+                    "measure",
+                    "--transcripts",
+                    "{home}/.claude/projects",
+                    "--since",
+                    "2026-11-10",
+                    "--min-turns",
+                    "3",
+                ],
+            ),
+            usage(
+                "bad-since",
+                &["compression", "measure", "--since", "last week"],
             ),
         ],
     ),

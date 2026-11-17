@@ -1,0 +1,7 @@
+{
+  "command": "compression measure",
+  "dryRun": "none",
+  "name": "compression_measure",
+  "tier": "read",
+  "toolTier": 1
+}

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "min_turns": "five"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "argument min_turns has the wrong type"
+    }
+  },
+  "text": "invalid_arguments: argument min_turns has the wrong type",
+  "tool": "compression_measure"
+}

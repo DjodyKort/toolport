@@ -201,6 +201,22 @@ fn set_command(hooks: &mut Value, at: (usize, usize), command: &str) {
     hooks[EVENT][at.0]["hooks"][at.1]["command"] = json!(command);
 }
 
+fn add_entry(hooks: &mut Value, provider: &HookProvider, command: &str) {
+    if !hooks.is_object() {
+        *hooks = json!({});
+    }
+    let groups = &mut hooks[EVENT];
+    if !groups.is_array() {
+        *groups = json!([]);
+    }
+    if let Some(list) = groups.as_array_mut() {
+        list.push(json!({
+            "matcher": provider.matcher,
+            "hooks": [{"type": "command", "command": command}],
+        }));
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Row {
     pub file: PathBuf,
@@ -276,12 +292,37 @@ pub fn apply(
                 state,
                 command,
             };
-            match found {
-                None => out.push(row(State::Absent, None).to_value(Some("none to wrap"))),
-                Some((_, _, c)) if is_wrapped(&c) => {
+            let recorded = ledger
+                .entries
+                .iter()
+                .find(|e| e.file == file.to_string_lossy() && e.provider == provider.id)
+                .cloned();
+            match (found, recorded) {
+                (None, None) => out.push(row(State::Absent, None).to_value(Some("none to wrap"))),
+                (None, Some(entry)) => {
+                    add_entry(&mut hooks, provider, &entry.wrapped);
+                    changed = true;
+                    let action = if dry_run {
+                        "would re-apply"
+                    } else {
+                        "re-applied"
+                    };
+                    out.push(row(State::Absent, None).to_value(Some(action)));
+                }
+                (Some((gi, hi, c)), Some(entry)) if is_wrapped(&c) && c != entry.wrapped => {
+                    set_command(&mut hooks, (gi, hi), &entry.wrapped);
+                    changed = true;
+                    let action = if dry_run {
+                        "would restore ours"
+                    } else {
+                        "restored ours"
+                    };
+                    out.push(row(State::Ours, Some(c)).to_value(Some(action)));
+                }
+                (Some((_, _, c)), _) if is_wrapped(&c) => {
                     out.push(row(State::Ours, Some(c)).to_value(Some("kept")))
                 }
-                Some((gi, hi, original)) => {
+                (Some((gi, hi, original)), _) => {
                     let wrapped = wrap(provider.id, &original);
                     set_command(&mut hooks, (gi, hi), &wrapped);
                     changed = true;
@@ -401,6 +442,7 @@ pub struct CounterSummary {
     pub answered: usize,
     pub failed: usize,
     pub median_ms: Option<u64>,
+    pub p95_ms: Option<u64>,
     pub max_ms: Option<u64>,
     pub first: Option<String>,
     pub last: Option<String>,
@@ -427,8 +469,29 @@ pub fn summarize(paths: &Paths, provider: &str) -> CounterSummary {
     }
     latencies.sort_unstable();
     summary.median_ms = latencies.get(latencies.len() / 2).copied();
+    summary.p95_ms = latencies
+        .get(((latencies.len().max(1) - 1) as f64 * 0.95).round() as usize)
+        .copied();
     summary.max_ms = latencies.last().copied();
     summary
+}
+
+/// What the ledger says about an entry next to what the file says: `missing` is a wrapped entry
+/// that is gone, `edited` one that no longer reads as Toolport wrote it.
+fn health(row: &Row, ledger: &Ledger) -> (&'static str, Option<String>) {
+    let file = row.file.to_string_lossy();
+    let recorded = ledger
+        .entries
+        .iter()
+        .find(|e| e.file == file && e.provider == row.provider);
+    let health = match (row.state, recorded) {
+        (State::Foreign, _) => "foreign",
+        (State::Ours, Some(e)) if row.command.as_deref() == Some(e.wrapped.as_str()) => "ok",
+        (State::Ours, _) => "edited",
+        (State::Absent, Some(_)) => "missing",
+        (State::Absent, None) => "absent",
+    };
+    (health, recorded.map(|e| e.at.clone()))
 }
 
 pub fn status(store: &dyn SettingsStore, paths: &Paths) -> Result<Value, String> {
@@ -445,6 +508,7 @@ pub fn status(store: &dyn SettingsStore, paths: &Paths) -> Result<Value, String>
                 "answered": s.answered,
                 "failed": s.failed,
                 "medianLatencyMs": s.median_ms,
+                "p95LatencyMs": s.p95_ms,
                 "maxLatencyMs": s.max_ms,
                 "firstCall": s.first,
                 "lastCall": s.last,
@@ -454,7 +518,16 @@ pub fn status(store: &dyn SettingsStore, paths: &Paths) -> Result<Value, String>
     Ok(json!({
         "paused": ledger.paused_since.is_some(),
         "pausedSince": ledger.paused_since,
-        "entries": rows.iter().map(|r| r.to_value(None)).collect::<Vec<_>>(),
+        "entries": rows
+            .iter()
+            .map(|r| {
+                let (health, wrapped_at) = health(r, &ledger);
+                let mut entry = r.to_value(None);
+                entry["health"] = json!(health);
+                entry["wrappedAt"] = json!(wrapped_at);
+                entry
+            })
+            .collect::<Vec<_>>(),
         "counters": counters,
         "wrapped": ledger.entries.len(),
         "epochs": ledger.epochs.len(),
@@ -718,6 +791,73 @@ mod tests {
             .map(|e| e.event)
             .collect();
         assert_eq!(events, ["pause", "resume"]);
+    }
+
+    fn health_of(w: &World, i: usize) -> String {
+        status(&w.host, &w.paths).unwrap()["entries"][i]["health"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+
+    #[test]
+    fn test12_status_tells_ok_edited_and_missing_from_the_ledger() {
+        let w = world(rtk_settings());
+        assert_eq!(health_of(&w, 0), "foreign");
+        assert_eq!(health_of(&w, 1), "absent");
+        apply(&w.host, &w.paths, None, false).unwrap();
+        assert_eq!(health_of(&w, 0), "ok");
+        let wrapped = wrap("rtk", "rtk hook claude");
+        let mut s = settings(&w);
+        s["hooks"]["PreToolUse"][0]["hooks"][0]["command"] = json!(format!("{wrapped} # edited"));
+        std::fs::write(&w.file, s.to_string()).unwrap();
+        assert_eq!(health_of(&w, 0), "edited");
+        std::fs::write(&w.file, json!({"theme": "dark"}).to_string()).unwrap();
+        assert_eq!(health_of(&w, 0), "missing");
+    }
+
+    #[test]
+    fn test13_apply_restores_an_edited_entry_and_puts_a_missing_one_back() {
+        let w = world(rtk_settings());
+        apply(&w.host, &w.paths, None, false).unwrap();
+        let wrapped = wrap("rtk", "rtk hook claude");
+        let mut s = settings(&w);
+        s["hooks"]["PreToolUse"][0]["hooks"][0]["command"] = json!(format!("{wrapped} # edited"));
+        std::fs::write(&w.file, s.to_string()).unwrap();
+        let preview = apply(&w.host, &w.paths, None, true).unwrap();
+        assert_eq!(preview["rows"][0]["action"], "would restore ours");
+        assert_eq!(health_of(&w, 0), "edited");
+        let data = apply(&w.host, &w.paths, None, false).unwrap();
+        assert_eq!(data["rows"][0]["action"], "restored ours");
+        assert_eq!(health_of(&w, 0), "ok");
+
+        std::fs::write(&w.file, json!({"theme": "dark"}).to_string()).unwrap();
+        let data = apply(&w.host, &w.paths, None, false).unwrap();
+        assert_eq!(data["rows"][0]["action"], "re-applied");
+        assert_eq!(health_of(&w, 0), "ok");
+        assert_eq!(settings(&w)["theme"], "dark");
+        assert_eq!(
+            settings(&w)["hooks"]["PreToolUse"][0],
+            json!({"matcher": "Bash", "hooks": [{"type": "command", "command": wrapped}]})
+        );
+    }
+
+    #[test]
+    fn test14_the_summary_reports_the_95th_percentile_of_the_latency() {
+        let w = world(rtk_settings());
+        let rows: Vec<String> = (1..=20)
+            .map(|n| {
+                json!({"provider": "rtk", "latencyMs": n * 10, "answered": true, "ok": true})
+                    .to_string()
+            })
+            .collect();
+        std::fs::write(w.paths.dir.join(COUNTERS_FILE), rows.join("\n")).unwrap();
+        let s = summarize(&w.paths, "rtk");
+        assert_eq!(
+            (s.median_ms, s.p95_ms, s.max_ms),
+            (Some(110), Some(190), Some(200))
+        );
+        assert_eq!(summarize(&w.paths, "read-once").p95_ms, None);
     }
 
     #[test]

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "since": "<masked>"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "since needs a date (2026-11-01) or an RFC 3339 timestamp"
+    }
+  },
+  "text": "invalid_arguments: since needs a date (2026-11-01) or an RFC 3339 timestamp",
+  "tool": "compression_measure"
+}

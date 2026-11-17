@@ -129,7 +129,7 @@ pub fn iter_transcripts(root: &Path) -> Vec<PathBuf> {
 
 /// Transcripts are appended to live, so the last line may be half written; `each` returns false
 /// to stop reading early.
-fn scan_lines(path: &Path, mut each: impl FnMut(&str) -> bool) {
+pub(super) fn scan_lines(path: &Path, mut each: impl FnMut(&str) -> bool) {
     let Ok(file) = std::fs::File::open(path) else {
         return;
     };
@@ -151,7 +151,7 @@ fn scan_lines(path: &Path, mut each: impl FnMut(&str) -> bool) {
     }
 }
 
-fn parse_record(line: &str) -> Option<Value> {
+pub(super) fn parse_record(line: &str) -> Option<Value> {
     serde_json::from_str::<Value>(line)
         .ok()
         .filter(Value::is_object)
@@ -162,7 +162,7 @@ fn may_hold_usage(line: &str) -> bool {
     line.contains("usage") || line.contains("\\u")
 }
 
-fn tokens(usage: &Value, key: &str) -> u64 {
+pub(super) fn tokens(usage: &Value, key: &str) -> u64 {
     usage.get(key).and_then(Value::as_u64).unwrap_or(0)
 }
 

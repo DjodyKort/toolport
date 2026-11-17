@@ -1,0 +1,59 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Sessions with fewer turns are left out of the billed outcome and the rework check",
+      "escalates": false,
+      "hidden": false,
+      "name": "--min-turns",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "Only sessions that started on this date or later (2026-11-01)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--since",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Directory of Claude Code transcripts to read",
+      "escalates": false,
+      "hidden": false,
+      "name": "--transcripts",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    }
+  ],
+  "group": "compression",
+  "id": "compression measure",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "compression",
+  "path": ["compression", "measure"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Four honest questions about compression, each with its population (--transcripts, --min-turns, --since)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["compression_measure"]
+}

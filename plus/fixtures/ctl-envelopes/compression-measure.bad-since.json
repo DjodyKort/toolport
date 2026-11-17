@@ -1,0 +1,13 @@
+{
+  "argv": ["compression", "measure", "--since", "last week"],
+  "envelope": {
+    "command": "compression measure",
+    "error": {
+      "code": "usage",
+      "message": "--since needs a date (2026-11-01) or an RFC 3339 timestamp"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

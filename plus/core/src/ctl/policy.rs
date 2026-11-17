@@ -660,6 +660,7 @@ pub(super) const ROWS: &[Row] = &[
     row("compression verify", R)
         .needs(&[Needs::LongRunning])
         .spec(&[&compression::VERIFY]),
+    row("compression measure", R).spec(&[&compression::MEASURE]),
     row("compression update", W)
         .reads(&["--accept"])
         .unless("--accept")
@@ -852,6 +853,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("doctor", R, "doctor"),
     own("flow_diagram", R),
     maps("compression_status", R, "compression status"),
+    maps("compression_measure", R, "compression measure"),
     maps("compression_enable", W, "compression enable").on(),
     maps("compression_disable", D, "compression disable").on(),
     maps("compression_set_provider", W, "compression set-provider").on(),

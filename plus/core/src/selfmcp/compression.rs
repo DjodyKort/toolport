@@ -10,6 +10,7 @@ use crate::compression::manage::{
     self, parse_mode, parse_provider, parse_telemetry, with_system, CmdError, EnableReq, Kind,
     SealReq,
 };
+use crate::compression::measure;
 use crate::compression::model::ProviderName;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -49,6 +50,36 @@ fn port(args: &Value) -> Result<Option<u16>, ToolError> {
 
 pub(super) fn status(host: &dyn Host, _args: &Value) -> Outcome {
     with_system(host, |cx| Ok(manage::status(cx)?.data))
+}
+
+pub(super) fn measure(host: &dyn Host, args: &Value) -> Outcome {
+    let paths = crate::compression::store::Paths::from_host(host)
+        .ok_or_else(|| ToolError::backend("data directory could not be resolved"))?;
+    let min_turns = match args.get("min_turns").filter(|v| !v.is_null()) {
+        None => measure::MIN_TURNS,
+        Some(value) => value
+            .as_u64()
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| {
+                ToolError::new("invalid_arguments", "min_turns must be a whole number")
+            })?,
+    };
+    let since_ms = str_trimmed(args, "since")
+        .map(|text| {
+            measure::parse_since(text).ok_or_else(|| {
+                ToolError::new(
+                    "invalid_arguments",
+                    "since needs a date (2026-11-01) or an RFC 3339 timestamp",
+                )
+            })
+        })
+        .transpose()?;
+    let options = measure::Options {
+        root: crate::compression::verify::transcript_root(),
+        min_turns,
+        since_ms,
+    };
+    measure::report(&paths, &options).map_err(ToolError::backend)
 }
 
 fn refuse_egress(provider: Option<ProviderName>) -> Result<(), ToolError> {

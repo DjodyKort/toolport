@@ -1298,6 +1298,31 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "compression_measure",
+        &[
+            read("empty", "compression_measure", "{}"),
+            hook("world", compression::measure_world),
+            read("measured", "compression_measure", "{}"),
+            read(
+                "since",
+                "compression_measure",
+                r#"{"since":"2026-11-10","min_turns":3}"#,
+            ),
+            fails(
+                "bad_since",
+                "invalid_arguments",
+                "compression_measure",
+                r#"{"since":"last week"}"#,
+            ),
+            fails(
+                "min_turns_not_a_number",
+                "invalid_arguments",
+                "compression_measure",
+                r#"{"min_turns":"five"}"#,
+            ),
+        ],
+    ),
+    case(
         "compression_enable",
         &[
             read(

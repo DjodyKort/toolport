@@ -98,3 +98,152 @@ pub fn rtk_home(world: &World) {
     )
     .unwrap();
 }
+
+/// One synthetic transcript: `turns` assistant messages from `at`; the first `times` of them call
+/// `tool` and get a result of `result_len` bytes back.
+fn write_session(
+    world: &World,
+    name: &str,
+    at: &str,
+    turns: usize,
+    usage: (u64, u64, u64, u64),
+    tool: Option<(&str, Value, usize, usize)>,
+) {
+    let dir = world.home.join(".claude/projects/demo");
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut lines = Vec::new();
+    for n in 0..turns {
+        let calling = tool.as_ref().filter(|(_, _, _, times)| n < *times);
+        let blocks = match calling {
+            Some((tool, input, _, _)) => {
+                json!([{"type": "tool_use", "id": format!("{name}-t{n}"), "name": tool, "input": input}])
+            }
+            None => json!([{"type": "text", "text": "synthetic"}]),
+        };
+        lines.push(
+            json!({
+                "type": "assistant",
+                "uuid": format!("{name}-u{n}"),
+                "cwd": "/work/demo",
+                "timestamp": at,
+                "message": {
+                    "id": format!("{name}-m{n}"),
+                    "role": "assistant",
+                    "content": blocks,
+                    "usage": {
+                        "input_tokens": usage.0,
+                        "cache_creation_input_tokens": usage.1,
+                        "cache_read_input_tokens": usage.2,
+                        "output_tokens": usage.3,
+                    },
+                },
+            })
+            .to_string(),
+        );
+        if let Some((_, _, len, _)) = calling {
+            lines.push(
+                json!({
+                    "type": "user",
+                    "timestamp": at,
+                    "message": {"role": "user", "content": [
+                        {"type": "tool_result", "tool_use_id": format!("{name}-t{n}"), "content": "x".repeat(*len)}
+                    ]},
+                })
+                .to_string(),
+            );
+        }
+    }
+    std::fs::write(dir.join(format!("{name}.jsonl")), lines.join("\n") + "\n").unwrap();
+}
+
+/// Hooks wrapped on 11-05 and paused on 11-12, with sessions in each window, a short session and
+/// counted calls: every number of `compression measure` has a source in this world.
+pub fn measure_world(world: &World) {
+    let usage = (100, 2000, 20_000, 400);
+    for n in 0..9 {
+        let tool = match n % 3 {
+            0 => ("Bash", json!({"command": "git status"}), 4000, 1),
+            1 => ("Read", json!({"file_path": "/work/demo/a.rs"}), 8000, 1),
+            _ => ("mcp__demo__list", json!({}), 2000, 1),
+        };
+        write_session(
+            world,
+            &format!("on{n}"),
+            "2026-11-08T10:00:00.000Z",
+            5,
+            usage,
+            Some(tool),
+        );
+    }
+    for n in 0..3 {
+        write_session(
+            world,
+            &format!("paused{n}"),
+            "2026-11-12T10:00:00.000Z",
+            5,
+            (100, 2000, 24_000, 400),
+            Some(("Bash", json!({"command": "ls"}), 12_000, 2)),
+        );
+    }
+    for n in 0..2 {
+        write_session(
+            world,
+            &format!("off{n}"),
+            "2026-10-20T10:00:00.000Z",
+            6,
+            usage,
+            None,
+        );
+    }
+    write_session(world, "short", "2026-11-09T10:00:00.000Z", 2, usage, None);
+
+    let ledger = json!({
+        "entries": [{
+            "file": world.home.join(".claude/settings.json"),
+            "provider": "rtk",
+            "original": "rtk hook claude",
+            "wrapped": "toolportctl compression hook rtk -- /bin/sh -c 'rtk hook claude'",
+            "at": "2026-11-05T09:00:00.000Z"
+        }],
+        "pausedSince": null,
+        "epochs": [
+            {"event": "wrap", "at": "2026-11-05T09:00:00.000Z", "provider": "rtk"},
+            {"event": "pause", "at": "2026-11-12T00:00:00.000Z"},
+            {"event": "resume", "at": "2026-11-13T00:00:00.000Z"}
+        ],
+        "egressAccepted": []
+    });
+    std::fs::write(
+        world.data.join("compression-hooks.json"),
+        ledger.to_string(),
+    )
+    .unwrap();
+    let counters: Vec<String> = (1..=8)
+        .map(|n| {
+            json!({
+                "at": format!("2026-11-0{}T10:00:00.000Z", 5 + (n - 1) / 3),
+                "provider": if n <= 6 { "rtk" } else { "read-once" },
+                "bytesIn": 900,
+                "bytesOut": 300,
+                "latencyMs": 20 + n * 5,
+                "answered": n % 2 == 0,
+                "ok": true
+            })
+            .to_string()
+        })
+        .collect();
+    std::fs::write(
+        world.data.join("compression-hooks.jsonl"),
+        counters.join("\n") + "\n",
+    )
+    .unwrap();
+}
+
+/// Claude settings that lost the hooks Toolport wrapped.
+pub fn lose_hooks(world: &World) {
+    std::fs::write(
+        world.home.join(".claude/settings.json"),
+        json!({"theme": "dark"}).to_string(),
+    )
+    .unwrap();
+}

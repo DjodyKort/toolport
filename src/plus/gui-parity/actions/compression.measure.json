@@ -1,0 +1,5 @@
+{
+  "route": "compression",
+  "status": "planned",
+  "summary": "The four honest questions with their population and limits: where context tokens come from, what the hooks did, the billed outcome per epoch and a rework check (measure, compression_measure)"
+}

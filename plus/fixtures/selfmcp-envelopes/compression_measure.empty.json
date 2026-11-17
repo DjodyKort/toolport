@@ -1,0 +1,132 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "hooks": {
+      "basis": "mechanical",
+      "cannotTell": "billed tokens, or whether an output was cut that Claude then asked for again (see the rework check). A PreToolUse hook sees the call and its answer, not the size of the output a rewrite saves.",
+      "outputBytes": {
+        "available": false,
+        "reason": "A PreToolUse hook sees the call and its answer, not the tool output a rewrite later shrinks."
+      },
+      "population": {
+        "calls": 0,
+        "from": null,
+        "hooks": 0,
+        "to": null
+      },
+      "providerReported": [],
+      "providers": [
+        {
+          "answered": 0,
+          "calls": 0,
+          "failed": 0,
+          "firstCall": null,
+          "lastCall": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "provider": "rtk",
+          "wrapped": false
+        },
+        {
+          "answered": 0,
+          "calls": 0,
+          "failed": 0,
+          "firstCall": null,
+          "lastCall": null,
+          "p50Ms": null,
+          "p95Ms": null,
+          "provider": "read-once",
+          "wrapped": false
+        }
+      ],
+      "status": "off"
+    },
+    "outcome": {
+      "cannotTell": "that a paused window is a fair comparison: the task mix of two windows is not the same, and a refusal is shown instead of a percentage when the windows are thin.",
+      "costUnits": {
+        "cacheReadToken": 0.1,
+        "cacheWriteToken": 1.25,
+        "inputToken": 1.0,
+        "outputToken": 5.0,
+        "relativeTo": "the median of the hooks-on window = 100"
+      },
+      "groups": [
+        {
+          "intervals": [
+            {
+              "from": null,
+              "to": null
+            }
+          ],
+          "label": "Hooks off",
+          "lowerQuartile": null,
+          "medianCost": null,
+          "relative": null,
+          "sessions": 0,
+          "state": "off",
+          "upperQuartile": null
+        }
+      ],
+      "population": {
+        "minTurns": 5,
+        "sessions": 0,
+        "unplaced": 0
+      },
+      "referenceState": "on",
+      "status": "no_sessions",
+      "timeline": [
+        {
+          "from": null,
+          "label": "Hooks off",
+          "state": "off",
+          "to": null
+        }
+      ],
+      "verdict": {
+        "reason": "No paused window yet: pause the hooks for a day to compare matched days.",
+        "status": "none"
+      }
+    },
+    "rework": {
+      "cannotTell": "whether any single repeat was caused by compression. Treat both figures as hints.",
+      "groups": [
+        {
+          "label": "Hooks off",
+          "repeatedCommands": null,
+          "repeatedReads": null,
+          "sessions": 0,
+          "state": "off"
+        }
+      ],
+      "population": {
+        "minTurns": 5,
+        "sessions": 0,
+        "unplaced": 0
+      },
+      "status": "no_sessions"
+    },
+    "sources": {
+      "bashCeiling": null,
+      "basis": "estimate",
+      "cannotTell": "how much of that share a hook removed, or whether the model needed the removed text. Compaction is not modelled, so a long session counts every result for every later turn.",
+      "method": "Size of each tool result divided by 4, times the assistant turns that came after it",
+      "population": {
+        "from": null,
+        "sessions": 0,
+        "to": null
+      },
+      "rows": [],
+      "status": "no_transcripts"
+    },
+    "transcripts": {
+      "root": "<WORLD>/home/.claude/projects",
+      "sessions": 0,
+      "since": null
+    },
+    "upstream": {
+      "note": "Upstream's tokens-saved figure counts tool-definition exposure of MCP servers only. It says nothing about Bash, Read or billed tokens and is never added to the figures here."
+    }
+  },
+  "tool": "compression_measure"
+}
