@@ -734,3 +734,71 @@ fn skill_type_and_activation_keep_their_wire_strings() {
         assert_eq!(activation.as_str(), wire);
     }
 }
+
+fn fixed_clock() -> FixedClock {
+    FixedClock(Instant {
+        unix_secs: 1_700_000_000,
+        micros: 0,
+    })
+}
+
+#[test]
+fn bundle_roundtrips_and_the_zip_is_valid() {
+    use super::bundle::{create_bundle, extract_bundle, BundleOptions};
+    let t = Tmp::new("bundle");
+    put(&t.0, "mcpm-skills.yaml", "name: demo\n");
+    put(&t.0, "skills/a/SKILL.md", &skill_md("a", ""));
+    put(&t.0, "skills/a/modules/m.md", "module\n");
+    put(&t.0, "skills/a/servers.json", "{}");
+    put(
+        &t.0,
+        "rules/r/SKILL.md",
+        "---\nname: r\ndescription: Use when a rule is needed\nactivation: always\n---\nRule\n",
+    );
+    let clock = fixed_clock();
+    let out = create_bundle(
+        &t.0,
+        &BundleOptions {
+            output: None,
+            skill_names: None,
+            clock: &clock,
+        },
+    )
+    .unwrap();
+    assert_eq!(out, t.0.join("demo-bundle.zip"));
+    if let Ok(status) = std::process::Command::new("unzip")
+        .arg("-tq")
+        .arg(&out)
+        .status()
+    {
+        assert!(status.success());
+    }
+    let target = t.0.join("out");
+    let report = extract_bundle(&out, &target, false).unwrap();
+    assert_eq!(report.names, ["a", "r"]);
+    assert_eq!(
+        fs::read_to_string(target.join("skills/a/modules/m.md")).unwrap(),
+        "module\n"
+    );
+    assert!(target.join("rules/r/SKILL.md").exists());
+    assert!(target.join("mcpm-skills.yaml").exists());
+    assert!(!target.join("mcpm-skills-bundle.json").exists());
+
+    let none = create_bundle(
+        &t.0,
+        &BundleOptions {
+            output: Some(t.0.join("x.zip")),
+            skill_names: Some(vec!["missing".into()]),
+            clock: &clock,
+        },
+    );
+    assert_eq!(none.unwrap_err(), "No skills found to bundle");
+}
+
+#[test]
+fn extract_rejects_a_file_that_is_not_a_bundle() {
+    use super::bundle::extract_bundle;
+    let t = Tmp::new("bundle-bad");
+    put(&t.0, "plain.zip", "not a zip");
+    assert!(extract_bundle(&t.0.join("plain.zip"), &t.0.join("o"), false).is_err());
+}

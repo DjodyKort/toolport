@@ -107,6 +107,7 @@ const fn context_case(tool: &'static str, calls: &'static [Call]) -> Case {
     }
 }
 
+const BUNDLE: &str = r#"{"bundle_path":"{repo}/skills-repo-bundle.zip"}"#;
 const APPLY: &str = r#"{"dry_run":false,"confirm":true}"#;
 const UNCONFIRMED: &str = r#"{"dry_run":false}"#;
 const CLAUDE: &str = r#"{"client_keys":["claude-code"]}"#;
@@ -511,6 +512,46 @@ const CASES: &[Case] = &[
     ),
     case("skills_audit", &[read("", "skills_audit", "{}")]),
     case(
+        "skills_bundle",
+        &[
+            read("preview", "skills_bundle", "{}"),
+            write("apply", "skills_bundle", r#"{"dry_run":false}"#),
+            fails(
+                "exists",
+                "conflict",
+                "skills_bundle",
+                r#"{"dry_run":false}"#,
+            ),
+        ],
+    ),
+    case(
+        "skills_unbundle",
+        &[
+            setup("skills_bundle", r#"{"dry_run":false}"#),
+            setup(
+                "skills_uninstall",
+                r#"{"name":"demo","dry_run":false,"confirm":true}"#,
+            ),
+            read("preview", "skills_unbundle", BUNDLE),
+            refused(
+                "refused",
+                "skills_unbundle",
+                r#"{"bundle_path":"{repo}/skills-repo-bundle.zip","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "skills_unbundle",
+                r#"{"bundle_path":"{repo}/skills-repo-bundle.zip","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "missing_bundle",
+                "not_found",
+                "skills_unbundle",
+                r#"{"bundle_path":"{repo}/none.zip","dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
         "skills_clean",
         &[
             setup("skills_sync", CLAUDE_APPLY),
@@ -593,7 +634,11 @@ fn changed_files(
 }
 
 fn arguments(world: &World, case: &Case, call: &Call) -> Value {
-    serde_json::from_str(&call.args.replace("{home}", &world.path(&world.home)))
+    let expanded = call
+        .args
+        .replace("{home}", &world.path(&world.home))
+        .replace("{repo}", &world.repo.to_string_lossy());
+    serde_json::from_str(&expanded)
         .unwrap_or_else(|e| panic!("{} {}: arguments are not JSON: {e}", case.tool, call.label))
 }
 

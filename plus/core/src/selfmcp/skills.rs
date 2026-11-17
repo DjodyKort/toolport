@@ -1,7 +1,7 @@
 //! The `skills_*` tools: adapters over `crate::skills`, the same operations `toolportctl skills`
 //! renders. A tool that writes defaults `dry_run` to true and never works in the working directory.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
@@ -14,6 +14,13 @@ use crate::skills::{repo_handlers, state};
 
 type Outcome = Result<Value, ToolError>;
 type Handler = fn(Value) -> Result<Value, String>;
+
+const ROOT_MANIFEST: &str = "mcpm-skills.yaml";
+
+fn has_zip_extension(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
+}
 
 fn failed(message: String) -> ToolError {
     let kind = if message.contains("not found") || message.contains("No such file") {
@@ -178,4 +185,101 @@ pub(super) fn resolve(host: &dyn Host, args: &Value) -> Outcome {
         .into_iter()
         .collect();
     with_paths(host, || scoped(args, state::resolve_handler, &migrate))
+}
+
+/// A bundle is only ever a new `.zip` in an existing directory; the core would overwrite any
+/// path the caller names.
+fn check_bundle_target(planned: &Value) -> Result<(), ToolError> {
+    let output = Path::new(planned["output"].as_str().unwrap_or_default());
+    if !has_zip_extension(output) {
+        return Err(ToolError::new(
+            "invalid_arguments",
+            "output must end in .zip",
+        ));
+    }
+    if output.symlink_metadata().is_ok() {
+        return Err(ToolError::new(
+            "conflict",
+            format!("{} already exists; pass another output", output.display()),
+        ));
+    }
+    if !output.parent().is_some_and(Path::is_dir) {
+        return Err(ToolError::new(
+            "invalid_arguments",
+            "the directory of output must exist",
+        ));
+    }
+    Ok(())
+}
+
+pub(super) fn bundle(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || bundle_in(args))
+}
+
+fn bundle_in(args: &Value) -> Outcome {
+    let mut map = request(args)?;
+    if let Some(output) = str_nonempty(args, "output") {
+        map.insert("output".into(), json!(output));
+    }
+    if let Some(names) = crate::args::list(args, "skills") {
+        map.insert("skills".into(), Value::Array(names.clone()));
+    }
+    map.insert("dry_run".into(), json!(true));
+    let planned = repo_handlers::bundle_handler(Value::Object(map.clone())).map_err(failed)?;
+    check_bundle_target(&planned)?;
+    if flag_or(args, "dry_run", true) {
+        return Ok(planned);
+    }
+    map.insert("dry_run".into(), json!(false));
+    repo_handlers::bundle_handler(Value::Object(map)).map_err(failed)
+}
+
+fn outside_the_trees(planned: &Value) -> Vec<String> {
+    planned["files"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .filter(|file| {
+            !(file.starts_with("skills/") || file.starts_with("rules/") || *file == ROOT_MANIFEST)
+        })
+        .take(5)
+        .map(String::from)
+        .collect()
+}
+
+/// A bundle may only carry skill and rule trees and the repository manifest: the core writes any
+/// relative path, which would let a bundle drop `.git/hooks/pre-commit` into the repository.
+pub(super) fn unbundle(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || unbundle_in(args))
+}
+
+fn unbundle_in(args: &Value) -> Outcome {
+    let bundle = str_nonempty(args, "bundle_path")
+        .ok_or_else(|| ToolError::new("invalid_arguments", "bundle_path is empty"))?;
+    if !has_zip_extension(Path::new(bundle)) {
+        return Err(ToolError::new(
+            "invalid_arguments",
+            "bundle_path must end in .zip",
+        ));
+    }
+    let mut map = request(args)?;
+    map.insert("bundle_path".into(), json!(bundle));
+    map.insert("dry_run".into(), json!(true));
+    let planned = repo_handlers::unbundle_handler(Value::Object(map.clone())).map_err(failed)?;
+    let stray = outside_the_trees(&planned);
+    if !stray.is_empty() {
+        return Err(ToolError::new(
+            "refused",
+            format!(
+                "the bundle holds files outside skills/ and rules/: {}",
+                stray.join(", ")
+            ),
+        ));
+    }
+    if flag_or(args, "dry_run", true) {
+        return Ok(planned);
+    }
+    map.insert("dry_run".into(), json!(false));
+    repo_handlers::unbundle_handler(Value::Object(map)).map_err(failed)
 }

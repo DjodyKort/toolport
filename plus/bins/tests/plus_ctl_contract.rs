@@ -1017,6 +1017,75 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "skills bundle",
+        &[
+            read(
+                "preview",
+                &["skills", "bundle", "--repo", "{repo}", "--dry-run"],
+            ),
+            apply(
+                "apply",
+                &[
+                    "skills",
+                    "bundle",
+                    "--repo",
+                    "{repo}",
+                    "--output",
+                    "{base}/demo.zip",
+                ],
+            ),
+        ],
+    ),
+    case(
+        "skills unbundle",
+        &[
+            setup(
+                "bundle",
+                &[
+                    "skills",
+                    "bundle",
+                    "--repo",
+                    "{repo}",
+                    "--output",
+                    "{base}/demo.zip",
+                ],
+            ),
+            setup(
+                "init",
+                &[
+                    "skills",
+                    "init",
+                    "--path",
+                    "{base}/fresh",
+                    "--name",
+                    "contract",
+                ],
+            ),
+            read(
+                "preview",
+                &[
+                    "skills",
+                    "unbundle",
+                    "{base}/demo.zip",
+                    "--path",
+                    "{base}/fresh",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "skills",
+                    "unbundle",
+                    "{base}/demo.zip",
+                    "--path",
+                    "{base}/fresh",
+                ],
+            ),
+            usage("usage", &["skills", "unbundle"]),
+        ],
+    ),
+    case(
         "skills clean",
         &[
             setup("setup", &["skills", "sync", "--repo", "{repo}"]),

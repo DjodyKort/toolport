@@ -13,6 +13,9 @@ const INIT_USAGE: &str = "usage: skills init [--path <dir>] [--name <name>] [--d
 const ADD_USAGE: &str =
     "usage: skills add <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]";
 const AUDIT_USAGE: &str = "usage: skills audit [--path <dir>]";
+const BUNDLE_USAGE: &str =
+    "usage: skills bundle [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]";
+const UNBUNDLE_USAGE: &str = "usage: skills unbundle <bundle.zip> [--path <dir>] [--dry-run]";
 
 pub(super) const PATH: Flag = value("--path").alias(&["--repo"]);
 
@@ -36,6 +39,16 @@ pub(super) const ADD: Spec = spec(
     ADD_USAGE,
 );
 pub(super) const AUDIT: Spec = spec(&[PATH], AUDIT_USAGE);
+pub(super) const BUNDLE: Spec = spec(
+    &[
+        PATH,
+        value("--output"),
+        value("--skills"),
+        switch("--dry-run"),
+    ],
+    BUNDLE_USAGE,
+);
+pub(super) const UNBUNDLE: Spec = spec(&[PATH, switch("--dry-run")], UNBUNDLE_USAGE);
 
 pub(super) fn no_operands(flags: &Flags, usage: &str) -> Result<(), CtlError> {
     match flags.operands().first() {
@@ -69,6 +82,8 @@ pub(super) fn call(command: &str, args: Value) -> Result<Value, CtlError> {
         "plus.skills.init" => repo::init_handler(args),
         "plus.skills.add" => repo::add_handler(args),
         "plus.skills.audit" => repo::audit_handler(args),
+        "plus.skills.bundle" => repo::bundle_handler(args),
+        "plus.skills.unbundle" => repo::unbundle_handler(args),
         "plus.skills.clean" => state::clean_handler(args),
         "plus.skills.uninstall" => state::uninstall_handler(args),
         "plus.skills.resolve" => state::resolve_handler(args),
@@ -200,4 +215,86 @@ pub fn audit(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let mut out = Output::new(data.clone(), human);
     out.failed = data["high"].as_u64().unwrap_or(0) > 0;
     Ok(out)
+}
+
+pub fn bundle(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let _paths = enter_paths(host, None);
+    let args = BUNDLE.parse(rest)?;
+    no_operands(&args, BUNDLE_USAGE)?;
+    let mut request = with_path(&args, json!({"dry_run": args.on("--dry-run")}));
+    if let Some(output) = args.one("--output") {
+        request["output"] = json!(output);
+    }
+    let skills: Vec<String> = args
+        .all("--skills")
+        .iter()
+        .flat_map(|s| s.split(','))
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    if !skills.is_empty() {
+        request["skills"] = json!(skills);
+    }
+    let data = call("plus.skills.bundle", request)?;
+    let output = str_of(&data, "output");
+    let human = if args.on("--dry-run") {
+        let mut text = format!(
+            "Would create bundle {output} with {} file(s):\n",
+            data["fileCount"]
+        );
+        for row in data["skills"].as_array().into_iter().flatten() {
+            text.push_str(&format!(
+                "  {:<6} {} ({} file(s))\n",
+                str_of(row, "type"),
+                str_of(row, "name"),
+                row["files"]
+            ));
+        }
+        text.trim_end().to_string()
+    } else {
+        let kb = data["bundleBytes"].as_u64().unwrap_or(0) as f64 / 1024.0;
+        format!("Bundle created: {output} ({kb:.1} KB)")
+    };
+    Ok(Output::new(data, human))
+}
+
+pub fn unbundle(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let _paths = enter_paths(host, None);
+    let args = UNBUNDLE.parse(rest)?;
+    let bundle = operand(&args, "bundle path", UNBUNDLE_USAGE)?;
+    let request = with_path(
+        &args,
+        json!({
+            "bundle_path": bundle,
+            "dry_run": args.on("--dry-run"),
+        }),
+    );
+    let data = call("plus.skills.unbundle", request)?;
+    let names = strings(&data, "names");
+    let mut human = if args.on("--dry-run") {
+        let mut text = format!(
+            "Would extract {} skill(s) into {}: {}\n",
+            names.len(),
+            str_of(&data, "target"),
+            names.join(", ")
+        );
+        for file in strings(&data, "files") {
+            let overwrite = strings(&data, "overwritten").contains(&file);
+            text.push_str(&format!(
+                "  {file}{}\n",
+                if overwrite { " (overwrites)" } else { "" }
+            ));
+        }
+        text
+    } else {
+        format!(
+            "Extracted {} skill(s): {}\nRun 'toolportctl skills sync' to transpile to clients.\n",
+            names.len(),
+            names.join(", ")
+        )
+    };
+    for skipped in strings(&data, "skipped") {
+        human.push_str(&format!("skipped unsafe path: {skipped}\n"));
+    }
+    Ok(Output::new(data, human.trim_end().to_string()))
 }

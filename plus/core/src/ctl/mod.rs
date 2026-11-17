@@ -296,6 +296,16 @@ pub const COMMANDS: &[Command] = &[
         skills_repo::audit,
     ),
     cmd(
+        &["skills", "bundle"],
+        "Pack skills into a portable zip (--output <zip>, --path <dir>, --skills <a,b>, --dry-run)",
+        skills_repo::bundle,
+    ),
+    cmd(
+        &["skills", "unbundle"],
+        "Extract a skills bundle (<bundle.zip>, --path <dir>, --dry-run)",
+        skills_repo::unbundle,
+    ),
+    cmd(
         &["skills", "status"],
         "Show whether synced outputs still exist and match the library; --strict exits 1 on drift (--repo, --home, --client <key>)",
         skills_state::status,

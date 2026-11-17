@@ -1,5 +1,10 @@
-//! `skills init|add|audit`: repository management over `skills::repo`. Arguments use snake_case keys, `repo_path` being the repository root.
+//! `plus.skills.{init,add,audit,bundle,unbundle}`: repository management over `skills::repo` and
+//! `skills::bundle`. Arguments use snake_case keys, `repo_path` being the repository root.
 
+use super::bundle::{
+    create_bundle, extract_bundle, plan_bundle, skill_files, BundleOptions, BundlePlan,
+};
+use super::clock::SystemClock;
 use super::repo::{self, AddRequest};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -12,6 +17,19 @@ fn text<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
 
 fn switch(args: &Value, key: &str) -> bool {
     args.get(key).and_then(Value::as_bool).unwrap_or(false)
+}
+
+fn names(args: &Value, key: &str) -> Option<Vec<String>> {
+    let list: Vec<String> = match args.get(key)? {
+        Value::Array(items) => items
+            .iter()
+            .filter_map(Value::as_str)
+            .map(String::from)
+            .collect(),
+        Value::String(s) => s.split(',').map(|p| p.trim().to_string()).collect(),
+        _ => return None,
+    };
+    (!list.is_empty()).then_some(list)
 }
 
 fn dir_arg(args: &Value) -> PathBuf {
@@ -76,5 +94,66 @@ pub fn audit_handler(args: Value) -> Result<Value, String> {
                 "line": f.line,
             }))
             .collect::<Vec<_>>(),
+    }))
+}
+
+pub fn bundle_handler(args: Value) -> Result<Value, String> {
+    let start = text(&args, "repo_path").map(|p| repo::resolve_path(Path::new(p)));
+    let repo = repo::find_repo(start.as_deref()).ok_or("no skills repository found")?;
+    let dry_run = switch(&args, "dry_run");
+    let opts = BundleOptions {
+        output: text(&args, "output").map(|o| repo::resolve_path(Path::new(o))),
+        skill_names: names(&args, "skills"),
+        clock: &SystemClock,
+    };
+    let BundlePlan { output, skills } = plan_bundle(&repo, &opts)?;
+    let mut files = 0usize;
+    let mut bytes = 0u64;
+    let mut rows = Vec::new();
+    for skill in &skills {
+        let list = skill_files(skill)?;
+        files += list.len();
+        bytes += list
+            .iter()
+            .map(|(_, p)| std::fs::metadata(p).map_or(0, |m| m.len()))
+            .sum::<u64>();
+        rows.push(json!({
+            "name": skill.name(),
+            "type": skill.skill_type.as_str(),
+            "files": list.len(),
+        }));
+    }
+    let size = if dry_run {
+        Value::Null
+    } else {
+        let written = create_bundle(&repo, &opts)?;
+        json!(std::fs::metadata(&written)
+            .map_err(|e| e.to_string())?
+            .len())
+    };
+    Ok(json!({
+        "repo": display(&repo),
+        "output": display(&output),
+        "skills": rows,
+        "fileCount": files,
+        "sourceBytes": bytes,
+        "bundleBytes": size,
+        "dryRun": dry_run,
+    }))
+}
+
+pub fn unbundle_handler(args: Value) -> Result<Value, String> {
+    let bundle = text(&args, "bundle_path").ok_or("bundle_path is required")?;
+    let dry_run = switch(&args, "dry_run");
+    let target = repo::resolve_path(&dir_arg(&args));
+    let report = extract_bundle(Path::new(bundle), &target, dry_run)?;
+    Ok(json!({
+        "bundle": bundle,
+        "target": display(&target),
+        "names": report.names,
+        "files": report.files,
+        "overwritten": report.overwritten,
+        "skipped": report.skipped,
+        "dryRun": dry_run,
     }))
 }

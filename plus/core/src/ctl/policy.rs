@@ -404,6 +404,15 @@ pub(super) const ROWS: &[Row] = &[
         .args(&[req("name")])
         .skip("creates a skill folder; its --dry-run is a golden step"),
     row("skills audit", R).spec(&[&skills_repo::AUDIT]),
+    row("skills bundle", W)
+        .dry()
+        .spec(&[&skills_repo::BUNDLE])
+        .skip("writes a zip; its --dry-run and apply are golden steps"),
+    row("skills unbundle", W)
+        .dry()
+        .spec(&[&skills_repo::UNBUNDLE])
+        .args(&[req("bundle")])
+        .skip("extracts into the repository; its --dry-run is a golden step"),
     row("skills status", R).spec(&[&skills_state::STATUS]),
     row("skills clean", D)
         .dry()
@@ -552,6 +561,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("skills_list_transpilers", R),
     maps("skills_scaffold", W, "skills add"),
     maps("skills_audit", R, "skills audit"),
+    maps("skills_bundle", W, "skills bundle").on(),
+    maps("skills_unbundle", W, "skills unbundle").on(),
     maps("skills_clean", D, "skills clean").on(),
     maps("skills_uninstall", D, "skills uninstall").on(),
     maps("skills_resolve", W, "skills resolve").on(),

@@ -250,6 +250,72 @@
           "tier": 1
         },
         {
+          "description": "Pack skills into a new .zip bundle; never overwrites a file; dry_run is on by default",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "skills_bundle",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Path of the .zip to create, default <repository folder>-bundle.zip inside the repository",
+              "name": "output",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Limit to these skills",
+              "name": "skills",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Extract a skills bundle into the repository, overwriting files of the same name; refuses a bundle with files outside skills/ and rules/; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "skills_unbundle",
+          "params": [
+            {
+              "description": "Path of the .zip bundle",
+              "name": "bundle_path",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "Remove the synced skill outputs and the lockfile; dry_run is on by default (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",

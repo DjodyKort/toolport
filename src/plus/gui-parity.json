@@ -240,6 +240,11 @@
       "route": "library",
       "status": "planned",
       "summary": "Delete a skill from the library with its installed files (skills uninstall; skills_uninstall)"
+    },
+    "library.bundle": {
+      "route": "library",
+      "status": "planned",
+      "summary": "Pack skills into a portable zip or extract one into the library (skills bundle, unbundle; skills_bundle, skills_unbundle)"
     }
   },
   "owners": {
@@ -519,6 +524,16 @@
       "route": "context",
       "action": "context.status",
       "surface": "screen"
+    },
+    "skills bundle": {
+      "route": "library",
+      "action": "library.bundle",
+      "surface": "screen"
+    },
+    "skills unbundle": {
+      "route": "library",
+      "action": "library.bundle",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -697,9 +712,14 @@
       "action": "library.uninstall",
       "surface": "screen"
     },
-    "servers_set_mode": {
-      "route": "servers",
-      "action": "servers.advanced-mode",
+    "skills_bundle": {
+      "route": "library",
+      "action": "library.bundle",
+      "surface": "screen"
+    },
+    "skills_unbundle": {
+      "route": "library",
+      "action": "library.bundle",
       "surface": "screen"
     }
   }

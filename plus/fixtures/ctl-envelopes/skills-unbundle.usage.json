@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "unbundle"],
+  "envelope": {
+    "command": "skills unbundle",
+    "error": {
+      "code": "usage",
+      "message": "missing bundle path\nusage: skills unbundle <bundle.zip> [--path <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

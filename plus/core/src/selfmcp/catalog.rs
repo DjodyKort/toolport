@@ -220,6 +220,31 @@ pub const TOOLS: &[ToolDef] = &[
         skills::audit
     ),
     tool!(
+        "skills_bundle",
+        2,
+        None,
+        "Pack skills into a new .zip bundle; never overwrites a file; dry_run is on by default",
+        [
+            REPO,
+            p("output", Ty::Str, false, "Path of the .zip to create, default <repository folder>-bundle.zip inside the repository"),
+            p("skills", Ty::StrList, false, "Limit to these skills"),
+            DRY_ON
+        ],
+        skills::bundle
+    ),
+    tool!(
+        "skills_unbundle",
+        3,
+        UnlessDryRun,
+        "Extract a skills bundle into the repository, overwriting files of the same name; refuses a bundle with files outside skills/ and rules/; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("bundle_path", Ty::Str, true, "Path of the .zip bundle"),
+            REPO,
+            DRY_ON
+        ],
+        skills::unbundle
+    ),
+    tool!(
         "skills_clean",
         4,
         UnlessDryRun,
