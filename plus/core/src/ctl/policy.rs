@@ -125,14 +125,6 @@ const fn some(name: &'static str) -> Operand {
     }
 }
 
-const fn opt(name: &'static str) -> Operand {
-    Operand {
-        name,
-        required: false,
-        variadic: false,
-    }
-}
-
 const fn req(name: &'static str) -> Operand {
     Operand {
         name,
@@ -277,13 +269,6 @@ impl Row {
 
     const fn costs(self) -> Self {
         Self { cost: true, ..self }
-    }
-
-    const fn requires(self, flags: &'static [&'static str]) -> Self {
-        Self {
-            requires: flags,
-            ..self
-        }
     }
 
     const fn skip(self, reason: &'static str) -> Self {

@@ -1186,6 +1186,9 @@ impl HostEnv for MemoryHost {
     fn now_unix(&self) -> i64 {
         self.now.get()
     }
+    fn launch_at_login(&self) -> Option<bool> {
+        self.launch_at_login.get()
+    }
 }
 
 impl HttpAccess for MemoryHost {
@@ -1305,9 +1308,6 @@ impl AuthAccess for MemoryHost {
     fn open_url(&self, url: &str) -> Result<(), String> {
         self.auth.opened.borrow_mut().push(url.to_string());
         Ok(())
-    }
-    fn launch_at_login(&self) -> Option<bool> {
-        self.launch_at_login.get()
     }
 }
 

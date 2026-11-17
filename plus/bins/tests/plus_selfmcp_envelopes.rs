@@ -110,7 +110,6 @@ struct Case {
     tool: &'static str,
     prepare: Option<fn(&World)>,
     calls: &'static [Call],
-    prepare: Option<fn(&World)>,
 }
 
 const fn case(tool: &'static str, calls: &'static [Call]) -> Case {
@@ -1387,9 +1386,6 @@ fn run_case(case: &Case) {
     let world = World::new(case.tool);
     if case.tool == "skills_tap_remove" {
         tap_source(&world);
-    }
-    if let Some(prepare) = case.prepare {
-        prepare(&world);
     }
     if let Some(prepare) = case.prepare {
         prepare(&world);

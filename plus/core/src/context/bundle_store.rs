@@ -38,6 +38,7 @@ pub fn op(e: BundleError) -> OpError {
         code => OpError {
             kind: ErrorKind::Failed(code),
             message: e.message,
+            details: None,
         },
     }
 }
