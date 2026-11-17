@@ -1,5 +1,5 @@
 import { CtlError, ctlData, ctlResultData, runCtl } from "../bridge/ctl";
-import type { AuthSection, CommandsData, McpCallData, StatusData } from "../bridge/data";
+import type { AuthSection, McpCallData, StatusData } from "../bridge/data";
 import type {
   AccessSetsData,
   EditData,
@@ -9,8 +9,6 @@ import type {
   ProbeData,
   RestartData,
   SecretGetData,
-  SecretRemoveData,
-  SecretSetData,
   ServerInfoData,
   ServerListData,
   UninstallData,
@@ -165,35 +163,8 @@ export async function secretIsSet(server: string, key: string): Promise<boolean>
   }
 }
 
-/** The value goes to stdin and nowhere else. */
-export function setSecret(server: string, key: string, value: string) {
-  return ctlData<SecretSetData>(["secret", "set", server, key], { stdinSecret: value });
-}
-
 /** The CLI's one command that prints a value. The caller shows it for a few seconds and drops it. */
 export async function revealSecret(server: string, key: string): Promise<string> {
   const data = await ctlData<SecretGetData>(["secret", "get", server, key, "--reveal"]);
   return data.value ?? "";
-}
-
-export const removeSecret = (server: string, key: string) =>
-  ctlData<SecretRemoveData>(["secret", "rm", server, key]);
-
-let removalTier: Promise<boolean> | null = null;
-
-/** Whether the policy asks for a typed confirmation to remove a secret. Unreadable policy counts as
- * yes: the stricter confirmation never runs by mistake. */
-export function removalNeedsTyping(): Promise<boolean> {
-  removalTier ??= ctlData<CommandsData>(["commands"]).then(
-    (data) => {
-      const row = data.commands.find((c) => c.id === "secret rm");
-      return row ? row.tier === "destructive" : true;
-    },
-    () => true,
-  );
-  return removalTier;
-}
-
-export function resetRemovalTier() {
-  removalTier = null;
 }

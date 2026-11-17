@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Copy, EyeOff, KeyRound } from "lucide-react";
 import { toast } from "sonner";
+import { LazySecretsDialog } from "@/components/LazySecretsDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { Registry, ServerEntry } from "@/lib/types";
 import type { AuthRow } from "../bridge/data";
 import { plural } from "../settings/model";
 import { errorText } from "../settings/useCtl";
@@ -10,12 +12,7 @@ import { revealSecret, secretIsSet } from "./commands";
 import type { ServerInfoData } from "./data";
 import { loginFailed } from "./loginModel";
 import { OperationRow } from "./OperationRow";
-import {
-  RemoveSecret,
-  ReplaceSecret,
-  RevealConfirm,
-  REVEAL_SECONDS,
-} from "./SecretDialogs";
+import { RevealConfirm, REVEAL_SECONDS } from "./SecretDialogs";
 import { useLoad, type Loaded } from "./useLoad";
 
 const HTTP_AUTH_KEY = "__http_auth__";
@@ -98,28 +95,31 @@ function RevealedValue({
   );
 }
 
-type Pending = { kind: "replace" | "reveal" | "remove"; key: string };
-
 export interface SecretsRowProps {
+  server: ServerEntry;
   serverId: string;
   serverName: string;
   info: Loaded<ServerInfoData>;
   /** Plain settings as the app's registry holds them; their values are not secret. */
   plain: Array<{ key: string; value: string | null }>;
   login: AuthRow | undefined;
+  /** Upstream's dialog hands back the registry after it saved or removed a value. */
+  onSaved: (registry: Registry) => void;
   /** Runs after a value was set or removed, so the page and Finish setup read the new state. */
   onChanged: () => void | Promise<void>;
 }
 
 /** Keyed by server id where it is mounted, so a revealed value never outlives the server's page.
- * The secret keys a server declares and whether the keychain holds them: replace, reveal for ten
- * seconds, or remove, each behind its own confirmation. */
+ * The secret keys a server declares and whether the keychain holds them, with a reveal for ten
+ * seconds behind a confirmation. Setting, replacing and removing a value is upstream's dialog. */
 export function SecretsRow({
+  server,
   serverId,
   serverName,
   info,
   plain,
   login,
+  onSaved,
   onChanged,
 }: SecretsRowProps) {
   const keys = (info.data?.env ?? []).filter((e) => e.secret).map((e) => e.key);
@@ -138,7 +138,7 @@ export function SecretsRow({
     data: loaded.data?.signature === signature ? loaded.data.entries : null,
     error: loaded.error,
   };
-  const [dialog, setDialog] = useState<Pending | null>(null);
+  const [revealing, setRevealing] = useState<string | null>(null);
   const [userOpen, setUserOpen] = useState<boolean | null>(null);
   const revealed = useRevealed();
 
@@ -189,11 +189,19 @@ export function SecretsRow({
         }
         badge={badge}
         actions={
-          unreadable ? (
-            <Button variant="outline" onClick={() => setVersion((value) => value + 1)}>
-              Try again
-            </Button>
-          ) : undefined
+          <>
+            {unreadable && (
+              <Button variant="outline" onClick={() => setVersion((value) => value + 1)}>
+                Try again
+              </Button>
+            )}
+            <LazySecretsDialog
+              server={server}
+              onSaved={onSaved}
+              onChanged={bump}
+              trigger={<Button variant="outline">Edit secrets…</Button>}
+            />
+          </>
         }
         open={open}
         onToggle={() => setUserOpen(!open)}
@@ -215,30 +223,13 @@ export function SecretsRow({
                     </span>
                   </span>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={unreadable}
-                      onClick={() => setDialog({ kind: "replace", key })}
-                    >
-                      {known ? "Replace…" : "Set…"}
-                    </Button>
                     {known && key !== HTTP_AUTH_KEY && (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setDialog({ kind: "reveal", key })}
+                        onClick={() => setRevealing(key)}
                       >
                         Reveal…
-                      </Button>
-                    )}
-                    {known && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDialog({ kind: "remove", key })}
-                      >
-                        Remove…
                       </Button>
                     )}
                   </div>
@@ -273,40 +264,21 @@ export function SecretsRow({
           shown because they are not secret.
         </p>
       </OperationRow>
-      {dialog?.kind === "replace" && (
-        <ReplaceSecret
-          {...target(dialog.key)}
-          open
-          onOpenChange={(next) => !next && setDialog(null)}
-          canCheck={login !== undefined}
-          wasSet={isSet.get(dialog.key) === true}
-          onSaved={bump}
-        />
-      )}
-      {dialog?.kind === "reveal" && (
+      {revealing !== null && (
         <RevealConfirm
-          {...target(dialog.key)}
+          {...target(revealing)}
           open
-          onOpenChange={(next) => !next && setDialog(null)}
+          onOpenChange={(next) => !next && setRevealing(null)}
           onConfirm={async () => {
             try {
-              revealed.show(dialog.key, await revealSecret(serverId, dialog.key));
+              revealed.show(revealing, await revealSecret(serverId, revealing));
             } catch (error) {
-              toast.error(`Could not read ${dialog.key}`, {
+              toast.error(`Could not read ${revealing}`, {
                 description: errorText(error),
               });
               throw error;
             }
           }}
-        />
-      )}
-      {dialog?.kind === "remove" && (
-        <RemoveSecret
-          {...target(dialog.key)}
-          open
-          onOpenChange={(next) => !next && setDialog(null)}
-          hasLoginCheck={login !== undefined}
-          onRemoved={bump}
         />
       )}
     </>

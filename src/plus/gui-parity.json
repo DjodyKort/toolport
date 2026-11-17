@@ -152,7 +152,7 @@
     "servers.secret-set": {
       "route": "servers",
       "status": "built",
-      "summary": "Set or replace a secret a server declares through a write-only field in the Secrets row; the value goes to stdin only, a placeholder is refused, and a server with a login check can be checked right after saving (secret set). A remote server's access token stays in upstream's Secrets dialog",
+      "summary": "Set or replace a secret a server declares: the Secrets row opens upstream's Secrets dialog (Edit secrets…), whose password field saves it to the keychain and refuses a placeholder (secret set). A remote server's access token is in the same dialog",
       "test": "src/plus/servers/SecretsRow.test.tsx"
     },
     "servers.secret-reveal": {
@@ -164,7 +164,7 @@
     "servers.secret-remove": {
       "route": "servers",
       "status": "built",
-      "summary": "Remove a secret and its declaration after a preview of what goes; the key is typed when the policy tier of secret rm is destructive (secret rm)",
+      "summary": "Remove a secret from the keychain after upstream's confirmation, in the same Secrets dialog (secret rm)",
       "test": "src/plus/servers/SecretsRow.test.tsx"
     },
     "servers.login": {

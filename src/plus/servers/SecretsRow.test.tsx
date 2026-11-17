@@ -10,7 +10,6 @@ import {
   type WorldServer,
 } from "../fixtures/serverWorld";
 import { guiParity } from "../guiParity";
-import { resetRemovalTier } from "./commands";
 import ServerOperations from "./ServerOperations";
 import { resetRestartStore } from "./restartStore";
 import { entryOf, getRegistryMock, invokeLog, ranArgv, registryOf } from "./testkit";
@@ -105,7 +104,6 @@ beforeEach(() => {
   invokeLog.length = 0;
   resetRestartStore();
   resetServerWatch();
-  resetRemovalTier();
   vi.clearAllMocks();
 });
 
@@ -144,88 +142,78 @@ describe("Secrets row", () => {
       await within(row).findByText("MAIL_TOKEN is not set · 1 plain setting"),
     ).toBeInTheDocument();
     expect(within(row).getByText("1 missing")).toBeInTheDocument();
-    expect(within(row).getByRole("button", { name: "Set…" })).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Edit secrets…" })).toBeEnabled();
+    await open();
     expect(
       within(row).queryByRole("button", { name: "Reveal…" }),
     ).not.toBeInTheDocument();
-    expect(
-      within(row).queryByRole("button", { name: "Remove…" }),
-    ).not.toBeInTheDocument();
   });
 
-  it("test03_servers_secret_set_sends_the_value_on_stdin_only_through_a_password_field", async () => {
-    setup();
-    await open();
-    await userEvent.click(await screen.findByRole("button", { name: "Replace…" }));
-    const field = screen.getByLabelText("New value");
+  it("test03_servers_secret_set_opens_upstreams_dialog_and_saves_through_its_password_field", async () => {
+    const { onRegistryChange } = setup();
+    const row = await secretsRow();
+    await userEvent.click(
+      await within(row).findByRole("button", { name: "Edit secrets…" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Secrets for foxtrot-mail")).toBeInTheDocument();
+    const field = await within(dialog).findByPlaceholderText("•••••••• (saved)");
     expect(field).toHaveAttribute("type", "password");
     await userEvent.type(field, NEW_VALUE);
-    await userEvent.click(screen.getByRole("button", { name: "Replace" }));
-    expect(
-      await screen.findByText("Saved MAIL_TOKEN for foxtrot-mail."),
-    ).toBeInTheDocument();
-    expect(ranArgv()).toContainEqual(["secret", "set", "srv-foxtrot", "MAIL_TOKEN"]);
-    const run = invokeLog.find(
-      (entry) =>
-        entry.command === "plus_ctl" &&
-        (entry.args as { argv: string[] }).argv[1] === "set",
-    );
-    expect((run!.args as { stdinSecret: string }).stdinSecret).toBe(NEW_VALUE);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Saved MAIL_TOKEN"));
+    const call = invokeLog.find((entry) => entry.command === "set_secret");
+    expect(call!.args).toEqual({
+      serverId: "srv-foxtrot",
+      key: "MAIL_TOKEN",
+      value: NEW_VALUE,
+    });
     expect(JSON.stringify(ranArgv())).not.toContain(NEW_VALUE);
     expect(document.body.textContent).not.toContain(NEW_VALUE);
+    await waitFor(() => expect(onRegistryChange).toHaveBeenCalled());
     expect(toast.error).not.toHaveBeenCalled();
   });
 
-  it("test04_servers_secret_set_refuses_a_placeholder_with_the_backends_message", async () => {
-    setup();
-    await open();
-    await userEvent.click(await screen.findByRole("button", { name: "Replace…" }));
-    await userEvent.type(screen.getByLabelText("New value"), "<VAULTED>");
-    await userEvent.click(screen.getByRole("button", { name: "Replace" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Placeholder values cannot be saved.",
-    );
-    expect(screen.queryByText(/Saved MAIL_TOKEN/)).not.toBeInTheDocument();
-  });
-
-  it("test05_servers_secret_set_checks_the_login_right_after_saving_and_says_how_it_went", async () => {
-    setup({ logins: { "srv-foxtrot": rejected } });
-    await open();
-    await userEvent.click(await screen.findByRole("button", { name: "Replace…" }));
-    await userEvent.type(screen.getByLabelText("New value"), NEW_VALUE);
-    await userEvent.click(screen.getByRole("button", { name: "Replace" }));
-    expect(
-      await screen.findByText(/got a normal answer: foxtrot-mail is signed in\./),
-    ).toBeInTheDocument();
-    expect(ranArgv()).toContainEqual([
-      "auth",
-      "probe",
-      "--server",
-      "srv-foxtrot",
-      "--force",
-    ]);
+  it("test04_servers_secret_set_in_the_dialog_gives_a_missing_key_its_first_value", async () => {
+    setup({ vault: [] });
+    const row = await secretsRow();
     await userEvent.click(
-      screen
-        .getAllByRole("button", { name: "Close" })
-        .find((button) => button.textContent === "Close")!,
+      await within(row).findByRole("button", { name: "Edit secrets…" }),
     );
-    await waitFor(() => expect(screen.getByText("Signed in")).toBeInTheDocument());
-  });
-
-  it("test06_servers_secret_set_skips_the_check_when_it_is_unticked", async () => {
-    setup({ logins: { "srv-foxtrot": rejected } });
-    await open();
-    await userEvent.click(await screen.findByRole("button", { name: "Replace…" }));
-    await userEvent.click(screen.getByLabelText("Check the login right after saving"));
-    await userEvent.type(screen.getByLabelText("New value"), NEW_VALUE);
-    await userEvent.click(screen.getByRole("button", { name: "Replace" }));
-    await screen.findByText("Saved MAIL_TOKEN for foxtrot-mail.");
-    expect(ranArgv().some(([verb, sub]) => verb === "auth" && sub === "probe")).toBe(
-      false,
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(
+      await within(dialog).findByPlaceholderText("paste your Mail API key"),
+      NEW_VALUE,
+    );
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Saved MAIL_TOKEN"));
+    await waitFor(() =>
+      expect(within(row).getByText(/MAIL_TOKEN is set/)).toBeInTheDocument(),
     );
   });
 
-  it("test07_servers_secret_reveal_asks_first_shows_the_value_and_hides_it_after_ten_seconds", async () => {
+  it("test05_servers_secret_set_refuses_a_placeholder_with_the_backends_message", async () => {
+    setup();
+    const row = await secretsRow();
+    await userEvent.click(
+      await within(row).findByRole("button", { name: "Edit secrets…" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(
+      await within(dialog).findByPlaceholderText("•••••••• (saved)"),
+      "<VAULTED>",
+    );
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringContaining("Placeholder values cannot be saved."),
+        expect.anything(),
+      ),
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("test06_servers_secret_reveal_asks_first_shows_the_value_and_hides_it_after_ten_seconds", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     setup();
@@ -248,7 +236,7 @@ describe("Secrets row", () => {
     expect(screen.queryByText("fake-mail_token-0000-demo")).not.toBeInTheDocument();
   });
 
-  it("test08_servers_secret_reveal_hides_at_once_when_the_window_loses_focus_or_on_hide_now", async () => {
+  it("test07_servers_secret_reveal_hides_at_once_when_the_window_loses_focus_or_on_hide_now", async () => {
     setup();
     await open();
     const show = async () => {
@@ -266,7 +254,7 @@ describe("Secrets row", () => {
     expect(screen.queryByText("fake-mail_token-0000-demo")).not.toBeInTheDocument();
   });
 
-  it("test09_servers_secret_reveal_does_nothing_when_cancelled_and_never_goes_through_the_self_mcp", async () => {
+  it("test08_servers_secret_reveal_does_nothing_when_cancelled_and_never_goes_through_the_self_mcp", async () => {
     setup();
     await open();
     await userEvent.click(await screen.findByRole("button", { name: "Reveal…" }));
@@ -279,62 +267,53 @@ describe("Secrets row", () => {
     ).toBe(true);
   });
 
-  it("test10_servers_secret_reveal_is_never_offered_for_an_access_token", async () => {
+  it("test09_servers_secret_reveal_is_never_offered_for_an_access_token", async () => {
     const remoteToken = stdioServer("srv-foxtrot", "foxtrot-mail", {
       env: [{ key: "__http_auth__", secret: true }],
     });
     setup({ server: remoteToken, vault: ["srv-foxtrot/__http_auth__"] });
     await open();
-    expect(await screen.findByRole("button", { name: "Replace…" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Edit secrets…" }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reveal…" })).not.toBeInTheDocument();
   });
 
-  it("test11_servers_secret_remove_lists_what_goes_and_wants_the_key_typed_for_a_destructive_tier", async () => {
+  it("test10_servers_secret_remove_asks_first_in_upstreams_dialog_and_then_deletes_the_value", async () => {
     const { onRegistryChange } = setup();
-    await open();
+    const row = await secretsRow();
     await userEvent.click(
-      within(await secretsRow()).getByRole("button", { name: "Remove…" }),
+      await within(row).findByRole("button", { name: "Edit secrets…" }),
     );
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("Remove MAIL_TOKEN?")).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(/The value in the keychain; it cannot be shown again/),
-    ).toBeInTheDocument();
-    const confirm = within(dialog).getByRole("button", { name: "Remove secret" });
-    expect(confirm).toBeDisabled();
-    await userEvent.type(
-      within(dialog).getByLabelText(/Type .* to confirm/),
-      "MAIL_TOKEN",
+    await userEvent.click(
+      await within(dialog).findByRole("button", { name: "Remove MAIL_TOKEN" }),
     );
-    expect(confirm).toBeEnabled();
-    expect(ranArgv().some(([verb, sub]) => verb === "secret" && sub === "rm")).toBe(
-      false,
-    );
-    await userEvent.click(confirm);
-    await waitFor(() =>
-      expect(ranArgv()).toContainEqual(["secret", "rm", "srv-foxtrot", "MAIL_TOKEN"]),
-    );
-    await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith("Removed MAIL_TOKEN from foxtrot-mail"),
-    );
+    expect(await screen.findByText("Remove the Mail API key?")).toBeInTheDocument();
+    expect(invokeLog.some((entry) => entry.command === "delete_secret")).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Removed MAIL_TOKEN"));
+    expect(invokeLog.find((entry) => entry.command === "delete_secret")!.args).toEqual({
+      serverId: "srv-foxtrot",
+      key: "MAIL_TOKEN",
+    });
     await waitFor(() => expect(onRegistryChange).toHaveBeenCalled());
   });
 
-  it("test12_servers_secret_remove_with_a_wrong_key_typed_stays_disabled", async () => {
-    setup();
-    await open();
+  it("test11_servers_secret_remove_is_only_offered_for_a_key_the_vault_holds", async () => {
+    setup({ vault: [] });
+    const row = await secretsRow();
     await userEvent.click(
-      within(await secretsRow()).getByRole("button", { name: "Remove…" }),
+      await within(row).findByRole("button", { name: "Edit secrets…" }),
     );
     const dialog = await screen.findByRole("dialog");
-    await userEvent.type(
-      within(dialog).getByLabelText(/Type .* to confirm/),
-      "mail_token",
-    );
-    expect(within(dialog).getByRole("button", { name: "Remove secret" })).toBeDisabled();
+    await within(dialog).findByPlaceholderText("paste your Mail API key");
+    expect(
+      within(dialog).queryByRole("button", { name: "Remove MAIL_TOKEN" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("test13_a_locked_keychain_makes_the_row_read_only_and_says_so", async () => {
+  it("test12_a_locked_keychain_says_so_and_offers_to_try_again", async () => {
     setup({ vaultLocked: true });
     const row = await secretsRow();
     expect(
@@ -342,7 +321,17 @@ describe("Secrets row", () => {
     ).toBeInTheDocument();
     expect(within(row).getByText("Locked")).toBeInTheDocument();
     expect(within(row).getByRole("button", { name: "Try again" })).toBeInTheDocument();
-    expect(within(row).getByRole("button", { name: "Set…" })).toBeDisabled();
+  });
+
+  it("test13_a_login_the_server_rejected_marks_a_row_whose_keys_are_all_set", async () => {
+    setup({ logins: { "srv-foxtrot": rejected } });
+    const row = await secretsRow();
+    expect(
+      await within(row).findByText(
+        /MAIL_TOKEN is set · 1 plain setting · the server rejected it/,
+      ),
+    ).toBeInTheDocument();
+    expect(within(row).getByText("Set, rejected")).toBeInTheDocument();
   });
 
   it("test14_a_server_that_declares_no_secret_has_no_secrets_row", async () => {

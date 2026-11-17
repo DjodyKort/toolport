@@ -234,7 +234,15 @@ function resultOf(job: string, run: Job): CtlResult | Promise<CtlResult> {
   });
 }
 
-/** The three IPC commands of the fork bridge, answered by the in-memory toolportctl. */
+/** Upstream's secret commands, answered by the same vault the `secret` verbs use. */
+function secretCall(argv: string[], value?: unknown) {
+  const reply = world.run(argv, value === undefined ? undefined : String(value));
+  if (!reply.ok) throw new Error(reply.error?.message ?? "the secret command failed");
+  return world.servers.registry();
+}
+
+/** The IPC commands of the fork bridge, answered by the in-memory toolportctl, and the secret
+ * commands upstream's Secrets dialog calls. */
 export function plusFixtureIpc(command: string, args: Record<string, unknown>): unknown {
   switch (command) {
     case "plus_ctl": {
@@ -256,6 +264,13 @@ export function plusFixtureIpc(command: string, args: Record<string, unknown>): 
     }
     case "secret_status":
       return world.servers.secretStatus(String(args.serverId), args.keys as string[]);
+    case "set_secret":
+      return secretCall(
+        ["secret", "set", String(args.serverId), String(args.key)],
+        args.value,
+      );
+    case "delete_secret":
+      return secretCall(["secret", "rm", String(args.serverId), String(args.key)]);
     case "plus_ctl_cancel":
       jobs.delete(String(args.job));
       return null;

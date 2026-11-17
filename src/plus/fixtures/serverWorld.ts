@@ -663,6 +663,37 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
     authSection,
     secret,
     auth,
+    /** The registry upstream's `set_secret` and `delete_secret` hand back: the world's servers and sets. */
+    registry() {
+      return {
+        version: 3,
+        servers: servers.map((server) => ({
+          id: server.id,
+          name: server.name,
+          enabled: server.enabled,
+          transport: server.transport,
+          command: server.command,
+          args: server.args,
+          url: server.url,
+          cwd: server.cwd,
+          source: server.source,
+          inheritEnv: server.inheritEnv,
+          env: server.env.map((e) => ({
+            key: e.key,
+            value: e.secret ? null : "x",
+            secret: e.secret,
+          })),
+        })),
+        profiles: sets.map((set) => ({
+          id: set.id,
+          name: set.name,
+          enabledServerIds: set.serverIds,
+        })),
+        activeProfileId: sets[0]?.id ?? null,
+        defaultAccessContextId: defaultAccess,
+        clientScopes: {},
+      };
+    },
     secretStatus(serverId: string, keys: string[]): Array<[string, boolean]> {
       return keys.map((key) => [key, vault.has(`${serverId}/${key}`)]);
     },

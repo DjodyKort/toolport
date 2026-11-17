@@ -131,11 +131,13 @@ export default function ServerOperations({
           />
           <SecretsRow
             key={server.id}
+            server={server}
             serverId={server.id}
             serverName={server.name}
             info={info}
             plain={server.env.filter((e) => !e.secret)}
             login={login}
+            onSaved={onRegistryChange}
             onChanged={secretsChanged}
           />
           <AdvancedRow
