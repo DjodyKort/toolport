@@ -8,6 +8,7 @@ import {
 } from "@/lib/types";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Badge } from "@/components/ui/badge";
+import { AdvancedRow } from "./AdvancedRow";
 import { listAccessSets, loadLogins, serverInfo } from "./commands";
 import { FinishSetup } from "./FinishSetup";
 import { useMembershipSync, type MembershipChange } from "./membership";
@@ -136,6 +137,13 @@ export default function ServerOperations({
             plain={server.env.filter((e) => !e.secret)}
             login={login}
             onChanged={secretsChanged}
+          />
+          <AdvancedRow
+            key={`advanced-${server.id}`}
+            server={server}
+            enabled={enabled}
+            health={health}
+            info={info}
           />
           <RemoveRow
             server={server}

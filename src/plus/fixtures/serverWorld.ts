@@ -2,7 +2,10 @@ import type { AuthFix, AuthRow, AuthSection, LoginState } from "../bridge/data";
 import type { CtlReply } from "./ctlWorld";
 import type {
   AccessSetsData,
+  EditData,
+  InteropData,
   MembershipData,
+  ModeData,
   RestartData,
   RestartGateway,
   ServerInfoData,
@@ -31,6 +34,8 @@ export interface WorldServer {
   mode: "auto" | "search";
   declareClientCapabilities: boolean;
   forwardInstructions: boolean;
+  maxRequestTimeoutMs: number | null;
+  requestTimeoutMs: number | null;
   source: string | null;
 }
 
@@ -145,6 +150,41 @@ const SEVERITY: LoginState[] = [
 
 const GATEWAYS = [4121, 4188, 4302];
 
+const LIMIT_MIN_MS = 1;
+const LIMIT_MAX_MS = 86_400_000;
+const DEFAULTS = {
+  defaultLimitMs: 3_600_000,
+  defaultRequestTimeoutMs: 30_000,
+  bridgeBaseMs: 600_000,
+  bridgeGraceMs: 60_000,
+};
+
+/** What one server allows a call, as the backend counts it: a local server stretches to its limit. */
+function ceilingOf(server: WorldServer): number {
+  const window = server.requestTimeoutMs ?? DEFAULTS.defaultRequestTimeoutMs;
+  return server.command === null
+    ? window
+    : Math.max(server.maxRequestTimeoutMs ?? DEFAULTS.defaultLimitMs, window);
+}
+
+function interopOf(server: WorldServer, all: WorldServer[]): InteropData {
+  const live = all.filter((s) => s.enabled);
+  const longest = (list: WorldServer[]) =>
+    list.reduce<WorldServer | null>(
+      (best, s) => (best === null || ceilingOf(s) > ceilingOf(best) ? s : best),
+      null,
+    );
+  const top = longest(live);
+  const other = longest(live.filter((s) => s.id !== server.id));
+  const ceiling = top ? ceilingOf(top) + DEFAULTS.bridgeGraceMs : 0;
+  return {
+    ...DEFAULTS,
+    bridgeCeilingMs: Math.max(DEFAULTS.bridgeBaseMs, ceiling),
+    bridgeSetBy: ceiling > DEFAULTS.bridgeBaseMs && top ? top.name : null,
+    otherLongest: other ? { name: other.name, ceilingMs: ceilingOf(other) } : null,
+  };
+}
+
 export function stdioServer(id: string, name: string, extra: Partial<WorldServer> = {}) {
   return {
     id,
@@ -160,6 +200,8 @@ export function stdioServer(id: string, name: string, extra: Partial<WorldServer
     mode: "auto" as const,
     declareClientCapabilities: false,
     forwardInstructions: false,
+    maxRequestTimeoutMs: null,
+    requestTimeoutMs: null,
     source: "manual",
     ...extra,
   } satisfies WorldServer;
@@ -256,10 +298,65 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
       mode: server.mode,
       declareClientCapabilities: server.declareClientCapabilities,
       forwardInstructions: server.forwardInstructions,
+      maxRequestTimeoutMs: server.maxRequestTimeoutMs,
+      requestTimeoutMs: server.requestTimeoutMs,
+      interop: interopOf(server, servers),
       disabledTools: [],
       source: server.source,
       accessSets: setsOf(server.id),
     };
+  }
+
+  function mode(server: WorldServer, requested: string | undefined): CtlReply {
+    if (requested !== "auto" && requested !== "search") {
+      return fail("usage", "mode must be auto or search");
+    }
+    const changed = server.mode !== requested;
+    server.mode = requested;
+    return {
+      ok: true,
+      data: {
+        id: server.id,
+        name: server.name,
+        mode: requested,
+        changed,
+      } satisfies ModeData,
+    };
+  }
+
+  function edit(server: WorldServer, argv: string[]): CtlReply {
+    const changed: string[] = [];
+    const command = flagValues(argv, "--command")[0];
+    if (command) {
+      server.command = command;
+      changed.push("command");
+    }
+    for (const [flag, field] of [
+      ["--declare-client-capabilities", "declareClientCapabilities"],
+      ["--forward-instructions", "forwardInstructions"],
+    ] as const) {
+      const given = flagValues(argv, flag)[0];
+      if (given === undefined) continue;
+      if (given !== "on" && given !== "off")
+        return fail("usage", `${flag}: '${given}' is not on or off`);
+      if (server[field] !== (given === "on")) changed.push(field);
+      server[field] = given === "on";
+    }
+    const limit = flagValues(argv, "--max-request-timeout-ms")[0];
+    if (limit !== undefined) {
+      const ms = limit === "default" ? null : Number(limit);
+      if (
+        ms !== null &&
+        !(Number.isInteger(ms) && ms >= LIMIT_MIN_MS && ms <= LIMIT_MAX_MS)
+      )
+        return fail(
+          "usage",
+          `--max-request-timeout-ms: the call limit must be between ${LIMIT_MIN_MS} and ${LIMIT_MAX_MS} milliseconds (24 hours)`,
+        );
+      if (ms !== server.maxRequestTimeoutMs) changed.push("maxRequestTimeoutMs");
+      server.maxRequestTimeoutMs = ms;
+    }
+    return { ok: true, data: { id: server.id, changed } satisfies EditData };
   }
 
   function restart(server: WorldServer, argv: string[]): CtlReply {
@@ -595,11 +692,8 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
       if (verb === "info") return { ok: true, data: info(server) };
       if (verb === "restart") return restart(server, argv);
       if (verb === "uninstall") return uninstall(server, argv);
-      if (verb === "edit") {
-        const command = flagValues(argv, "--command")[0];
-        if (command) server.command = command;
-        return { ok: true, data: { id: server.id, changed: command ? ["command"] : [] } };
-      }
+      if (verb === "mode") return mode(server, argv[3]);
+      if (verb === "edit") return edit(server, argv);
       return fail("usage", `unsupported in the fixture: server ${verb}`);
     },
   };

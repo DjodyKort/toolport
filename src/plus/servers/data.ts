@@ -24,6 +24,21 @@ export interface ServerEnvKey {
   secret: boolean;
 }
 
+/** How the stdio bridge's wait follows the call limits of the enabled servers. The `Ms` constants are
+ * the backend's own, so the screen's preview agrees with what the bridge does. */
+export interface InteropData {
+  /** How long the bridge keeps a call open now. */
+  bridgeCeilingMs: number;
+  /** The server whose limit sets it; `null` while the bridge keeps its base wait. */
+  bridgeSetBy: string | null;
+  /** The longest per-call wait among the other enabled servers. */
+  otherLongest: { name: string; ceilingMs: number } | null;
+  defaultLimitMs: number;
+  defaultRequestTimeoutMs: number;
+  bridgeBaseMs: number;
+  bridgeGraceMs: number;
+}
+
 export interface ServerInfoData {
   id: string;
   name: string;
@@ -39,10 +54,27 @@ export interface ServerInfoData {
   mode: "auto" | "search";
   declareClientCapabilities: boolean;
   forwardInstructions: boolean;
+  /** Longest a call to a local server may run while it reports progress; `null` means the default. */
+  maxRequestTimeoutMs: number | null;
+  /** The server's own request timeout (set in Edit); `null` means the default. */
+  requestTimeoutMs: number | null;
+  interop: InteropData;
   disabledTools: string[];
   source: string | null;
   /** Ids of the access sets that list the server. */
   accessSets: string[];
+}
+
+export interface ModeData {
+  id: string;
+  name: string;
+  mode: "auto" | "search";
+  changed: boolean;
+}
+
+export interface EditData {
+  id: string;
+  changed: string[];
 }
 
 export type RestartStatus =

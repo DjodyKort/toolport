@@ -2,8 +2,10 @@ import { CtlError, ctlData, ctlResultData, runCtl } from "../bridge/ctl";
 import type { AuthSection, CommandsData, McpCallData, StatusData } from "../bridge/data";
 import type {
   AccessSetsData,
+  EditData,
   LoginData,
   MembershipData,
+  ModeData,
   ProbeData,
   RestartData,
   SecretGetData,
@@ -43,6 +45,29 @@ export const listServers = () => ctlData<ServerListData>(["server", "ls"]);
 
 export const serverInfo = (key: string) =>
   ctlData<ServerInfoData>(["server", "info", key]);
+
+export type InteropSwitch = "declareClientCapabilities" | "forwardInstructions";
+
+const SWITCH_FLAG: Record<InteropSwitch, string> = {
+  declareClientCapabilities: "--declare-client-capabilities",
+  forwardInstructions: "--forward-instructions",
+};
+
+export const setToolListing = (key: string, mode: "auto" | "search") =>
+  ctlData<ModeData>(["server", "mode", key, mode]);
+
+export const setInteropSwitch = (key: string, name: InteropSwitch, on: boolean) =>
+  ctlData<EditData>(["server", "edit", key, SWITCH_FLAG[name], on ? "on" : "off"]);
+
+/** `null` removes the limit, so the default applies. */
+export const setCallLimit = (key: string, ms: number | null) =>
+  ctlData<EditData>([
+    "server",
+    "edit",
+    key,
+    "--max-request-timeout-ms",
+    ms === null ? "default" : String(ms),
+  ]);
 
 export const listAccessSets = () => callTool<AccessSetsData>("servers_list_profiles", {});
 

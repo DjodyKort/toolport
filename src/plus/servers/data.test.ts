@@ -65,14 +65,28 @@ describe("the server envelope types match the Rust goldens", () => {
         "forwardInstructions",
         "id",
         "inheritEnv",
+        "interop",
+        "maxRequestTimeoutMs",
         "mode",
         "name",
+        "requestTimeoutMs",
         "source",
         "transport",
         "url",
       ].sort(),
     );
     expect(keys(data.env[0])).toEqual(["key", "secret"]);
+    expect(keys(data.interop)).toEqual(
+      [
+        "bridgeBaseMs",
+        "bridgeCeilingMs",
+        "bridgeGraceMs",
+        "bridgeSetBy",
+        "defaultLimitMs",
+        "defaultRequestTimeoutMs",
+        "otherLongest",
+      ].sort(),
+    );
   });
 
   it("test03_server_restart_answers_have_a_status_and_a_row_per_gateway", () => {
@@ -198,5 +212,36 @@ describe("the S3 envelope types match the Rust goldens", () => {
     expect(keys(probe)).toEqual(keys(goldenData("auth-probe.apply").envelope.data));
     const login = world.auth(["auth", "login", "alpha"]).data;
     expect(keys(login)).toEqual(keys(goldenData("auth-login.signed-in").envelope.data));
+  });
+});
+
+describe("the S8 envelope types match the Rust goldens", () => {
+  const golden = (file: string) =>
+    JSON.parse(
+      readFileSync(join(root, "ctl-envelopes", `${file}.json`), "utf8"),
+    ) as Golden;
+
+  it("test10_the_fixture_toolportctl_answers_mode_and_edit_with_the_golden_shapes", () => {
+    const world = createServerWorld();
+    const run = (...argv: string[]) => world.run(["server", ...argv]);
+    expect(keys(run("mode", "fixture-0", "search").data)).toEqual(
+      keys(golden("server-mode.apply").envelope.data),
+    );
+    expect(
+      keys(run("edit", "fixture-0", "--max-request-timeout-ms", "5400000").data),
+    ).toEqual(keys(golden("server-edit.limit").envelope.data));
+    expect(run("edit", "fixture-0", "--max-request-timeout-ms", "0")).toMatchObject({
+      ok: false,
+      error: { code: "usage" },
+    });
+  });
+
+  it("test11_the_fixture_counts_the_bridge_ceiling_the_way_the_golden_does", () => {
+    const alpha = golden("server-info").envelope.data as ServerInfoData;
+    const world = createServerWorld({
+      servers: [stdioServer("srv-alpha", "alpha", { command: "<MOCK>" })],
+    });
+    const info = world.run(["server", "info", "alpha"]).data as ServerInfoData;
+    expect(info.interop).toEqual(alpha.interop);
   });
 });

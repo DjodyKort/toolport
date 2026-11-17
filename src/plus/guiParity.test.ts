@@ -28,12 +28,6 @@ function snapshot(): RegistrySnapshot {
 /** The slices whose screen is built; their rows must all be on a built action. */
 const BUILT_OWNERS = ["MIG-2X-S1", "MIG-2X-S2", "MIG-2X-S5", "MIG-2X-S6"];
 
-/** Rows on a built route whose own screen row comes later: the per-server mode (D-138). */
-const PLANNED_ON_BUILT = {
-  commands: ["server mode"],
-  tools: ["servers_set_mode"],
-};
-
 describe("gui parity manifest", () => {
   it("has an entry for every registry command and tool and nothing stale", () => {
     const registry = snapshot();
@@ -58,13 +52,11 @@ describe("gui parity manifest", () => {
     const pending = report.pendingCommands.filter((id) =>
       BUILT_OWNERS.includes(guiParity.owners[id.split(" ")[0]]),
     );
-    expect(pending, `rows of ${BUILT_OWNERS} without a built action`).toEqual(
-      PLANNED_ON_BUILT.commands,
-    );
+    expect(pending, `rows of ${BUILT_OWNERS} without a built action`).toEqual([]);
     const pendingOnBuiltRoutes = report.pendingTools.filter(
       (name) => guiParity.routes[guiParity.tools[name]?.route]?.status === "built",
     );
-    expect(pendingOnBuiltRoutes).toEqual(PLANNED_ON_BUILT.tools);
+    expect(pendingOnBuiltRoutes).toEqual([]);
   });
 });
 
