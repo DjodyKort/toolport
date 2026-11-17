@@ -766,3 +766,25 @@ fn test28_a_tick_runs_unattended_so_a_locked_keychain_is_not_asked() {
 
     assert_eq!(host.unattended_runs.get(), 1);
 }
+
+#[test]
+fn test29_the_hosts_redaction_runs_over_step_output_after_the_fork_scrub() {
+    const KNOWN: &str = "known-to-the-host-only-4321";
+    let (dir, host) = fixture("host-redaction", at(17, 9, 0, 0));
+    host.known_secrets.borrow_mut().push(KNOWN.to_string());
+    let t = task("portal", "7 * * * *", true, echo_steps());
+    let run_id = start_manual(&host, &t);
+    host.process_results
+        .borrow_mut()
+        .push_back(ProcessOutcome::Exited {
+            code: Some(0),
+            output: format!("printed {KNOWN}\n"),
+        });
+
+    let done = runner::execute(&host, &dir.0, &run_id).unwrap();
+
+    assert_eq!(done.status, Status::Ok, "{done:?}");
+    let record = std::fs::read_to_string(store::run_path(&dir.0, &run_id).unwrap()).unwrap();
+    assert!(!record.contains(KNOWN), "{record}");
+    assert!(record.contains("printed [known]"), "{record}");
+}

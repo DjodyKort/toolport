@@ -1289,6 +1289,9 @@ impl crate::tasks::TaskHost for MemoryHost {
     fn unattended(&self, run: &mut dyn FnMut()) {
         self.tasks.unattended(run)
     }
+    fn redact_text(&self, text: &str) -> String {
+        self.tasks.redact_text(text)
+    }
     fn tasks_base(&self) -> Option<PathBuf> {
         self.tasks.tasks_base().or_else(|| self.secrets.data_dir())
     }

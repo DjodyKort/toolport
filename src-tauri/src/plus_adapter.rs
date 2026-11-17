@@ -1281,6 +1281,10 @@ impl TaskHost for HostAdapter {
         crate::secrets::without_prompts(run);
     }
 
+    fn redact_text(&self, text: &str) -> String {
+        crate::secret_redact::redact_text(text).into_owned()
+    }
+
     fn tasks_base(&self) -> Option<PathBuf> {
         crate::registry::conduit_dir()
     }
@@ -1425,6 +1429,27 @@ mod tests {
             result.unwrap(),
             Err(toolport_plus::login_keychain::UNATTENDED_MESSAGE.to_string())
         );
+    }
+
+    #[test]
+    fn task_output_masks_a_registered_secret_in_its_encoded_forms() {
+        use base64::Engine as _;
+        let _lock = crate::registry::data_dir_test_lock();
+        let dir = std::env::temp_dir().join(format!("tp-task-redact-{}", std::process::id()));
+        let _data = crate::registry::DataDirOverride::set(&dir);
+        let secret = "task pass&word \"Zq81xx-7";
+        crate::secret_redact::register("task-redact-server", "TASK_KEY", secret);
+        let forms = [
+            secret.to_string(),
+            base64::engine::general_purpose::STANDARD.encode(secret),
+            serde_json::to_string(secret).unwrap(),
+            urlencoding::encode(secret).into_owned(),
+        ];
+        for form in forms {
+            let shown = HostAdapter.redact_text(&format!("printed {form} done"));
+            assert!(!shown.contains(&form), "{shown}");
+            assert!(shown.contains("[secret:TASK_KEY]"), "{shown}");
+        }
     }
 
     struct RestoreEnv(Option<std::ffi::OsString>);

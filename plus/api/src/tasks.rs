@@ -97,6 +97,11 @@ pub trait TaskHost {
     fn unattended(&self, run: &mut dyn FnMut()) {
         run();
     }
+
+    /// A second pass over task output for secrets this process knows, after the fork's own scrub.
+    fn redact_text(&self, text: &str) -> String {
+        text.to_string()
+    }
 }
 
 /// A scripted [`TaskHost`]: a clock the test sets, calls it records and outcomes it was given.
@@ -120,6 +125,8 @@ pub struct FakeTaskHost {
     pub killed: RefCell<Vec<u32>>,
     /// How many times work ran inside `unattended`.
     pub unattended_runs: Cell<usize>,
+    /// Text `redact_text` masks, as a stand-in for the secrets a real host knows.
+    pub known_secrets: RefCell<Vec<String>>,
 }
 
 impl Default for FakeTaskHost {
@@ -142,6 +149,7 @@ impl Default for FakeTaskHost {
             alive: Cell::new(true),
             killed: RefCell::default(),
             unattended_runs: Cell::new(0),
+            known_secrets: RefCell::default(),
         }
     }
 }
@@ -163,6 +171,15 @@ impl TaskHost for FakeTaskHost {
     fn unattended(&self, run: &mut dyn FnMut()) {
         self.unattended_runs.set(self.unattended_runs.get() + 1);
         run();
+    }
+
+    fn redact_text(&self, text: &str) -> String {
+        self.known_secrets
+            .borrow()
+            .iter()
+            .fold(text.to_string(), |text, secret| {
+                text.replace(secret.as_str(), "[known]")
+            })
     }
 
     fn tasks_base(&self) -> Option<PathBuf> {
@@ -283,6 +300,10 @@ impl SharedClockTaskHost {
 impl TaskHost for SharedClockTaskHost {
     fn unattended(&self, run: &mut dyn FnMut()) {
         self.inner.unattended(run)
+    }
+
+    fn redact_text(&self, text: &str) -> String {
+        self.inner.redact_text(text)
     }
 
     fn tasks_base(&self) -> Option<PathBuf> {

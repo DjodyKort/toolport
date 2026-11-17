@@ -107,6 +107,10 @@ struct State<'a> {
 }
 
 impl State<'_> {
+    fn scrub(&self, text: &str) -> String {
+        self.host.redact_text(&self.red.scrub(text))
+    }
+
     fn keep(&mut self, pairs: Vec<(String, String)>) {
         for (name, value) in pairs {
             if self.sensitive.contains(&name) || sensitive_key(&name) {
@@ -130,7 +134,7 @@ impl State<'_> {
                 Outcome::Failed(format!("cannot start {:?}: {error}", spec.program))
             }
             ProcessOutcome::Exited { code, output } => {
-                let output = cap(&self.red.scrub(output.trim()));
+                let output = cap(&self.scrub(output.trim()));
                 if code == Some(0) {
                     Outcome::Ok(output)
                 } else {
@@ -153,7 +157,7 @@ impl State<'_> {
         let deadline = wait_for
             .as_ref()
             .map(|w| Instant::now() + Duration::from_secs(w.timeout_sec));
-        let shown = self.red.scrub(instructions);
+        let shown = self.scrub(instructions);
         let _ = store::update_run(self.base, run_id, |r| {
             r.status = Status::Waiting;
             r.steps[index].status = Status::Waiting;
@@ -212,7 +216,7 @@ impl State<'_> {
                     ));
                 }
                 match self.host.task_call_tool(server, tool, args.clone()) {
-                    Err(e) => Outcome::Failed(self.red.scrub(&e)),
+                    Err(e) => Outcome::Failed(self.scrub(&e)),
                     Ok(result) => {
                         self.finish_value(&result, capture, result["isError"] == Value::Bool(true))
                     }
@@ -228,7 +232,7 @@ impl State<'_> {
                 args.clone().unwrap_or(Value::Null),
                 &self.task.requires.servers,
             ) {
-                Err(e) => Outcome::Failed(self.red.scrub(&e)),
+                Err(e) => Outcome::Failed(self.scrub(&e)),
                 Ok(value) => self.finish_value(&value, capture, false),
             },
             Step::Exec { program, args, .. } => {
@@ -287,12 +291,12 @@ impl State<'_> {
                 self.red.add(&value);
                 match self.host.task_set_secret(server, key, &value) {
                     Ok(()) => Outcome::Ok(format!("stored {key} for {server}")),
-                    Err(e) => Outcome::Failed(self.red.scrub(&e)),
+                    Err(e) => Outcome::Failed(self.scrub(&e)),
                 }
             }
             Step::RestartServer { server, .. } => match self.host.task_restart_server(server) {
                 Ok(note) => Outcome::Ok(note),
-                Err(e) => Outcome::Failed(self.red.scrub(&e)),
+                Err(e) => Outcome::Failed(self.scrub(&e)),
             },
         }
     }
@@ -304,7 +308,7 @@ impl State<'_> {
             Err(_) => Vec::new(),
         };
         self.keep(pairs);
-        let text = cap(&self.red.scrub(&result_text(result)));
+        let text = cap(&self.scrub(&result_text(result)));
         if is_error {
             Outcome::Failed(text)
         } else {
@@ -401,7 +405,7 @@ pub fn execute(host: &dyn TaskHost, base: &Path, run_id: &str) -> Result<Run, Op
             Outcome::Failed(o) => (Status::Failed, o),
             Outcome::Cancelled => return mark_cancelled(host, base, run_id, index, started),
         };
-        let scrubbed = state.red.scrub(&output);
+        let scrubbed = state.scrub(&output);
         set_step(base, run_id, index, |s| {
             s.status = status;
             s.ended_at = Some(now(host));
