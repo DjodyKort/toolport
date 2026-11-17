@@ -2842,6 +2842,16 @@ struct ClientPage {
     codex_open: std::rc::Rc<std::cell::Cell<bool>>,
     /// Whether copies of the default Claude Code profile are listed as rows.
     claude_copies_shown: std::rc::Rc<std::cell::Cell<bool>>,
+    /// Set while T3 Code's Connect all is working through its rows.
+    t3_code_batch: std::rc::Rc<std::cell::Cell<bool>>,
+    /// A Connect all whose scan is running: that scan's render builds the summary from
+    /// what it reads and puts focus back on the T3 Code card.
+    pending_batch: std::rc::Rc<std::cell::RefCell<Option<client_rows::T3BatchOutcome>>>,
+    /// A Connect all that just ended, waiting for a scan that starts after it.
+    ended_batch: std::rc::Rc<std::cell::RefCell<Option<client_rows::T3BatchOutcome>>>,
+    /// The page's wrapping notice that stays until dismissed, and its text.
+    lasting: gtk::Box,
+    lasting_card: StatusCard,
 }
 
 impl ClientPage {
@@ -2885,6 +2895,15 @@ impl ClientPage {
         let recovery_box = gtk::Box::new(gtk::Orientation::Vertical, 8);
         page.append(&recovery_box);
         page.append(&feedback);
+        // Connect all's summary lists what was not connected and why: a spec §10 card that
+        // stays until dismissed, through the rescans that hide the line above.
+        let lasting_card = StatusCard::new();
+        let lasting = lasting_card.root.clone();
+        lasting.set_visible(false);
+        let dismiss = l10n::button("Dismiss");
+        dismiss.add_css_class("flat");
+        lasting_card.actions.append(&dismiss);
+        page.append(&lasting);
 
         // Full width, like every other list page; the row groups line up with Servers.
         let list = gtk::Box::new(gtk::Orientation::Vertical, 8);
@@ -2898,6 +2917,14 @@ impl ClientPage {
 
         let details = details::DetailHost::default();
         details.attach(&root);
+        {
+            let (notice, list) = (lasting.clone(), list.clone());
+            dismiss.connect_clicked(move |_| {
+                notice.set_visible(false);
+                // Focus stays on the page instead of falling back to the sidebar.
+                list.child_focus(gtk::DirectionType::TabForward);
+            });
+        }
         let client_page = Self {
             details,
             detail_clients: Default::default(),
@@ -2926,6 +2953,11 @@ impl ClientPage {
             claude_open: std::rc::Rc::new(std::cell::Cell::new(true)),
             codex_open: std::rc::Rc::new(std::cell::Cell::new(true)),
             claude_copies_shown: std::rc::Rc::new(std::cell::Cell::new(false)),
+            t3_code_batch: Default::default(),
+            pending_batch: Default::default(),
+            ended_batch: Default::default(),
+            lasting,
+            lasting_card,
         };
         watch_t3_code_settings(&client_page);
         let page_for_add = client_page.clone();
@@ -3063,6 +3095,8 @@ impl ClientPage {
                 gtk::gio::spawn_blocking(crate::registry_controller::preview_client_imports).await;
             page.scanning.set(false);
             page.import_button.set_sensitive(true);
+            // A Connect all that ended while this ran waits for a scan; start it now.
+            page.after_scan();
             match result {
                 Ok(Ok(candidates)) if candidates.is_empty() => {
                     page.show_confirmation(&crate::i18n::tr(
@@ -3125,6 +3159,22 @@ impl ClientPage {
         self.refresh_with(false);
     }
 
+    /// Connect all ended: read the clients again and show its summary from what that
+    /// scan finds. A scan already running started before the batch ended, so its rows
+    /// can be out of date: the outcome waits for the next scan, which `after_scan` starts.
+    fn end_t3_code_batch(&self, outcome: client_rows::T3BatchOutcome) {
+        *self.ended_batch.borrow_mut() = Some(outcome);
+        self.refresh();
+    }
+
+    /// Called when a scan has finished and its rows are shown: a Connect all that ended
+    /// during it gets its own scan now.
+    fn after_scan(&self) {
+        if self.ended_batch.borrow().is_some() {
+            self.refresh();
+        }
+    }
+
     /// The explicit scan (refresh button, Ctrl+R): also checks saved recovery
     /// values without prompting, then keeps keyboard focus where it was.
     fn scan(&self) {
@@ -3134,6 +3184,10 @@ impl ClientPage {
     fn refresh_with(&self, probe: bool) {
         if self.scanning.replace(true) {
             return;
+        }
+        // This scan starts after the batch ended, so its render shows the summary.
+        if let Some(outcome) = self.ended_batch.borrow_mut().take() {
+            *self.pending_batch.borrow_mut() = Some(outcome);
         }
         // A running recovery action already holds the recovery locks; scan the
         // clients now and leave the saved-value check for the next explicit scan.
@@ -3191,6 +3245,7 @@ impl ClientPage {
                     page.show_scan_error(&error, &error)
                 }
             }
+            page.after_scan();
         });
     }
 
@@ -3220,7 +3275,18 @@ impl ClientPage {
             .filter(|client| client.gateway_state != state::ClientGatewayState::Connected)
             .copied()
             .collect::<Vec<_>>();
-        if let Some(confirmation) = self.pending_confirmation.borrow_mut().take() {
+        let batch = self.pending_batch.borrow_mut().take();
+        if let Some(outcome) = &batch {
+            // Built from this scan, so it counts what exists and is on now.
+            let (title, detail, tone) = client_rows::t3_code_batch_result(&clients, outcome);
+            // Kept until dismissed either way, as React keeps it: a success card for a
+            // full success, a warning card when something was not connected, a neutral
+            // one when nothing was left to count.
+            self.cancel_feedback_timer();
+            self.feedback.set_visible(false);
+            self.lasting_card.show(tone, &title, &detail);
+            self.lasting.set_visible(true);
+        } else if let Some(confirmation) = self.pending_confirmation.borrow_mut().take() {
             self.show_confirmation(&confirmation);
         } else {
             self.cancel_feedback_timer();
@@ -3231,6 +3297,28 @@ impl ClientPage {
             .iter()
             .filter(|client| !client.app_present && !client.config_exists)
             .collect::<Vec<_>>();
+        let t3_others = snapshot.t3_others;
+        if clients.iter().any(|client| !client.t3_code.is_empty()) || !t3_others.is_empty() {
+            let (card, button) = client_rows::t3_code_card(&clients, &t3_others, self.clone());
+            self.list.append(&card);
+            if let Some(outcome) = batch {
+                // Connect all ended (Done, Cancel or Escape): focus returns to its button,
+                // or to the card when nothing is left to connect, never the sidebar.
+                let list = self.list.clone();
+                gtk::glib::idle_add_local_once(move || {
+                    let focused = button.is_some_and(|button| button.grab_focus())
+                        || client_rows::focus_t3_code_card(&card);
+                    if !focused {
+                        list.child_focus(gtk::DirectionType::TabForward);
+                    }
+                    if outcome.keyboard {
+                        if let Some(window) = list.root().and_downcast::<gtk::Window>() {
+                            window.set_focus_visible(true);
+                        }
+                    }
+                });
+            }
+        }
         if installed.is_empty() {
             let card = state_card(
                 "computer-symbolic",
@@ -3671,6 +3759,30 @@ pub(super) fn dialog_footer(actions: &[&gtk::Button]) -> gtk::Box {
     footer
 }
 
+/// Whether the last press in `widget` came from the keyboard: a key press sets it, a
+/// pointer or touch press clears it. Read when a control is about to take focus (or a
+/// window closes) to decide whether it shows its focus ring, which GTK drops when a
+/// control is disabled or a dialog closes.
+pub(super) fn keyboard_tracker(
+    widget: &impl IsA<gtk::Widget>,
+    initial: bool,
+) -> std::rc::Rc<std::cell::Cell<bool>> {
+    let keyboard = std::rc::Rc::new(std::cell::Cell::new(initial));
+    let events = gtk::EventControllerLegacy::new();
+    events.set_propagation_phase(gtk::PropagationPhase::Capture);
+    let seen = keyboard.clone();
+    events.connect_event(move |_, event| {
+        match event.event_type() {
+            gtk::gdk::EventType::KeyPress => seen.set(true),
+            gtk::gdk::EventType::ButtonPress | gtk::gdk::EventType::TouchBegin => seen.set(false),
+            _ => {}
+        }
+        gtk::glib::Propagation::Proceed
+    });
+    widget.add_controller(events);
+    keyboard
+}
+
 /// Esc closes a sheet, as every dialog does. Widgets inside that use Esc themselves,
 /// like a search entry or an open menu, still get it first.
 pub(super) fn close_on_escape(window: &impl IsA<gtk::Window>) {
@@ -4024,6 +4136,23 @@ fn connected_client_actions_menu(client: state::ClientView, page: ClientPage) ->
     menu
 }
 
+/// A client row's access menu label: one line, ending in "…" (the tooltip and
+/// the details page show all of it). It keeps the width it asked for when it
+/// wrapped, its widest line at 24 characters, because the row moves its
+/// controls under the name once they do not fit beside it: any wider and they
+/// move down at wider windows. Wrapping put "Default access (from" /
+/// "Settings)" on two lines.
+fn client_access_menu_label(label: &str) -> gtk::Label {
+    gtk::Label::builder()
+        .label(label)
+        .wrap(true)
+        .wrap_mode(gtk::pango::WrapMode::Word)
+        .max_width_chars(24)
+        .lines(1)
+        .ellipsize(gtk::pango::EllipsizeMode::End)
+        .build()
+}
+
 fn client_scope_menu(client: state::ClientView, page: ClientPage) -> gtk::MenuButton {
     let label = client
         .scope_name
@@ -4043,13 +4172,7 @@ fn client_scope_menu(client: state::ClientView, page: ClientPage) -> gtk::MenuBu
     };
     let menu = gtk::MenuButton::builder()
         .always_show_arrow(true)
-        .child(
-            &gtk::Label::builder()
-                .label(&label)
-                .ellipsize(gtk::pango::EllipsizeMode::End)
-                .max_width_chars(24)
-                .build(),
-        )
+        .child(&client_access_menu_label(&label))
         .tooltip_text(crate::i18n::trf(
             "Choose this client's access to enabled servers: {value0}",
             &[("value0", &label.to_string())],
@@ -5770,8 +5893,12 @@ impl ActivityPage {
         let filtered = filter_calls(&snapshot.recent, server.as_deref(), errors_only);
         if filtered.is_empty() {
             self.clear_recent_rows();
-            self.filter_count
-                .set_label(&crate::i18n::tr("0 matching rows"));
+            self.filter_count.set_label(&activity_count_summary(
+                snapshot.call_count,
+                0,
+                snapshot.recent.len(),
+                true,
+            ));
             self.show_more_calls.set_visible(false);
             let card = state_card(
                 "edit-find-symbolic",
@@ -5806,7 +5933,7 @@ impl ActivityPage {
             crate::i18n::tr("Show fewer").to_string()
         } else {
             crate::i18n::trf(
-                "Show all {value0} rows",
+                "Show all {value0} entries",
                 &[("value0", &format!("{}", match_count))],
             )
         };
@@ -6961,26 +7088,44 @@ fn savings_title(loads: u64) -> &'static str {
 }
 
 fn activity_count_summary(total: usize, visible: usize, recent: usize, filtered: bool) -> String {
-    let shown = if filtered {
+    activity_count_summary_in(crate::i18n::group_digits, total, visible, recent, filtered)
+}
+
+/// [`activity_count_summary`] with the counts grouped by `group`: the current language's
+/// grouping (1.000 in German), as React's `toLocaleString` writes them.
+fn activity_count_summary_in(
+    group: impl Fn(usize) -> String,
+    total: usize,
+    visible: usize,
+    recent: usize,
+    filtered: bool,
+) -> String {
+    // The total counts tool calls; the list also holds approvals and Toolport's own
+    // searches, so the shown rows are "entries", never "calls". React's Activity view
+    // uses the same sentences.
+    let visible_text = group(visible);
+    let recent_text = group(recent);
+    let shown = if filtered && visible == 1 {
         crate::i18n::trf(
-            "Showing {value0} matching rows from the latest {value1}.",
-            &[
-                ("value0", &format!("{}", visible)),
-                ("value1", &format!("{}", recent)),
-            ],
+            "Showing 1 matching entry from the latest {value1}.",
+            &[("value1", &recent_text)],
         )
+    } else if filtered {
+        crate::i18n::trf(
+            "Showing {value0} matching entries from the latest {value1}.",
+            &[("value0", &visible_text), ("value1", &recent_text)],
+        )
+    } else if visible == recent && visible == 1 {
+        crate::i18n::tr("Showing the latest entry.")
     } else if visible == recent {
         crate::i18n::trf(
-            "Showing the latest {value0}.",
-            &[("value0", &format!("{}", visible))],
+            "Showing the latest {value0} entries.",
+            &[("value0", &visible_text)],
         )
     } else {
         crate::i18n::trf(
-            "Showing {value0} of the latest {value1}.",
-            &[
-                ("value0", &format!("{}", visible)),
-                ("value1", &format!("{}", recent)),
-            ],
+            "Showing {value0} of the latest {value1} entries.",
+            &[("value0", &visible_text), ("value1", &recent_text)],
         )
     };
     crate::i18n::trf(
@@ -6989,10 +7134,7 @@ fn activity_count_summary(total: usize, visible: usize, recent: usize, filtered:
         } else {
             crate::i18n::msg("{value0} calls recorded on this computer. {value2}")
         },
-        &[
-            ("value0", &grouped_number(total as u64).to_string()),
-            ("value2", &shown.to_string()),
-        ],
+        &[("value0", &group(total)), ("value2", &shown.to_string())],
     )
 }
 
@@ -14538,6 +14680,129 @@ fn error_callout_with(
     card
 }
 
+/// A spec §10 card's tone: its tile colour, icon and status bar. Info has no bar.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum StatusTone {
+    Info,
+    Success,
+    Warning,
+}
+
+impl StatusTone {
+    fn class(self) -> &'static str {
+        match self {
+            // Not libadwaita's .success or .warning, which colour all the card's text.
+            Self::Info => "status-info",
+            Self::Success => "status-success",
+            Self::Warning => "status-warning",
+        }
+    }
+
+    fn icon(self) -> &'static str {
+        match self {
+            Self::Info => "dialog-information-symbolic",
+            Self::Success => "object-select-symbolic",
+            Self::Warning => "dialog-warning-symbolic",
+        }
+    }
+}
+
+/// React's `StatusCard` (spec §10) whose tone and text change in place: a 32px tinted tile,
+/// a 14/600 title, optional detail and actions beside the title that move under the
+/// detail below 560px. Announced as a status.
+#[derive(Clone)]
+pub(super) struct StatusCard {
+    pub(super) root: gtk::Box,
+    tile: gtk::Image,
+    pub(super) title: gtk::Label,
+    pub(super) detail: gtk::Label,
+    pub(super) actions: gtk::Box,
+}
+
+impl StatusCard {
+    pub(super) fn new() -> Self {
+        let root = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .accessible_role(gtk::AccessibleRole::Status)
+            .build();
+        root.add_css_class("toolport-status-card");
+        let layout = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        let tile = gtk::Image::new();
+        tile.set_pixel_size(16);
+        tile.set_size_request(32, 32);
+        tile.set_valign(gtk::Align::Start);
+        tile.add_css_class("toolport-status-tile");
+        layout.append(&tile);
+        let copy = gtk::Box::new(gtk::Orientation::Vertical, 4);
+        copy.set_hexpand(true);
+        let label = || {
+            gtk::Label::builder()
+                .xalign(0.0)
+                .wrap(true)
+                .wrap_mode(gtk::pango::WrapMode::WordChar)
+                .selectable(true)
+                .build()
+        };
+        let title = label();
+        title.add_css_class("toolport-status-title");
+        copy.append(&title);
+        let detail = label();
+        detail.add_css_class("toolport-muted");
+        detail.add_css_class("toolport-status-detail");
+        copy.append(&detail);
+        layout.append(&copy);
+        let actions = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        actions.set_valign(gtk::Align::Start);
+        layout.append(&actions);
+        let bin = adw::BreakpointBin::builder()
+            .width_request(280)
+            .height_request(1)
+            .build();
+        bin.set_child(Some(&layout));
+        let breakpoint =
+            adw::Breakpoint::new(adw::BreakpointCondition::parse("max-width: 560px").unwrap());
+        let (wide, narrow, buttons) = (layout.clone(), copy.clone(), actions.clone());
+        breakpoint.connect_apply(move |_| {
+            wide.remove(&buttons);
+            buttons.set_margin_top(8);
+            narrow.append(&buttons);
+        });
+        let (wide, narrow, buttons) = (layout.clone(), copy.clone(), actions.clone());
+        breakpoint.connect_unapply(move |_| {
+            narrow.remove(&buttons);
+            buttons.set_margin_top(0);
+            wide.append(&buttons);
+        });
+        bin.add_breakpoint(breakpoint);
+        root.append(&skills::IssueFrame::new(&bin, &layout));
+        let card = Self {
+            root,
+            tile,
+            title,
+            detail,
+            actions,
+        };
+        card.show(StatusTone::Info, "", "");
+        card
+    }
+
+    /// Shows `title` and `detail` (hidden when empty) in `tone`.
+    pub(super) fn show(&self, tone: StatusTone, title: &str, detail: &str) {
+        for other in [StatusTone::Info, StatusTone::Success, StatusTone::Warning] {
+            self.root.remove_css_class(other.class());
+        }
+        self.root.add_css_class(tone.class());
+        self.tile.set_icon_name(Some(tone.icon()));
+        self.title.set_label(title);
+        self.detail.set_label(detail);
+        self.detail.set_visible(!detail.is_empty());
+        self.root.update_property(&[
+            gtk::accessible::Property::Label(title),
+            gtk::accessible::Property::Description(detail),
+        ]);
+    }
+}
+
 fn state_card(icon_name: &str, title: &'static str, body: &'static str, error: bool) -> gtk::Box {
     // role="status" like React's EmptyState.
     let card = gtk::Box::builder()
@@ -15770,7 +16035,7 @@ mod tests {
             t3_code: Vec::new(),
         })
         .collect();
-        clients.render(state::ClientSnapshot { clients: fixture_clients, profiles: Vec::new(), sessions_error: false, sessions: vec![serde_json::json!({"clientName":"Codex","clientType":"codex","sessionCount":5,"callsToday":60,"lastActiveMs":now-180000,"firstCatalogSize":1711})] });
+        clients.render(state::ClientSnapshot { clients: fixture_clients, profiles: Vec::new(), sessions_error: false, t3_others: Vec::new(), sessions: vec![serde_json::json!({"clientName":"Codex","clientType":"codex","sessionCount":5,"callsToday":60,"lastActiveMs":now-180000,"firstCatalogSize":1711})] });
         let approvals = gtk::Box::new(gtk::Orientation::Vertical, 12);
         approvals.set_margin_top(20);
         approvals.set_margin_bottom(20);
@@ -16033,7 +16298,7 @@ mod tests {
                 registry_reload: Default::default(),
             };
             let clients = ClientPage::new(&app, server_page);
-            clients.render(state::ClientSnapshot { clients: Vec::new(), profiles: Vec::new(), sessions_error: false, sessions: vec![serde_json::json!({
+            clients.render(state::ClientSnapshot { clients: Vec::new(), profiles: Vec::new(), sessions_error: false, t3_others: Vec::new(), sessions: vec![serde_json::json!({
             "clientName":canonical, "clientLabel":"kt 1", "phase":"close",
             "toolsListCount":3, "listChangedCount":1, "firstCatalogSize":4, "contentChanged":true,
         })] });
@@ -16192,6 +16457,376 @@ mod tests {
                 main_loop.run();
             }
         }
+    }
+
+    #[test]
+    #[ignore = "requires an isolated GTK desktop; run in omabox"]
+    fn connect_all_summary_stays_until_dismissed_focus_returns_and_it_waits_for_a_later_scan() {
+        use super::*;
+        adw::init().unwrap();
+        let _lock = crate::registry::data_dir_test_lock();
+        let root = std::env::temp_dir().join(format!(
+            "toolport-gtk-connect-all-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(root.join("home")).unwrap();
+        let _data = crate::registry::DataDirOverride::set(root.join("data"));
+        let _home = crate::clients::TestHome::set(&root.join("home"));
+        let app = adw::Application::builder()
+            .application_id("com.tsout.Toolport.ConnectAllFixture")
+            .build();
+        let server_page = ServerPage {
+            details: Default::default(),
+            app: app.clone(),
+            share_requests: Default::default(),
+            server_count: gtk::Label::new(None),
+            section_title: gtk::Label::new(None),
+            posture: gtk::Label::new(None),
+            search: gtk::SearchEntry::new(),
+            feedback: gtk::Label::new(None),
+            list: gtk::Box::new(gtk::Orientation::Vertical, 0),
+            last_snapshot: Default::default(),
+            feedback_timer: Default::default(),
+            health_rows: Default::default(),
+            rows: Default::default(),
+            no_matches: Default::default(),
+            off_heading: Default::default(),
+            health: Default::default(),
+            registry_reload: Default::default(),
+        };
+        let page = ClientPage::new(&app, server_page);
+        let window = gtk::Window::new();
+        window.set_child(Some(&page.root));
+        window.present();
+        let row = |id: &str, name: &str, state: state::ClientGatewayState| state::ClientView {
+            detected: None,
+            imported_names: Vec::new(),
+            id: id.into(),
+            name: name.into(),
+            app_present: true,
+            config_exists: true,
+            uses_connectors: false,
+            server_count: 0,
+            movable_server_count: 0,
+            other_server_count: 0,
+            gateway_state: state,
+            shared_http: false,
+            legacy_bearer_argv: false,
+            scope_id: None,
+            scope_name: None,
+            discovery_mode: None,
+            inherited_discovery: None,
+            config_error: false,
+            location_removable: false,
+            location_kept_by_t3_code: false,
+            claude_profile: None,
+            t3_code: vec![crate::clients::T3CodeUse {
+                instance_id: name.to_lowercase(),
+                display_name: name.into(),
+                enabled: true,
+            }],
+        };
+        let snapshot = |clients: Vec<state::ClientView>| state::ClientSnapshot {
+            clients,
+            profiles: Vec::new(),
+            sessions: Vec::new(),
+            sessions_error: false,
+            t3_others: Vec::new(),
+        };
+        let settle = || {
+            let context = gtk::glib::MainContext::default();
+            for _ in 0..50 {
+                while context.iteration(false) {}
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        };
+        let connect_all = |page: &ClientPage| {
+            fixture_descendants(page.list.upcast_ref())
+                .into_iter()
+                .filter_map(|w| w.downcast::<gtk::Button>().ok())
+                .find(|b| b.label().as_deref() == Some("Connect all"))
+        };
+        use state::ClientGatewayState::*;
+        page.render(snapshot(vec![
+            row("aider", "Aider", Disconnected),
+            row("codex", "Codex", Disconnected),
+        ]));
+        let offered = connect_all(&page).expect("the card offers Connect all");
+        // Beside the title at the top of the card, as React's status card puts it.
+        assert_eq!(offered.valign(), gtk::Align::Start);
+        // Escape on the second step: Aider connected, Codex not.
+        *page.pending_batch.borrow_mut() = Some(client_rows::T3BatchOutcome {
+            stopped: true,
+            rows: vec!["aider".into(), "codex".into()],
+            keyboard: true,
+        });
+        page.render(snapshot(vec![
+            row("aider", "Aider", Connected),
+            row("codex", "Codex", Disconnected),
+        ]));
+        settle();
+        assert!(page.lasting.is_visible(), "the summary shows");
+        assert_eq!(page.lasting_card.title.text(), "Connect all stopped.");
+        assert_eq!(
+            page.lasting_card.detail.text(),
+            "Connected 1 of 2 T3 Code instances. Not connected: Codex."
+        );
+        // Spec §10: a warning status card with its tile and bar, announced as a status.
+        assert!(page.lasting.has_css_class("toolport-status-card"));
+        assert!(
+            page.lasting.has_css_class("status-warning"),
+            "amber, as React's"
+        );
+        // Only the bar and tile take the tone; the text keeps its own colour.
+        assert!(!page.lasting.has_css_class("warning"));
+        assert!(!page.lasting.has_css_class("toolport-feedback"));
+        assert_eq!(page.lasting.accessible_role(), gtk::AccessibleRole::Status);
+        assert_eq!(
+            page.lasting_card.tile.icon_name().as_deref(),
+            Some("dialog-warning-symbolic")
+        );
+        assert!(page
+            .lasting_card
+            .title
+            .has_css_class("toolport-status-title"));
+        let button = connect_all(&page).unwrap();
+        assert!(button.has_focus(), "focus returns to Connect all");
+        assert!(
+            window.gets_focus_visible(),
+            "with the ring after the keyboard"
+        );
+        // A later scan keeps it; Dismiss hides it.
+        page.render(snapshot(vec![
+            row("aider", "Aider", Connected),
+            row("codex", "Codex", Disconnected),
+        ]));
+        assert!(
+            page.lasting.is_visible(),
+            "the summary stays until dismissed"
+        );
+        let dismiss = fixture_descendants(page.lasting.upcast_ref())
+            .into_iter()
+            .filter_map(|w| w.downcast::<gtk::Button>().ok())
+            .find(|b| b.label().as_deref() == Some("Dismiss"))
+            .unwrap();
+        dismiss.emit_clicked();
+        assert!(!page.lasting.is_visible());
+        // A batch that connects everything: its summary is kept too, green, as React's
+        // is, and with Connect all gone focus goes to the T3 Code card.
+        *page.pending_batch.borrow_mut() = Some(client_rows::T3BatchOutcome {
+            stopped: false,
+            rows: vec!["codex".into()],
+            keyboard: false,
+        });
+        page.render(snapshot(vec![
+            row("aider", "Aider", Connected),
+            row("codex", "Codex", Connected),
+        ]));
+        settle();
+        assert!(connect_all(&page).is_none());
+        assert!(
+            page.lasting.is_visible(),
+            "a full success is kept until dismissed"
+        );
+        assert_eq!(
+            page.lasting_card.title.text(),
+            "Connected 1 of 1 T3 Code instance."
+        );
+        assert!(!page.lasting_card.detail.is_visible(), "no detail to show");
+        assert!(page.lasting.has_css_class("status-success"));
+        assert!(!page.lasting.has_css_class("success"));
+        assert_eq!(
+            page.lasting_card.tile.icon_name().as_deref(),
+            Some("object-select-symbolic")
+        );
+        assert!(!page.lasting.has_css_class("status-warning"));
+        let card = fixture_descendants(page.list.upcast_ref())
+            .into_iter()
+            .find(|w| w.has_css_class("toolport-t3-card-group"))
+            .unwrap();
+        assert!(card.has_focus(), "focus goes to the T3 Code card");
+
+        // A batch that ends while an older scan (say from the settings watcher) is still
+        // running: that scan's rows predate the batch, so the summary waits for a scan
+        // that starts after it, which always follows.
+        page.lasting.set_visible(false);
+        page.scanning.set(true);
+        page.end_t3_code_batch(client_rows::T3BatchOutcome {
+            stopped: true,
+            rows: vec!["aider".into(), "codex".into()],
+            keyboard: false,
+        });
+        page.scanning.set(false);
+        page.render(snapshot(vec![
+            row("aider", "Aider", Disconnected),
+            row("codex", "Codex", Disconnected),
+        ]));
+        assert!(
+            !page.lasting.is_visible(),
+            "an older scan does not show the summary"
+        );
+        page.after_scan();
+        assert!(
+            page.scanning.get(),
+            "a scan follows once the older one ends"
+        );
+        let context = gtk::glib::MainContext::default();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        while page.scanning.get() && std::time::Instant::now() < deadline {
+            context.iteration(false);
+            std::thread::yield_now();
+        }
+        assert!(!page.scanning.get());
+        assert!(page.lasting.is_visible(), "that scan shows the summary");
+        assert_eq!(page.lasting_card.title.text(), "Connect all stopped.");
+        window.close();
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    fn fixture_descendants(widget: &gtk::Widget) -> Vec<gtk::Widget> {
+        let mut out = vec![widget.clone()];
+        let mut child = widget.first_child();
+        while let Some(widget) = child {
+            child = widget.next_sibling();
+            out.extend(fixture_descendants(&widget));
+        }
+        out
+    }
+
+    #[test]
+    #[ignore = "requires an isolated GTK desktop; run in omabox"]
+    fn client_access_menu_stays_on_one_line_in_every_language() {
+        // Read from the label's settings, not measured, so fonts do not decide
+        // it: one line ending in "…", and no wider than before so
+        // the controls move under the name at the same window widths.
+        adw::init().unwrap();
+        let scratch =
+            std::env::temp_dir().join(format!("toolport-access-label-{}", std::process::id()));
+        let _data = crate::registry::DataDirOverride::set(&scratch);
+        for language in [
+            "en", "de", "es", "fr", "pt-BR", "ja", "ko", "zh-CN", "zh-TW",
+        ] {
+            crate::i18n::set_language(language).unwrap();
+            let text = crate::i18n::tr("Default access (from Settings)");
+            let label = super::client_access_menu_label(&text);
+            // One line, ending in "…".
+            assert_eq!(label.lines(), 1, "{language}: \"{text}\" takes two lines");
+            assert_eq!(label.ellipsize(), gtk::pango::EllipsizeMode::End);
+            // Measured as before: the widest line of the text wrapped at 24
+            // characters, so the row's controls move down at the same widths.
+            assert!(label.wraps());
+            assert_eq!(label.wrap_mode(), gtk::pango::WrapMode::Word);
+            assert_eq!(label.max_width_chars(), 24, "{language}: as wide as before");
+            assert_eq!(label.label(), text, "{language}: the whole text is kept");
+            // The open Access list never breaks a choice inside a word.
+            let choice = super::details::checked_list_label();
+            assert!(!choice.wraps() && choice.is_single_line_mode());
+            assert_eq!(choice.ellipsize(), gtk::pango::EllipsizeMode::None);
+        }
+        crate::i18n::set_language("en").unwrap();
+    }
+
+    #[test]
+    #[ignore = "requires an isolated GTK desktop; run in omabox"]
+    fn a_connected_row_with_a_migration_fits_a_narrow_window_in_every_language() {
+        use super::*;
+        adw::init().unwrap();
+        let app = adw::Application::builder()
+            .application_id("com.tsout.Toolport.MigrationRowFixture")
+            .build();
+        let server_page = ServerPage {
+            details: Default::default(),
+            app: app.clone(),
+            share_requests: Default::default(),
+            server_count: gtk::Label::new(None),
+            section_title: gtk::Label::new(None),
+            posture: gtk::Label::new(None),
+            search: gtk::SearchEntry::new(),
+            feedback: gtk::Label::new(None),
+            list: gtk::Box::new(gtk::Orientation::Vertical, 0),
+            last_snapshot: Default::default(),
+            feedback_timer: Default::default(),
+            health_rows: Default::default(),
+            rows: Default::default(),
+            no_matches: Default::default(),
+            off_heading: Default::default(),
+            health: Default::default(),
+            registry_reload: Default::default(),
+        };
+        let page = ClientPage::new(&app, server_page);
+        let mut client = state::ClientView {
+            detected: None,
+            imported_names: Vec::new(),
+            id: "cursor".into(),
+            name: "Cursor".into(),
+            app_present: true,
+            config_exists: true,
+            uses_connectors: false,
+            server_count: 2,
+            movable_server_count: 0,
+            other_server_count: 2,
+            gateway_state: state::ClientGatewayState::Disconnected,
+            shared_http: false,
+            legacy_bearer_argv: false,
+            scope_id: None,
+            scope_name: None,
+            discovery_mode: None,
+            inherited_discovery: None,
+            config_error: false,
+            location_removable: false,
+            location_kept_by_t3_code: false,
+            claude_profile: None,
+            t3_code: Vec::new(),
+        };
+        client.gateway_state = state::ClientGatewayState::Connected;
+        client.shared_http = true;
+        client.legacy_bearer_argv = true;
+        let scratch =
+            std::env::temp_dir().join(format!("toolport-migration-row-{}", std::process::id()));
+        let _data = crate::registry::DataDirOverride::set(&scratch);
+        for language in [
+            "en", "de", "es", "fr", "pt-BR", "ja", "ko", "zh-CN", "zh-TW",
+        ] {
+            crate::i18n::set_language(language).unwrap();
+            client.scope_name = Some(crate::i18n::tr("Default access (from Settings)"));
+            let row = client_rows::client_row(&client, page.clone(), client_rows::RowStyle::Line);
+            let controls = fixture_descendants(row.upcast_ref())
+                .into_iter()
+                .find(|w| w.has_css_class("toolport-client-controls"))
+                .expect("row controls");
+            // The controls wrap onto lines rather than adding up their widths:
+            // the row asks for no more than its widest single control, so it
+            // fits a narrow window (432 px in a 480 px one) instead of pushing
+            // the page past the window edge.
+            let widest = {
+                let mut widest = 0;
+                let mut child = controls.first_child();
+                while let Some(widget) = child {
+                    widest = widest.max(widget.measure(gtk::Orientation::Horizontal, -1).0);
+                    child = widget.next_sibling();
+                }
+                widest
+            };
+            assert_eq!(
+                controls.measure(gtk::Orientation::Horizontal, -1).0,
+                widest,
+                "{language}: the controls ask for their widest control, not their sum"
+            );
+            let (min, _, _, _) = row.measure(gtk::Orientation::Horizontal, -1);
+            assert!(min <= 432, "{language}: the migration row needs {min} px");
+            // The access menu and ⋮ are one group, so neither is left alone.
+            let menu = fixture_descendants(row.upcast_ref())
+                .into_iter()
+                .find(|w| w.is::<gtk::MenuButton>())
+                .unwrap();
+            assert_eq!(menu.parent().unwrap().parent().as_ref(), Some(&controls));
+            assert_eq!(menu.parent().unwrap().observe_children().n_items(), 2);
+        }
+        crate::i18n::set_language("en").unwrap();
     }
 
     #[test]
@@ -17794,21 +18429,48 @@ mod tests {
 
     #[test]
     fn recorded_call_summary_uses_plain_counts() {
+        // Approvals and searches are rows but not calls: 4 calls can show 6 entries.
+        assert_eq!(
+            activity_count_summary(4, 6, 6, false),
+            "4 calls recorded on this computer. Showing the latest 6 entries."
+        );
         assert_eq!(
             activity_count_summary(1, 2, 2, false),
-            "1 call recorded on this computer. Showing the latest 2."
+            "1 call recorded on this computer. Showing the latest 2 entries."
+        );
+        assert_eq!(
+            activity_count_summary(1, 1, 1, false),
+            "1 call recorded on this computer. Showing the latest entry."
         );
         assert_eq!(
             activity_count_summary(5225, 5, 5, false),
-            "5,225 calls recorded on this computer. Showing the latest 5."
+            "5,225 calls recorded on this computer. Showing the latest 5 entries."
         );
         assert_eq!(
             activity_count_summary(5225, 10, 100, false),
-            "5,225 calls recorded on this computer. Showing 10 of the latest 100."
+            "5,225 calls recorded on this computer. Showing 10 of the latest 100 entries."
         );
         assert_eq!(
             activity_count_summary(5225, 2, 5, true),
-            "5,225 calls recorded on this computer. Showing 2 matching rows from the latest 5."
+            "5,225 calls recorded on this computer. Showing 2 matching entries from the latest 5."
+        );
+        assert_eq!(
+            activity_count_summary(5225, 1, 5, true),
+            "5,225 calls recorded on this computer. Showing 1 matching entry from the latest 5."
+        );
+        assert_eq!(
+            activity_count_summary(5225, 0, 5, true),
+            "5,225 calls recorded on this computer. Showing 0 matching entries from the latest 5."
+        );
+        // Grouped as the current language groups digits, as React's toLocaleString does.
+        let german = |value| crate::i18n::group_digits_for("de", value);
+        assert_eq!(
+            activity_count_summary_in(german, 5225, 1500, 2000, false),
+            "5.225 calls recorded on this computer. Showing 1.500 of the latest 2.000 entries."
+        );
+        assert_eq!(
+            activity_count_summary(5225, 1_000, 1_000, false),
+            "5,225 calls recorded on this computer. Showing the latest 1,000 entries."
         );
     }
 

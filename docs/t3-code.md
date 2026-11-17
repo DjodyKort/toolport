@@ -34,6 +34,7 @@ elsewhere is never read.
 - A folder you added by hand and the same folder named in T3 Code are one row.
 - An instance whose home folder is marked sensitive, isn't plain text or is a
   relative path labels no row: Toolport can't tell which config it reads.
+- Instances Toolport leaves out are listed on the T3 Code card, below.
 - When you add, remove or switch on an instance in T3 Code, the open Clients page
   updates within a few seconds while Toolport's window is in front, or as soon as
   you switch back to it or return from a client's details. Without T3 Code, Toolport checks for it only when the page
@@ -44,6 +45,75 @@ elsewhere is never read.
 - While T3 Code still lists a home whose folder exists, even one with no config yet,
   **Remove location** is shown disabled with the reason: remove the instance from T3
   Code's provider settings first.
+
+## The T3 Code card
+
+With T3 Code installed, the Clients page shows a T3 Code card. It counts the
+instances that are on and not connected, and names each one Toolport can't connect
+as it is, with why and what to do:
+
+- A row it uses that isn't installed, has a config Toolport can't read, or has a
+  Toolport entry changed by hand. Open that client below to fix it.
+- **Antigravity**: T3 Code gives it a private settings folder, which Toolport doesn't
+  manage yet. **fx**, **Muse Code**, **ACP Registry** agents and any provider T3 Code
+  adds later: Toolport has no client for them yet.
+- A home folder that is marked sensitive, isn't plain text, or is a relative path
+  (T3 Code passes `CLAUDE_CONFIG_DIR` and `CODEX_HOME` as they are, so `~` there is
+  relative too). Set a full, plain path in T3 Code's provider settings.
+- A home folder outside your home folder, written with `.`, `..` or `//`, or on a
+  network or device path.
+  Toolport judges it by its text alone and never opens it. Add it by hand as a client
+  location if you trust it. Once a saved location names the same config, by its text,
+  the card stops listing it.
+- A home folder with a link anywhere below your home folder
+  (the home itself, a folder above it, or its config file), or something that isn't a
+  plain folder or file. Point the instance at the real folder in T3 Code's provider
+  settings.
+- A Claude Code or Codex home folder that doesn't exist yet. Start the instance once in T3 Code, then
+  refresh Clients.
+- A Grok or Pi home folder that no row on the page covers. Toolport makes rows only
+  for Claude Code and Codex homes, so once the folder exists, add it by hand as a
+  client location to connect it. Toolport's own Grok and Pi rows follow `GROK_HOME`
+  and `PI_CODING_AGENT_DIR` as Toolport sees them, so a home that is one of those
+  already has a row.
+- An OpenCode config folder (its `XDG_CONFIG_HOME`) that no row covers. Once it
+  exists, add the `opencode` folder inside it by hand as a client location.
+- An entry in `settings.json` Toolport can't read, or a settings file it can't read
+  at all, named by its path with `~` for your home folder.
+
+The card names instances by their name and provider only, never by the paths in the
+settings file.
+
+### Connect all
+
+While a row an instance uses can be connected as it is, the card offers **Connect
+all**. It opens the usual connect review for each of those rows in turn, with a line
+such as "Step 1 of 3: Claude Work" naming the instances on that row. Instances that are
+off are skipped; you can still connect one yourself.
+
+- **Next** moves on after a row connects, **Done** ends the last one.
+- When a row fails, **Retry** tries again and **Skip** moves on without it.
+- **Escape**, **Cancel** or closing a review stops the batch. Rows already connected
+  stay connected.
+
+Each row is connected on its own, as its own **Connect** would: Toolport backs up that
+client's config first, then writes the new one in a single step. A row that fails part
+way leaves its config exactly as it was, with nothing of it added to Toolport, and the
+rows connected before it stay connected, each with its own backup.
+
+If your keyring is locked, Connect all asks you to unlock it at most once: when the
+first row that reads it opens its review, or when you connect that row. If you don't
+unlock it, that row fails, and nothing after it asks again: a row that needs the
+keyring says to unlock it and choose **Retry**, and **Retry** may ask once more.
+
+A row that was connected to Toolport before and later disconnected keeps saved
+recovery values in the keyring. Unlock your keyring before you connect such a row:
+while it is locked, connecting it fails without asking.
+
+When the batch ends, a summary says how many instances it connected. If any were
+skipped, failed or not reached, or a row needs attention first, it names them and
+stays until you dismiss it. Focus returns to **Connect all**, or to the card once
+everything it can connect is connected.
 
 ## What Activity shows
 

@@ -804,6 +804,7 @@ export function migrateClient(
   revision = "",
   secretChoices?: Record<string, Record<string, boolean>>,
   credentialInputs?: Record<string, Record<string, string>>,
+  quiet = false,
 ): Promise<MigrateResult> {
   return invoke<MigrateResult>("migrate_client", {
     clientId,
@@ -813,6 +814,7 @@ export function migrateClient(
     credentialInputs,
     profile: profile ?? null,
     force: force ?? false,
+    quiet,
   });
 }
 
@@ -1184,10 +1186,18 @@ export function disconnectAllClients(): Promise<DisconnectResult[]> {
   return invoke("disconnect_all_clients");
 }
 
+/** `quiet`: a Connect all step after the keyring stayed locked; nothing in it can ask to
+ * unlock the keyring (the backend's `connect_step`). */
 export function previewClientSetup(
   clientId: string,
+  quiet = false,
 ): Promise<import("@/lib/types").ClientSetupReview> {
-  return invoke("preview_client_setup", { clientId });
+  return invoke("preview_client_setup", { clientId, quiet });
+}
+
+/** Whether a failed Connect all step left the keyring locked. Never asks to unlock. */
+export function keyringLockedAfter(error: string): Promise<boolean> {
+  return invoke("keyring_locked_after", { error });
 }
 
 /** The client settings a connect or reset adds to Toolport's entry, as TOML lines. */
@@ -1216,6 +1226,11 @@ export function addSnippetServers(
 /** A token that changes when T3 Code's settings change; null when there are none. */
 export function t3CodeRevision(): Promise<string | null> {
   return invoke<string | null>("t3_code_revision");
+}
+
+/** T3 Code instances Toolport cannot connect, with why, for the T3 Code card. */
+export function t3CodeOtherInstances(): Promise<import("@/lib/types").T3CodeOther[]> {
+  return invoke("t3_code_other_instances");
 }
 
 export function getClientSessions(): Promise<ClientActivity[]> {

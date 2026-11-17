@@ -457,6 +457,28 @@ pub(super) struct ClientView {
     pub(super) t3_code: Vec<crate::clients::T3CodeUse>,
 }
 
+/// The order Clients lists rows in, and so Connect all's steps: installed apps first, then
+/// by Unicode lowercase name, then by id. React's `compareClientNames` is the same rule.
+pub(super) fn client_order(left: &ClientView, right: &ClientView) -> std::cmp::Ordering {
+    right
+        .app_present
+        .cmp(&left.app_present)
+        .then_with(|| name_order(&left.name, &left.id, &right.name, &right.id))
+}
+
+/// Text Clients sorts by, such as a row's name or a profile's folder: by Unicode
+/// lowercase, then by id. React's `compareClientNames` is the same rule.
+pub(super) fn name_order(
+    left: &str,
+    left_id: &str,
+    right: &str,
+    right_id: &str,
+) -> std::cmp::Ordering {
+    left.to_lowercase()
+        .cmp(&right.to_lowercase())
+        .then_with(|| left_id.cmp(right_id))
+}
+
 impl ClientView {
     fn from_detected(client: crate::clients::DetectedClient) -> Self {
         Self {
@@ -507,6 +529,8 @@ pub(super) struct ClientSnapshot {
     pub(super) profiles: Vec<ProfileView>,
     pub(super) sessions: Vec<serde_json::Value>,
     pub(super) sessions_error: bool,
+    /// T3 Code instances Toolport can't connect, for the T3 Code card.
+    pub(super) t3_others: Vec<crate::clients::T3CodeOther>,
 }
 
 fn default_access_display_label(registry: &Registry) -> String {
@@ -622,18 +646,15 @@ pub(super) fn detect_client_views() -> Result<ClientSnapshot, String> {
         client.discovery_mode = registry.client_discovery.get(&client.id).cloned();
         client.inherited_discovery = registry.chosen_global_discovery_mode().map(str::to_string);
     }
-    clients.sort_by(|left, right| {
-        right
-            .app_present
-            .cmp(&left.app_present)
-            .then_with(|| left.name.to_lowercase().cmp(&right.name.to_lowercase()))
-    });
+    clients.sort_by(client_order);
     let (sessions, sessions_error) = client_session_history();
     Ok(ClientSnapshot {
         clients,
         profiles: client_access_options(&registry),
         sessions,
         sessions_error,
+        // Read off the main thread: it may look at an instance's home folder.
+        t3_others: crate::clients::t3_code_other_instances(),
     })
 }
 
