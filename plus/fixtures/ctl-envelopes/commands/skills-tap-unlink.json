@@ -1,0 +1,43 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Report what would be removed",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "skills",
+  "id": "skills tap unlink",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "name",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["skills", "tap", "unlink"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Unlink a tap from Claude Code: remove its marketplace declaration and switch its plugins off (<name>, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["skills_tap_unlink"]
+}

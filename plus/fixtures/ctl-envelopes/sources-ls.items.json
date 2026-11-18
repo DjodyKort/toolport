@@ -223,6 +223,78 @@
         },
         {
           "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "alpha-skill",
+          "origin": {
+            "kind": "plugin",
+            "name": "alpha@market"
+          },
+          "path": "<WORLD>/home/.claude/plugins/cache/market/alpha/1.0.0/skills/alpha-skill/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "plugin:alpha@market",
+          "tokens": {
+            "basis": "estimate",
+            "value": 8
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "command",
+          "lazy": true,
+          "name": "alpha-cmd",
+          "origin": {
+            "kind": "plugin",
+            "name": "alpha@market"
+          },
+          "path": "<WORLD>/home/.claude/plugins/cache/market/alpha/1.0.0/commands/alpha-cmd.md",
+          "shadowedBy": null,
+          "sourceId": "plugin:alpha@market",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "agent",
+          "lazy": true,
+          "name": "alpha-agent",
+          "origin": {
+            "kind": "plugin",
+            "name": "alpha@market"
+          },
+          "path": "<WORLD>/home/.claude/plugins/cache/market/alpha/1.0.0/agents/alpha-agent.md",
+          "shadowedBy": null,
+          "sourceId": "plugin:alpha@market",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "beta-skill",
+          "origin": {
+            "kind": "plugin",
+            "name": "beta@market"
+          },
+          "path": "<WORLD>/home/.claude/plugins/cache/market/beta/2.0.0/skills/beta-skill/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "plugin:beta@market",
+          "tokens": {
+            "basis": "estimate",
+            "value": 7
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
           "kind": "command",
           "lazy": true,
           "name": "odoo-upgrade",
@@ -683,6 +755,76 @@
           "tokens": {
             "basis": "estimate",
             "value": 6
+          },
+          "visible": {
+            "skill": 1,
+            "skillTotal": 1
+          },
+          "warnings": [],
+          "writable": false
+        },
+        {
+          "counts": {
+            "agent": 1,
+            "command": 1,
+            "memory": 0,
+            "rule": 0,
+            "skill": 1
+          },
+          "detector": "plugin",
+          "enabled": true,
+          "freshness": null,
+          "id": "plugin:alpha@market",
+          "managedBy": "marketplace",
+          "origin": {
+            "kind": "plugin",
+            "name": "alpha@market"
+          },
+          "owner": "third-party",
+          "root": "<WORLD>/home/.claude/plugins/cache/market/alpha/1.0.0",
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "1.0.0; enabled in user settings",
+            "state": "ok"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 20
+          },
+          "visible": {
+            "skill": 1,
+            "skillTotal": 1
+          },
+          "warnings": [],
+          "writable": false
+        },
+        {
+          "counts": {
+            "agent": 0,
+            "command": 0,
+            "memory": 0,
+            "rule": 0,
+            "skill": 1
+          },
+          "detector": "plugin",
+          "enabled": false,
+          "freshness": null,
+          "id": "plugin:beta@market",
+          "managedBy": "marketplace",
+          "origin": {
+            "kind": "plugin",
+            "name": "beta@market"
+          },
+          "owner": "third-party",
+          "root": "<WORLD>/home/.claude/plugins/cache/market/beta/2.0.0",
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "2.0.0; off (user)",
+            "state": "ok"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 7
           },
           "visible": {
             "skill": 1,

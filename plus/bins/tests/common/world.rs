@@ -186,6 +186,7 @@ impl World {
                 "TOOLPORT_CLAUDE_BIN",
                 self.path(&self.home.join("no-claude")),
             ),
+            ("TOOLPORT_CLAUDE_MANAGED_SETTINGS", String::new()),
         ]
     }
 

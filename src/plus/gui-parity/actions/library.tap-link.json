@@ -1,0 +1,5 @@
+{
+  "route": "library-later",
+  "status": "planned",
+  "summary": "Taps that are plugin marketplaces: link them to Claude Code and unlink them (skills tap link|unlink; skills_tap_link, skills_tap_unlink)"
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "tap", "link", "plugins", "--plugin", "nope"],
+  "envelope": {
+    "command": "skills tap link",
+    "error": {
+      "code": "skills",
+      "message": "nope is not a plugin of acme; it has: core"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

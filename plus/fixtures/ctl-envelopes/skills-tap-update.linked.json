@@ -1,0 +1,32 @@
+{
+  "argv": ["skills", "tap", "update", "plugins"],
+  "envelope": {
+    "command": "skills tap update",
+    "data": {
+      "dryRun": false,
+      "failed": 0,
+      "plugins": [
+        {
+          "error": "claude not found on PATH",
+          "tap": "plugins"
+        }
+      ],
+      "restartRequired": false,
+      "results": [
+        {
+          "error": null,
+          "head": "<masked>",
+          "name": "plugins",
+          "ok": true
+        }
+      ]
+    },
+    "error": {
+      "code": "unhealthy",
+      "message": "one or more checks failed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

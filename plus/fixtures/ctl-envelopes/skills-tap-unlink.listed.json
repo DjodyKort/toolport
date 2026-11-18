@@ -1,0 +1,37 @@
+{
+  "argv": ["skills", "tap", "ls"],
+  "envelope": {
+    "command": "skills tap ls",
+    "data": {
+      "taps": [
+        {
+          "cloned": true,
+          "marketplace": {
+            "declared": "no",
+            "name": "acme",
+            "plugins": [
+              {
+                "agents": 0,
+                "hooks": false,
+                "id": "core@acme",
+                "linked": false,
+                "name": "core",
+                "skills": 1,
+                "version": "<masked>"
+              }
+            ],
+            "warnings": []
+          },
+          "name": "plugins",
+          "path": "<WORLD>/data/taps/plugins",
+          "repo": "<WORLD>/plugin-src",
+          "url": "<WORLD>/plugin-src"
+        }
+      ],
+      "tapsRoot": "<WORLD>/data/taps"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

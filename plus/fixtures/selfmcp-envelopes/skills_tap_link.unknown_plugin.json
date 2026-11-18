@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "plugins",
+    "plugins": ["nope"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "nope is not a plugin of acme; it has: core"
+    }
+  },
+  "text": "invalid_arguments: nope is not a plugin of acme; it has: core",
+  "tool": "skills_tap_link"
+}

@@ -1,0 +1,34 @@
+{
+  "argv": ["skills", "tap", "unlink", "plugins", "--dry-run"],
+  "envelope": {
+    "command": "skills tap unlink",
+    "data": {
+      "changes": [],
+      "conflicts": [],
+      "cwd": null,
+      "dryRun": true,
+      "id": "plugins",
+      "marketplaces": [],
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "tap plugins is not linked to Claude Code; nothing to remove",
+            "op": "note"
+          }
+        ],
+        "summary": "Unlink tap plugins from Claude Code",
+        "undo": "toolportctl skills tap link plugins",
+        "warnings": [
+          "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+        ]
+      },
+      "result": null,
+      "scope": "user",
+      "tap": "plugins"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

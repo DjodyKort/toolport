@@ -18,6 +18,7 @@ mod common;
 use common::client::Client;
 use common::compression;
 use common::library_world::{self, library_home};
+use common::taps_world;
 use common::tasks_world::{scheduler_home, tasks_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
@@ -1193,6 +1194,52 @@ const CASES: &[Case] = &[
     case(
         "skills_tap_update",
         &[read("none", "skills_tap_update", "{}")],
+    ),
+    prepared(
+        "skills_tap_link",
+        taps_world::both,
+        &[
+            fails(
+                "unknown",
+                "not_found",
+                "skills_tap_link",
+                r#"{"name":"plugins"}"#,
+            ),
+            setup(
+                "skills_tap_add",
+                r#"{"repo":"{base}/plugin-src","name":"plugins","dry_run":false}"#,
+            ),
+            read("preview", "skills_tap_link", r#"{"name":"plugins"}"#),
+            fails(
+                "unknown_plugin",
+                "invalid_arguments",
+                "skills_tap_link",
+                r#"{"name":"plugins","plugins":["nope"]}"#,
+            ),
+            write(
+                "apply",
+                "skills_tap_link",
+                r#"{"name":"plugins","dry_run":false}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "skills_tap_unlink",
+        taps_world::both,
+        &[
+            setup(
+                "skills_tap_add",
+                r#"{"repo":"{base}/plugin-src","name":"plugins","dry_run":false}"#,
+            ),
+            read("not_linked", "skills_tap_unlink", r#"{"name":"plugins"}"#),
+            setup("skills_tap_link", r#"{"name":"plugins","dry_run":false}"#),
+            read("preview", "skills_tap_unlink", r#"{"name":"plugins"}"#),
+            write(
+                "apply",
+                "skills_tap_unlink",
+                r#"{"name":"plugins","dry_run":false}"#,
+            ),
+        ],
     ),
     case(
         "skills_install",

@@ -1,0 +1,32 @@
+{
+  "arguments": {
+    "name": "plugins"
+  },
+  "isError": false,
+  "result": {
+    "changes": [],
+    "conflicts": [],
+    "cwd": null,
+    "dryRun": true,
+    "id": "plugins",
+    "marketplaces": [],
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "tap plugins is not linked to Claude Code; nothing to remove",
+          "op": "note"
+        }
+      ],
+      "summary": "Unlink tap plugins from Claude Code",
+      "undo": "toolportctl skills tap link plugins",
+      "warnings": [
+        "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+      ]
+    },
+    "result": null,
+    "scope": "user",
+    "tap": "plugins"
+  },
+  "tool": "skills_tap_unlink"
+}

@@ -24,6 +24,7 @@ use common::compression::{
 };
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
+use common::taps_world;
 use common::tasks_world::{scheduler_extras, tasks_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
@@ -1624,7 +1625,91 @@ const CASES: &[Case] = &[
     ),
     case(
         "skills tap update",
-        &[read("none", &["skills", "tap", "update", "--dry-run"])],
+        &[
+            read("none", &["skills", "tap", "update", "--dry-run"]),
+            hook("repos", taps_world::both),
+            setup(
+                "setup",
+                &[
+                    "skills",
+                    "tap",
+                    "add",
+                    "{base}/plugin-src",
+                    "--name",
+                    "plugins",
+                ],
+            ),
+            setup("link", &["skills", "tap", "link", "plugins"]),
+            apply("linked", &["skills", "tap", "update", "plugins"]).exit(1),
+        ],
+    ),
+    case(
+        "skills tap link",
+        &[
+            apply("unknown", &["skills", "tap", "link", "local"]).exit(1),
+            hook("repos", taps_world::both),
+            setup(
+                "setup",
+                &["skills", "tap", "add", "{base}/tap-src", "--name", "local"],
+            ),
+            apply("plain_tap", &["skills", "tap", "link", "local"]).exit(1),
+            setup(
+                "setup_plugins",
+                &[
+                    "skills",
+                    "tap",
+                    "add",
+                    "{base}/plugin-src",
+                    "--name",
+                    "plugins",
+                ],
+            ),
+            read("listed", &["skills", "tap", "ls"]),
+            read(
+                "preview",
+                &["skills", "tap", "link", "plugins", "--dry-run"],
+            ),
+            apply("apply", &["skills", "tap", "link", "plugins"]),
+            apply("again", &["skills", "tap", "link", "plugins"]),
+            read("linked", &["skills", "tap", "ls"]),
+            apply("remove_refused", &["skills", "tap", "remove", "plugins"]).exit(1),
+            apply(
+                "unknown_plugin",
+                &["skills", "tap", "link", "plugins", "--plugin", "nope"],
+            )
+            .exit(1),
+            usage("usage", &["skills", "tap", "link"]),
+        ],
+    ),
+    case(
+        "skills tap unlink",
+        &[
+            apply("unknown", &["skills", "tap", "unlink", "local"]).exit(1),
+            hook("repos", taps_world::both),
+            setup(
+                "setup",
+                &[
+                    "skills",
+                    "tap",
+                    "add",
+                    "{base}/plugin-src",
+                    "--name",
+                    "plugins",
+                ],
+            ),
+            read(
+                "not_linked",
+                &["skills", "tap", "unlink", "plugins", "--dry-run"],
+            ),
+            setup("link", &["skills", "tap", "link", "plugins"]),
+            read(
+                "preview",
+                &["skills", "tap", "unlink", "plugins", "--dry-run"],
+            ),
+            apply("apply", &["skills", "tap", "unlink", "plugins"]),
+            read("listed", &["skills", "tap", "ls"]),
+            usage("usage", &["skills", "tap", "unlink"]),
+        ],
     ),
     case(
         "skills search",

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "plugins"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "Tap 'plugins' not found."
+    }
+  },
+  "text": "not_found: Tap 'plugins' not found.",
+  "tool": "skills_tap_link"
+}
