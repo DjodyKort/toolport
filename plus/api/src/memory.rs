@@ -717,6 +717,18 @@ pub struct MemoryHost {
     pub settings_paths: Vec<PathBuf>,
     pub tasks: crate::tasks::FakeTaskHost,
     pub launch_at_login: Cell<Option<bool>>,
+    /// What `SavingsAccess::catalog_sessions` returns.
+    pub savings_rows: Vec<Value>,
+}
+
+impl crate::SavingsAccess for MemoryHost {
+    fn catalog_sessions(&self) -> Result<Vec<Value>, String> {
+        Ok(self.savings_rows.clone())
+    }
+
+    fn catalog_summary(&self) -> Result<Value, String> {
+        Ok(Value::Object(Map::new()))
+    }
 }
 
 impl crate::SettingsStore for MemoryHost {
@@ -737,15 +749,25 @@ impl crate::SettingsStore for MemoryHost {
     }
 
     fn write_hooks(&self, path: &Path, original: Option<&str>, root: &Value) -> Result<(), String> {
+        self.write_settings_key(path, original, root, "hooks")
+    }
+
+    fn write_settings_key(
+        &self,
+        path: &Path,
+        original: Option<&str>,
+        root: &Value,
+        key: &str,
+    ) -> Result<(), String> {
         let mut current: Value = match original {
             Some(text) => serde_json::from_str(text).map_err(|e| e.to_string())?,
             None => Value::Object(Map::new()),
         };
-        match root.get("hooks") {
-            Some(hooks) => current["hooks"] = hooks.clone(),
+        match root.get(key) {
+            Some(value) => current[key] = value.clone(),
             None => {
                 if let Some(map) = current.as_object_mut() {
-                    map.remove("hooks");
+                    map.remove(key);
                 }
             }
         }

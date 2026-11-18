@@ -541,6 +541,26 @@ impl toolport_plus_api::SettingsStore for HostAdapter {
     fn write_hooks(&self, path: &Path, original: Option<&str>, root: &Value) -> Result<(), String> {
         crate::clients::write_settings_json(path, original, root)
     }
+
+    fn write_settings_key(
+        &self,
+        path: &Path,
+        original: Option<&str>,
+        root: &Value,
+        key: &str,
+    ) -> Result<(), String> {
+        crate::clients::write_settings_key(path, original, root, key)
+    }
+}
+
+impl toolport_plus_api::SavingsAccess for HostAdapter {
+    fn catalog_sessions(&self) -> Result<Vec<Value>, String> {
+        crate::savings::try_entries().map_err(|e| e.to_string())
+    }
+
+    fn catalog_summary(&self) -> Result<Value, String> {
+        crate::savings::try_summary().map_err(|e| e.to_string())
+    }
 }
 
 #[cfg(target_os = "macos")]
