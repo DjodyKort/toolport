@@ -657,6 +657,11 @@ pub const COMMANDS: &[Command] = &[
         spend::prune,
     ),
     cmd(
+        &["spend", "config", "set"],
+        "Change the Spend settings: port, retention days, size cap, show cost (--port, --retention-days, --max-mb, --show-cost)",
+        spend::config_set,
+    ),
+    cmd(
         &["spend", "setup", "plan"],
         "Show the five OTel env keys that would be written to each Claude Code profile (--port, --overwrite)",
         spend::setup_plan,

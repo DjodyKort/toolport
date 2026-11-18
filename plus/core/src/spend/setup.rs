@@ -280,3 +280,14 @@ pub fn undo(store: &dyn SettingsStore, dir: &Path) -> Result<Value, String> {
 pub fn applied_profiles(dir: &Path) -> usize {
     load_ledger(dir).profiles.len()
 }
+
+/// Where collection was written and when, for the Collecting card.
+pub fn applied_info(dir: &Path) -> Value {
+    Value::Array(
+        load_ledger(dir)
+            .profiles
+            .iter()
+            .map(|(profile, entry)| json!({"profile": profile, "appliedAt": entry.applied_at}))
+            .collect(),
+    )
+}

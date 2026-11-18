@@ -16,6 +16,12 @@
         "rejected": 0,
         "requests": 0
       },
+      "setup": [
+        {
+          "appliedAt": "<TIME>",
+          "profile": "<WORLD>/home/.claude/settings.json"
+        }
+      ],
       "showCost": true,
       "state": "not-listening",
       "store": {

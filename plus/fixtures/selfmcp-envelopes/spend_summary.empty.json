@@ -11,6 +11,16 @@
       "value": 0.0
     },
     "mcpPart": {
+      "compression": {
+        "badge": "Counted",
+        "calls": 0,
+        "firstCall": null,
+        "hooks": 0,
+        "lastCall": null,
+        "note": "Counts hook calls, latency and how often the hook answered. It cannot see the size of the tool output a rewrite later saves; that needs the billed measurement in `compression verify`.",
+        "tokensCut": null
+      },
+      "firstRequest": null,
       "note": "Upstream's saved tokens cover tool-definition exposure only and are never added to spend",
       "savedTokens": 0,
       "shareOfInputTokens": "[redacted]",
@@ -19,6 +29,8 @@
         "badge": "Counted",
         "exposedTokens": 0,
         "fullTokens": 0,
+        "medianExposedTokens": 0,
+        "medianFullTokens": 0,
         "sessions": 0,
         "tokenizer": "[redacted]"
       }
@@ -36,6 +48,7 @@
       "otelSessions": 0,
       "transcriptSessions": 0
     },
+    "stale": null,
     "status": {
       "enabled": false,
       "lastEvent": null,
@@ -50,6 +63,7 @@
         "rejected": 0,
         "requests": 0
       },
+      "setup": [],
       "showCost": true,
       "state": "off",
       "store": {
@@ -60,6 +74,44 @@
         "oldest": null,
         "retentionDays": 30,
         "skippedLines": 0
+      }
+    },
+    "tiles": {
+      "30d": {
+        "cost": {
+          "badge": "Estimate",
+          "estimatedUsd": 0.0,
+          "usd": 0.0
+        },
+        "costDelta": null,
+        "days": 30,
+        "estimatedDays": 0,
+        "previousUsd": 0.0,
+        "tokens": 0
+      },
+      "7d": {
+        "cost": {
+          "badge": "Estimate",
+          "estimatedUsd": 0.0,
+          "usd": 0.0
+        },
+        "costDelta": null,
+        "days": 7,
+        "estimatedDays": 0,
+        "previousUsd": 0.0,
+        "tokens": 0
+      },
+      "today": {
+        "cost": {
+          "badge": "Estimate",
+          "estimatedUsd": 0.0,
+          "usd": 0.0
+        },
+        "costDelta": null,
+        "days": 1,
+        "estimatedDays": 0,
+        "previousUsd": 0.0,
+        "tokens": 0
       }
     },
     "totals": {

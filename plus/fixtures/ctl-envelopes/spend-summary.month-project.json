@@ -142,6 +142,16 @@
         "value": 0.842
       },
       "mcpPart": {
+        "compression": {
+          "badge": "Counted",
+          "calls": 0,
+          "firstCall": null,
+          "hooks": 0,
+          "lastCall": null,
+          "note": "Counts hook calls, latency and how often the hook answered. It cannot see the size of the tool output a rewrite later saves; that needs the billed measurement in `compression verify`.",
+          "tokensCut": null
+        },
+        "firstRequest": null,
         "note": "Upstream's saved tokens cover tool-definition exposure only and are never added to spend",
         "savedTokens": 0,
         "shareOfInputTokens": {
@@ -153,6 +163,8 @@
           "badge": "Counted",
           "exposedTokens": 800,
           "fullTokens": 5000,
+          "medianExposedTokens": 800,
+          "medianFullTokens": 5000,
           "sessions": 1,
           "tokenizer": "cl100k_base"
         }
@@ -216,6 +228,7 @@
         "otelSessions": 4,
         "transcriptSessions": 1
       },
+      "stale": null,
       "status": {
         "enabled": false,
         "lastEvent": "<TIME>",
@@ -230,6 +243,7 @@
           "rejected": 0,
           "requests": 0
         },
+        "setup": [],
         "showCost": true,
         "state": "off",
         "store": {
@@ -240,6 +254,44 @@
           "oldest": "<TIME>",
           "retentionDays": 30,
           "skippedLines": 0
+        }
+      },
+      "tiles": {
+        "30d": {
+          "cost": {
+            "badge": "Measured",
+            "estimatedUsd": 0.0,
+            "usd": 0.15
+          },
+          "costDelta": -0.7,
+          "days": 30,
+          "estimatedDays": 0,
+          "previousUsd": 0.5,
+          "tokens": 19400
+        },
+        "7d": {
+          "cost": {
+            "badge": "Measured",
+            "estimatedUsd": 0.0,
+            "usd": 0.15
+          },
+          "costDelta": null,
+          "days": 7,
+          "estimatedDays": 0,
+          "previousUsd": 0.0,
+          "tokens": 19400
+        },
+        "today": {
+          "cost": {
+            "badge": "Measured",
+            "estimatedUsd": 0.0,
+            "usd": 0.12
+          },
+          "costDelta": 3.0,
+          "days": 1,
+          "estimatedDays": 0,
+          "previousUsd": 0.03,
+          "tokens": 9700
         }
       },
       "totals": {

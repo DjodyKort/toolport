@@ -7,7 +7,7 @@ use crate::spend::api;
 use serde_json::Value;
 use toolport_plus_api::Host;
 
-const NO_ARGS: &str = "usage: spend status | receiver status | summary [--range today|7d|30d] [--project <folder>] | export-csv [--range <r>] [--out <file>] | prune [--dry-run] [--totals --yes] | setup plan|apply|undo [--port <n>] [--overwrite <KEY>|all]";
+const NO_ARGS: &str = "usage: spend status | receiver status | summary [--range today|7d|30d] [--project <folder>] | export-csv [--range <r>] [--out <file>] | prune [--dry-run] [--totals --yes] | config set [--port <n>] [--retention-days <n>] [--max-mb <n>] [--show-cost on|off] | setup plan|apply|undo [--port <n>] [--overwrite <KEY>|all]";
 
 const BASE: Spec = Spec {
     flags: &[],
@@ -41,6 +41,16 @@ pub(super) const SETUP_PLAN: Spec = Spec {
 
 pub(super) const SETUP_APPLY: Spec = Spec {
     flags: &[value("--port"), value("--overwrite"), switch("--dry-run")],
+    ..BASE
+};
+
+pub(super) const CONFIG_SET: Spec = Spec {
+    flags: &[
+        value("--port"),
+        value("--retention-days"),
+        value("--max-mb"),
+        value("--show-cost"),
+    ],
     ..BASE
 };
 
@@ -212,6 +222,27 @@ pub fn setup_undo(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> 
         format!("Dry run: {} profile(s) set up", data["profilesSetUp"])
     } else {
         "Collection is off; the keys Toolport wrote are removed".to_string()
+    };
+    Ok(Output::new(data, human))
+}
+
+pub fn config_set(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let flags = CONFIG_SET.parse(rest)?;
+    let data = api::config_set(
+        host,
+        &api::ConfigEdit {
+            port: flags.one("--port"),
+            retention_days: flags.one("--retention-days"),
+            max_mb: flags.one("--max-mb"),
+            show_cost: flags.one("--show-cost"),
+        },
+    )?;
+    let human = if data["portChanged"] == true && data["enabled"] == true {
+        "Saved. Run `spend setup apply` so Claude Code sends to the new port".to_string()
+    } else if data["changed"] == true {
+        "Saved".to_string()
+    } else {
+        "Nothing changed".to_string()
     };
     Ok(Output::new(data, human))
 }

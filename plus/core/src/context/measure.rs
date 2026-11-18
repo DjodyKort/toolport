@@ -678,6 +678,22 @@ fn is_stale(entry: &Entry, cwd: &Path, version: Option<&str>) -> bool {
         || version.is_some_and(|v| v != entry.claude_code_version)
 }
 
+/// The newest as-is measurement of any folder, for the first request on the Spend page.
+pub fn newest_measured(data_dir: &Path) -> Option<Value> {
+    let entry = entries(&cache_dir(data_dir))
+        .into_iter()
+        .map(|(_, e)| e)
+        .filter(|e| e.variant == AS_IS)
+        .max_by(|a, b| a.measured_at.cmp(&b.measured_at))?;
+    Some(json!({
+        "cwd": entry.cwd,
+        "model": entry.run.model,
+        "measuredAt": entry.measured_at,
+        "total": entry.run.total,
+        "instructionTokens": entry.estimated_tokens,
+    }))
+}
+
 pub fn calibration(data_dir: &Path, cwd: &Path, version: Option<&str>) -> Option<Calibration> {
     let entry = newest_as_is(data_dir, cwd)?;
     let estimated = entry.estimated_tokens.filter(|e| *e > 0)?;

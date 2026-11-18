@@ -1,0 +1,13 @@
+{
+  "argv": ["spend", "config", "set", "--show-cost", "maybe"],
+  "envelope": {
+    "command": "spend config set",
+    "error": {
+      "code": "usage",
+      "message": "--show-cost: use on or off"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

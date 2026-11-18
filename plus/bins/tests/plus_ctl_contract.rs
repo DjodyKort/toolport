@@ -303,6 +303,38 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "spend config set",
+        &[
+            hook("data", spend_data),
+            apply(
+                "save",
+                &[
+                    "spend",
+                    "config",
+                    "set",
+                    "--retention-days",
+                    "14",
+                    "--max-mb",
+                    "32",
+                    "--show-cost",
+                    "off",
+                ],
+            )
+            .env(SPEND_CLOCK),
+            apply("port", &["spend", "config", "set", "--port", "4999"]).env(SPEND_CLOCK),
+            usage(
+                "retention-out-of-range",
+                &["spend", "config", "set", "--retention-days", "3"],
+            )
+            .env(SPEND_CLOCK),
+            usage(
+                "show-cost-word",
+                &["spend", "config", "set", "--show-cost", "maybe"],
+            )
+            .env(SPEND_CLOCK),
+        ],
+    ),
+    case(
         "spend setup plan",
         &[
             hook("settings", spend_settings_conflict),

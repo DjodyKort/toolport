@@ -1,0 +1,5 @@
+{
+  "route": "spend-settings",
+  "status": "planned",
+  "summary": "Port, retention days, size cap and the Show cost switch in Settings > Toolport+ > Spend (spend config set)"
+}

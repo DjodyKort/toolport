@@ -15,6 +15,7 @@
       "rejected": 0,
       "requests": 0
     },
+    "setup": [],
     "showCost": true,
     "state": "off",
     "store": {

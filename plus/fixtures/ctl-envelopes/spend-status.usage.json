@@ -4,7 +4,7 @@
     "command": "spend status",
     "error": {
       "code": "usage",
-      "message": "usage: spend status | receiver status | summary [--range today|7d|30d] [--project <folder>] | export-csv [--range <r>] [--out <file>] | prune [--dry-run] [--totals --yes] | setup plan|apply|undo [--port <n>] [--overwrite <KEY>|all]"
+      "message": "usage: spend status | receiver status | summary [--range today|7d|30d] [--project <folder>] | export-csv [--range <r>] [--out <file>] | prune [--dry-run] [--totals --yes] | config set [--port <n>] [--retention-days <n>] [--max-mb <n>] [--show-cost on|off] | setup plan|apply|undo [--port <n>] [--overwrite <KEY>|all]"
     },
     "ok": false,
     "schemaVersion": 1

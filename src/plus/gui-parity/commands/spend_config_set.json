@@ -1,0 +1,5 @@
+{
+  "route": "spend-settings",
+  "action": "spend.settings",
+  "surface": "screen"
+}

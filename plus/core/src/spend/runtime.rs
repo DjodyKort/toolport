@@ -272,5 +272,6 @@ pub fn status(dir: &Path, now: i64) -> Value {
         },
         "showCost": cfg.show_cost,
         "profilesSetUp": super::setup::applied_profiles(dir),
+        "setup": super::setup::applied_info(dir),
     })
 }

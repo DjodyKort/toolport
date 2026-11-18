@@ -729,6 +729,9 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&spend::PRUNE])
         .skip("removes events; plus_ctl_contract runs it on a scratch data dir"),
+    row("spend config set", W)
+        .spec(&[&spend::CONFIG_SET])
+        .skip("writes the Spend settings; plus_ctl_contract runs it on a scratch data dir"),
     row("spend setup plan", R).spec(&[&spend::SETUP_PLAN]),
     row("spend setup apply", W)
         .dry()

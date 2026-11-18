@@ -13,6 +13,7 @@ pub mod report;
 pub mod runtime;
 pub mod sample;
 pub mod setup;
+pub mod stale;
 pub mod store;
 pub mod transcript;
 

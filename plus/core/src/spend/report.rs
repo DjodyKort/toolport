@@ -231,6 +231,54 @@ pub fn range_start(now: i64, range: Range) -> i64 {
     (now.div_euclid(MS_PER_DAY) - (range.days() - 1)) * MS_PER_DAY
 }
 
+fn delta(now: f64, before: f64) -> Value {
+    if before > 0.0 {
+        json!(((now - before) / before * 1000.0).round() / 1000.0)
+    } else {
+        Value::Null
+    }
+}
+
+/// All three range tiles at once, so the page reads them with one command whatever range it shows.
+fn tiles(samples: &[Sample], now: i64, keep: impl Fn(&&Sample) -> bool) -> Value {
+    let mut out = serde_json::Map::new();
+    for range in [Range::Today, Range::Days7, Range::Days30] {
+        let start = range_start(now, range);
+        let (mut current, mut previous) = (Acc::default(), Acc::default());
+        let mut estimated_days = BTreeSet::new();
+        for s in samples
+            .iter()
+            .filter(|s| s.ts >= start - range.days() * MS_PER_DAY)
+            .filter(|s| keep(s))
+        {
+            if s.ts >= start {
+                current.add(s);
+                if s.cost_estimated > 0.0 {
+                    estimated_days.insert(day_of(s.ts));
+                }
+            } else {
+                previous.add(s);
+            }
+        }
+        out.insert(
+            range.name().to_string(),
+            json!({
+                "tokens": current.tokens(),
+                "cost": {
+                    "usd": money(current.total_cost()),
+                    "estimatedUsd": money(current.cost_estimated),
+                    "badge": cost_badge(current.cost, current.cost_estimated),
+                },
+                "costDelta": delta(current.total_cost(), previous.total_cost()),
+                "previousUsd": money(previous.total_cost()),
+                "estimatedDays": estimated_days.len(),
+                "days": range.days(),
+            }),
+        );
+    }
+    Value::Object(out)
+}
+
 pub fn summary(inputs: &Inputs, range: Range, project: Option<&str>) -> Value {
     let collected = collect(inputs);
     let start = range_start(inputs.now, range);
@@ -308,13 +356,6 @@ pub fn summary(inputs: &Inputs, range: Range, project: Option<&str>) -> Value {
         })
         .collect();
     let input_side = total.input + total.cache_read + total.cache_creation;
-    let delta = |now: f64, before: f64| {
-        if before > 0.0 {
-            json!(((now - before) / before * 1000.0).round() / 1000.0)
-        } else {
-            Value::Null
-        }
-    };
     let mut out = json!({
         "range": range.name(),
         "project": project,
@@ -337,6 +378,7 @@ pub fn summary(inputs: &Inputs, range: Range, project: Option<&str>) -> Value {
             "transcriptSessions": collected.transcript_sessions,
             "estimatedShare": if grand > 0.0 { (total.cost_estimated / grand * 1000.0).round() / 1000.0 } else { 0.0 },
         },
+        "tiles": tiles(&collected.samples, inputs.now, keep),
         "notes": ["Spend is never added to upstream's saved-tokens number"],
     });
     if project.is_some() {

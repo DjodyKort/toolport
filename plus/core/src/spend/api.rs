@@ -100,20 +100,92 @@ pub fn summary(
     let ctx = ctx(host)?;
     let range = range_of(range)?;
     let store = Store::new(&ctx.dir);
+    let status = runtime::status(&ctx.dir, ctx.now);
+    let transcripts = transcript::scan(&ctx.roots);
+    let stale = status["lastEvent"]
+        .as_str()
+        .and_then(super::parse_ts)
+        .filter(|_| status["enabled"] == true)
+        .map(|last| {
+            let set_up = status["setup"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|p| super::parse_ts(p["appliedAt"].as_str()?))
+                .min();
+            let endpoint = format!("http://127.0.0.1:{}", config::load(&ctx.dir).port);
+            super::stale::check(&transcripts, last, set_up, &endpoint)
+        });
     let inputs = Inputs {
         store: &store,
-        transcripts: transcript::scan(&ctx.roots),
+        transcripts,
         runs: run_spans(&ctx.base),
         now: ctx.now,
     };
     let mut out = report::summary(&inputs, range, project);
+    out["stale"] = stale.unwrap_or(Value::Null);
     let input_side = ["input", "cacheRead", "cacheCreation"]
         .iter()
         .map(|k| out["totals"]["tokens"][k].as_u64().unwrap_or(0))
         .sum();
-    out["mcpPart"] = mcp_part::part(host, report::range_start(ctx.now, range), input_side);
-    out["status"] = runtime::status(&ctx.dir, ctx.now);
+    out["mcpPart"] = mcp_part::part(
+        host,
+        &ctx.base,
+        report::range_start(ctx.now, range),
+        input_side,
+    );
+    out["status"] = status;
     Ok(out)
+}
+
+fn flag_value<T: std::str::FromStr>(name: &str, text: Option<&str>) -> Result<Option<T>, OpError> {
+    text.map(|t| {
+        t.parse::<T>()
+            .map_err(|_| OpError::usage(format!("{name}: '{t}' is not valid")))
+    })
+    .transpose()
+}
+
+pub struct ConfigEdit<'a> {
+    pub port: Option<&'a str>,
+    pub retention_days: Option<&'a str>,
+    pub max_mb: Option<&'a str>,
+    pub show_cost: Option<&'a str>,
+}
+
+pub fn config_set(host: &dyn Host, edit: &ConfigEdit) -> Result<Value, OpError> {
+    let ctx = ctx(host)?;
+    let mut cfg = config::load(&ctx.dir);
+    let before = cfg.clone();
+    if let Some(v) = flag_value("--port", edit.port)? {
+        cfg.port = v;
+    }
+    if let Some(v) = flag_value("--retention-days", edit.retention_days)? {
+        cfg.retention_days = v;
+    }
+    if let Some(v) = flag_value("--max-mb", edit.max_mb)? {
+        cfg.max_mb = v;
+    }
+    if let Some(text) = edit.show_cost {
+        cfg.show_cost = match text {
+            "on" | "true" => true,
+            "off" | "false" => false,
+            _ => return Err(OpError::usage("--show-cost: use on or off")),
+        };
+    }
+    cfg.validate().map_err(OpError::usage)?;
+    if cfg != before {
+        config::save(&ctx.dir, &cfg).map_err(|e| OpError::failed("config_failed", e))?;
+    }
+    Ok(json!({
+        "port": cfg.port,
+        "retentionDays": cfg.retention_days,
+        "maxMb": cfg.max_mb,
+        "showCost": cfg.show_cost,
+        "enabled": cfg.enabled,
+        "portChanged": cfg.port != before.port,
+        "changed": cfg != before,
+    }))
 }
 
 pub fn export_csv(host: &dyn Host, range: Option<&str>) -> Result<(String, usize), OpError> {

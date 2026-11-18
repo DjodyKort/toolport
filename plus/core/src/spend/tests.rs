@@ -655,7 +655,12 @@ fn test25_mcp_part_counts_tool_definitions_from_savings_rows_in_range() {
         ],
         ..MemoryHost::default()
     };
-    let part = super::mcp_part::part(&host, NOW - MS_PER_DAY, 10_000);
+    let part = super::mcp_part::part(
+        &host,
+        std::path::Path::new("/nonexistent-data-dir"),
+        NOW - MS_PER_DAY,
+        10_000,
+    );
     assert_eq!(part["toolDefinitions"]["exposedTokens"], 800);
     assert_eq!(part["toolDefinitions"]["badge"], "Counted");
     assert_eq!(part["shareOfInputTokens"]["value"], 0.08);
@@ -679,4 +684,99 @@ fn test26_config_bounds_are_enforced() {
     .validate()
     .is_err());
     assert!(SpendConfig { port: 80, ..ok }.validate().is_err());
+}
+
+#[test]
+fn test27_tiles_carry_all_three_ranges_with_delta_and_estimated_days() {
+    let dir = TempDir::new().unwrap();
+    let store = Store::new(dir.path());
+    store
+        .append(&[
+            token_event("a", TOKEN_INPUT, 10.0, NOW),
+            cost_event("a", 2.0, NOW),
+            token_event("b", TOKEN_INPUT, 10.0, NOW - MS_PER_DAY),
+            cost_event("b", 1.0, NOW - MS_PER_DAY),
+        ])
+        .unwrap();
+    let summary = report::summary(&inputs(&store, &[], vec![]), Range::Days7, None);
+    let tiles = &summary["tiles"];
+    assert_eq!(tiles["today"]["cost"]["usd"], 2.0);
+    assert_eq!(tiles["today"]["previousUsd"], 1.0);
+    assert_eq!(tiles["7d"]["cost"]["usd"], 3.0);
+    assert_eq!(tiles["30d"]["days"], 30);
+    assert_eq!(tiles["7d"]["estimatedDays"], 0);
+}
+
+#[test]
+fn test28_compression_part_counts_hook_calls_and_ledger_savings() {
+    let dir = TempDir::new().unwrap();
+    let paths = crate::compression::store::Paths::new(dir.path());
+    std::fs::create_dir_all(dir.path()).unwrap();
+    let rows = [
+        r#"{"at":"2027-01-01T10:00:00Z","provider":"rtk","answered":true,"ok":true}"#,
+        r#"{"at":"2027-01-02T10:00:00Z","provider":"rtk","answered":false,"ok":true}"#,
+    ];
+    std::fs::write(
+        paths.dir.join(crate::compression::hooks::COUNTERS_FILE),
+        rows.join("\n"),
+    )
+    .unwrap();
+    let part = super::mcp_part::part(&MemoryHost::default(), dir.path(), 0, 0);
+    assert_eq!(part["compression"]["calls"], 2);
+    assert_eq!(part["compression"]["hooks"], 1);
+    assert_eq!(part["compression"]["tokensCut"], Value::Null);
+    assert_eq!(part["compression"]["badge"], "Counted");
+    assert_eq!(part["firstRequest"], Value::Null);
+}
+
+#[test]
+fn test29_config_set_saves_bounded_values_and_reports_a_port_change() {
+    let dir = TempDir::new().unwrap();
+    let mut host = MemoryHost::default();
+    host.registry.path = Some(dir.path().join("registry.json"));
+    let edit = |port, days, mb, cost| super::api::ConfigEdit {
+        port,
+        retention_days: days,
+        max_mb: mb,
+        show_cost: cost,
+    };
+    let saved = super::api::config_set(
+        &host,
+        &edit(Some("4999"), Some("14"), Some("32"), Some("off")),
+    )
+    .unwrap();
+    assert_eq!(saved["portChanged"], true);
+    assert_eq!(saved["showCost"], false);
+    let stored = config::load(&super::spend_dir(dir.path()));
+    assert_eq!(
+        (stored.port, stored.retention_days, stored.max_mb),
+        (4999, 14, 32)
+    );
+    assert!(super::api::config_set(&host, &edit(None, Some("3"), None, None)).is_err());
+    assert!(super::api::config_set(&host, &edit(None, None, None, Some("maybe"))).is_err());
+}
+
+#[test]
+fn test30_stale_check_finds_sessions_after_the_last_event_and_project_overrides() {
+    let work = TempDir::new().unwrap();
+    std::fs::create_dir_all(work.path().join(".claude")).unwrap();
+    std::fs::write(
+        work.path().join(".claude/settings.json"),
+        r#"{"env":{"OTEL_EXPORTER_OTLP_ENDPOINT":"https://collector.example.test:4317"}}"#,
+    )
+    .unwrap();
+    let mut sessions = BTreeMap::new();
+    sessions.insert(
+        "s1".to_string(),
+        transcript::TranscriptSession {
+            session: "s1".into(),
+            cwd: Some(work.path().display().to_string()),
+            first_ts: NOW,
+            last_ts: NOW + 1000,
+            samples: Vec::new(),
+        },
+    );
+    let found = super::stale::check(&sessions, NOW - MS_PER_DAY, None, "http://127.0.0.1:4318");
+    assert_eq!(found["sessionsSince"], 1);
+    assert_eq!(found["projectOverrides"].as_array().unwrap().len(), 1);
 }
