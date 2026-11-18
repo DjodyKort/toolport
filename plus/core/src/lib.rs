@@ -24,6 +24,7 @@ pub mod progress;
 mod randutil;
 mod redact;
 pub mod resource_links;
+pub mod selective;
 pub mod selfmcp;
 pub mod servers;
 pub mod skills;

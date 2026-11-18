@@ -22,9 +22,9 @@ use toolport_plus_api::SettingsStore;
 
 const CLAUDE_TIMEOUT: Duration = Duration::from_secs(120);
 const SYNCED: &str = "synced";
-const USER: &str = "user";
-const MARKETS_KEY: &str = "extraKnownMarketplaces";
-const ENABLED_KEY: &str = "enabledPlugins";
+pub(crate) const USER: &str = "user";
+pub(crate) const MARKETS_KEY: &str = "extraKnownMarketplaces";
+pub(crate) const ENABLED_KEY: &str = "enabledPlugins";
 
 #[derive(Debug, PartialEq, Eq)]
 enum Declared {
@@ -39,13 +39,13 @@ struct Target {
 }
 
 /// The user settings file as the host reads it.
-struct Settings {
-    path: PathBuf,
-    doc: Value,
+pub(crate) struct Settings {
+    pub(crate) path: PathBuf,
+    pub(crate) doc: Value,
 }
 
 impl Settings {
-    fn load(store: &dyn SettingsStore, env: &Env) -> Result<Self, OpError> {
+    pub(crate) fn load(store: &dyn SettingsStore, env: &Env) -> Result<Self, OpError> {
         let path = env.user_settings();
         let (doc, _) = store.read_settings(&path).map_err(|e| {
             OpError::conflict(format!(
@@ -82,19 +82,19 @@ impl Settings {
 }
 
 /// One entry of a settings key: set to `value`, or removed when `None`.
-struct Edit {
-    key: &'static str,
-    entry: String,
-    action: &'static str,
-    value: Option<Value>,
+pub(crate) struct Edit {
+    pub(crate) key: &'static str,
+    pub(crate) entry: String,
+    pub(crate) action: &'static str,
+    pub(crate) value: Option<Value>,
 }
 
 impl Edit {
-    fn path(&self) -> String {
+    pub(crate) fn path(&self) -> String {
         format!("{}.{}", self.key, self.entry)
     }
 
-    fn change(&self, settings: &Path) -> Value {
+    pub(crate) fn change(&self, settings: &Path) -> Value {
         json!({
             "scope": USER,
             "action": self.action,
@@ -125,7 +125,7 @@ fn with_edits(current: Option<&Value>, edits: &[&Edit]) -> Value {
 }
 
 /// One merge step per settings key the edits touch, with the key as it is now and as it will be.
-fn edit_steps(settings: &Settings, edits: &[Edit]) -> Vec<Step> {
+pub(crate) fn edit_steps(settings: &Settings, edits: &[Edit]) -> Vec<Step> {
     let mut steps = Vec::new();
     for key in [MARKETS_KEY, ENABLED_KEY] {
         let mine: Vec<&Edit> = edits.iter().filter(|e| e.key == key).collect();
@@ -153,7 +153,7 @@ fn edit_steps(settings: &Settings, edits: &[Edit]) -> Vec<Step> {
 
 /// Writes the edits one key at a time, each from a fresh read so a change made in between is
 /// refused by the writer instead of overwritten.
-fn write_edits(
+pub(crate) fn write_edits(
     store: &dyn SettingsStore,
     settings: &Settings,
     edits: &[Edit],
@@ -367,7 +367,7 @@ fn choose<'a>(market: &'a Marketplace, only: &[String]) -> Result<Vec<&'a Plugin
     Ok(chosen)
 }
 
-fn note(detail: String) -> Step {
+pub(crate) fn note(detail: String) -> Step {
     Step {
         op: "note",
         path: None,
