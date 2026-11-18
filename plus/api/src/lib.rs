@@ -37,7 +37,7 @@ pub use servers::{
     ServerRules, ServerSpec,
 };
 pub use settings::SettingsStore;
-pub use setup::{AddedServer, SetupHost, StaticSecret};
+pub use setup::{AddedServer, SetupHost, StaticSecret, UpdatedServer};
 pub use tasks::{
     FakeTaskHost, ProcessOutcome, ProcessSpec, RunApproval, RunDecision, SharedClockTaskHost,
     TaskHost,

@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use toolport_plus_api::StaticSecret;
+use toolport_plus_api::{StaticSecret, UpdatedServer};
 
 use super::inspect::{self, Opened, Standing};
 use super::repos;
@@ -57,6 +57,7 @@ enum Step {
         dest: PathBuf,
     },
     Servers(Vec<Value>),
+    UpdateServer(Value),
     Access(Value),
     Settings(Map<String, Value>),
     Files(Vec<Write>),
@@ -297,7 +298,7 @@ fn server_rows(
         };
         let other = compared(server);
         let local = existing.map(compared);
-        let (state, _) = judged(
+        let (state, replace) = judged(
             opts,
             &id,
             match existing {
@@ -317,13 +318,17 @@ fn server_rows(
             STATE_MINE => rows.push(
                 row.note("changed only on this machine: it goes out with your next push"),
             ),
-            STATE_INCOMING => rows.push(
-                Row { state: STATE_NEEDS, ..row }.note(
-                    "changed on the other machine: Toolport does not overwrite a server, update it in Servers",
-                ),
-            ),
+            STATE_INCOMING => rows.push(row.step(Step::UpdateServer(server.clone())).note(
+                "changed on the other machine: it is replaced, held if what it runs changed; the old one is saved for Undo",
+            )),
+            STATE_CONFLICT if replace => rows.push(row.step(Step::UpdateServer(server.clone())).note(
+                "changed on both machines: replaced by the other machine's, held if what it runs changed; the old one is saved for Undo",
+            )),
+            STATE_CONFLICT if opts.baseline.is_some() => rows.push(row.note(
+                "changed on both machines: yours is kept until you take the other machine's",
+            )),
             STATE_CONFLICT => rows.push(row.note(
-                "already here and different: an existing server is never overwritten",
+                "already here and different: yours is kept until you take the other machine's",
             )),
             _ => {
                 let secrets = server["env"]
@@ -937,6 +942,8 @@ struct Journal {
     undone: bool,
     settings: Map<String, Value>,
     servers: Vec<String>,
+    #[serde(default)]
+    updated: Vec<UpdatedServer>,
     access: Option<Value>,
     tasks: Vec<String>,
     clones: Vec<(String, String)>,
@@ -1032,6 +1039,12 @@ fn run_step(
             }
             Ok(format!("{} added, held", made.len()))
         }
+        Step::UpdateServer(doc) => {
+            let updated = ctx.host.setup_update_server(doc)?;
+            let note = format!("{} replaced, the old one is saved for Undo", updated.name);
+            journal.updated.push(updated);
+            Ok(note)
+        }
         Step::Access(doc) => {
             journal.access = Some(ctx.host.setup_merge_access(doc)?);
             Ok("merged".into())
@@ -1107,7 +1120,7 @@ fn run_step(
 fn order(step: &Option<Step>) -> u8 {
     match step {
         Some(Step::Settings(_)) => 0,
-        Some(Step::Servers(_)) => 1,
+        Some(Step::Servers(_) | Step::UpdateServer(_)) => 1,
         Some(Step::Access(_)) => 2,
         Some(Step::Tasks(_)) => 3,
         Some(Step::Clone { .. }) => 4,
@@ -1236,6 +1249,21 @@ pub fn undo(ctx: &Ctx<'_>, run_id: Option<&str>, dry_run: bool) -> Result<Value,
             format!("{} settings", journal.settings.len()),
             result.is_ok(),
             "old values put back",
+        );
+    }
+    for updated in journal.updated.iter().rev() {
+        let result = if dry_run {
+            Ok(())
+        } else {
+            ctx.host.setup_restore_server(updated)
+        };
+        step(
+            format!("server {}", updated.name),
+            result.is_ok(),
+            match &result {
+                Ok(()) => "the old definition is back",
+                Err(_) => "kept: changed since the restore",
+            },
         );
     }
     if let Some(added) = &journal.access {

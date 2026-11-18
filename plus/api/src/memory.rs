@@ -1408,6 +1408,45 @@ impl crate::SetupHost for MemoryHost {
         Ok(added)
     }
 
+    fn setup_update_server(&self, doc: &Value) -> Result<crate::UpdatedServer, String> {
+        let name = doc["name"].as_str().ok_or("a server has no name")?;
+        let before = self
+            .registry
+            .list_servers()?
+            .into_iter()
+            .find(|server| server.name.eq_ignore_ascii_case(name))
+            .ok_or_else(|| format!("no server named {name}"))?;
+        let id = before.id.clone();
+        let after = self.registry.edit(&id, |server| {
+            let command = doc["command"].as_str().unwrap_or("placeholder");
+            server
+                .extra
+                .insert("command".into(), Value::String(command.into()));
+            if server.text("command") != before.text("command") {
+                server.enabled = false;
+            }
+            Ok(server.clone())
+        })?;
+        Ok(crate::UpdatedServer {
+            name: before.name.clone(),
+            id,
+            before: serde_json::to_value(&before).map_err(|e| e.to_string())?,
+            after: serde_json::to_value(&after).map_err(|e| e.to_string())?,
+        })
+    }
+
+    fn setup_restore_server(&self, updated: &crate::UpdatedServer) -> Result<(), String> {
+        let before: ServerRecord =
+            serde_json::from_value(updated.before.clone()).map_err(|e| e.to_string())?;
+        self.registry.edit(&updated.id, |server| {
+            if serde_json::to_value(&*server).map_err(|e| e.to_string())? != updated.after {
+                return Err(format!("{} changed since the update", updated.name));
+            }
+            *server = before;
+            Ok(())
+        })
+    }
+
     fn setup_access(&self) -> Result<Value, String> {
         let servers = self.registry.list_servers()?;
         let name = |id: &String| {

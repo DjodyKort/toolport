@@ -17,6 +17,16 @@ pub struct AddedServer {
     pub id: String,
 }
 
+/// A server a restore replaced with the other machine's definition. `before` and `after` are the
+/// whole entry as the registry holds it; neither holds a secret value (those stay in the vault).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UpdatedServer {
+    pub name: String,
+    pub id: String,
+    pub before: Value,
+    pub after: Value,
+}
+
 /// One value the vault holds that was typed in Toolport. `kind` is `env` (a secret environment
 /// entry), `launch` (a launch argument input) or `token` (the access token of a remote server).
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -51,6 +61,20 @@ pub trait SetupHost {
     /// import: servers whose name exists are skipped, secrets are blanked and the new ones are
     /// held disabled. Fork switches are applied to the new ones. Returns what was added.
     fn setup_add_servers(&self, _servers: &[Value]) -> Result<Vec<AddedServer>, String> {
+        Err(MISSING.into())
+    }
+
+    /// Replaces the definition of the server with this name by the document's (the shape of
+    /// [`SetupHost::setup_servers`]), through the same checks an import runs. The server keeps its
+    /// id, its access sets and the values and secrets it already holds; it is held disabled when
+    /// what it runs or dials changed. Fork switches are applied.
+    fn setup_update_server(&self, _doc: &Value) -> Result<UpdatedServer, String> {
+        Err(MISSING.into())
+    }
+
+    /// Puts a server back as it was before [`SetupHost::setup_update_server`], unless it was
+    /// changed again since.
+    fn setup_restore_server(&self, _updated: &UpdatedServer) -> Result<(), String> {
         Err(MISSING.into())
     }
 

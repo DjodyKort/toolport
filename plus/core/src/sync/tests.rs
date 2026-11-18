@@ -476,3 +476,63 @@ fn test13_git_is_a_transport_with_history_and_never_forces() {
     let log = a.git(&bare, &["log", "--format=%s", "main"]);
     assert_eq!(log.lines().count(), 2);
 }
+
+fn set_command(world: &World, name: &str, command: &str) {
+    let mut servers = world.host.registry.servers.borrow_mut();
+    let server = servers.iter_mut().find(|s| s.name == name).unwrap();
+    server.extra.insert("command".into(), json!(command));
+}
+
+fn command_of(world: &World, name: &str) -> String {
+    let servers = world.host.registry.servers.borrow();
+    let server = servers.iter().find(|s| s.name == name).unwrap();
+    server.text("command").unwrap().to_string()
+}
+
+#[test]
+fn test14_a_server_changed_on_the_other_machine_alone_is_replaced_held_and_undone() {
+    let (a, b, shared) = two_machines();
+    join_folder(&a, &shared, &SERVERS_ONLY);
+    join_folder(&b, &shared, &SERVERS_ONLY);
+    push(&a);
+    apply(&b, &[]);
+    set_command(&a, "alpha", "alpha-mcp-2");
+    push(&a);
+    let plan = pull(&b, &[]);
+    assert_eq!(row(&plan, "server:alpha")["state"], "incoming");
+    assert_eq!(command_of(&b, "alpha"), "alpha-mcp");
+    let done = apply(&b, &[]);
+    assert_eq!(done["failed"], 0);
+    assert_eq!(command_of(&b, "alpha"), "alpha-mcp-2");
+    let held = b.host.registry.servers.borrow()[0].enabled;
+    assert!(!held, "a changed command is held until it is reviewed");
+    assert_eq!(row(&pull(&b, &[]), "server:alpha")["state"], "here");
+    engine::undo(&b.ctx(), false).unwrap();
+    assert_eq!(command_of(&b, "alpha"), "alpha-mcp");
+    assert!(b.host.registry.servers.borrow()[0].enabled);
+    assert_eq!(row(&pull(&b, &[]), "server:alpha")["state"], "incoming");
+}
+
+#[test]
+fn test15_a_server_changed_on_both_machines_stays_until_it_is_taken_from_the_other() {
+    let (a, b, shared) = two_machines();
+    join_folder(&a, &shared, &SERVERS_ONLY);
+    join_folder(&b, &shared, &SERVERS_ONLY);
+    push(&a);
+    apply(&b, &[]);
+    set_command(&a, "alpha", "alpha-mcp-a");
+    set_command(&b, "alpha", "alpha-mcp-b");
+    push(&a);
+    assert_eq!(row(&pull(&b, &[]), "server:alpha")["state"], "conflict");
+    apply(&b, &[]);
+    assert_eq!(command_of(&b, "alpha"), "alpha-mcp-b");
+    assert_eq!(
+        config::read_state(&b.ctx()).unwrap().pending,
+        vec!["server:alpha".to_string()]
+    );
+    apply(&b, &["server:alpha"]);
+    assert_eq!(command_of(&b, "alpha"), "alpha-mcp-a");
+    assert!(config::read_state(&b.ctx()).unwrap().pending.is_empty());
+    engine::undo(&b.ctx(), false).unwrap();
+    assert_eq!(command_of(&b, "alpha"), "alpha-mcp-b");
+}
