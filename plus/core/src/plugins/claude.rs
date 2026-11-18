@@ -1,5 +1,5 @@
-//! The `claude` binary as a mockable runner: `plugin list|update` and `plugin marketplace remove`
-//! go through it, and nothing else.
+//! The `claude` binary as a mockable runner: `plugin list|update|validate` and
+//! `plugin marketplace remove` go through it, and nothing else.
 
 use crate::skills::gitexec::{is_not_found, run_command, CmdOutput};
 use std::path::Path;

@@ -4,7 +4,8 @@
 //!
 //! Settings are written only through `SettingsStore::write_key`, and only the `enabledPlugins`
 //! and `extraKnownMarketplaces` keys. The only child process is the `claude` binary, with the
-//! fixed `plugin list`, `plugin update` and `plugin marketplace remove` arguments.
+//! fixed `plugin list`, `plugin update`, `plugin validate` and `plugin marketplace remove`
+//! arguments.
 
 pub mod claude;
 pub mod installed;
