@@ -132,6 +132,8 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("library select apply", m("--plan-hash", Str, "Hash of the plan to apply, as printed by library select plan (required)")),
     ("library select apply", m("--no-fetch", Bool, "Compare with the local clone instead of fetching the latest version")),
     ("library select apply", m("--switch", Bool, "Also switch off the whole plugin that is installed beside the chosen items")),
+    ("library select apply", m("--force", Str, "Comma list of rules whose Library folder may be replaced or removed although Toolport did not write it or it was edited since; write \\, for a comma inside a name")),
+    ("library select apply", m("--skip", Str, "Comma list of rules whose Library folder stays as it is; write \\, for a comma inside a name")),
     ("library select check", m("--no-fetch", Bool, "Compare with the local clones instead of fetching")),
     ("library select check", m("--deepen", Bool, "Download each source's whole history to see whether the pinned commit is still in it; can be large, so it never happens without this flag")),
     ("skills ls", m("--repo", Path, "Skills repository (default: the configured one)")),

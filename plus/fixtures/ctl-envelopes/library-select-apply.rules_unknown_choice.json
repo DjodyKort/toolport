@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "library",
+    "select",
+    "apply",
+    "picks",
+    "--plan-hash",
+    "sha256:afb479b886a4d993",
+    "--skip",
+    "nope"
+  ],
+  "envelope": {
+    "command": "library select apply",
+    "error": {
+      "code": "conflict",
+      "message": "rule:nope has no conflict to choose for; the plan lists: rule:style (rules/style); nothing was changed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

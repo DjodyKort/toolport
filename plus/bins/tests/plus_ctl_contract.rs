@@ -3479,6 +3479,81 @@ const CASES: &[Case] = &[
                 ],
             ),
             read("again", &["library", "select", "plan", "picks"]),
+            hook("library", taps_world::library_with_style),
+            setup(
+                "rules_choose",
+                &["library", "select", "set", "picks", "--on", "style"],
+            ),
+            read("rules_conflict", &["library", "select", "plan", "picks"]),
+            apply(
+                "rules_needs_a_choice",
+                &[
+                    "library",
+                    "select",
+                    "apply",
+                    "picks",
+                    "--plan-hash",
+                    "sha256:afb479b886a4d993",
+                ],
+            )
+            .exit(1),
+            apply(
+                "rules_unknown_choice",
+                &[
+                    "library",
+                    "select",
+                    "apply",
+                    "picks",
+                    "--plan-hash",
+                    "sha256:afb479b886a4d993",
+                    "--skip",
+                    "nope",
+                ],
+            )
+            .exit(1),
+            apply(
+                "rules_skip",
+                &[
+                    "library",
+                    "select",
+                    "apply",
+                    "picks",
+                    "--plan-hash",
+                    "sha256:afb479b886a4d993",
+                    "--skip",
+                    "style",
+                ],
+            ),
+            apply("rules_undo", &["library", "select", "undo", "picks"]),
+            apply(
+                "rules_force",
+                &[
+                    "library",
+                    "select",
+                    "apply",
+                    "picks",
+                    "--plan-hash",
+                    "sha256:afb479b886a4d993",
+                    "--force",
+                    "style",
+                ],
+            ),
+            setup(
+                "rules_off",
+                &["library", "select", "set", "picks", "--off", "style"],
+            ),
+            read("rules_remove", &["library", "select", "plan", "picks"]),
+            apply(
+                "rules_removed",
+                &[
+                    "library",
+                    "select",
+                    "apply",
+                    "picks",
+                    "--plan-hash",
+                    "sha256:c8f5d4ff7263d84a",
+                ],
+            ),
         ],
     ),
     case(

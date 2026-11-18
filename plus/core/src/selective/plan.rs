@@ -160,7 +160,8 @@ pub fn compute(prev: Option<&SourceSel>, found: &[Found], to_ref: &str, slice: &
         if found.iter().any(|f| f.kind == old.kind && f.id == old.id) {
             continue;
         }
-        if old.state.wanted() && old.kind.in_slice() && old.in_slice {
+        let linked_rule = old.kind == Kind::Rule && before.linked.contains_key(&old.id);
+        if old.state.wanted() && ((old.kind.in_slice() && old.in_slice) || linked_rule) {
             let mut kept = old.clone();
             kept.state = State::Removed;
             diffs.gone.push(Row::new(old.kind, &old.id));
@@ -183,6 +184,7 @@ pub fn compute(prev: Option<&SourceSel>, found: &[Found], to_ref: &str, slice: &
         rev: before.rev + u64::from(slice_changed),
         support: before.support.clone(),
         items,
+        linked: before.linked.clone(),
         extra: before.extra.clone(),
     };
     Computed {

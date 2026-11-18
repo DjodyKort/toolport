@@ -2,7 +2,7 @@
 //! machine's folders. `toolportctl library select` and the self-MCP tools call these.
 
 use super::check;
-use super::ops::{self, Env, Options, SetArgs};
+use super::ops::{self, Choices, Env, Options, SetArgs};
 use crate::op::OpError;
 use crate::plugins::{self, SystemClaude};
 use crate::skills::git::SystemGit;
@@ -21,6 +21,7 @@ fn with_env<T>(
         claude: &SystemClaude::from_env(),
         store: host,
         managed: crate::sources::managed_settings_path(),
+        library: crate::skills::repo::find_repo(None),
     })
 }
 
@@ -41,8 +42,11 @@ pub fn apply(
     source: &str,
     plan_hash: &str,
     opts: Options,
+    choices: &Choices,
 ) -> Result<Value, OpError> {
-    with_env(host, |env| ops::apply(env, source, plan_hash, opts))
+    with_env(host, |env| {
+        ops::apply(env, source, plan_hash, opts, choices)
+    })
 }
 
 pub fn undo(host: &dyn Host, source: &str) -> Result<Value, OpError> {

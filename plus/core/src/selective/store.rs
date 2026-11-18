@@ -111,6 +111,17 @@ impl Item {
     }
 }
 
+/// A rule this source's selection wrote into the Library: its folder name, the hash of that folder
+/// as written, and the hash of the source file it came from.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Linked {
+    pub name: String,
+    pub hash: String,
+    pub src: String,
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct SourceSel {
     #[serde(default, rename = "ref", skip_serializing_if = "Option::is_none")]
@@ -124,6 +135,9 @@ pub struct SourceSel {
     pub support: Option<String>,
     #[serde(default)]
     pub items: Vec<Item>,
+    /// Rules written into the Library, by rule id.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub linked: BTreeMap<String, Linked>,
     #[serde(flatten)]
     pub extra: Map<String, Value>,
 }

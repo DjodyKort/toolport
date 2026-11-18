@@ -1,0 +1,89 @@
+{
+  "argv": [
+    "library",
+    "select",
+    "apply",
+    "picks",
+    "--plan-hash",
+    "sha256:c8f5d4ff7263d84a"
+  ],
+  "envelope": {
+    "command": "library select apply",
+    "data": {
+      "changes": [],
+      "checked": true,
+      "conflicts": [],
+      "cwd": null,
+      "diffs": {
+        "added": [],
+        "changed": [],
+        "dropped": [],
+        "fresh": [],
+        "gone": [],
+        "retick": [],
+        "rules": []
+      },
+      "dryRun": false,
+      "fetchError": null,
+      "history": {
+        "error": null,
+        "pinned": "78b20008ec7b986019384f2adc6d00b1fa08c506",
+        "state": "unchecked"
+      },
+      "hooks": {},
+      "id": "picks",
+      "lines": {},
+      "offer": null,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "rule:style is off now; rules/style is removed from the Library",
+            "op": "unlink"
+          },
+          {
+            "detail": "Run /reload-plugins in running Claude Code sessions, or restart them, to load the change",
+            "op": "note"
+          }
+        ],
+        "summary": "Load the chosen items of picks through picks-selected@toolport-selections: 3 of 6 item(s) on",
+        "undo": "toolportctl library select undo picks",
+        "warnings": [
+          "ticked hooks run commands in every session once the plan is applied"
+        ]
+      },
+      "planHash": "<masked>",
+      "policy": {
+        "blocked": null,
+        "hooksOff": null
+      },
+      "ref": {
+        "latest": "78b20008ec7b986019384f2adc6d00b1fa08c506",
+        "pinned": "78b20008ec7b986019384f2adc6d00b1fa08c506"
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["rules/style removed"],
+        "undo": "toolportctl library select undo picks"
+      },
+      "rules": [
+        {
+          "action": "remove",
+          "current": "sha256:47722e7dfb07a644",
+          "id": "style",
+          "name": "style",
+          "path": "rules/style"
+        }
+      ],
+      "scope": "user",
+      "slice": "picks-selected@toolport-selections",
+      "source": "picks",
+      "waiting": false,
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,114 @@
+{
+  "argv": [
+    "library",
+    "select",
+    "apply",
+    "picks",
+    "--plan-hash",
+    "sha256:afb479b886a4d993",
+    "--skip",
+    "style"
+  ],
+  "envelope": {
+    "command": "library select apply",
+    "data": {
+      "changes": [],
+      "checked": true,
+      "conflicts": [
+        {
+          "action": "install",
+          "conflict": {
+            "choices": ["force", "skip"],
+            "code": "foreign",
+            "reason": "rules/style already exists in the Library and Toolport did not write it"
+          },
+          "current": "sha256:77a234764c78ebf4",
+          "id": "style",
+          "name": "style",
+          "path": "rules/style"
+        }
+      ],
+      "cwd": null,
+      "diffs": {
+        "added": [],
+        "changed": [],
+        "dropped": [],
+        "fresh": [],
+        "gone": [],
+        "retick": [],
+        "rules": [
+          {
+            "id": "style",
+            "kind": "rule"
+          }
+        ]
+      },
+      "dryRun": false,
+      "fetchError": null,
+      "history": {
+        "error": null,
+        "pinned": "78b20008ec7b986019384f2adc6d00b1fa08c506",
+        "state": "unchecked"
+      },
+      "hooks": {},
+      "id": "picks",
+      "lines": {},
+      "offer": null,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "rule:style: rules/style already exists in the Library and Toolport did not write it; choose --force style or --skip style when applying",
+            "op": "conflict"
+          },
+          {
+            "detail": "Run /reload-plugins in running Claude Code sessions, or restart them, to load the change",
+            "op": "note"
+          }
+        ],
+        "summary": "Load the chosen items of picks through picks-selected@toolport-selections: 3 of 6 item(s) on",
+        "undo": "toolportctl library select undo picks",
+        "warnings": [
+          "ticked hooks run commands in every session once the plan is applied"
+        ]
+      },
+      "planHash": "<masked>",
+      "policy": {
+        "blocked": null,
+        "hooksOff": null
+      },
+      "ref": {
+        "latest": "78b20008ec7b986019384f2adc6d00b1fa08c506",
+        "pinned": "78b20008ec7b986019384f2adc6d00b1fa08c506"
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [],
+        "undo": "toolportctl library select undo picks"
+      },
+      "rules": [
+        {
+          "action": "install",
+          "conflict": {
+            "choices": ["force", "skip"],
+            "code": "foreign",
+            "reason": "rules/style already exists in the Library and Toolport did not write it"
+          },
+          "current": "sha256:77a234764c78ebf4",
+          "id": "style",
+          "name": "style",
+          "path": "rules/style"
+        }
+      ],
+      "scope": "user",
+      "slice": "picks-selected@toolport-selections",
+      "source": "picks",
+      "waiting": false,
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

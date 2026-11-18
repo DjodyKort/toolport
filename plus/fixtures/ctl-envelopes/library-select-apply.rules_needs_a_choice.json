@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "library",
+    "select",
+    "apply",
+    "picks",
+    "--plan-hash",
+    "sha256:afb479b886a4d993"
+  ],
+  "envelope": {
+    "command": "library select apply",
+    "error": {
+      "code": "conflict",
+      "message": "1 rule(s) need a choice before apply: rule:style (rules/style); pass --force <rule> to replace or remove the Library copy, or --skip <rule> to leave it alone; nothing was changed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -86,6 +86,7 @@
       "pinned": null
     },
     "result": null,
+    "rules": [],
     "scope": "user",
     "slice": "picks-selected@toolport-selections",
     "source": "picks",

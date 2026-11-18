@@ -745,7 +745,7 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["library", "select", "apply"],
-        "Apply a plan: generate the slice plugin of the chosen items and switch it on (<source>, --plan-hash <hash>, --no-fetch, --switch)",
+        "Apply a plan: generate the slice plugin of the chosen items, switch it on and install or remove the chosen rules in the Library (<source>, --plan-hash <hash>, --no-fetch, --switch, --force, --skip)",
         library_select::apply,
     ),
     cmd(
