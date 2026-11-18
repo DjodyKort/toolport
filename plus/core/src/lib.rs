@@ -18,6 +18,7 @@ pub mod library;
 pub mod login_keychain;
 pub mod oauth;
 pub mod op;
+pub mod plugins;
 pub mod progress;
 #[cfg(test)]
 mod randutil;

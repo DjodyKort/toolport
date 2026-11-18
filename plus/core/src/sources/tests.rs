@@ -103,6 +103,8 @@ fn the_fixture_home_yields_every_detector_kind_in_result_order() {
             "vendored:repos/core/odoo-20.0/skills",
             "vendored:repos/vve-stubs/skills",
             "vendored:vendor/ext-skills/skills",
+            "plugin:alpha@market",
+            "plugin:beta@market",
             "org",
             "account",
             "library",
@@ -113,7 +115,7 @@ fn the_fixture_home_yields_every_detector_kind_in_result_order() {
     );
     let detectors: std::collections::BTreeSet<&str> =
         report.sources.iter().map(|s| s.detector).collect();
-    assert_eq!(detectors.len(), 9);
+    assert_eq!(detectors.len(), 10);
 }
 
 #[test]
@@ -207,6 +209,88 @@ fn vendored_folders_come_from_repos_and_gitmodules() {
         .audit,
         "unchecked"
     );
+}
+
+#[test]
+fn plugin_enabled_state_follows_user_settings_and_project_local_overrides() {
+    let fx = Fx::new("plugin");
+    let report = fx.all();
+    let alpha = source(&report, "plugin:alpha@market");
+    let beta = source(&report, "plugin:beta@market");
+    assert_eq!((alpha.enabled, beta.enabled), (Some(true), Some(false)));
+    assert_eq!(alpha.managed_by.as_deref(), Some("marketplace"));
+    assert_eq!(
+        (alpha.counts.skill, alpha.counts.command, alpha.counts.agent),
+        (1, 1, 1)
+    );
+    assert!(
+        alpha.tokens.value > 0 && beta.tokens.value > 0,
+        "tokens count even when off"
+    );
+
+    let project = fx.w.base.join("project");
+    world::put(
+        &project.join(".claude/settings.local.json"),
+        "{\"enabledPlugins\":{\"beta@market\":true,\"alpha@market\":false}}",
+    );
+    let with_cwd = fx.scan(&ScanOptions {
+        cwd: Some(project),
+        ..ScanOptions::default()
+    });
+    assert_eq!(
+        source(&with_cwd, "plugin:alpha@market").enabled,
+        Some(false)
+    );
+    assert_eq!(source(&with_cwd, "plugin:beta@market").enabled, Some(true));
+}
+
+#[test]
+fn a_managed_setting_decides_over_the_user_settings() {
+    let mut fx = Fx::new("plugin-managed");
+    let managed = fx.w.base.join("managed-settings.json");
+    world::put(&managed, "{\"enabledPlugins\":{\"alpha@market\":false}}");
+    fx.places.managed_settings = Some(managed);
+    let report = fx.all();
+    let alpha = source(&report, "plugin:alpha@market");
+    assert_eq!(alpha.enabled, Some(false));
+    assert!(
+        alpha.status.detail.contains("managed"),
+        "{}",
+        alpha.status.detail
+    );
+}
+
+#[test]
+fn a_plugin_whose_install_folder_is_gone_is_unreachable_not_missing() {
+    let fx = Fx::new("plugin-gone");
+    std::fs::remove_dir_all(fx.w.home.join(".claude/plugins/cache/market/beta")).unwrap();
+    let report = fx.all();
+    let beta = source(&report, "plugin:beta@market");
+    assert_eq!(beta.status.state, "unreachable");
+    assert!(items_of(&report, "plugin:beta@market").is_empty());
+}
+
+#[test]
+fn a_marketplace_tap_counts_the_skills_and_agents_of_its_plugins() {
+    let fx = Fx::new("marketplace-tap");
+    let clone = fx.w.data.join("taps/acme-tools");
+    world::put(
+        &clone.join(".claude-plugin/marketplace.json"),
+        r#"{"name": "acme", "plugins": [{"name": "core", "source": "./plugins/core"}]}"#,
+    );
+    world::put(
+        &clone.join("plugins/core/skills/task/SKILL.md"),
+        "---\nname: task\ndescription: A plugin skill\n---\nBody.\n",
+    );
+    world::put(
+        &clone.join("plugins/core/agents/helper.md"),
+        "---\nname: helper\ndescription: A plugin agent\n---\nBody.\n",
+    );
+    let report = fx.all();
+    let tap = source(&report, "tap:acme-tools");
+    assert_eq!((tap.counts.skill, tap.counts.agent), (2, 1));
+    item(&report, "tap:acme-tools", "skill", "task");
+    item(&report, "tap:acme-tools", "agent", "helper");
 }
 
 #[test]
@@ -355,6 +439,12 @@ fn a_selector_names_a_source_a_detector_or_a_kind_of_origin() {
         })
     };
     assert_eq!(by("library").sources.len(), 1);
+    assert_eq!(by("plugin").sources.len(), 2);
+    assert_eq!(by("plugin:beta@market").sources.len(), 1);
+    assert!(by("plugin:beta@market")
+        .items
+        .iter()
+        .all(|i| i.source_id == "plugin:beta@market"));
     assert_eq!(by("tap").sources.len(), 1);
     assert!(by("tap:acme-tools")
         .items
@@ -578,6 +668,7 @@ fn the_detector_sources_hold_no_call_that_opens_a_file_for_writing() {
         ("library.rs", include_str!("library.rs")),
         ("loose.rs", include_str!("loose.rs")),
         ("org.rs", include_str!("org.rs")),
+        ("plugin.rs", include_str!("plugin.rs")),
         ("repo.rs", include_str!("repo.rs")),
         ("scope.rs", include_str!("scope.rs")),
         ("tap.rs", include_str!("tap.rs")),
