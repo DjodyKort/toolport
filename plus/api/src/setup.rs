@@ -95,4 +95,29 @@ pub trait SetupHost {
     fn setup_store_secret(&self, _secret: &StaticSecret) -> Result<(), String> {
         Err(MISSING.into())
     }
+
+    /// Whether upstream's own personal sync is switched on. While it is, it writes the servers,
+    /// and a second writer of that part would race it.
+    fn upstream_sync_active(&self) -> Result<bool, String> {
+        Err(MISSING.into())
+    }
+
+    /// The passphrase the sync file is sealed with, from the keychain. `unattended` reads never
+    /// ask the person to unlock the keychain: a locked one is an error.
+    fn sync_passphrase(&self, _unattended: bool) -> Result<Option<String>, String> {
+        Err(MISSING.into())
+    }
+
+    fn sync_store_passphrase(&self, _passphrase: &str) -> Result<(), String> {
+        Err(MISSING.into())
+    }
+
+    fn sync_clear_passphrase(&self) -> Result<(), String> {
+        Err(MISSING.into())
+    }
+
+    /// True when reading the keychain now could ask the person to unlock it.
+    fn keyring_locked(&self) -> bool {
+        false
+    }
 }

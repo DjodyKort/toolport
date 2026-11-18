@@ -717,6 +717,15 @@ pub struct MemoryHost {
     pub settings_paths: Vec<PathBuf>,
     pub tasks: crate::tasks::FakeTaskHost,
     pub launch_at_login: Cell<Option<bool>>,
+    pub sync: MemorySync,
+}
+
+/// What the sync seam of a test host answers.
+#[derive(Debug, Default)]
+pub struct MemorySync {
+    pub passphrase: RefCell<Option<String>>,
+    pub keyring_locked: Cell<bool>,
+    pub upstream_active: Cell<bool>,
 }
 
 impl crate::SettingsStore for MemoryHost {
@@ -1519,6 +1528,31 @@ impl crate::SetupHost for MemoryHost {
                 value: value.clone(),
             })
             .collect())
+    }
+
+    fn upstream_sync_active(&self) -> Result<bool, String> {
+        Ok(self.sync.upstream_active.get())
+    }
+
+    fn sync_passphrase(&self, unattended: bool) -> Result<Option<String>, String> {
+        if unattended && self.sync.keyring_locked.get() {
+            return Err("the keyring is locked".into());
+        }
+        Ok(self.sync.passphrase.borrow().clone())
+    }
+
+    fn sync_store_passphrase(&self, passphrase: &str) -> Result<(), String> {
+        *self.sync.passphrase.borrow_mut() = Some(passphrase.to_string());
+        Ok(())
+    }
+
+    fn sync_clear_passphrase(&self) -> Result<(), String> {
+        *self.sync.passphrase.borrow_mut() = None;
+        Ok(())
+    }
+
+    fn keyring_locked(&self) -> bool {
+        self.sync.keyring_locked.get()
     }
 
     fn setup_store_secret(&self, secret: &crate::StaticSecret) -> Result<(), String> {

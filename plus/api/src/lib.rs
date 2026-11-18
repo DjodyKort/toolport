@@ -28,7 +28,7 @@ pub use fork_data::{
 };
 pub use http::{HttpAccess, HttpBody, HttpError, HttpMethod, HttpRequest, HttpResponse};
 pub use memory::{
-    MemoryGateway, MemoryHost, MemoryRegistry, MemorySecrets, MemoryState, ScriptedHttp,
+    MemoryGateway, MemoryHost, MemoryRegistry, MemorySecrets, MemoryState, MemorySync, ScriptedHttp,
 };
 pub use mirror::{convert, ServerRecord};
 pub use secrets::{SecretsHost, TrustInputs, VaultAccess, HTTP_AUTH_KEY};

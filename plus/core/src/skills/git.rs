@@ -25,7 +25,37 @@ pub trait GitRunner {
     fn is_repo(&self, path: &Path) -> bool {
         path.join(".git").exists()
     }
+
+    fn fetch(&self, _repo: &Path) -> Result<(), String> {
+        Err(UNSUPPORTED.into())
+    }
+
+    /// Puts the working tree on `branch`: the remote's copy when it has one, else a new branch.
+    /// Local changes of the tree are dropped; it is a cache of the remote.
+    fn checkout_remote(&self, _repo: &Path, _branch: &str) -> Result<(), String> {
+        Err(UNSUPPORTED.into())
+    }
+
+    /// Commits everything in the working tree; `None` when there was nothing to commit.
+    fn commit_all(&self, _repo: &Path, _message: &str) -> Result<Option<String>, String> {
+        Err(UNSUPPORTED.into())
+    }
+
+    /// A plain push of HEAD to `branch`, never forced.
+    fn push(&self, _repo: &Path, _branch: &str) -> Result<(), String> {
+        Err(UNSUPPORTED.into())
+    }
 }
+
+const UNSUPPORTED: &str = "this git runner cannot do that";
+const COMMITTER: [&str; 6] = [
+    "-c",
+    "user.name=Toolport",
+    "-c",
+    "commit.gpgsign=false",
+    "-c",
+    "user.email=toolport@localhost.invalid",
+];
 
 pub struct SystemGit;
 
@@ -68,6 +98,63 @@ impl GitRunner for SystemGit {
 
     fn head(&self, repo: &Path) -> Result<String, String> {
         self.run(Some(repo), &["rev-parse", "HEAD"])
+    }
+
+    fn fetch(&self, repo: &Path) -> Result<(), String> {
+        self.run(Some(repo), &["fetch", "--quiet", "origin"])
+            .map(|_| ())
+    }
+
+    fn checkout_remote(&self, repo: &Path, branch: &str) -> Result<(), String> {
+        safe_branch(branch)?;
+        let remote = format!("refs/remotes/origin/{branch}");
+        if self
+            .run(Some(repo), &["rev-parse", "--verify", "-q", &remote])
+            .is_ok()
+        {
+            let start = format!("origin/{branch}");
+            self.run(
+                Some(repo),
+                &["checkout", "--quiet", "--force", "-B", branch, &start],
+            )
+            .map(|_| ())
+        } else {
+            let head = format!("refs/heads/{branch}");
+            self.run(Some(repo), &["symbolic-ref", "HEAD", &head])
+                .map(|_| ())
+        }
+    }
+
+    fn commit_all(&self, repo: &Path, message: &str) -> Result<Option<String>, String> {
+        self.run(Some(repo), &["add", "-A"])?;
+        if self.run(Some(repo), &["status", "--porcelain"])?.is_empty() {
+            return Ok(None);
+        }
+        let mut args: Vec<&str> = COMMITTER.to_vec();
+        args.extend(["commit", "--quiet", "-m", message]);
+        self.run(Some(repo), &args)?;
+        self.head(repo).map(Some)
+    }
+
+    fn push(&self, repo: &Path, branch: &str) -> Result<(), String> {
+        safe_branch(branch)?;
+        let spec = format!("HEAD:refs/heads/{branch}");
+        self.run(Some(repo), &["push", "--quiet", "origin", &spec])
+            .map(|_| ())
+    }
+}
+
+fn safe_branch(branch: &str) -> Result<(), String> {
+    let plain = !branch.is_empty()
+        && !branch.starts_with(['-', '/', '.'])
+        && !branch.contains("..")
+        && branch
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '/' | '.'));
+    if plain {
+        Ok(())
+    } else {
+        Err(format!("refusing branch name {branch:?}"))
     }
 }
 
@@ -117,5 +204,22 @@ impl GitRunner for MockGit {
     fn head(&self, repo: &Path) -> Result<String, String> {
         self.record(format!("head {}", repo.display()))?;
         Ok(self.head_sha.borrow().clone())
+    }
+
+    fn fetch(&self, repo: &Path) -> Result<(), String> {
+        self.record(format!("fetch {}", repo.display()))
+    }
+
+    fn checkout_remote(&self, repo: &Path, branch: &str) -> Result<(), String> {
+        self.record(format!("checkout {branch} {}", repo.display()))
+    }
+
+    fn commit_all(&self, repo: &Path, message: &str) -> Result<Option<String>, String> {
+        self.record(format!("commit {message} {}", repo.display()))?;
+        Ok(Some(self.head_sha.borrow().clone()))
+    }
+
+    fn push(&self, repo: &Path, branch: &str) -> Result<(), String> {
+        self.record(format!("push {branch} {}", repo.display()))
     }
 }

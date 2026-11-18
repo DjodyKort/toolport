@@ -121,7 +121,7 @@ fn auth_method(repo: &Path, url: &str) -> (&'static str, bool) {
     )
 }
 
-fn classify(stderr: &str) -> &'static str {
+pub(crate) fn classify(stderr: &str) -> &'static str {
     let text = stderr.to_lowercase();
     if [
         "authentication",
