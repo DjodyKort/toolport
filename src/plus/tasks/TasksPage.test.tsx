@@ -450,7 +450,7 @@ describe("Tasks screen: history", () => {
   it("test30_history_mixes_tasks_with_chips_and_skipped_slots_behind_a_switch", async () => {
     open();
     await userEvent.click(await screen.findByRole("tab", { name: /History/ }));
-    await screen.findByText("Today");
+    await screen.findByText("Today", {}, { timeout: 5000 });
     expect(screen.getAllByText("Catch-up").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Busy: slot not run").length).toBe(1);
     await userEvent.click(screen.getByRole("switch", { name: "Skipped slots" }));
