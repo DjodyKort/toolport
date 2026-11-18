@@ -18,6 +18,7 @@ export const KIND_TITLE: Record<ItemKind, string> = {
 
 export const GROUP_LIMIT = 40;
 
+export type RuleChoices = Record<string, "force" | "skip">;
 export type Want = "on" | "off" | "tick";
 export type Staged = Record<string, Want>;
 export type StateView = "all" | "on" | "new";
@@ -138,13 +139,30 @@ export function setCommand(source: string, changes: SetChanges): string | null {
   return `toolportctl library select set ${source} ${parts.join(" ")}`;
 }
 
+export function choiceFlags(choices: RuleChoices): string[] {
+  const ids = (want: string) =>
+    Object.entries(choices)
+      .filter(([, value]) => value === want)
+      .map(([id]) => escapeCommas(id))
+      .sort();
+  const [force, skip] = [ids("force"), ids("skip")];
+  return [
+    ...(force.length ? ["--force", force.join(",")] : []),
+    ...(skip.length ? ["--skip", skip.join(",")] : []),
+  ];
+}
+
 export function commandLines(
   source: string,
   changes: SetChanges,
   hash: string | null,
   switchWhole: boolean,
+  choices: RuleChoices = {},
 ): string[] {
-  const flag = switchWhole ? " --switch" : "";
+  const flag = [switchWhole ? "--switch" : "", ...choiceFlags(choices).map(quote)]
+    .filter(Boolean)
+    .map((part) => ` ${part}`)
+    .join("");
   return [
     setCommand(source, changes),
     `toolportctl library select plan ${source}${flag}`,

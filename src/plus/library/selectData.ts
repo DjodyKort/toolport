@@ -71,6 +71,14 @@ export interface PlanDiffs {
   rules: PlanRowData[];
 }
 
+export interface RuleRow {
+  id: string;
+  name: string;
+  action: "install" | "update" | "remove" | "forget";
+  path: string;
+  conflict?: { code: string; reason: string; choices: Array<"force" | "skip"> };
+}
+
 export interface LineCount {
   added: number;
   removed: number;
@@ -94,6 +102,8 @@ export interface SelectPlanData {
   checked: boolean;
   fetchError: string | null;
   history: SelectHistory;
+  rules: RuleRow[];
+  conflicts?: RuleRow[];
   diffs: PlanDiffs;
   lines: Record<string, LineCount>;
   hooks: Record<string, HookText>;

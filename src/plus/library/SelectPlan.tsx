@@ -7,15 +7,21 @@ import { toastError } from "@/lib/toast";
 import { CtlError } from "../bridge/ctl";
 import { errorText } from "../settings/useCtl";
 import HookReview, { type HookView } from "./HookReview";
-import { plural } from "./model";
 import { selectApply, selectPlan, selectSet, selectUndo } from "./selectCommands";
 import type {
   PlanRowData,
+  RuleRow,
   SelectHistory,
   SelectItem,
   SelectPlanData,
 } from "./selectData";
-import { commandLines, lineSummary, rowLabel, shortRef } from "./selectModel";
+import {
+  commandLines,
+  lineSummary,
+  rowLabel,
+  shortRef,
+  type RuleChoices,
+} from "./selectModel";
 import { Banner, CliFooter, HistoryBanner, PolicyBanners } from "./SelectParts";
 
 function Group({
@@ -86,7 +92,10 @@ export default function SelectPlan({
   const [applied, setApplied] = useState<SelectPlanData | null>(null);
   const [review, setReview] = useState<HookView | null>(null);
   const [kept, setKept] = useState<Set<string>>(new Set());
+  const [choices, setChoices] = useState<RuleChoices>({});
   const d = plan.diffs;
+  const rules = plan.rules ?? [];
+  const undecided = rules.filter((r) => r.conflict && !choices[r.id]).length;
 
   async function replan() {
     setBusy(true);
@@ -103,7 +112,15 @@ export default function SelectPlan({
   async function apply() {
     setBusy(true);
     try {
-      setApplied(await selectApply(source, plan.planHash, switchWhole));
+      const done = await selectApply(source, plan.planHash, switchWhole, choices);
+      setApplied(done);
+      const written =
+        done.result?.changed.filter((line) => line.startsWith("rules/")) ?? [];
+      if (written.length > 0) {
+        toast.success(`${written.join(", ")} in your Library`, {
+          action: { label: "Undo", onClick: () => void undo() },
+        });
+      }
     } catch (error) {
       if (error instanceof CtlError && error.code === "conflict") {
         setStale(errorText(error));
@@ -131,9 +148,12 @@ export default function SelectPlan({
     setBusy(true);
     try {
       await selectUndo(source);
-      toast.success("Restored what Claude Code loads from before this apply", {
-        description: "Your choices are kept; review the plan to apply them again.",
-      });
+      toast.success(
+        "Restored what Claude Code loads and the rules in your Library from before this apply",
+        {
+          description: "Your choices are kept; review the plan to apply them again.",
+        },
+      );
       onApplied();
     } catch (error) {
       toastError("Nothing was changed", { description: errorText(error) });
@@ -199,7 +219,11 @@ export default function SelectPlan({
           <Button variant="outline" size="sm" onClick={onBack}>
             Not now
           </Button>
-          <Button size="sm" disabled={busy || nothing} onClick={() => void apply()}>
+          <Button
+            size="sm"
+            disabled={busy || nothing || undecided > 0}
+            onClick={() => void apply()}
+          >
             Apply plan
           </Button>
         </div>
@@ -385,20 +409,22 @@ export default function SelectPlan({
         </Group>
       )}
 
-      {d.rules.length > 0 && (
-        <Banner tone="info">
-          {plural(d.rules.length, "rule")} on ({d.rules.map((r) => r.id).join(", ")}):
-          rules are not part of the generated plugin. Link them through the Library:
-          <ul className="mt-1 list-disc pl-5">
-            {plan.plan.steps
-              .filter((step) => step.op === "link")
-              .map((step) => (
-                <li key={step.detail} className="break-words">
-                  {step.detail.replace(/^rule:/, "")}
-                </li>
-              ))}
-          </ul>
-        </Banner>
+      {rules.length > 0 && (
+        <Group
+          title={`Rules in your Library (${rules.length})`}
+          pill={undecided > 0 ? `${undecided} need a choice` : "written with the plan"}
+          tone={undecided > 0 ? "warning" : "success"}
+        >
+          {rules.map((rule) => (
+            <RuleLine
+              key={rule.id}
+              rule={rule}
+              choice={choices[rule.id]}
+              busy={busy}
+              onChoose={(value) => setChoices({ ...choices, [rule.id]: value })}
+            />
+          ))}
+        </Group>
       )}
 
       <details className="rounded-lg border bg-card px-3 py-2 text-meta">
@@ -418,6 +444,7 @@ export default function SelectPlan({
           { on: [], off: [], tick: [] },
           plan.planHash,
           switchWhole,
+          choices,
         )}
       />
 
@@ -430,6 +457,51 @@ export default function SelectPlan({
         />
       )}
     </section>
+  );
+}
+
+const RULE_NOTE: Record<RuleRow["action"], (path: string) => string> = {
+  install: (path) => `installs into your Library as ${path}`,
+  update: (path) => `changed upstream; ${path} in your Library is replaced`,
+  remove: (path) => `is off now; ${path} is removed from your Library`,
+  forget: (path) => `is off now; ${path} is already gone from your Library`,
+};
+
+function RuleLine({
+  rule,
+  choice,
+  busy,
+  onChoose,
+}: {
+  rule: RuleRow;
+  choice: RuleChoices[string] | undefined;
+  busy: boolean;
+  onChoose: (value: "force" | "skip") => void;
+}) {
+  const removing = rule.action === "remove";
+  const labels = {
+    force: removing ? "Remove it" : "Replace it",
+    skip: removing ? "Keep it" : "Keep mine",
+  };
+  const conflict = rule.conflict;
+  return (
+    <Line
+      row={{ kind: "rule", id: rule.id }}
+      note={conflict ? conflict.reason : RULE_NOTE[rule.action](rule.path)}
+    >
+      {conflict?.choices.map((value) => (
+        <Button
+          key={value}
+          variant={choice === value ? "default" : "outline"}
+          size="sm"
+          aria-pressed={choice === value}
+          disabled={busy}
+          onClick={() => onChoose(value)}
+        >
+          {labels[value]}
+        </Button>
+      ))}
+    </Line>
   );
 }
 

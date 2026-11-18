@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { plusFixtureIpc, resetPlusFixture } from "../fixtures/ipc";
 import type { SelectScenario } from "../fixtures/selectWorld";
 import { guiParity } from "../guiParity";
+import { toast } from "sonner";
 import { invokeLog, ranArgv } from "../servers/testkit";
 import SelectScreen from "./SelectScreen";
 import SourcesTab from "./SourcesTab";
@@ -328,14 +329,62 @@ describe("Library > Sources > Choose items", () => {
     expect(screen.getByText(/Everything is on: all 10 items will load/)).toBeVisible();
   });
 
-  it("test19_rules_are_listed_as_linked_through_the_library_not_the_plugin", async () => {
+  it("test19_a_chosen_rule_is_planned_into_the_library_and_written_on_apply", async () => {
     setup("chosen");
     await ready();
     await userEvent.click(box("rule style"));
     await userEvent.click(screen.getByRole("button", { name: "Apply 1 change" }));
     const plan = await screen.findByRole("region", { name: "Update plan" });
-    expect(plan).toHaveTextContent("Link them through the Library");
-    expect(plan).toHaveTextContent("toolportctl skills install @acme/skills/style");
+    const rules = within(plan).getByRole("region", { name: "Rules in your Library (1)" });
+    expect(rules).toHaveTextContent("installs into your Library as rules/style");
+    expect(within(rules).queryByRole("button", { name: "Replace it" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Apply plan" }));
+    expect(await screen.findByRole("region", { name: "Applied" })).toBeVisible();
+    expect(ranSelect("apply")[0]).not.toContain("--force");
+    expect(toast.success).toHaveBeenCalledWith(
+      "rules/style written in your Library",
+      expect.objectContaining({
+        action: expect.objectContaining({ label: "Undo" }),
+      }),
+    );
+  });
+
+  it("test27_a_rule_folder_that_toolport_did_not_write_needs_a_choice_before_apply", async () => {
+    setup("rule-conflict");
+    await ready();
+    await userEvent.click(box("rule style"));
+    await userEvent.click(screen.getByRole("button", { name: "Apply 1 change" }));
+    const plan = await screen.findByRole("region", { name: "Update plan" });
+    expect(plan).toHaveTextContent("rules/style already exists in the Library");
+    expect(screen.getByRole("button", { name: "Apply plan" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Keep mine" }));
+    expect(screen.getByRole("button", { name: "Apply plan" })).toBeEnabled();
+    expect(screen.getByRole("region", { name: "From a terminal" })).toHaveTextContent(
+      "--skip style",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Replace it" }));
+    expect(screen.getByRole("region", { name: "From a terminal" })).toHaveTextContent(
+      "--force style",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Apply plan" }));
+    await screen.findByRole("region", { name: "Applied" });
+    expect(ranSelect("apply")[0].slice(-2)).toEqual(["--force", "style"]);
+  });
+
+  it("test28_undo_after_a_rule_install_runs_library_select_undo", async () => {
+    setup("chosen");
+    await ready();
+    await userEvent.click(box("rule style"));
+    await userEvent.click(screen.getByRole("button", { name: "Apply 1 change" }));
+    await screen.findByRole("region", { name: "Update plan" });
+    await userEvent.click(screen.getByRole("button", { name: "Apply plan" }));
+    await screen.findByRole("region", { name: "Applied" });
+    await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(ranSelect("undo")).toHaveLength(1));
+    expect(toast.success).toHaveBeenCalledWith(
+      expect.stringContaining("rules in your Library"),
+      expect.anything(),
+    );
   });
 
   it("test20_rows_wrap_on_a_phone_width_so_actions_stay_inside_the_row", async () => {

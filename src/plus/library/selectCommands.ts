@@ -8,7 +8,7 @@ import type {
   SelectUndoData,
   SetChanges,
 } from "./selectData";
-import { escapeCommas } from "./selectModel";
+import { choiceFlags, escapeCommas, type RuleChoices } from "./selectModel";
 
 const SELECT = ["library", "select"];
 
@@ -40,7 +40,12 @@ export const selectPlan = (source: string, switchWhole: boolean) =>
     ...(switchWhole ? ["--switch"] : []),
   ]);
 
-export const selectApply = (source: string, hash: string, switchWhole: boolean) =>
+export const selectApply = (
+  source: string,
+  hash: string,
+  switchWhole: boolean,
+  choices: RuleChoices = {},
+) =>
   ctlData<SelectPlanData>([
     ...SELECT,
     "apply",
@@ -48,6 +53,7 @@ export const selectApply = (source: string, hash: string, switchWhole: boolean) 
     "--plan-hash",
     hash,
     ...(switchWhole ? ["--switch"] : []),
+    ...choiceFlags(choices),
   ]);
 
 export const selectUndo = (source: string) =>
