@@ -1,5 +1,5 @@
 {
-  "route": "servers",
-  "action": "servers.direct-entries",
+  "route": "client-direct",
+  "action": "client.direct-entries",
   "surface": "screen"
 }
