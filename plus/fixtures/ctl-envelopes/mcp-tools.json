@@ -113,6 +113,14 @@
           "tier": 1
         },
         {
+          "description": "List what needs the person right now, computed fresh: missing secrets, sign-ins that need renewing, the secrets vault, tasks waiting for you or failing, and library changes held back. Rows are ordered needs-you first, newest first, each with a source and an action; checks lists any area that could not be read. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "attention_list",
+          "params": [],
+          "tier": 1
+        },
+        {
           "description": "List where skills, commands, agents, rules and CLAUDE.md files come from: repos, clients, the org sync, the library, taps and loose files",
           "dryRunDefault": false,
           "gate": "none",

@@ -1,0 +1,7 @@
+{
+  "command": "attention ls",
+  "dryRun": "none",
+  "name": "attention_list",
+  "tier": "read",
+  "toolTier": 1
+}

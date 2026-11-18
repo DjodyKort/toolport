@@ -12,6 +12,7 @@
 //! the rows, so a new command is classified by adding its row and nothing else.
 
 use super::agents;
+use super::attention;
 use super::auth;
 use super::context;
 use super::flags::{switch, value, Flag, Spec};
@@ -471,6 +472,7 @@ pub(super) const ROWS: &[Row] = &[
     row("skills auto resume", W).skip("clears the pause flag in the data dir; golden step"),
     row("skills ls", R).spec(&[&skills::LS_SOURCE]),
     row("skills lint", R).spec(&[&skills::LINT]),
+    row("attention ls", R).spec(&[&attention::LS]),
     row("sources ls", R).spec(&[&sources::LS]),
     row("sources root ls", R).spec(&[&sources::ROOT_LS]),
     row("sources root add", W)
@@ -914,6 +916,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("skills_get", R),
     maps("skills_lint", R, "skills lint"),
     maps("skills_files", R, "skills files"),
+    maps("attention_list", R, "attention ls"),
     maps("sources_ls", R, "sources ls"),
     maps("skills_fix", W, "skills fix").on(),
     maps("skills_status", R, "skills status"),

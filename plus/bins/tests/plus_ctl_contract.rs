@@ -18,6 +18,7 @@ use toolport_plus::ctl::{registry, rows, Smoke, Tier, COMMANDS, SCHEMA_VERSION};
 use toolport_plus::selfmcp::TOOLS;
 
 mod common;
+use common::attention_world::{attention_home, attention_quiet};
 use common::compression::{
     edit_wrapped_hook, fake_proxy, fixture_hooks, lose_hooks, measure_world, rtk_home,
     silent_hooks, transcripts,
@@ -214,6 +215,16 @@ const PIPED_TASK: &str = r#"{"id":"piped-cleanup","title":"Cleanup from stdin","
 const PIPED_EDIT: &str = r#"{"id":"nightly-report","title":"Nightly report (from stdin)","description":"","enabled":true,"requires":{"servers":[],"commands":["echo"]},"writesSecrets":[],"steps":[{"id":"say","title":"Say hello","type":"exec","program":"echo","args":["report"]}],"triggers":{"manual":true,"cli":false,"selfMcp":{"enabled":false,"approval":"every-run"},"schedule":{"cron":"0 3 * * *","autoRun":true},"onAuthFailure":[]},"createdFrom":null}"#;
 
 const CASES: &[Case] = &[
+    case(
+        "attention ls",
+        &[
+            hook("quiet-world", attention_quiet),
+            read("quiet", &["attention", "ls"]),
+            hook("busy-world", attention_home),
+            read("busy", &["attention", "ls"]),
+            usage("usage", &["attention", "ls", "extra"]),
+        ],
+    ),
     case(
         "task ls",
         &[

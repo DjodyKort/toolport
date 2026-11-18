@@ -15,6 +15,7 @@ use serde_json::{json, Value};
 use toolport_plus::selfmcp::{RESOURCES, TOOLS};
 
 mod common;
+use common::attention_world::attention_home;
 use common::client::Client;
 use common::compression;
 use common::library_world::{self, library_home};
@@ -153,6 +154,11 @@ const AIDER_REMOVE_UNCONFIRMED: &str = r#"{"client_keys":["aider"],"dry_run":fal
 const AIDER_REMOVE: &str = r#"{"client_keys":["aider"],"dry_run":false,"confirm":true}"#;
 
 const CASES: &[Case] = &[
+    prepared(
+        "attention_list",
+        attention_home,
+        &[read("busy", "attention_list", "{}")],
+    ),
     prepared(
         "tasks_list",
         tasks_home,

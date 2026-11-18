@@ -7,6 +7,7 @@
 //! handler accepts.
 
 mod agents;
+mod attention;
 mod auth;
 mod commands;
 mod commands_json;
@@ -462,6 +463,11 @@ pub const COMMANDS: &[Command] = &[
         &["styles", "clean"],
         "Remove every synced and applied style file (--path, --home, --project, --dry-run)",
         styles::clean,
+    ),
+    cmd(
+        &["attention", "ls"],
+        "List what needs you now: missing secrets, expired sign-ins, tasks waiting or failing, library changes held back",
+        attention::ls,
     ),
     cmd(
         &["sources", "ls"],

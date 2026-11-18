@@ -2,6 +2,7 @@
 //! JSON-RPC dispatch. A tool calls the same core function as the matching `toolportctl`
 //! command, so the two surfaces share one implementation.
 
+mod attention;
 mod backend;
 mod catalog;
 mod compression;

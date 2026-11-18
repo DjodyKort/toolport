@@ -2,7 +2,8 @@ use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
 use super::{
-    backend, compression, content, context, library, servers, skills, sources, tasks, ToolError,
+    attention, backend, compression, content, context, library, servers, skills, sources, tasks,
+    ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -158,6 +159,14 @@ pub const TOOLS: &[ToolDef] = &[
             p("names", Ty::StrList, false, "Limit to these skills")
         ],
         skills::lint
+    ),
+    tool!(
+        "attention_list",
+        1,
+        None,
+        "List what needs the person right now, computed fresh: missing secrets, sign-ins that need renewing, the secrets vault, tasks waiting for you or failing, and library changes held back. Rows are ordered needs-you first, newest first, each with a source and an action; checks lists any area that could not be read. Read only",
+        [],
+        attention::list
     ),
     tool!(
         "sources_ls",
