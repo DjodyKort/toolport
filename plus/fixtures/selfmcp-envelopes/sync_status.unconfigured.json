@@ -63,6 +63,13 @@
         "id": "secrets",
         "label": "Secrets",
         "on": false
+      },
+      {
+        "default": true,
+        "handledBy": null,
+        "id": "serverRepos",
+        "label": "Server repositories",
+        "on": false
       }
     ],
     "passphrase": "[redacted]",
