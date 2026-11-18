@@ -48,6 +48,7 @@ const SUMMARY_KEYS = [
   "byTask",
   "cacheShare",
   "mcpPart",
+  "model",
   "notes",
   "previous",
   "project",
@@ -56,6 +57,7 @@ const SUMMARY_KEYS = [
   "sources",
   "stale",
   "status",
+  "task",
   "tiles",
   "totals",
 ];

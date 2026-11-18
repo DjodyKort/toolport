@@ -338,7 +338,8 @@ export function tiles(summary: SummaryData, showCost: boolean): Tile[] {
       id,
       label,
       headline: showCost ? money(tile.cost.usd) : `${tokens(tile.tokens)} tokens`,
-      badge: showCost ? rowBadge(tile.cost) : "Measured",
+      badge:
+        showCost && tile.estimatedDays >= tile.days ? rowBadge(tile.cost) : "Measured",
       detail: showCost
         ? `${tokens(tile.tokens)} tokens${id === "today" ? " · so far" : ""}`
         : id === "today"
@@ -501,12 +502,15 @@ export type BreakdownKind = "project" | "model" | "task";
 export interface BreakdownRow {
   key: string;
   label: string;
+  /** Dollars, or tokens when the person switched dollar figures off. */
   cost: string;
   share: string;
   sub: string;
   badge: Badge;
-  /** Enter on the row narrows the page to it. Only folders can: the report filters by project. */
+  /** Enter on the row narrows the page to it. */
   filterable: boolean;
+  /** Bar length against the largest row, 0 to 1. */
+  fraction: number;
   /** Rolled-up remainder row. */
   rollup: boolean;
 }
@@ -515,10 +519,16 @@ function sessions(n: number): string {
   return `${count(n)} ${n === 1 ? "session" : "sessions"}`;
 }
 
-function rowFor(kind: BreakdownKind, row: SpendRow): BreakdownRow {
+function rowFor(
+  kind: BreakdownKind,
+  row: SpendRow,
+  showCost: boolean,
+  top: number,
+): BreakdownRow {
   const base = {
     key: row.key,
-    cost: moneyShort(row.cost.usd),
+    fraction: top > 0 ? Math.min(1, row.share / top) : 0,
+    cost: showCost ? moneyShort(row.cost.usd) : tokens(row.tokens.total),
     share: percent(row.share),
     badge: rowBadge(row.cost),
     rollup: false,
@@ -536,7 +546,7 @@ function rowFor(kind: BreakdownKind, row: SpendRow): BreakdownRow {
       ...base,
       label: modelFamily(row.key) === "Other" ? row.key : modelFamily(row.key),
       sub: `${row.key} · ${count(row.requests)} requests`,
-      filterable: false,
+      filterable: true,
     };
   }
   if (row.key === INTERACTIVE)
@@ -544,20 +554,20 @@ function rowFor(kind: BreakdownKind, row: SpendRow): BreakdownRow {
       ...base,
       label: "Interactive (no task)",
       sub: sessions(row.sessions),
-      filterable: false,
+      filterable: true,
     };
   if (row.key === UNATTRIBUTED)
     return {
       ...base,
       label: UNATTRIBUTED,
       sub: "history without a session id",
-      filterable: false,
+      filterable: true,
     };
   return {
     ...base,
     label: row.key,
     sub: `task · ${sessions(row.sessions)}`,
-    filterable: false,
+    filterable: true,
   };
 }
 
@@ -565,9 +575,14 @@ function rowFor(kind: BreakdownKind, row: SpendRow): BreakdownRow {
 export function breakdown(
   kind: BreakdownKind,
   rows: SpendRow[],
-  limit = kind === "project" ? PROJECT_ROWS : kind === "model" ? MODEL_ROWS : TASK_ROWS,
+  options: { limit?: number; showCost?: boolean } = {},
 ): BreakdownRow[] {
-  const shown = rows.slice(0, limit).map((row) => rowFor(kind, row));
+  const showCost = options.showCost ?? true;
+  const limit =
+    options.limit ??
+    (kind === "project" ? PROJECT_ROWS : kind === "model" ? MODEL_ROWS : TASK_ROWS);
+  const top = Math.max(0, ...rows.map((row) => row.share));
+  const shown = rows.slice(0, limit).map((row) => rowFor(kind, row, showCost, top));
   const rest = rows.slice(limit);
   if (rest.length === 0) return shown;
   const usd = rest.reduce((sum, row) => sum + row.cost.usd, 0);
@@ -578,8 +593,11 @@ export function breakdown(
     {
       key: OTHER_ROWS,
       label: `${rest.length} other ${noun}`,
-      cost: moneyShort(usd),
+      cost: showCost
+        ? moneyShort(usd)
+        : tokens(rest.reduce((sum, row) => sum + row.tokens.total, 0)),
       share: percent(share),
+      fraction: top > 0 ? Math.min(1, share / top) : 0,
       sub: sessions(rest.reduce((sum, row) => sum + row.sessions, 0)),
       badge: rest.some((row) => row.cost.estimatedUsd > 0) ? "Estimate" : "Measured",
       filterable: false,
@@ -593,40 +611,91 @@ export const TASK_BADGE: Badge = "Estimate";
 
 /* ---------------------------------------------------------------- filter */
 
+export type FilterKind = BreakdownKind;
+
 export interface Filter {
   project: string | null;
+  model: string | null;
+  task: string | null;
 }
 
-export const NO_FILTER: Filter = { project: null };
+export const NO_FILTER: Filter = { project: null, model: null, task: null };
 
-export function toggleProject(filter: Filter, key: string): Filter {
-  return filter.project === key ? NO_FILTER : { project: key };
+/** Picking the row that is already the filter clears it; another row of the same list replaces
+ * it; filters of different lists combine. */
+export function toggleFilter(filter: Filter, kind: FilterKind, key: string): Filter {
+  return { ...filter, [kind]: filter[kind] === key ? null : key };
 }
 
-export const isFiltered = (filter: Filter) => filter.project !== null;
+export const isFiltered = (filter: Filter) =>
+  filter.project !== null || filter.model !== null || filter.task !== null;
+
+export interface FilterChip {
+  kind: FilterKind;
+  key: string;
+  label: string;
+}
+
+export function filterChips(filter: Filter): FilterChip[] {
+  const chips: FilterChip[] = [];
+  if (filter.project)
+    chips.push({
+      kind: "project",
+      key: filter.project,
+      label: tildePath(filter.project),
+    });
+  if (filter.model)
+    chips.push({
+      kind: "model",
+      key: filter.model,
+      label:
+        modelFamily(filter.model) === "Other" ? filter.model : modelFamily(filter.model),
+    });
+  if (filter.task)
+    chips.push({
+      kind: "task",
+      key: filter.task,
+      label: filter.task === INTERACTIVE ? "Interactive (no task)" : filter.task,
+    });
+  return chips;
+}
 
 /** "Filtered. 41 of 142 sessions, 39% of the spend." `whole` is the same range without filter. */
 export function filterNote(
   filtered: SummaryData,
   whole: SummaryData | null,
 ): string | null {
-  if (filtered.project === null) return null;
+  if (filtered.project === null && filtered.model === null && filtered.task === null)
+    return null;
   const mine = filtered.totals;
   if (!whole) return `Filtered. ${sessions(mine.sessions)}.`;
   const share = whole.totals.cost.usd > 0 ? mine.cost.usd / whole.totals.cost.usd : 0;
   return `Filtered. ${mine.sessions} of ${whole.totals.sessions} sessions, ${percent(share)} of the spend.`;
 }
 
+/** "3 h 05 m", "18 min", "40 s". */
+export function duration(ms: number): string {
+  if (ms < MINUTE) return `${Math.round(ms / SECOND)} s`;
+  const minutes = Math.round(ms / MINUTE);
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")} m`;
+}
+
 export interface SessionLine {
   id: string;
   started: string;
   source: string;
+  /** The task's name; null for a session started by a person. */
+  task: string | null;
+  taskLabel: string;
+  model: string;
+  length: string;
   tokens: string;
   cost: string;
   badge: Badge;
 }
 
-export function sessionLines(list: SessionRow[]): SessionLine[] {
+export function sessionLines(list: SessionRow[], showCost = true): SessionLine[] {
   return list.map((row) => ({
     id: row.key,
     started: new Date(row.start).toLocaleString("en-GB", {
@@ -637,8 +706,16 @@ export function sessionLines(list: SessionRow[]): SessionLine[] {
       timeZone: "UTC",
     }),
     source: row.source === "otel" ? "OTel" : "Transcript",
+    task: row.task === INTERACTIVE || row.task === UNATTRIBUTED ? null : row.task,
+    taskLabel: row.task === INTERACTIVE ? "interactive" : row.task.toLowerCase(),
+    model: row.model
+      ? `${modelFamily(row.model) === "Other" ? row.model : modelFamily(row.model)}${
+          row.modelCount > 1 ? ` +${row.modelCount - 1}` : ""
+        }`
+      : "unknown",
+    length: duration(row.lengthMs),
     tokens: tokens(row.tokens.total),
-    cost: moneyShort(row.cost.usd),
+    cost: showCost ? money(row.cost.usd) : "",
     badge: rowBadge(row.cost),
   }));
 }
@@ -669,7 +746,10 @@ export interface McpCard {
     calls: number;
     hooks: number;
     window: string | null;
+    note: string;
   };
+  /** The sidebar's saved-tokens number, shown only to say it is never added to the spend. */
+  upstreamSaved: string | null;
   firstRequest: {
     total: string;
     folder: string;
@@ -726,7 +806,8 @@ export function mcpCard(part: McpPart, requests: number): McpCard {
       failed: part.error,
       toolDefinitions: null,
       share: null,
-      compression: { cut: null, calls: 0, hooks: 0, window: null },
+      compression: { cut: null, calls: 0, hooks: 0, window: null, note: "" },
+      upstreamSaved: null,
       firstRequest: null,
     };
   }
@@ -762,7 +843,9 @@ export function mcpCard(part: McpPart, requests: number): McpCard {
       calls: compression.calls,
       hooks: compression.hooks,
       window,
+      note: compression.note,
     },
+    upstreamSaved: part.savedTokens === null ? null : tokens(part.savedTokens, 1),
     firstRequest: part.firstRequest
       ? {
           total: count(part.firstRequest.total),
@@ -779,6 +862,12 @@ export function mcpCard(part: McpPart, requests: number): McpCard {
 
 export interface CollectingCard {
   on: boolean;
+  /** Size against the cap, 0 to 1. */
+  storedFraction: number;
+  /** Age of the oldest event against the retention days, 0 to 1; null without events. */
+  keptFraction: number | null;
+  /** Which cap the store reaches first at the current rate; null while there is too little to tell. */
+  rate: string | null;
   receiver: string;
   source: string;
   stored: string;
@@ -796,19 +885,38 @@ export function setupLine(setup: SetupRecord[]): string {
   return `5 settings written in ${where} on ${monthDay(first.appliedAt)}`;
 }
 
-export function collectingCard(status: StatusData, now: number): CollectingCard {
+export function collectingCard(
+  status: StatusData,
+  now: number,
+  closedDays: string[] = [],
+): CollectingCard {
   const { receiver, store } = status;
   const oldest = parse(store.oldest);
   const kept = oldest === null ? 0 : Math.max(0, Math.round((now - oldest) / DAY));
+  const perDay = kept >= 2 ? store.bytes / kept : null;
+  const projected = perDay === null ? null : perDay * store.retentionDays;
+  const rate =
+    projected === null
+      ? null
+      : projected <= store.maxBytes
+        ? `At this rate the ${store.retentionDays}-day limit is reached first (about ${Math.round(projected / MB)} MB), not the size limit. Oldest events are removed first, every hour.`
+        : "At this rate the size limit is reached first, so the oldest events are removed early. Daily totals are unaffected.";
+  const closed = closedDays.length > 0 ? ` (${closedDays.map(monthDay).join(", ")})` : "";
   return {
     on: status.enabled,
+    storedFraction: store.maxBytes > 0 ? Math.min(1, store.bytes / store.maxBytes) : 0,
+    keptFraction:
+      oldest === null || store.retentionDays <= 0
+        ? null
+        : Math.min(1, kept / store.retentionDays),
+    rate,
     receiver: receiver.listening
       ? `Listening on ${receiver.address} (this computer only) · started with the ${
           receiver.owner === "gateway" ? "gateway" : "Toolport app"
         }`
       : (receiver.error ?? "Not running."),
     source: status.enabled
-      ? "Claude Code's OpenTelemetry export; transcripts fill the days before and the days the app was closed."
+      ? `Claude Code's OpenTelemetry export; transcripts fill the days before and the days the app was closed${closed}.`
       : "Claude Code's transcripts.",
     stored:
       store.events === 0 && store.dailyLines === 0

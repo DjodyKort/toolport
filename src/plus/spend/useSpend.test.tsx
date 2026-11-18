@@ -36,7 +36,7 @@ describe("useSpend", () => {
     );
     await waitFor(() => expect(result.current.summary).not.toBeNull());
     const whole = result.current.summary?.totals.cost.usd;
-    rerender({ range: "7d", filter: { project: PROJECT_WEB } });
+    rerender({ range: "7d", filter: { ...NO_FILTER, project: PROJECT_WEB } });
     await waitFor(() => expect(result.current.summary?.project).toBe(PROJECT_WEB));
     expect(
       ranArgv().some((a) => a.includes("--project") && a.includes(PROJECT_WEB)),
@@ -71,5 +71,42 @@ describe("useSpend", () => {
     act(() => result.current.cancel());
     await waitFor(() => expect(result.current.state).toBe("offWithTranscripts"));
     expect(result.current.cancelled).toBe(true);
+  });
+
+  it("test04_while_a_new_range_loads_the_old_report_stays_shown_and_is_marked_refreshing", async () => {
+    resetPlusFixture({ spend: {} });
+    const { result, rerender } = renderHook(
+      ({ range, filter }: { range: RangeId; filter: Filter }) => useSpend(range, filter),
+      { initialProps: { range: "7d" as RangeId, filter: NO_FILTER } },
+    );
+    await waitFor(() => expect(result.current.summary).not.toBeNull());
+    expect(result.current.refreshing).toBe(false);
+    rerender({ range: "30d", filter: NO_FILTER });
+    expect(result.current.summary).toBeNull();
+    expect(result.current.shown?.range).toBe("7d");
+    expect(result.current.refreshing).toBe(true);
+    await waitFor(() => expect(result.current.summary?.range).toBe("30d"));
+    expect(result.current.refreshing).toBe(false);
+  });
+
+  it("test05_a_model_and_a_task_filter_are_sent_and_a_report_for_another_filter_is_not_used", async () => {
+    resetPlusFixture({ spend: {} });
+    const { result, rerender } = renderHook(
+      ({ filter }: { filter: Filter }) => useSpend("7d", filter),
+      { initialProps: { filter: NO_FILTER } },
+    );
+    await waitFor(() => expect(result.current.summary).not.toBeNull());
+    rerender({ filter: { ...NO_FILTER, model: "claude-opus-5", task: "Interactive" } });
+    await waitFor(() => expect(result.current.summary?.model).toBe("claude-opus-5"));
+    expect(
+      ranArgv().some(
+        (a) =>
+          a.includes("--model") &&
+          a.includes("claude-opus-5") &&
+          a.includes("--task") &&
+          a.includes("Interactive"),
+      ),
+    ).toBe(true);
+    expect(result.current.summary?.task).toBe("Interactive");
   });
 });

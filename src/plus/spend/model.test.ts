@@ -29,7 +29,9 @@ import {
   strip,
   tildePath,
   tiles,
-  toggleProject,
+  toggleFilter,
+  filterChips,
+  duration,
   tokens,
 } from "./model";
 
@@ -309,7 +311,13 @@ describe("cache and breakdowns", () => {
     expect(shown.every((r) => r.badge === "Estimate" || r.badge === "Measured")).toBe(
       true,
     );
-    expect(shown.some((r) => r.filterable)).toBe(false);
+    expect(shown.every((r) => r.filterable)).toBe(true);
+  });
+
+  it("test23b_without_dollar_figures_the_rows_show_tokens", () => {
+    const { summary } = read();
+    const [first] = breakdown("project", summary.byProject, { showCost: false });
+    expect(first.cost).toMatch(/M$/);
   });
 
   it("test24_a_row_with_any_list_price_cost_is_badged_estimate", () => {
@@ -322,10 +330,18 @@ describe("cache and breakdowns", () => {
 
 describe("filter", () => {
   it("test25_enter_on_the_same_row_again_clears_the_filter", () => {
-    const on = toggleProject(NO_FILTER, PROJECT_WEB);
-    expect(on).toEqual({ project: PROJECT_WEB });
-    expect(toggleProject(on, PROJECT_WEB)).toEqual(NO_FILTER);
-    expect(toggleProject(on, "/other")).toEqual({ project: "/other" });
+    const on = toggleFilter(NO_FILTER, "project", PROJECT_WEB);
+    expect(on).toEqual({ ...NO_FILTER, project: PROJECT_WEB });
+    expect(toggleFilter(on, "project", PROJECT_WEB)).toEqual(NO_FILTER);
+    expect(toggleFilter(on, "project", "/other")).toEqual({
+      ...NO_FILTER,
+      project: "/other",
+    });
+    expect(toggleFilter(on, "model", "claude-opus-5")).toEqual({
+      project: PROJECT_WEB,
+      model: "claude-opus-5",
+      task: null,
+    });
   });
 
   it("test26_the_filter_note_counts_sessions_and_share_of_the_whole", () => {
@@ -339,9 +355,55 @@ describe("filter", () => {
 
   it("test27_the_session_list_is_labelled_by_source_and_start", () => {
     const one = read({}, "--project", PROJECT_WEB).summary;
-    const [first] = sessionLines(one.sessionList ?? []);
-    expect(first).toMatchObject({ source: "OTel", cost: "$14.2", tokens: "49.1M" });
+    const [first, , third, fourth] = sessionLines(one.sessionList ?? []);
+    expect(first).toMatchObject({
+      source: "OTel",
+      cost: "$14.20",
+      tokens: "118.4M",
+      task: null,
+      taskLabel: "interactive",
+      model: "Opus",
+      length: "3 h 05 m",
+    });
     expect(first.started).toContain("17");
+    expect(third.cost).toBe("$4.90");
+    expect(fourth).toMatchObject({ task: "nightly-review", length: "18 min" });
+    expect(sessionLines(one.sessionList ?? [], false)[0].cost).toBe("");
+  });
+});
+
+describe("filter chips and durations", () => {
+  it("test27b_each_active_filter_has_a_chip_with_a_readable_label", () => {
+    const chips = filterChips({
+      project: `${PROJECT_WEB}`,
+      model: "claude-opus-5",
+      task: "Interactive",
+    });
+    expect(chips.map((c) => [c.kind, c.label])).toEqual([
+      ["project", "~/work/clients/alpha/web-app"],
+      ["model", "Opus"],
+      ["task", "Interactive (no task)"],
+    ]);
+    expect(filterChips(NO_FILTER)).toEqual([]);
+  });
+
+  it("test27c_a_session_length_reads_as_hours_minutes_or_seconds", () => {
+    expect([40_000, 18 * 60_000, 185 * 60_000, 60 * 60_000].map(duration)).toEqual([
+      "40 s",
+      "18 min",
+      "3 h 05 m",
+      "1 h 00 m",
+    ]);
+  });
+
+  it("test27d_the_model_and_task_filters_narrow_the_fixture_report_like_the_cli", () => {
+    const opus = read({}, "--model", "claude-opus-5").summary;
+    expect(opus.byModel.map((r) => r.key)).toEqual(["claude-opus-5"]);
+    expect(opus.sessionList?.every((s) => s.model === "claude-opus-5")).toBe(true);
+    const nightly = read({}, "--task", "nightly-review").summary;
+    expect(nightly.byTask.map((r) => r.key)).toEqual(["nightly-review"]);
+    expect(nightly.sessionList?.map((s) => s.task)).toEqual(["nightly-review"]);
+    expect(nightly.totals.cost.usd).toBeLessThan(opus.totals.cost.usd);
   });
 });
 

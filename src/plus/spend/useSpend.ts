@@ -4,14 +4,19 @@ import { errorText } from "../settings/useCtl";
 import { now } from "../tasks/clock";
 import { spendStatus, spendSummary } from "./commands";
 import type { RangeId, StatusData, SummaryData } from "./data";
-import { spendState, type Filter, type SpendState } from "./model";
+import { isFiltered, spendState, type Filter, type SpendState } from "./model";
 
 const SLOW_MS = 30_000;
 const PROGRESS_MS = 1_000;
 
 export interface SpendLoad {
   status: StatusData | null;
+  /** The report for exactly this range and filter; null while it is being read. */
   summary: SummaryData | null;
+  /** The newest report read, even for another range or filter: the page keeps it on screen
+   * while the new one loads. */
+  shown: SummaryData | null;
+  refreshing: boolean;
   /** The same range without the folder filter, for "41 of 142 sessions". */
   whole: SummaryData | null;
   state: SpendState | null;
@@ -42,8 +47,9 @@ export function useSpend(range: RangeId, filter: Filter): SpendLoad {
   const wholeFor = useRef<RangeId | null>(null);
   const stopped = useRef(false);
   const lastKey = useRef("");
-  const { project } = filter;
-  const key = `${range}|${project ?? ""}`;
+  const { project, model, task } = filter;
+  const filtered = isFiltered(filter);
+  const key = `${range}|${project ?? ""}|${model ?? ""}|${task ?? ""}`;
 
   const load = useCallback(async () => {
     const mine = ++sequence.current;
@@ -70,7 +76,7 @@ export function useSpend(range: RangeId, filter: Filter): SpendLoad {
       setCancelledKey(null);
       setElapsedMs(0);
     }
-    const report = spendSummary(range, project, abort.signal);
+    const report = spendSummary(range, { project, model, task }, abort.signal);
     const poll = setInterval(() => {
       spendStatus(abort.signal).then(
         (next) => {
@@ -82,8 +88,8 @@ export function useSpend(range: RangeId, filter: Filter): SpendLoad {
       );
     }, PROGRESS_MS);
     const unfiltered =
-      project && wholeFor.current !== range
-        ? spendSummary(range, null, abort.signal).catch(() => null)
+      filtered && wholeFor.current !== range
+        ? spendSummary(range, {}, abort.signal).catch(() => null)
         : null;
     try {
       const data = await report;
@@ -91,7 +97,7 @@ export function useSpend(range: RangeId, filter: Filter): SpendLoad {
       setSummary(data);
       setStatus(data.status);
       setSummaryError(null);
-      if (project === null) {
+      if (!filtered) {
         setWhole(data);
         wholeFor.current = range;
       }
@@ -107,7 +113,7 @@ export function useSpend(range: RangeId, filter: Filter): SpendLoad {
     } finally {
       clearInterval(poll);
     }
-  }, [range, project, key]);
+  }, [range, project, model, task, filtered, key]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Starts the first read of the status and report on mount and on each range or filter change.
@@ -135,10 +141,18 @@ export function useSpend(range: RangeId, filter: Filter): SpendLoad {
 
   const cancelled = cancelledKey === key;
   const fresh =
-    summary && summary.range === range && summary.project === project ? summary : null;
+    summary &&
+    summary.range === range &&
+    summary.project === project &&
+    summary.model === model &&
+    summary.task === task
+      ? summary
+      : null;
   return {
     status,
     summary: fresh,
+    shown: summary,
+    refreshing: summary !== null && fresh === null && !cancelled,
     whole,
     state: status ? spendState(status, fresh !== null || cancelled) : null,
     error,

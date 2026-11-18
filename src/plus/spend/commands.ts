@@ -32,14 +32,29 @@ function setupFlags(choice: SetupChoice): string[] {
 export const spendStatus = (signal?: AbortSignal) =>
   ctlData<StatusData>(["spend", "status"], { signal });
 
-/** `project` narrows the report to one folder, named as the by-project rows name it. */
+export interface SummaryFilter {
+  project?: string | null;
+  model?: string | null;
+  task?: string | null;
+}
+
+/** Each filter narrows the report to one row of the by-project, by-model or by-task list, named
+ * as that list names it. */
 export const spendSummary = (
   range: RangeId,
-  project?: string | null,
+  filter: SummaryFilter = {},
   signal?: AbortSignal,
 ) =>
   ctlData<SummaryData>(
-    ["spend", "summary", "--range", range, ...(project ? ["--project", project] : [])],
+    [
+      "spend",
+      "summary",
+      "--range",
+      range,
+      ...(filter.project ? ["--project", filter.project] : []),
+      ...(filter.model ? ["--model", filter.model] : []),
+      ...(filter.task ? ["--task", filter.task] : []),
+    ],
     { signal },
   );
 

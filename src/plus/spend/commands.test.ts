@@ -34,7 +34,7 @@ describe("spend commands", () => {
   it("test01_the_report_asks_for_a_range_and_optionally_one_folder", async () => {
     await spendSummary("30d");
     expect(last()).toEqual(["spend", "summary", "--range", "30d"]);
-    await spendSummary("today", "/work/alpha");
+    await spendSummary("today", { project: "/work/alpha" });
     expect(last()).toEqual([
       "spend",
       "summary",
@@ -45,9 +45,23 @@ describe("spend commands", () => {
     ]);
   });
 
+  it("test01b_model_and_task_filters_are_passed_beside_the_folder", async () => {
+    await spendSummary("7d", { model: "claude-opus-5", task: "Interactive" });
+    expect(last()).toEqual([
+      "spend",
+      "summary",
+      "--range",
+      "7d",
+      "--model",
+      "claude-opus-5",
+      "--task",
+      "Interactive",
+    ]);
+  });
+
   it("test02_the_abort_signal_reaches_the_bridge", async () => {
     const abort = new AbortController();
-    await spendSummary("7d", null, abort.signal);
+    await spendSummary("7d", {}, abort.signal);
     await spendStatus(abort.signal);
     expect(calls.map((c) => c.signal)).toEqual([abort.signal, abort.signal]);
   });

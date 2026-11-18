@@ -42,6 +42,12 @@ export interface DayRow extends SpendRow {
 export interface SessionRow extends SpendRow {
   start: string;
   source: "otel" | "transcript";
+  /** The run's task, "Interactive" or "Unattributed". */
+  task: string;
+  /** The model that cost most in the session. */
+  model: string | null;
+  modelCount: number;
+  lengthMs: number;
 }
 
 export interface RangeTile {
@@ -163,6 +169,8 @@ export interface StatusData {
 export interface SummaryData {
   range: RangeId;
   project: string | null;
+  model: string | null;
+  task: string | null;
   since: string;
   totals: {
     key: string;
@@ -180,7 +188,7 @@ export interface SummaryData {
   byTask: SpendRow[];
   sources: { otelSessions: number; transcriptSessions: number; estimatedShare: number };
   tiles: Tiles;
-  /** Present when `project` is set. */
+  /** Present when a project, model or task filter is set; largest first. */
   sessionList?: SessionRow[];
   mcpPart: McpPart;
   /** Null unless collecting has data. */

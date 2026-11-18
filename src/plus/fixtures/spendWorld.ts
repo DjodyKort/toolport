@@ -315,9 +315,14 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
     if (!(range in RANGE_DAYS))
       return fail("usage", `unknown range '${range}' (have: today, 7d, 30d)`);
     const project = flag(argv, "--project") ?? null;
+    const model = flag(argv, "--model") ?? null;
+    const task = flag(argv, "--task") ?? null;
     const known = PROJECTS.find(([key]) => key === project);
     if (project && !known) return fail("usage", `no project ${project}`);
-    const scale = known ? known[1] : 1;
+    const modelShare = MODEL_SPLIT.find(([key]) => key === model)?.[1] ?? 0;
+    const taskShare = TASKS.find(([key]) => key === task)?.[1] ?? 0;
+    const scale =
+      (known ? known[1] : 1) * (model ? modelShare : 1) * (task ? taskShare : 1);
     const transcriptsOnly = phase !== "healthy" && phase !== "cannot-listen";
     const list = days(RANGE_DAYS[range], transcriptsOnly).map((d) => ({
       ...d,
@@ -355,11 +360,13 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
       estimatedDays: t.estDays,
       days: [1, 7, 30][index],
     }));
-    const task = (key: string, share: number, n: number) =>
+    const taskRow = (key: string, share: number, n: number) =>
       spendRow(key, usd * share, key === "Interactive" ? estimated : 0, usd, n, 0);
     const out: SummaryData = {
       range,
       project,
+      model,
+      task,
       since: iso(Math.floor(SPEND_NOW / DAY) * DAY - (RANGE_DAYS[range] - 1) * DAY),
       totals,
       previous: {
@@ -380,20 +387,24 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
             Math.round(n * 69),
           ),
       ),
-      byModel: MODEL_SPLIT.map(([key, share], index) =>
-        spendRow(
-          key,
-          usd * share,
-          estimated * share,
-          usd,
-          sessions,
-          [3120, 6310, 440][index],
-        ),
+      byModel: MODEL_SPLIT.flatMap(([key, share], index) =>
+        model && key !== model
+          ? []
+          : [
+              spendRow(
+                key,
+                model ? usd : usd * share,
+                model ? estimated : estimated * share,
+                usd,
+                sessions,
+                [3120, 6310, 440][index],
+              ),
+            ],
       ),
-      byTask:
-        phase === "healthy" || phase === "cannot-listen"
-          ? TASKS.map(([key, share, n]) => task(key, share, n))
-          : [task("Interactive", 1, sessions)],
+      byTask: (phase === "healthy" || phase === "cannot-listen"
+        ? TASKS.map(([key, share, n]) => taskRow(key, task ? 1 : share, n))
+        : [taskRow("Interactive", 1, sessions)]
+      ).filter((row) => !task || row.key === task),
       sources: {
         otelSessions: phase === "healthy" || phase === "cannot-listen" ? 112 : 0,
         transcriptSessions:
@@ -415,16 +426,45 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
       status: status(),
       notes: ["Spend is never added to upstream's saved-tokens number"],
     };
-    if (project) {
-      const list: SessionRow[] = [
-        ["s-5", "2026-11-17T16:12:00Z", 14.2],
-        ["s-4", "2026-11-16T10:40:00Z", 11.6],
-        ["s-3", "2026-11-17T09:03:00Z", 2.1],
-      ].map(([key, start, value]) => ({
-        ...spendRow(String(key), Number(value), 0, usd, 1, 0),
-        start: String(start),
-        source: "otel" as const,
-      }));
+    if (project || model || task) {
+      const rows: [string, string, number, string, string, number, number][] = [
+        ["s-5", "2026-11-17T16:12:00Z", 14.2, "Interactive", "claude-opus-5", 185, 118.4],
+        ["s-4", "2026-11-16T10:40:00Z", 11.6, "Interactive", "claude-opus-5", 141, 96],
+        [
+          "s-1",
+          "2026-11-18T08:55:00Z",
+          4.9,
+          "Interactive",
+          "claude-sonnet-5-5",
+          72,
+          41.3,
+        ],
+        [
+          "s-3",
+          "2026-11-17T09:03:00Z",
+          2.1,
+          "nightly-review",
+          "claude-sonnet-5-5",
+          18,
+          22.7,
+        ],
+      ];
+      const kept = rows.filter(
+        ([, , , rowTask, rowModel]) =>
+          (!task || rowTask === task) && (!model || rowModel === model),
+      );
+      const list: SessionRow[] = kept.map(
+        ([key, start, value, rowTask, rowModel, minutes, millions]) => ({
+          ...spendRow(key, value, 0, usd, 1, 0),
+          tokens: { ...counts(value, 0), total: Math.round(millions * 1e6) },
+          start,
+          source: "otel" as const,
+          task: rowTask,
+          model: rowModel,
+          modelCount: 1,
+          lengthMs: minutes * 60_000,
+        }),
+      );
       out.sessionList = list;
     }
     return { ok: true, data: out };
