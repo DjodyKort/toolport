@@ -40,11 +40,13 @@ const TYPING =
 
 export interface SpendPageProps {
   /** Opens the export dialog. Without it the CSV is read and its row count is announced. */
-  onExport?: (range: RangeId) => void;
+  onExport?: (range: RangeId, filter: Filter) => void;
+  /** Changes when something was written elsewhere, so the page reads again. */
+  version?: number;
   /** Opens the plan to turn collecting on. */
   onSetup?: () => void;
   /** Opens a plan that moves the receiver and the export endpoint to another port. */
-  onUsePort?: (port: number) => void;
+  onUsePort?: (port: number, current: number) => void;
   onPrune?: () => void;
   onUndo?: () => void;
 }
@@ -68,6 +70,7 @@ function sourceBadges(summary: SummaryData, showCost: boolean) {
 /** The Spend page: what was used and where, the MCP part, and whether collecting is on. */
 export default function SpendPage({
   onExport,
+  version = 0,
   onSetup,
   onUsePort,
   onPrune,
@@ -76,12 +79,13 @@ export default function SpendPage({
   const [range, setRange] = useState<RangeId>(DEFAULT_RANGE);
   const [filter, setFilter] = useState<Filter>(NO_FILTER);
   const [table, setTable] = useState(false);
-  const load = useSpend(range, filter);
+  const [how, setHow] = useState(false);
+  const load = useSpend(range, filter, version);
   const { status, state, shown } = load;
 
   const doExport = useCallback(
-    () => (onExport ? onExport(range) : void readCsv(range)),
-    [onExport, range],
+    () => (onExport ? onExport(range, filter) : void readCsv(range)),
+    [onExport, range, filter],
   );
   const pick = useCallback(
     (kind: BreakdownKind, key: string) => setFilter((f) => toggleFilter(f, kind, key)),
@@ -153,6 +157,7 @@ export default function SpendPage({
       requests={shown.totals.requests}
       onRetry={load.reload}
       onOpenActivity={() => openView("activity")}
+      onOpenMeasurements={() => openView("context")}
     />
   );
 
@@ -210,8 +215,34 @@ export default function SpendPage({
                 plan.
               </>
             }
-            action={<Button onClick={onSetup}>Set up collecting…</Button>}
+            action={
+              <>
+                <Button onClick={onSetup}>Set up collecting…</Button>
+                <Button
+                  variant="outline"
+                  aria-expanded={how}
+                  aria-controls="spend-how"
+                  onClick={() => setHow((on) => !on)}
+                >
+                  How it works
+                </Button>
+              </>
+            }
           />
+          {how && (
+            <div id="spend-how">
+              <Callout>
+                <b className="text-foreground">
+                  Nothing is written until you have seen a plan.
+                </b>{" "}
+                Toolport starts a receiver inside the app that listens on 127.0.0.1 only.
+                Claude Code is told to send its token counts and cost to it by five
+                settings in <code className="font-mono">settings.json</code>, written with
+                Toolport's settings writer with a backup, and every step can be undone.
+                Prompts, tool arguments and results are never exported.
+              </Callout>
+            </div>
+          )}
           {mcp}
           {collecting}
         </>

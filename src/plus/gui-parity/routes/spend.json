@@ -1,4 +1,6 @@
 {
   "title": "Spend",
-  "status": "planned"
+  "status": "built",
+  "page": "view:spend",
+  "component": "src/plus/spend/SpendScreen.tsx"
 }

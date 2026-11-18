@@ -3,8 +3,11 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { resetPlusFixture } from "../fixtures/ipc";
 import { SPEND_NOW, type SpendWorldOptions } from "../fixtures/spendWorld";
+import { guiParity } from "../guiParity";
 import { invokeLog, ranArgv } from "../servers/testkit";
+import { PLUS_NAVIGATE_EVENT } from "../shell/navigate";
 import { setClock } from "../tasks/clock";
+import { NO_FILTER } from "./model";
 import SpendPage, { type SpendPageProps } from "./SpendPage";
 
 vi.mock("@tauri-apps/api/core", async () => {
@@ -23,6 +26,9 @@ function setup(spend: SpendWorldOptions = {}, props: SpendPageProps = {}) {
   resetPlusFixture({ spend });
   return render(<SpendPage {...props} />);
 }
+
+/** The action of src/plus/gui-parity/ this file proves: the page itself (spend.overview). */
+const COVERS = ["spend.overview"] as const;
 
 const summaries = () =>
   ranArgv()
@@ -108,7 +114,7 @@ describe("the Spend page, collecting", () => {
     await ready();
     await userEvent.keyboard("3");
     await userEvent.keyboard("e");
-    expect(onExport).toHaveBeenLastCalledWith("30d");
+    expect(onExport).toHaveBeenLastCalledWith("30d", NO_FILTER);
     await userEvent.click(screen.getByRole("button", { name: "Export CSV…" }));
     expect(onExport).toHaveBeenCalledTimes(2);
     expect(ranArgv().some((a) => a[1] === "export-csv")).toBe(false);
@@ -266,7 +272,7 @@ describe("the Spend page, states", () => {
     );
     expect(card("Cost by day")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Use port 4319…" }));
-    expect(onUsePort).toHaveBeenCalledWith(4319);
+    expect(onUsePort).toHaveBeenCalledWith(4319, 4318);
   });
 
   it("test18_computing_shows_skeleton_tiles_with_the_count_and_fills_in_when_done", async () => {
@@ -354,5 +360,49 @@ describe("the Spend page, narrow layout", () => {
       "@min-[680px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]",
     );
     expect(row).not.toHaveClass("grid-cols-2");
+  });
+});
+
+describe("the Spend page, small controls", () => {
+  it("test25_how_it_works_explains_the_plan_first_rule_on_the_empty_state", async () => {
+    setup({ scenario: "never" });
+    const how = await screen.findByRole("button", { name: "How it works" });
+    expect(how).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(/Toolport's settings writer/)).toBeNull();
+    await userEvent.click(how);
+    expect(how).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/Toolport's settings writer/)).toBeInTheDocument();
+    await userEvent.click(how);
+    expect(screen.queryByText(/Toolport's settings writer/)).toBeNull();
+  });
+
+  it("test26_open_measurements_opens_the_context_page", async () => {
+    const seen = vi.fn();
+    const listener = (event: Event) => seen((event as CustomEvent).detail);
+    window.addEventListener(PLUS_NAVIGATE_EVENT, listener);
+    setup();
+    await ready();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Open measurements" }),
+    );
+    window.removeEventListener(PLUS_NAVIGATE_EVENT, listener);
+    expect(seen).toHaveBeenCalledWith("context");
+  });
+
+  it("test27_a_failed_mcp_card_keeps_its_cause_behind_show_details", async () => {
+    setup({ mcpError: true });
+    await ready();
+    const mcp = card("MCP part");
+    expect(mcp).not.toHaveTextContent("line 812");
+    await userEvent.click(within(mcp).getByRole("button", { name: "Show details" }));
+    expect(mcp).toHaveTextContent("line 812");
+    expect(card("Cost by day")).toBeInTheDocument();
+  });
+});
+
+describe("the Spend page, parity", () => {
+  it("test28_the_parity_row_names_this_file_as_its_proof", () => {
+    for (const id of COVERS)
+      expect(guiParity.actions[id].test).toBe("src/plus/spend/SpendPage.flow.test.tsx");
   });
 });

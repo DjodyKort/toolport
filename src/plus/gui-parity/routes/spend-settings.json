@@ -1,4 +1,6 @@
 {
   "title": "Spend settings",
-  "status": "planned"
+  "status": "built",
+  "page": "settings:toolport",
+  "component": "src/plus/spend/SpendSettings.tsx"
 }

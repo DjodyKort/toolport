@@ -68,7 +68,9 @@ describe("Settings > Toolport+", () => {
     expect(
       Object.entries(guiParity.actions)
         .filter(
-          ([, action]) => guiParity.routes[action.route]?.page === "settings:toolport",
+          ([, action]) =>
+            guiParity.routes[action.route]?.page === "settings:toolport" &&
+            action.test === "src/plus/settings/ToolportPlusPage.test.tsx",
         )
         .map(([id]) => id)
         .filter((id) => !(COVERS as readonly string[]).includes(id)),
@@ -220,5 +222,17 @@ describe("Settings > Toolport+", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Run" }));
     await waitFor(() => expect(within(dialog).getByText("Done")).toBeInTheDocument());
     expect(within(dialog).getByLabelText("Output")).toHaveTextContent('"serverCount": 3');
+  });
+
+  it("test13_a_spend_section_holds_the_spend_settings_between_installation_and_commands", async () => {
+    resetPlusFixture({ self: "enabled" });
+    renderPage();
+    const spend = await screen.findByRole("region", { name: "Spend" });
+    expect(await within(spend).findByRole("switch", { name: "Show cost" })).toBeChecked();
+    const regions = screen
+      .getAllByRole("region")
+      .map((r) => r.getAttribute("aria-label"));
+    expect(regions.indexOf("Spend")).toBeGreaterThan(regions.indexOf("Installation"));
+    expect(regions.indexOf("Spend")).toBeLessThan(regions.indexOf("Commands"));
   });
 });

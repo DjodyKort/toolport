@@ -76,7 +76,7 @@ describe("SpendStrip", () => {
     await userEvent.click(
       within(strip()).getByRole("button", { name: "Use port 4319…" }),
     );
-    expect(onUsePort).toHaveBeenCalledWith(4319);
+    expect(onUsePort).toHaveBeenCalledWith(4319, 4318);
     await userEvent.click(within(strip()).getByRole("button", { name: "Retry" }));
     expect(onRetry).toHaveBeenCalled();
   });
@@ -106,5 +106,25 @@ describe("SpendStrip", () => {
     expect(notice).toHaveTextContent("3 sessions started before setup (restart them)");
     await userEvent.click(within(notice).getByRole("button", { name: "Open plan…" }));
     expect(onSetup).toHaveBeenCalled();
+  });
+
+  it("test08_show_the_project_setting_reveals_the_file_and_how_to_fix_it", async () => {
+    setup({ stale: true });
+    const notice = screen.getByTestId("spend-notice-not-exporting");
+    const show = within(notice).getByRole("button", { name: "Show the project setting" });
+    expect(show).toHaveAttribute("aria-expanded", "false");
+    expect(notice).not.toHaveTextContent("Toolport does not edit them");
+    await userEvent.click(show);
+    expect(notice).toHaveTextContent("Toolport does not edit them");
+    expect(notice).toHaveTextContent("http://127.0.0.1:4318");
+    expect(
+      within(notice).getByRole("button", {
+        name: "Copy path ~/work/clients/alpha/api/.claude/settings.json",
+      }),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      within(notice).getByRole("button", { name: "Hide the project setting" }),
+    );
+    expect(notice).not.toHaveTextContent("Toolport does not edit them");
   });
 });

@@ -1,5 +1,6 @@
 {
   "route": "spend",
-  "status": "planned",
-  "summary": "Prune now with a preview, daily totals kept unless deleted on purpose (spend prune)"
+  "status": "built",
+  "summary": "Prune now with a preview, daily totals kept unless deleted on purpose (spend prune)",
+  "test": "src/plus/spend/SpendDialogs.test.tsx"
 }

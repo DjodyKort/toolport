@@ -1,5 +1,6 @@
 {
   "route": "spend",
-  "status": "planned",
-  "summary": "Export CSV, one row per day, project and model (spend export-csv)"
+  "status": "built",
+  "summary": "Export CSV, one row per day, project and model (spend export-csv)",
+  "test": "src/plus/spend/SpendDialogs.test.tsx"
 }

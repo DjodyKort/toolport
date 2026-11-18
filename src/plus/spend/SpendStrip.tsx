@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import {
   progress,
   staleCauses,
   strip,
+  tildePath,
   type SpendState,
   type Tone,
 } from "./model";
@@ -62,7 +63,7 @@ export interface SpendStripProps {
   onCancel: () => void;
   onRetry: () => void;
   onSetup?: () => void;
-  onUsePort?: (port: number) => void;
+  onUsePort?: (port: number, current: number) => void;
 }
 
 function jumpToCollecting() {
@@ -81,6 +82,8 @@ export function SpendStrip({
   onSetup,
   onUsePort,
 }: SpendStripProps) {
+  const [overrides, setOverrides] = useState(false);
+  const overrideFiles = summary?.stale?.projectOverrides ?? [];
   const bar = state === "computing" ? progress(status, elapsedMs) : null;
   const line = bar
     ? {
@@ -90,9 +93,10 @@ export function SpendStrip({
         action: "cancel" as const,
       }
     : strip(state, status, now);
-  const nextPort = status.receiver.address.includes(":")
-    ? Number(status.receiver.address.split(":").pop()) + 1
-    : 4319;
+  const currentPort = status.receiver.address.includes(":")
+    ? Number(status.receiver.address.split(":").pop())
+    : 4318;
+  const nextPort = currentPort + 1;
 
   const actions =
     line.action === "cancel" ? (
@@ -105,7 +109,7 @@ export function SpendStrip({
       </Button>
     ) : line.action === "port" ? (
       <>
-        <Button size="sm" onClick={() => onUsePort?.(nextPort)}>
+        <Button size="sm" onClick={() => onUsePort?.(nextPort, currentPort)}>
           Use port {nextPort}…
         </Button>
         <Button variant="outline" size="sm" onClick={onRetry}>
@@ -193,7 +197,46 @@ export function SpendStrip({
                   <li key={cause}>{cause}</li>
                 ))}
               </ul>
-              <div>
+              {overrides && (
+                <div id="project-overrides" className="flex flex-col gap-1 text-meta">
+                  <span className="text-muted-foreground">
+                    Project settings win over the user settings Toolport wrote. Toolport
+                    does not edit them: remove{" "}
+                    <code className="font-mono">OTEL_EXPORTER_OTLP_ENDPOINT</code> from{" "}
+                    <code className="font-mono">env</code> in{" "}
+                    {overrideFiles.length === 1 ? "this file" : "these files"}, or point
+                    it at{" "}
+                    <code className="font-mono">http://{status.receiver.address}</code>.
+                  </span>
+                  <ul className="flex flex-col gap-1">
+                    {overrideFiles.map((file) => (
+                      <li key={file} className="flex flex-wrap items-center gap-2">
+                        <code className="break-all font-mono">{tildePath(file)}</code>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          aria-label={`Copy path ${tildePath(file)}`}
+                          onClick={() => void navigator.clipboard.writeText(file)}
+                        >
+                          Copy path
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {overrideFiles.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-expanded={overrides}
+                    aria-controls="project-overrides"
+                    onClick={() => setOverrides((on) => !on)}
+                  >
+                    {overrides ? "Hide the project setting" : "Show the project setting"}
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={onSetup}>
                   Open plan…
                 </Button>

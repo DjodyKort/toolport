@@ -34,7 +34,7 @@ export interface SpendLoad {
 /** Everything the Spend page reads: the collecting status at once, the report next, and the
  * status again every second while the transcripts are read for the first time, so the page can
  * show the count. A slower, older answer never replaces a newer one. */
-export function useSpend(range: RangeId, filter: Filter): SpendLoad {
+export function useSpend(range: RangeId, filter: Filter, version = 0): SpendLoad {
   const [status, setStatus] = useState<StatusData | null>(null);
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [whole, setWhole] = useState<SummaryData | null>(null);
@@ -130,7 +130,7 @@ export function useSpend(range: RangeId, filter: Filter): SpendLoad {
       clearInterval(timer);
       window.removeEventListener("focus", onFocus);
     };
-  }, [load]);
+  }, [load, version]);
 
   const cancel = useCallback(() => {
     stopped.current = true;

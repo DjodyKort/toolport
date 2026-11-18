@@ -48,6 +48,12 @@ export interface SpendWorldOptions {
   conflict?: boolean;
   /** Dollar figures are switched off in Settings. */
   hideCost?: boolean;
+  /** Writing the plan fails with this message and changes nothing. */
+  applyError?: string;
+  /** Ports another program listens on; the receiver cannot bind them. */
+  busyPorts?: number[];
+  /** The events file still holds the old 282 MB log, so pruning would remove most of it. */
+  oldEventsFile?: boolean;
 }
 
 type Phase = "never" | "off" | "waiting" | "healthy" | "cannot-listen";
@@ -212,6 +218,7 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
   let statusCalls = 0;
   let scanTimer: ReturnType<typeof setTimeout> | null = null;
   let dataDeleted = false;
+  const busyPorts = options.busyPorts ?? (scenario === "cannot-listen" ? [4318] : []);
   const setUp = new Map<string, string>(
     phase === "never" || phase === "off"
       ? []
@@ -560,10 +567,12 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
     };
     if (argv.includes("--dry-run"))
       return { ok: true, data: { dryRun: true, plan: planned.data } };
+    if (options.applyError) return fail("apply_failed", options.applyError);
     for (const row of data.profiles) setUp.set(row.profile, iso(SPEND_NOW));
     port = data.port;
     dataDeleted = dataDeleted && false;
-    if (phase === "never" || phase === "off" || phase === "cannot-listen")
+    if (busyPorts.includes(port)) phase = "cannot-listen";
+    else if (phase === "never" || phase === "off" || phase === "cannot-listen")
       phase = "waiting";
     return {
       ok: true,
@@ -639,8 +648,8 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
       );
     const data: PruneData = {
       dryRun: dry,
-      removedEvents: dry ? 5120 : 0,
-      removedBytes: dry ? 2 * MB : 0,
+      removedEvents: options.oldEventsFile ? 1_930_000 : 5120,
+      removedBytes: options.oldEventsFile ? 282 * MB : 2 * MB,
       keptEvents: 41206,
       keptBytes: Math.round(18.4 * MB),
       foldedDays: dry ? 2 : 0,
@@ -670,6 +679,8 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
       next.maxMb !== maxMb ||
       (cost !== undefined && (cost === "on") !== showCost);
     port = next.port;
+    if (portChanged && phase !== "never" && phase !== "off")
+      phase = busyPorts.includes(port) ? "cannot-listen" : "healthy";
     retentionDays = next.retentionDays;
     maxMb = next.maxMb;
     if (cost !== undefined) showCost = cost === "on";

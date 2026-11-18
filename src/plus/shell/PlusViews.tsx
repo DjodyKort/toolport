@@ -9,7 +9,7 @@ import TasksPage from "../tasks/TasksPage";
 import { isPlusView, PLUS_SCREENS, type PlusScreen } from "./views";
 
 const LibraryScreen = lazy(() => import("../library/LibraryScreen"));
-const SpendPage = lazy(() => import("../spend/SpendPage"));
+const SpendScreen = lazy(() => import("../spend/SpendScreen"));
 
 /** A page of the "Claude" group whose slice has not landed. It says what the page will do and
  * which slice delivers it, so a click on the sidebar entry never ends in a blank page. */
@@ -53,7 +53,7 @@ export default function PlusViews({
   if (view === "spend") {
     return (
       <Suspense fallback={<SkeletonRows label="Loading Spend" />}>
-        <SpendPage />
+        <SpendScreen />
       </Suspense>
     );
   }

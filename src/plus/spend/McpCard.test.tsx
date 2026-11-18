@@ -8,15 +8,17 @@ function setup(options = {}) {
   const { summary } = readWorld(options);
   const onRetry = vi.fn();
   const onOpenActivity = vi.fn();
+  const onOpenMeasurements = vi.fn();
   render(
     <McpCardView
       part={summary.mcpPart}
       requests={summary.totals.requests}
       onRetry={onRetry}
       onOpenActivity={onOpenActivity}
+      onOpenMeasurements={onOpenMeasurements}
     />,
   );
-  return { onRetry, onOpenActivity, summary };
+  return { onRetry, onOpenActivity, onOpenMeasurements, summary };
 }
 
 afterEach(() => vi.restoreAllMocks());
@@ -83,8 +85,14 @@ describe("McpCardView", () => {
     const { onRetry } = setup({ mcpError: true });
     const card = screen.getByRole("region", { name: "MCP part" });
     expect(card).toHaveTextContent("Upstream's savings log could not be read.");
-    expect(card).toHaveTextContent("savings-v4.jsonl: line 812 is not valid JSON.");
+    expect(card).not.toHaveTextContent("line 812");
     expect(card).toHaveTextContent("The other cards are not affected");
+    const show = within(card).getByRole("button", { name: "Show details" });
+    expect(show).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(show);
+    expect(card).toHaveTextContent("savings-v4.jsonl: line 812 is not valid JSON.");
+    await userEvent.click(within(card).getByRole("button", { name: "Hide details" }));
+    expect(card).not.toHaveTextContent("line 812");
     await userEvent.click(within(card).getByRole("button", { name: "Retry" }));
     expect(onRetry).toHaveBeenCalled();
   });
@@ -93,5 +101,15 @@ describe("McpCardView", () => {
     setup();
     const columns = document.querySelector("[class*='grid-cols-3']") as HTMLElement;
     expect(columns).toHaveClass("@min-[780px]:grid-cols-3");
+  });
+
+  it("test09_open_measurements_sits_with_the_billed_effect_line", async () => {
+    const { onOpenMeasurements } = setup();
+    const card = screen.getByRole("region", { name: "MCP part" });
+    expect(card).toHaveTextContent("Billed effect:");
+    await userEvent.click(
+      within(card).getByRole("button", { name: "Open measurements" }),
+    );
+    expect(onOpenMeasurements).toHaveBeenCalled();
   });
 });

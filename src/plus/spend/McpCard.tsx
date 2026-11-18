@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,12 +24,20 @@ export interface McpCardProps {
   requests: number;
   onRetry: () => void;
   onOpenActivity: () => void;
+  onOpenMeasurements?: () => void;
 }
 
 /** What the tool definitions cost, kept apart from the spend: upstream's saved tokens are
  * never added to or subtracted from it. */
-export function McpCardView({ part, requests, onRetry, onOpenActivity }: McpCardProps) {
+export function McpCardView({
+  part,
+  requests,
+  onRetry,
+  onOpenActivity,
+  onOpenMeasurements,
+}: McpCardProps) {
   const card = mcpCard(part, requests);
+  const [details, setDetails] = useState(false);
   const header = {
     title: "MCP part",
     note: "What the tool definitions cost, kept apart from the spend above",
@@ -46,14 +55,32 @@ export function McpCardView({ part, requests, onRetry, onOpenActivity }: McpCard
         <div className="flex flex-col items-start gap-3 p-4" data-slot="mcp-failed">
           <div className="flex flex-col gap-1">
             <b>Upstream's savings log could not be read.</b>
-            <span className="text-meta text-muted-foreground">{card.failed}</span>
             <span className="text-meta text-muted-foreground">
               The other cards are not affected; their numbers are unchanged.
             </span>
+            {details && (
+              <code
+                id="mcp-failure"
+                className="mt-1 break-all rounded-md bg-muted p-2 font-mono text-meta"
+              >
+                {card.failed}
+              </code>
+            )}
           </div>
-          <Button variant="outline" size="sm" onClick={onRetry}>
-            Retry
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={onRetry}>
+              Retry
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-expanded={details}
+              aria-controls="mcp-failure"
+              onClick={() => setDetails((on) => !on)}
+            >
+              {details ? "Hide details" : "Show details"}
+            </Button>
+          </div>
         </div>
       </Panel>
     );
@@ -159,6 +186,18 @@ export function McpCardView({ part, requests, onRetry, onOpenActivity }: McpCard
           {card.compression.note && (
             <div className={cn(NOTE, "mt-1")}>
               <b className="text-foreground">Billed effect:</b> {card.compression.note}
+              {onOpenMeasurements && (
+                <>
+                  {" "}
+                  <button
+                    type="button"
+                    className="text-primary underline-offset-4 hover:underline"
+                    onClick={onOpenMeasurements}
+                  >
+                    Open measurements
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>

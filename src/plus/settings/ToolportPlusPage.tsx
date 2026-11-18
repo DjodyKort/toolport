@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import {
   ChevronRight,
   CircleCheck,
@@ -22,6 +22,8 @@ import { Installation } from "./Installation";
 import { leadFor, type LeadVariant } from "./model";
 import { SelfManagement } from "./SelfManagement";
 import { bridgeDown, errorText, useOverview } from "./useCtl";
+
+const SpendSettings = lazy(() => import("../spend/SpendSettings"));
 
 const LEAD_ICON: Record<LeadVariant, React.ReactNode> = {
   danger: <TriangleAlert />,
@@ -158,6 +160,13 @@ export default function ToolportPlusPage({
           doctorError={overview.doctor.error}
           statusError={overview.status.error}
         />
+      </section>
+
+      <section aria-label="Spend">
+        <SectionHeader>Spend</SectionHeader>
+        <Suspense fallback={<SkeletonRows label="Loading the Spend settings" />}>
+          <SpendSettings />
+        </Suspense>
       </section>
 
       <section aria-label="Commands">

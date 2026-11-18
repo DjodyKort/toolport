@@ -958,3 +958,15 @@ export function progress(status: StatusData, elapsedMs: number): Progress {
 export function profileName(path: string): string {
   return tildePath(path);
 }
+
+/** What `spend config set` accepts. */
+export const SETTING_BOUNDS = {
+  retentionDays: { min: 7, max: 90 },
+  maxMb: { min: 16, max: 256 },
+};
+
+/** The whole number inside the bounds, or null when the text is not plain digits. */
+export function boundedInt(text: string, min: number, max: number): number | null {
+  const value = Number(text);
+  return /^\d+$/.test(text.trim()) && value >= min && value <= max ? value : null;
+}
