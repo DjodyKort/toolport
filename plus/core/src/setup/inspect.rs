@@ -114,6 +114,11 @@ pub fn open(path: &Path) -> Result<Opened, OpError> {
             path.display()
         )));
     }
+    if crypto::is_sealed_file(path) {
+        return Err(unreadable(
+            "that file is sealed as a whole, as a sync file is: Toolport opens it with `sync pull`",
+        ));
+    }
     let mut zip =
         ZipFile::open(path).map_err(|_| unreadable("that is not a Toolport setup file"))?;
     let manifest: Value = serde_json::from_slice(

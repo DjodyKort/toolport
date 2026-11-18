@@ -13,6 +13,7 @@ use toolport_plus_api::StaticSecret;
 
 use super::inspect::{self, Opened, Standing};
 use super::repos;
+use super::threeway::{hash_json, Baseline, Verdict};
 use super::{crypto, sha256_hex, unhex, Ctx, PartId};
 use crate::fsx::{atomic_write_bytes, Mode};
 use crate::op::OpError;
@@ -25,6 +26,10 @@ pub const STATE_HERE: &str = "here";
 pub const STATE_CONFLICT: &str = "conflict";
 pub const STATE_NEEDS: &str = "needs";
 pub const STATE_SKIP: &str = "skip";
+/// Only the other machine changed it since the last sync (sync plans only).
+pub const STATE_INCOMING: &str = "incoming";
+/// Only this machine changed it since the last sync: nothing to restore, it goes out on a push.
+pub const STATE_MINE: &str = "mine";
 
 #[derive(Clone, Debug, Default)]
 pub struct RestoreOptions {
@@ -34,6 +39,8 @@ pub struct RestoreOptions {
     pub take: BTreeSet<String>,
     pub apply: bool,
     pub plan: Option<String>,
+    /// Set by sync: rows are then judged against what both machines last agreed on.
+    pub baseline: Option<Baseline>,
 }
 
 #[derive(Clone, Debug)]
@@ -69,6 +76,7 @@ struct Row {
     state: &'static str,
     note: String,
     step: Option<Step>,
+    other: Option<String>,
 }
 
 impl Row {
@@ -85,7 +93,13 @@ impl Row {
             state,
             note: String::new(),
             step: None,
+            other: None,
         }
+    }
+
+    fn hash(mut self, other: String) -> Self {
+        self.other = Some(other);
+        self
     }
 
     fn note(mut self, note: impl Into<String>) -> Self {
@@ -113,6 +127,28 @@ fn file_state(path: &Path, bytes: &[u8]) -> &'static str {
         None => STATE_ADD,
         Some(true) => STATE_HERE,
         Some(false) => STATE_CONFLICT,
+    }
+}
+
+/// Maps the plain state of a row onto the sync states. Without a baseline nothing changes. The
+/// flag says the row's content replaces this machine's.
+fn judged(
+    opts: &RestoreOptions,
+    id: &str,
+    state: &'static str,
+    other: &str,
+    local: Option<&str>,
+) -> (&'static str, bool) {
+    let taken = opts.take.contains(id);
+    let Some(baseline) = &opts.baseline else {
+        return (state, taken);
+    };
+    match baseline.judge(id, other, local) {
+        Verdict::Same => (STATE_HERE, false),
+        Verdict::Absent => (STATE_ADD, false),
+        Verdict::RemovedHere | Verdict::Mine => (STATE_MINE, false),
+        Verdict::Incoming => (STATE_INCOMING, true),
+        Verdict::Conflict => (STATE_CONFLICT, taken),
     }
 }
 
@@ -236,6 +272,7 @@ fn server_rows(
     ctx: &Ctx<'_>,
     opened: &mut Opened,
     locked: bool,
+    opts: &RestoreOptions,
     rows: &mut Vec<Row>,
 ) -> Result<(), OpError> {
     let doc = opened.read_json("servers.json").map_err(failed)?;
@@ -249,17 +286,46 @@ fn server_rows(
                 .as_str()
                 .is_some_and(|n| n.eq_ignore_ascii_case(name))
         });
-        match existing {
-            Some(existing) if without_switches(existing) == without_switches(server) => {
-                rows.push(
-                    Row::new(id, PartId::Servers, name, STATE_HERE).note("already here, same"),
-                );
+        let compared = |doc: &Value| {
+            let mut doc = without_switches(doc);
+            if opts.baseline.is_some() {
+                if let Some(map) = doc.as_object_mut() {
+                    map.remove("disabled");
+                }
             }
-            Some(_) => rows.push(
-                Row::new(id, PartId::Servers, name, STATE_CONFLICT)
-                    .note("already here and different: an existing server is never overwritten"),
+            hash_json(&doc)
+        };
+        let other = compared(server);
+        let local = existing.map(compared);
+        let (state, _) = judged(
+            opts,
+            &id,
+            match existing {
+                Some(_) if local.as_deref() == Some(other.as_str()) => STATE_HERE,
+                Some(_) => STATE_CONFLICT,
+                None => STATE_ADD,
+            },
+            &other,
+            local.as_deref(),
+        );
+        let row = Row::new(id, PartId::Servers, name, state).hash(other);
+        match state {
+            STATE_HERE => rows.push(row.note("already here, same")),
+            STATE_MINE if existing.is_none() => rows.push(row.note(
+                "removed here since the last sync: it stays removed, the next push leaves it out",
+            )),
+            STATE_MINE => rows.push(
+                row.note("changed only on this machine: it goes out with your next push"),
             ),
-            None => {
+            STATE_INCOMING => rows.push(
+                Row { state: STATE_NEEDS, ..row }.note(
+                    "changed on the other machine: Toolport does not overwrite a server, update it in Servers",
+                ),
+            ),
+            STATE_CONFLICT => rows.push(row.note(
+                "already here and different: an existing server is never overwritten",
+            )),
+            _ => {
                 let secrets = server["env"]
                     .as_array()
                     .into_iter()
@@ -274,7 +340,7 @@ fn server_rows(
                     _ => "added held for review",
                 };
                 new.push(server.clone());
-                rows.push(Row::new(id, PartId::Servers, name, STATE_ADD).note(note));
+                rows.push(row.note(note));
             }
         }
     }
@@ -327,7 +393,7 @@ fn access_row(ctx: &Ctx<'_>, opened: &mut Opened, rows: &mut Vec<Row>) -> Result
 fn settings_rows(
     ctx: &Ctx<'_>,
     opened: &mut Opened,
-    take: &BTreeSet<String>,
+    opts: &RestoreOptions,
     rows: &mut Vec<Row>,
 ) -> Result<(), OpError> {
     let doc = opened.read_json("settings.json").map_err(failed)?;
@@ -339,21 +405,51 @@ fn settings_rows(
         .filter(|(k, v)| here.get(*k) != Some(*v))
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
-    rows.push(if differing.is_empty() {
-        Row::new(
-            "settings",
-            PartId::Settings,
-            "Toolport settings",
-            STATE_HERE,
-        )
-        .note("same values")
-    } else {
-        Row::new("settings", PartId::Settings, "Toolport settings", STATE_ADD)
+    let label = "Toolport settings";
+    let other = hash_json(&doc["registry"]);
+    let local: Map<String, Value> = doc["registry"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter_map(|(k, _)| here.get(k).map(|v| (k.clone(), v.clone())))
+        .collect();
+    let local = hash_json(&Value::Object(local));
+    let (state, replace) = judged(
+        opts,
+        "settings",
+        if differing.is_empty() {
+            STATE_HERE
+        } else {
+            STATE_ADD
+        },
+        &other,
+        Some(&local),
+    );
+    let row = Row::new("settings", PartId::Settings, label, state).hash(other);
+    rows.push(match state {
+        STATE_HERE => row.note("same values"),
+        STATE_MINE => row.note("changed only on this machine: it goes out with your next push"),
+        STATE_CONFLICT if !replace => {
+            row.note("changed on both machines: yours is kept until you take the other machine's")
+        }
+        STATE_CONFLICT => row
+            .note(format!(
+                "{} values change to the other machine's; the old ones are saved for Undo",
+                differing.len()
+            ))
+            .step(Step::Settings(differing)),
+        STATE_INCOMING => row
+            .note(format!(
+                "changed on the other machine: {} values change, the old ones are saved for Undo",
+                differing.len()
+            ))
+            .step(Step::Settings(differing)),
+        _ => row
             .note(format!(
                 "{} values change; the old ones are saved for Undo",
                 differing.len()
             ))
-            .step(Step::Settings(differing))
+            .step(Step::Settings(differing)),
     });
     let roots = crate::context::Roots::from_home(&ctx.home);
     let dir = crate::context::bundle_store::dir(&roots);
@@ -361,49 +457,64 @@ fn settings_rows(
         let Some(text) = text.as_str() else { continue };
         let path = dir.join(format!("{name}.yaml"));
         let id = format!("settings:bundle:{name}");
-        let state = file_state(&path, text.as_bytes());
-        let write = Write {
-            path,
-            bytes: text.as_bytes().to_vec(),
-            replace: take.contains(&id),
-        };
         rows.push(file_row(
+            opts,
             id,
             PartId::Settings,
             format!("Bundle {name}"),
-            state,
-            write,
+            path,
+            text.as_bytes().to_vec(),
         ));
     }
     if !doc["compression"].is_null() {
         let path = ctx.data_dir.join("compression.json");
         let bytes = serde_json::to_vec_pretty(&doc["compression"]).unwrap_or_default();
-        let state = match std::fs::read(&path)
+        let other = hash_json(&doc["compression"]);
+        let existing = std::fs::read(&path)
             .ok()
-            .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
-        {
+            .and_then(|b| serde_json::from_slice::<Value>(&b).ok());
+        let local = existing.as_ref().map(hash_json);
+        let state = match &existing {
             None => STATE_ADD,
-            Some(existing) if existing == doc["compression"] => STATE_HERE,
+            Some(existing) if *existing == doc["compression"] => STATE_HERE,
             Some(_) => STATE_CONFLICT,
         };
         let id = "settings:compression".to_string();
+        let (state, replace) = judged(opts, &id, state, &other, local.as_deref());
         let write = Write {
             path,
             bytes,
-            replace: take.contains(&id),
+            replace,
         };
-        rows.push(file_row(
-            id,
-            PartId::Settings,
-            "Compression settings",
-            state,
-            write,
-        ));
+        rows.push(
+            file_row_in(id, PartId::Settings, "Compression settings", state, write).hash(other),
+        );
     }
     Ok(())
 }
 
+/// A file row judged by the hash of its bytes against the file on this machine.
 fn file_row(
+    opts: &RestoreOptions,
+    id: String,
+    part: PartId,
+    label: impl Into<String>,
+    path: PathBuf,
+    bytes: Vec<u8>,
+) -> Row {
+    let state = file_state(&path, &bytes);
+    let other = sha256_hex(&bytes);
+    let local = std::fs::read(&path).ok().map(|b| sha256_hex(&b));
+    let (state, replace) = judged(opts, &id, state, &other, local.as_deref());
+    let write = Write {
+        path,
+        bytes,
+        replace,
+    };
+    file_row_in(id, part, label, state, write).hash(other)
+}
+
+fn file_row_in(
     id: String,
     part: PartId,
     label: impl Into<String>,
@@ -413,13 +524,21 @@ fn file_row(
     let note = match state {
         STATE_ADD => "added".to_string(),
         STATE_HERE => "already here, same".to_string(),
+        STATE_INCOMING => {
+            "changed on the other machine: replaced, yours is saved for Undo".to_string()
+        }
+        STATE_MINE if !write.path.exists() => {
+            "removed here since the last sync: it stays removed, the next push leaves it out"
+                .to_string()
+        }
+        STATE_MINE => "changed only on this machine: it goes out with your next push".to_string(),
         _ if write.replace => {
             "differs: replaced by the file's copy, yours is saved for Undo".to_string()
         }
         _ => "differs: yours is kept".to_string(),
     };
     let row = Row::new(id, part, label, state).note(note);
-    if state == STATE_HERE {
+    if matches!(state, STATE_HERE | STATE_MINE) {
         row
     } else {
         row.step(Step::Files(vec![write]))
@@ -470,7 +589,7 @@ fn library_row(opened: &mut Opened, rows: &mut Vec<Row>) {
     });
 }
 
-fn claude_rows(ctx: &Ctx<'_>, opened: &mut Opened, take: &BTreeSet<String>, rows: &mut Vec<Row>) {
+fn claude_rows(ctx: &Ctx<'_>, opened: &mut Opened, opts: &RestoreOptions, rows: &mut Vec<Row>) {
     for name in opened.names_under("claude-user/") {
         let rel = name.trim_start_matches("claude-user/").to_string();
         let id = format!("claude:{rel}");
@@ -497,19 +616,7 @@ fn claude_rows(ctx: &Ctx<'_>, opened: &mut Opened, take: &BTreeSet<String>, rows
             continue;
         };
         let path = ctx.claude_home.join(&rel);
-        let state = file_state(&path, &bytes);
-        let replace = take.contains(&id);
-        rows.push(file_row(
-            id,
-            PartId::ClaudeUser,
-            label,
-            state,
-            Write {
-                path,
-                bytes,
-                replace,
-            },
-        ));
+        rows.push(file_row(opts, id, PartId::ClaudeUser, label, path, bytes));
     }
 }
 
@@ -705,12 +812,12 @@ fn build(ctx: &Ctx<'_>, opened: &mut Opened, opts: &RestoreOptions) -> Result<Pl
         }
         match id {
             PartId::Repos => repo_rows(ctx, opened, &opts.take, &mut rows, &mut cloning)?,
-            PartId::Servers => server_rows(ctx, opened, locked, &mut rows)?,
+            PartId::Servers => server_rows(ctx, opened, locked, opts, &mut rows)?,
             PartId::Access => access_row(ctx, opened, &mut rows)?,
             PartId::Library => library_row(opened, &mut rows),
             PartId::Tasks => task_rows(ctx, opened, &mut rows)?,
-            PartId::Settings => settings_rows(ctx, opened, &opts.take, &mut rows)?,
-            PartId::ClaudeUser => claude_rows(ctx, opened, &opts.take, &mut rows),
+            PartId::Settings => settings_rows(ctx, opened, opts, &mut rows)?,
+            PartId::ClaudeUser => claude_rows(ctx, opened, opts, &mut rows),
             PartId::Memory => memory_rows(
                 ctx,
                 opened,
@@ -779,13 +886,13 @@ fn plan_hash(plan: &Plan, opts: &RestoreOptions, file_sha: &str) -> String {
     sha256_hex(text.as_bytes())[..12].to_string()
 }
 
-fn plan_json(plan: &Plan, hash: &str, opened: &Opened) -> Value {
+fn plan_json(plan: &Plan, hash: &str, opened: &Opened, judged: bool) -> Value {
     let mut counts: BTreeMap<&str, u64> = BTreeMap::new();
     for row in &plan.rows {
         *counts.entry(row.state).or_default() += 1;
     }
     let count = |s: &str| counts.get(s).copied().unwrap_or(0);
-    json!({
+    let mut plan_doc = json!({
         "applied": false,
         "dryRun": true,
         "file": opened.path.to_string_lossy(),
@@ -798,15 +905,26 @@ fn plan_json(plan: &Plan, hash: &str, opened: &Opened) -> Value {
             "needs": count(STATE_NEEDS),
             "skip": count(STATE_SKIP),
         },
-        "rows": plan.rows.iter().map(|r| json!({
-            "id": r.id,
-            "part": r.part.id(),
-            "label": r.label,
-            "state": r.state,
-            "note": r.note,
-        })).collect::<Vec<_>>(),
+        "rows": plan.rows.iter().map(|r| {
+            let mut row = json!({
+                "id": r.id,
+                "part": r.part.id(),
+                "label": r.label,
+                "state": r.state,
+                "note": r.note,
+            });
+            if let (true, Some(other)) = (judged, &r.other) {
+                row["hash"] = json!(other);
+            }
+            row
+        }).collect::<Vec<_>>(),
         "file_info": inspect::summary(opened)["parts"],
-    })
+    });
+    if judged {
+        plan_doc["summary"]["incoming"] = json!(count(STATE_INCOMING));
+        plan_doc["summary"]["mine"] = json!(count(STATE_MINE));
+    }
+    plan_doc
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -1009,7 +1127,7 @@ pub fn run(ctx: &Ctx<'_>, opts: &RestoreOptions) -> Result<Value, OpError> {
     let mut plan = build(ctx, &mut opened, opts)?;
     let hash = plan_hash(&plan, opts, &file_sha);
     if !opts.apply {
-        return Ok(plan_json(&plan, &hash, &opened));
+        return Ok(plan_json(&plan, &hash, &opened, opts.baseline.is_some()));
     }
     match opts.plan.as_deref() {
         None => {
@@ -1060,7 +1178,7 @@ pub fn run(ctx: &Ctx<'_>, opts: &RestoreOptions) -> Result<Value, OpError> {
         .filter(|r| r.state == STATE_NEEDS)
         .map(|r| json!({"id": r.id, "label": r.label, "note": r.note}))
         .collect();
-    Ok(json!({
+    let mut data = json!({
         "applied": true,
         "dryRun": false,
         "run": journal.id,
@@ -1068,7 +1186,14 @@ pub fn run(ctx: &Ctx<'_>, opts: &RestoreOptions) -> Result<Value, OpError> {
         "failed": failures,
         "needsYou": needs,
         "serversToRemoveOnUndo": journal.servers,
-    }))
+    });
+    if opts.baseline.is_some() {
+        data["rows"] = rows
+            .iter()
+            .map(|r| json!({"id": r.id, "part": r.part.id(), "state": r.state, "hash": r.other}))
+            .collect();
+    }
+    Ok(data)
 }
 
 fn latest_journal(ctx: &Ctx<'_>, wanted: Option<&str>) -> Result<Journal, OpError> {
