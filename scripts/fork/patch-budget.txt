@@ -33,6 +33,12 @@
 #   with stays whole. The gateway tests of the mode are included from plus_gateway.rs (2 lines in the test
 #   module).
 38	src-tauri/src/bin/toolport-gateway.rs
+# catalog.rs, 8 changed lines for the local registry index (D-118): `search` hands search_with_registry
+# seam::registry_lookup instead of search_registry (2), so the desktop IPC search and the Linux native
+# search both ask the index first and fall back to the live search; map_server, is_latest and is_active
+# become pub(crate) (2 each), so the adapter maps a registry page into entries with upstream's own code
+# instead of a copy.
+8	src-tauri/src/catalog.rs
 # desktop.rs, 6 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
 # plus_ctl commands (D-060) and hands every other command on (4); seam::app_started() at the start of
 # run() starts the task scheduler thread of the desktop app, the always-on tick of D-128 (2).

@@ -548,7 +548,7 @@ pub struct CatalogSearch {
 }
 
 pub fn search(query: &str) -> CatalogSearch {
-    search_with_registry(query, search_registry)
+    search_with_registry(query, crate::seam::registry_lookup)
 }
 
 pub(crate) fn search_with_registry(
@@ -852,7 +852,7 @@ fn is_safe_package_id(spec: &str) -> bool {
 
 /// Turn one registry `server` object into a catalog entry. Prefers a hosted
 /// remote (simplest to connect), else the first installable package.
-fn map_server(server: &Value) -> Option<CatalogEntry> {
+pub(crate) fn map_server(server: &Value) -> Option<CatalogEntry> {
     let id = server.get("name").and_then(|v| v.as_str()).unwrap_or("");
     // Friendly title when present; fall back to the namespaced id.
     let name = server
@@ -1011,7 +1011,7 @@ fn map_server(server: &Value) -> Option<CatalogEntry> {
 
 /// True if a registry list item is the latest published version of its server
 /// (the API returns one item per version, so we dedupe on this).
-fn is_latest(item: &Value) -> bool {
+pub(crate) fn is_latest(item: &Value) -> bool {
     item.get("_meta")
         .and_then(|m| m.get("io.modelcontextprotocol.registry/official"))
         .and_then(|o| o.get("isLatest"))
@@ -1019,7 +1019,7 @@ fn is_latest(item: &Value) -> bool {
         .unwrap_or(true)
 }
 
-fn is_active(item: &Value) -> bool {
+pub(crate) fn is_active(item: &Value) -> bool {
     item.get("_meta")
         .and_then(|m| m.get("io.modelcontextprotocol.registry/official"))
         .and_then(|o| o.get("status"))

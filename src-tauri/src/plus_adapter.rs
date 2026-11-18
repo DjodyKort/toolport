@@ -7,9 +7,9 @@ use toolport_plus_api::{
     convert, plus_ops, AccessSetInfo, AuthProbe, CallsInFlight, CatalogAccess, CatalogEntryRecord,
     ContextHost, DirectEntry, EnvEntry, ForkServerFields, GatewayRouter, HostEnv, HttpAccess,
     HttpBody, HttpError, HttpRequest, HttpResponse, McpmSource, ProcessOutcome, ProcessSpec,
-    RegistryAccess, RegistryPlus, RegistryTx, RegistryView, RestartOutcome, RunApproval,
-    RunDecision, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules, ServerSpec, TaskHost,
-    TrustInputs, VaultAccess,
+    RegistryAccess, RegistryEntries, RegistryPlus, RegistryTx, RegistryView, RestartOutcome,
+    RunApproval, RunDecision, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules, ServerSpec,
+    TaskHost, TrustInputs, VaultAccess,
 };
 
 pub struct HostAdapter;
@@ -692,6 +692,50 @@ impl CatalogAccess for HostAdapter {
             .filter_map(|entry| convert(entry).ok())
             .collect()
     }
+
+    fn registry_entries(&self, body: &serde_json::Value) -> RegistryEntries {
+        let mut page = RegistryEntries::default();
+        let items = body.get("servers").and_then(serde_json::Value::as_array);
+        for item in items.into_iter().flatten() {
+            if !crate::catalog::is_latest(item) {
+                continue;
+            }
+            let server = item.get("server").unwrap_or(item);
+            let Some(id) = server.get("name").and_then(serde_json::Value::as_str) else {
+                continue;
+            };
+            let entry = crate::catalog::is_active(item)
+                .then(|| crate::catalog::map_server(server))
+                .flatten()
+                .and_then(|entry| convert(&entry).ok());
+            match entry {
+                Some(entry) => page.entries.push((id.to_string(), entry)),
+                None => page.retired.push(id.to_string()),
+            }
+        }
+        page
+    }
+}
+
+/// What upstream's catalog search shows from the MCP Registry for `query`: the local index while
+/// it is fresh, upstream's own live search otherwise (D-118).
+pub(crate) fn registry_lookup(
+    query: &str,
+) -> Result<Vec<crate::catalog::CatalogEntry>, crate::catalog::RegistryStatus> {
+    let live = |query: &str| {
+        crate::catalog::search_registry(query).map(|entries| {
+            entries
+                .iter()
+                .filter_map(|entry| convert(entry).ok())
+                .collect()
+        })
+    };
+    toolport_plus::catalog_index::answer(&HostAdapter, query, live).map(|records| {
+        records
+            .iter()
+            .filter_map(|record| convert(record).ok())
+            .collect()
+    })
 }
 
 /// The router one gateway process owns, as the restart listener sees it, with the launches it
@@ -2623,6 +2667,32 @@ mod tests {
         let stored = scratch.raw_registry();
         assert_eq!(stored["servers"], json!([]));
         assert_eq!(stored["profiles"][0]["enabledServerIds"], json!([]));
+    }
+
+    #[test]
+    fn registry_entries_keeps_the_latest_active_servers_the_way_upstreams_live_search_does() {
+        let official = |latest: bool, status: &str| json!({"io.modelcontextprotocol.registry/official": {"isLatest": latest, "status": status}});
+        let body = json!({"servers": [
+            {"server": {"name": "io.github.acme/widget", "title": "Widget", "description": "d",
+                "remotes": [{"type": "streamable-http", "url": "https://widget.invalid/mcp"}]},
+             "_meta": official(true, "active")},
+            {"server": {"name": "io.github.acme/old", "description": "d",
+                "remotes": [{"url": "https://old.invalid/mcp"}]},
+             "_meta": official(false, "active")},
+            {"server": {"name": "io.github.acme/gone", "description": "d",
+                "remotes": [{"url": "https://gone.invalid/mcp"}]},
+             "_meta": official(true, "deleted")},
+            {"server": {"name": "io.github.acme/bare", "description": "d"},
+             "_meta": official(true, "active")},
+        ], "metadata": {"nextCursor": "x"}});
+        let page = HostAdapter.registry_entries(&body);
+        let (id, entry) = &page.entries[0];
+        assert_eq!(page.entries.len(), 1);
+        assert_eq!(id, "io.github.acme/widget");
+        assert_eq!(entry.name, "Widget");
+        assert_eq!(entry.text("url"), Some("https://widget.invalid/mcp"));
+        assert_eq!(entry.source, "registry");
+        assert_eq!(page.retired, ["io.github.acme/gone", "io.github.acme/bare"]);
     }
 
     #[test]
