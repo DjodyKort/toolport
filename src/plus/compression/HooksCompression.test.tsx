@@ -136,8 +136,10 @@ describe("Hooks & compression tab", () => {
   it("test04_a_hook_just_adopted_has_no_counted_calls_yet", async () => {
     setup();
     await userEvent.click(await screen.findByRole("button", { name: "Adopt" }));
-    expect(await screen.findByTestId("hook-detail-rtk")).toHaveTextContent(
-      "No calls counted yet. The hook counts from the next Claude Code session.",
+    await waitFor(() =>
+      expect(screen.getByTestId("hook-detail-rtk")).toHaveTextContent(
+        "No calls counted yet. The hook counts from the next Claude Code session.",
+      ),
     );
   });
 
