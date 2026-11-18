@@ -6,6 +6,7 @@ pub mod auth;
 pub mod compression;
 pub mod context;
 pub mod ctl;
+pub mod direct;
 pub mod egress;
 pub mod fsx;
 pub mod handshake;

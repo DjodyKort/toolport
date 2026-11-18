@@ -717,6 +717,7 @@ pub struct MemoryHost {
     pub settings_paths: Vec<PathBuf>,
     pub tasks: crate::tasks::FakeTaskHost,
     pub launch_at_login: Cell<Option<bool>>,
+    pub clients: crate::clients::MemoryClients,
 }
 
 impl crate::SettingsStore for MemoryHost {
@@ -1282,6 +1283,38 @@ impl AuthAccess for MemoryHost {
     fn open_url(&self, url: &str) -> Result<(), String> {
         self.auth.opened.borrow_mut().push(url.to_string());
         Ok(())
+    }
+}
+
+impl crate::clients::ClientsHost for MemoryHost {
+    fn detect_clients(&self) -> Vec<crate::clients::ClientInfo> {
+        self.clients.detect_clients()
+    }
+    fn client_revision(&self, client_id: &str) -> Result<Option<String>, String> {
+        self.clients.client_revision(client_id)
+    }
+    fn render_entry(
+        &self,
+        client_id: &str,
+        spec: &crate::clients::EntrySpec,
+    ) -> Result<String, String> {
+        self.clients.render_entry(client_id, spec)
+    }
+    fn write_entry(
+        &self,
+        client_id: &str,
+        name: &str,
+        spec: Option<&crate::clients::EntrySpec>,
+        expect_revision: Option<&Option<String>>,
+    ) -> Result<crate::clients::EntryWrite, crate::clients::ClientWriteError> {
+        self.clients
+            .write_entry(client_id, name, spec, expect_revision)
+    }
+    fn launcher_command(&self) -> Option<String> {
+        self.clients.launcher_command()
+    }
+    fn launcher_env(&self) -> BTreeMap<String, String> {
+        self.clients.launcher_env()
     }
 }
 

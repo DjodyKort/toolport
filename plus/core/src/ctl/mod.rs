@@ -8,6 +8,7 @@
 
 mod agents;
 mod auth;
+mod client_direct;
 mod commands;
 mod commands_json;
 pub(crate) mod compression;
@@ -140,6 +141,26 @@ pub const COMMANDS: &[Command] = &[
         &["server", "restart"],
         "Restart a server's process in every running gateway [--dry-run] [--wait <s>] [--if-idle]",
         server::restart,
+    ),
+    cmd(
+        &["client", "direct", "add"],
+        "Give a client one server as its own entry outside the gateway <server> --client <id> [--force] [--dry-run] [--plan-hash <hash>]",
+        client_direct::add,
+    ),
+    cmd(
+        &["client", "direct", "rm"],
+        "Remove a direct entry Toolport wrote <server> --client <id> [--force] [--dry-run] [--plan-hash <hash>]",
+        client_direct::rm,
+    ),
+    cmd(
+        &["client", "direct", "ls"],
+        "List direct client entries with their state [--client <id>]",
+        client_direct::ls,
+    ),
+    cmd(
+        &["client", "direct", "check"],
+        "Check direct client entries against what Toolport wrote; exits 1 when one drifted [--client <id>]",
+        client_direct::check,
     ),
     cmd(
         &["auth", "statusline"],

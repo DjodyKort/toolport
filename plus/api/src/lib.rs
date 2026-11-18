@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use serde_json::{Map, Value};
 
 pub mod auth;
+pub mod clients;
 pub mod context;
 pub mod fork_data;
 pub mod http;
@@ -20,6 +21,10 @@ pub mod tasks;
 pub mod view;
 
 pub use auth::{AuthAccess, AuthChild, ConsentSink, LaunchError, LaunchFault};
+pub use clients::{
+    ClientEntryInfo, ClientInfo, ClientWriteError, ClientsHost, EntrySpec, EntryWrite,
+    MemoryClients,
+};
 pub use context::ContextHost;
 pub use fork_data::{
     plus_ops, AuthProbe, DirectEntry, ForkServerFields, McpmSource, RegistryPlus, SelfMcpRecord,
@@ -186,6 +191,7 @@ pub trait Host:
     + CatalogAccess
     + HttpAccess
     + AuthAccess
+    + ClientsHost
     + ContextHost
     + SettingsStore
     + TaskHost
@@ -201,6 +207,7 @@ impl<
             + CatalogAccess
             + HttpAccess
             + AuthAccess
+            + ClientsHost
             + ContextHost
             + SettingsStore
             + TaskHost,

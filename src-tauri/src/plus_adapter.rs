@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use serde_json::{Map, Value};
 use toolport_plus_api::{
     convert, plus_ops, AccessSetInfo, AuthProbe, CallsInFlight, CatalogAccess, CatalogEntryRecord,
-    ContextHost, DirectEntry, EnvEntry, ForkServerFields, GatewayRouter, HostEnv, HttpAccess,
+    ClientEntryInfo, ClientInfo, ClientWriteError, ClientsHost, ContextHost, DirectEntry,
+    EntrySpec, EntryWrite, EnvEntry, ForkServerFields, GatewayRouter, HostEnv, HttpAccess,
     HttpBody, HttpError, HttpRequest, HttpResponse, McpmSource, ProcessOutcome, ProcessSpec,
     RegistryAccess, RegistryPlus, RegistryTx, RegistryView, RestartOutcome, RunApproval,
     RunDecision, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules, ServerSpec, TaskHost,
@@ -1273,6 +1274,138 @@ fn run_guarded_script(source: &str, args: Value, servers: &[String]) -> Result<V
     match outcome.error {
         Some(error) => Err(error),
         None => Ok(outcome.value),
+    }
+}
+
+const LAUNCHER_STEM: &str = "toolportctl";
+
+fn launcher_file() -> String {
+    format!("{LAUNCHER_STEM}{}", std::env::consts::EXE_SUFFIX)
+}
+
+fn client_info(client: &crate::clients::DetectedClient) -> ClientInfo {
+    let shown = serde_json::to_value(client).unwrap_or(Value::Null);
+    let entries: Vec<ClientEntryInfo> = shown
+        .get("servers")
+        .cloned()
+        .and_then(|servers| serde_json::from_value(servers).ok())
+        .unwrap_or_default();
+    ClientInfo {
+        id: client.id.clone(),
+        name: client.name.clone(),
+        config_path: client.config_path.clone(),
+        config_exists: client.config_exists,
+        app_present: client.app_present,
+        uses_connectors: client.uses_connectors,
+        gateway_installed: client.gateway_installed,
+        entries,
+        error: shown
+            .get("error")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        direct_unsupported: crate::clients::direct_entry::unsupported_reason(&client.id),
+        extra: Map::new(),
+    }
+}
+
+fn server_entry_of(spec: &EntrySpec) -> Result<crate::registry::ServerEntry, String> {
+    let env: Vec<Value> = spec
+        .env
+        .iter()
+        .map(|(key, value)| serde_json::json!({"key": key, "value": value, "secret": false}))
+        .collect();
+    let mut entry = serde_json::json!({
+        "id": spec.name,
+        "name": spec.name,
+        "transport": spec.transport,
+        "env": env,
+        "source": "plus:direct",
+    });
+    if let Some(command) = &spec.command {
+        entry["command"] = Value::String(command.clone());
+        entry["args"] = serde_json::json!(spec.args);
+    }
+    if let Some(url) = &spec.url {
+        entry["url"] = Value::String(url.clone());
+    }
+    serde_json::from_value(entry).map_err(|error| format!("entry {}: {error}", spec.name))
+}
+
+impl ClientsHost for HostAdapter {
+    fn detect_clients(&self) -> Vec<ClientInfo> {
+        crate::clients::detect_clients()
+            .iter()
+            .map(client_info)
+            .collect()
+    }
+
+    fn client_revision(&self, client_id: &str) -> Result<Option<String>, String> {
+        crate::clients::direct_entry::file_revision(client_id)
+    }
+
+    fn render_entry(&self, client_id: &str, spec: &EntrySpec) -> Result<String, String> {
+        crate::clients::direct_entry::render_entry(client_id, &spec.name, &server_entry_of(spec)?)
+    }
+
+    fn write_entry(
+        &self,
+        client_id: &str,
+        name: &str,
+        spec: Option<&EntrySpec>,
+        expect_revision: Option<&Option<String>>,
+    ) -> Result<EntryWrite, ClientWriteError> {
+        let entry = spec
+            .map(server_entry_of)
+            .transpose()
+            .map_err(ClientWriteError::Failed)?;
+        crate::clients::direct_entry::set_entry(client_id, name, entry.as_ref(), expect_revision)
+            .map(|written| EntryWrite {
+                path: written.path,
+                backup: written.backup,
+                revision: written.revision,
+                extra: Map::new(),
+            })
+            .map_err(|error| {
+                if error.contains(crate::clients::direct_entry::CHANGED_SINCE_PLAN) {
+                    ClientWriteError::Conflict(error)
+                } else {
+                    ClientWriteError::Failed(error)
+                }
+            })
+    }
+
+    fn launcher_command(&self) -> Option<String> {
+        let file = launcher_file();
+        let exe = std::env::current_exe().ok();
+        if let Some(exe) = &exe {
+            if exe.file_stem().and_then(|stem| stem.to_str()) == Some(LAUNCHER_STEM) {
+                return Some(exe.to_string_lossy().into_owned());
+            }
+        }
+        let mut dirs: Vec<PathBuf> = Vec::new();
+        dirs.extend(exe.as_ref().and_then(|exe| exe.parent()).map(PathBuf::from));
+        dirs.extend(crate::registry::conduit_dir().map(|dir| dir.join("bin")));
+        dirs.extend(
+            std::env::var_os("PATH")
+                .iter()
+                .flat_map(std::env::split_paths),
+        );
+        dirs.into_iter()
+            .map(|dir| dir.join(&file))
+            .find(|candidate| candidate.is_file())
+            .map(|found| found.to_string_lossy().into_owned())
+    }
+
+    fn launcher_env(&self) -> std::collections::BTreeMap<String, String> {
+        [
+            ("TOOLPORT_DATA_DIR", "CONDUIT_DATA_DIR"),
+            ("TOOLPORT_REGISTRY", "CONDUIT_REGISTRY"),
+        ]
+        .into_iter()
+        .filter_map(|(new, legacy)| {
+            crate::brand::env_var(new, legacy).map(|value| (new.to_string(), value))
+        })
+        .collect()
     }
 }
 

@@ -4,6 +4,7 @@
 
 mod backend;
 mod catalog;
+mod clients;
 mod compression;
 #[cfg(test)]
 mod compression_tests;

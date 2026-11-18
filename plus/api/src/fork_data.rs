@@ -177,6 +177,9 @@ pub struct DirectEntry {
     /// Set for a remote server, where the launcher fields are empty.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
+    /// The client config file the entry was written to; a client whose file moved reads as relocated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
     #[serde(flatten)]
     pub extra: Map<String, Value>,
 }

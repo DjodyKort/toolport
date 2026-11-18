@@ -13,6 +13,7 @@
 
 use super::agents;
 use super::auth;
+use super::client_direct;
 use super::context;
 use super::flags::{switch, value, Flag, Spec};
 use super::library;
@@ -357,6 +358,20 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&server::RESTART])
         .args(&[req("server")])
         .skip("asks every gateway to restart a server; its --dry-run is a golden step"),
+    row("client direct add", W)
+        .dry()
+        .spec(&[&client_direct::WRITE])
+        .args(&[req("server")])
+        .requires(&["--client"])
+        .skip("writes a client file; its --dry-run is a golden step"),
+    row("client direct rm", D)
+        .dry()
+        .spec(&[&client_direct::WRITE])
+        .args(&[req("server")])
+        .requires(&["--client"])
+        .skip("removes a client entry; its --dry-run is a golden step"),
+    row("client direct ls", R).spec(&[&client_direct::READ]),
+    row("client direct check", R).spec(&[&client_direct::READ]),
     row("auth statusline", R),
     row("auth hook", R),
     row("auth probe", R).needs(&[Needs::Network]).spec(&[&auth::PROBE]),
@@ -899,6 +914,10 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("servers_update_config", W, "server edit"),
     maps("servers_set_mode", W, "server mode"),
     maps("servers_uninstall", D, "server uninstall"),
+    maps("client_direct_ls", R, "client direct ls"),
+    maps("client_direct_check", R, "client direct check"),
+    maps("client_direct_add", W, "client direct add").on(),
+    maps("client_direct_rm", D, "client direct rm").on(),
     maps("servers_restart", W, "server restart").on(),
     maps("servers_auth", W, "auth login"),
     maps("context_bundle_ls", R, "context bundle ls"),

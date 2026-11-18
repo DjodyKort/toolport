@@ -2,7 +2,8 @@ use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
 use super::{
-    backend, compression, content, context, library, servers, skills, sources, tasks, ToolError,
+    backend, clients, compression, content, context, library, servers, skills, sources, tasks,
+    ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -86,6 +87,24 @@ const GLOBAL: Param = p(
     Ty::Bool,
     false,
     "User-level locations, the default; false works inside the repository",
+);
+const DIRECT_CLIENT: Param = p(
+    "client",
+    Ty::Str,
+    true,
+    "Client id, as client_direct_ls shows",
+);
+const FORCE: Param = p(
+    "force",
+    Ty::Bool,
+    false,
+    "Replace or remove an entry Toolport did not write or that was edited since",
+);
+const PLAN_HASH: Param = p(
+    "plan_hash",
+    Ty::Str,
+    false,
+    "Hash of the plan dry_run returned; the write is refused when the plan changed since",
 );
 const DRY_ON: Param = on_by_default(p(
     "dry_run",
@@ -888,6 +907,38 @@ pub const TOOLS: &[ToolDef] = &[
         "Choose whether a server's tools are listed to clients that get the full tool list (auto) or only found through toolport_search_tools and called by name (search)",
         [NAME, p("mode", Ty::Str, true, "auto or search")],
         servers::set_mode
+    ),
+    tool!(
+        "client_direct_ls",
+        1,
+        None,
+        "List the direct client entries Toolport wrote, with their state: ok, stale, customized, missing, orphan, unrecorded or relocated",
+        [CLIENT],
+        clients::ls
+    ),
+    tool!(
+        "client_direct_check",
+        1,
+        None,
+        "Check the direct client entries against what Toolport wrote and report whether all are in sync",
+        [CLIENT],
+        clients::check
+    ),
+    tool!(
+        "client_direct_add",
+        3,
+        UnlessDryRun,
+        "Give one client a direct entry for one server, outside the gateway; stdio servers get a launcher entry that holds no secret, remote servers their address only. dry_run is on by default and returns the plan with its hash (apply with dry_run=false, plan_hash and confirm=true)",
+        [NAME, DIRECT_CLIENT, FORCE, DRY_ON, PLAN_HASH],
+        clients::add
+    ),
+    tool!(
+        "client_direct_rm",
+        4,
+        UnlessDryRun,
+        "Remove a direct client entry Toolport wrote and its record; dry_run is on by default and returns the plan with its hash (apply with dry_run=false, plan_hash and confirm=true)",
+        [NAME, DIRECT_CLIENT, FORCE, DRY_ON, PLAN_HASH],
+        clients::rm
     ),
     tool!(
         "servers_uninstall",

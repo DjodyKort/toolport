@@ -311,9 +311,7 @@ pub struct Uninstalled {
     pub id: String,
     pub name: String,
     pub dry_run: bool,
-    /// Client entries cleaned up with the server. A client reaches every server through the one
-    /// gateway entry, so there is nothing per server to remove; direct entries are listed here
-    /// once the direct-entry slice brings them.
+    /// Direct client entries removed with the server, or that would be on a dry run.
     pub clients: Vec<Value>,
     pub secrets_removed: Vec<String>,
 }
@@ -346,6 +344,11 @@ pub fn uninstall(host: &dyn Host, args: &UninstallArgs) -> Result<Uninstalled, O
         .filter(|entry| entry.secret)
         .map(|entry| entry.key)
         .collect();
+    let clients = if args.keep_clients {
+        Vec::new()
+    } else {
+        crate::direct::remove_for_server(host, &server, args.dry_run)?
+    };
     let mut secrets_removed = Vec::new();
     if !args.dry_run {
         host.transact(&mut |tx| tx.remove_server(&server.id))
@@ -362,7 +365,7 @@ pub fn uninstall(host: &dyn Host, args: &UninstallArgs) -> Result<Uninstalled, O
         id: server.id,
         name: server.name,
         dry_run: args.dry_run,
-        clients: Vec::new(),
+        clients,
         secrets_removed,
     })
 }
