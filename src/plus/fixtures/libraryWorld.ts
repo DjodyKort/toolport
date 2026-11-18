@@ -1,5 +1,6 @@
 import type { SkillEntry, SkillsInventory } from "@/lib/types";
 import type { CtlReply } from "./ctlWorld";
+import { createSelectWorld, type SelectScenario } from "./selectWorld";
 import type {
   AuditFinding,
   AutoLastRun,
@@ -44,6 +45,8 @@ export interface LibraryWorldOptions {
   styles?: boolean;
   /** The plan also writes the agent code-scout and the output style plain. */
   extras?: boolean;
+  /** Where the selective-loading source `acme-skills` stands. */
+  select?: SelectScenario;
 }
 
 const SKILLS: Array<[string, string]> = [
@@ -656,6 +659,7 @@ function plan(
  * first write. */
 export function createLibraryWorld(options: LibraryWorldOptions = {}) {
   const scenario = options.scenario ?? "plan";
+  const selectWorld = createSelectWorld(options.select);
   let items: LibrarySkill[] = [
     ...SKILLS.map(([name, description]) => item(name, "skill", description)),
     ...RULES.map(([name, description]) => item(name, "rule", description)),
@@ -1548,6 +1552,7 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
   }
 
   function library(argv: string[]): CtlReply {
+    if (argv[1] === "select") return selectWorld.run(argv);
     const dryRun = argv.includes("--dry-run");
     if (argv[1] === "status") return ok(remoteData(argv.includes("--fetch")));
     if (argv[1] === "connect") return connect(argv);

@@ -1,0 +1,37 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Compare with the local clones instead of fetching",
+      "escalates": false,
+      "hidden": false,
+      "name": "--no-fetch",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "library",
+  "id": "library select check",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": ["network"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["library", "select", "check"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Fetch every source with a selection and record which have a plan waiting; applies nothing (--no-fetch)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

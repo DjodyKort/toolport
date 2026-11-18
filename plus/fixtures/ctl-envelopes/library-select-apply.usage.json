@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "select", "apply", "picks"],
+  "envelope": {
+    "command": "library select apply",
+    "error": {
+      "code": "usage",
+      "message": "--plan-hash <hash> is required\nusage: library select apply <source> --plan-hash <hash> [--no-fetch] [--switch]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

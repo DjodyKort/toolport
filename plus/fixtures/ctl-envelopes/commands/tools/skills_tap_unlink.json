@@ -1,0 +1,7 @@
+{
+  "command": "skills tap unlink",
+  "dryRun": "default-on",
+  "name": "skills_tap_unlink",
+  "tier": "write",
+  "toolTier": 2
+}

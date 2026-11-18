@@ -1,0 +1,7 @@
+{
+  "command": "skills tap link",
+  "dryRun": "default-on",
+  "name": "skills_tap_link",
+  "tier": "write",
+  "toolTier": 2
+}

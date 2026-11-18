@@ -1,0 +1,9 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "offers": [],
+    "sources": []
+  },
+  "tool": "library_select_ls"
+}

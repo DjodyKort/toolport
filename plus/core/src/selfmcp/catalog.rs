@@ -474,9 +474,29 @@ pub const TOOLS: &[ToolDef] = &[
         "skills_tap_update",
         2,
         None,
-        "Pull one tap or all of them; dry_run is on by default",
+        "Pull one tap or all of them and update the plugins linked to Claude Code; dry_run is on by default",
         [p("name", Ty::Str, false, "Limit to one tap"), DRY_ON],
         skills::tap_update
+    ),
+    tool!(
+        "skills_tap_link",
+        2,
+        None,
+        "Link a plugin marketplace tap to Claude Code at user scope: declare its clone and switch its plugins on; dry_run is on by default",
+        [
+            p("name", Ty::Str, true, "Tap name"),
+            p("plugins", Ty::StrList, false, "Plugins to link, default all of the marketplace"),
+            DRY_ON
+        ],
+        skills::tap_link
+    ),
+    tool!(
+        "skills_tap_unlink",
+        2,
+        None,
+        "Unlink a tap from Claude Code: remove its marketplace declaration and switch its plugins off; dry_run is on by default",
+        [p("name", Ty::Str, true, "Tap name"), DRY_ON],
+        skills::tap_unlink
     ),
     tool!(
         "skills_install",
@@ -753,6 +773,26 @@ pub const TOOLS: &[ToolDef] = &[
             DRY_ON
         ],
         library::commit
+    ),
+    tool!(
+        "library_select_ls",
+        1,
+        None,
+        "List the sources that have a selection of single skills, agents, commands, hooks and rules, or with source the items of one tap or plugin with their state (on, off, new, removed) and the offer to switch a plugin that is installed whole to its chosen items. Read only",
+        [p("source", Ty::Str, false, "A tap, or <tap>/<plugin> for a plugin marketplace tap")],
+        library::select_ls
+    ),
+    tool!(
+        "library_select_plan",
+        2,
+        None,
+        "Plan the selection of a tap or plugin: fetch the latest version into a temporary clone and return, per item, what applying would add, drop, update or hold (a hook whose command changed needs a new tick), plus the settings it would write and the plan hash. Only plans: applying and ticking hooks are done with toolportctl",
+        [
+            p("source", Ty::Str, true, "A tap, or <tap>/<plugin> for a plugin marketplace tap"),
+            p("fetch", Ty::Bool, false, "Fetch the latest version (default true); false compares with the local clone"),
+            p("switch", Ty::Bool, false, "Include switching off the whole plugin that is installed beside the chosen items"),
+        ],
+        library::select_plan
     ),
     tool!(
         "skills_git_push",

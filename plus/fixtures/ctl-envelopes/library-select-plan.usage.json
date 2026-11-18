@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "select", "plan"],
+  "envelope": {
+    "command": "library select plan",
+    "error": {
+      "code": "usage",
+      "message": "missing source\nusage: library select plan <source> [--no-fetch] [--switch]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

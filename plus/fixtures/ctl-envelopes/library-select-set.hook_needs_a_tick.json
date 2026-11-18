@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "select", "set", "picks", "--on", "PostToolUse:Write|Edit"],
+  "envelope": {
+    "command": "library select set",
+    "error": {
+      "code": "usage",
+      "message": "hook 'PostToolUse:Write|Edit' runs a command in every session; tick it with --tick-hook so the command is read first"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

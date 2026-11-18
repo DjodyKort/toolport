@@ -3,6 +3,7 @@
 //! `mcpm sync tap|search|install`; the texts follow it with `toolportctl` in the hints (D-042).
 //! Errors go to stderr with exit 1 where mcpm prints them and exits 0, and `--dry-run` is new.
 
+use super::context::plan_text;
 use super::flags::{switch, value, Spec};
 use super::output::{table, table_min, wrap_cell, CtlError, Output};
 use super::skills::enter_paths;
@@ -13,6 +14,8 @@ use toolport_plus_api::Host;
 const TAP_ADD_USAGE: &str = "usage: skills tap add <user/repo|url> [--name <alias>] [--dry-run]";
 const TAP_LS_USAGE: &str = "usage: skills tap ls";
 const TAP_REMOVE_USAGE: &str = "usage: skills tap remove <name> [--dry-run]";
+const TAP_LINK_USAGE: &str = "usage: skills tap link <name> [--plugin <plugin>]... [--dry-run]";
+const TAP_UNLINK_USAGE: &str = "usage: skills tap unlink <name> [--dry-run]";
 const TAP_UPDATE_USAGE: &str = "usage: skills tap update [<name>] [--dry-run]";
 const SEARCH_USAGE: &str = "usage: skills search <query>";
 const INSTALL_USAGE: &str =
@@ -20,6 +23,8 @@ const INSTALL_USAGE: &str =
 pub(super) const TAP_ADD: Spec = spec(&[value("--name"), switch("--dry-run")], TAP_ADD_USAGE);
 pub(super) const TAP_LS: Spec = spec(&[], TAP_LS_USAGE);
 pub(super) const TAP_REMOVE: Spec = spec(&[switch("--dry-run")], TAP_REMOVE_USAGE);
+pub(super) const TAP_LINK: Spec = spec(&[value("--plugin"), switch("--dry-run")], TAP_LINK_USAGE);
+pub(super) const TAP_UNLINK: Spec = spec(&[switch("--dry-run")], TAP_UNLINK_USAGE);
 pub(super) const TAP_UPDATE: Spec = spec(&[switch("--dry-run")], TAP_UPDATE_USAGE);
 pub(super) const SEARCH: Spec = spec(&[], SEARCH_USAGE);
 pub(super) const INSTALL: Spec = spec(
@@ -30,13 +35,15 @@ pub(super) const INSTALL: Spec = spec(
 const DESCRIPTION_WIDTH: usize = 60;
 const NO_TAPS: &str = "No taps registered. Run 'toolportctl skills tap add user/repo' to add one.";
 
-fn call(command: &str, args: Value) -> Result<Value, CtlError> {
+fn call(host: &dyn Host, command: &str, args: Value) -> Result<Value, CtlError> {
     use crate::skills::tap_handlers as taps;
     let handled = match command {
         "plus.skills.tapAdd" => taps::tap_add_handler(args),
-        "plus.skills.tapList" => taps::tap_list_handler(args),
-        "plus.skills.tapRemove" => taps::tap_remove_handler(args),
-        "plus.skills.tapUpdate" => taps::tap_update_handler(args),
+        "plus.skills.tapList" => taps::tap_list_handler(host, args),
+        "plus.skills.tapRemove" => taps::tap_remove_handler(host, args),
+        "plus.skills.tapUpdate" => taps::tap_update_handler(host, args),
+        "plus.skills.tapLink" => taps::tap_link_handler(host, args),
+        "plus.skills.tapUnlink" => taps::tap_unlink_handler(host, args),
         "plus.skills.search" => taps::search_handler(args),
         "plus.skills.install" => taps::install_handler(args),
         other => Err(format!("unknown skills operation: {other}")),
@@ -63,7 +70,7 @@ pub fn tap_add(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     if let Some(name) = args.one("--name") {
         request["name"] = json!(name);
     }
-    let data = call("plus.skills.tapAdd", request)?;
+    let data = call(host, "plus.skills.tapAdd", request)?;
     let name = str_of(&data, "name");
     let human = if dry_run {
         format!(
@@ -80,7 +87,7 @@ pub fn tap_ls(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let _paths = enter_paths(host, None);
     let args = TAP_LS.parse(rest)?;
     no_operands(&args, TAP_LS_USAGE)?;
-    let data = call("plus.skills.tapList", json!({}))?;
+    let data = call(host, "plus.skills.tapList", json!({}))?;
     let taps = data["taps"].as_array().map_or(&[][..], Vec::as_slice);
     let human = if taps.is_empty() {
         NO_TAPS.to_string()
@@ -148,6 +155,7 @@ pub fn tap_remove(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> 
     let name = operand(&args, "tap name", TAP_REMOVE_USAGE)?;
     let dry_run = args.on("--dry-run");
     let data = call(
+        host,
         "plus.skills.tapRemove",
         json!({"name": name, "dry_run": dry_run}),
     )?;
@@ -178,7 +186,7 @@ pub fn tap_update(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> 
             )))
         }
     }
-    let data = call("plus.skills.tapUpdate", request)?;
+    let data = call(host, "plus.skills.tapUpdate", request)?;
     let results = data["results"].as_array().map_or(&[][..], Vec::as_slice);
     let human = if results.is_empty() {
         "No taps registered.".to_string()
@@ -236,6 +244,36 @@ pub(super) fn plugin_lines(data: &Value) -> String {
     text
 }
 
+pub fn tap_link(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let _paths = enter_paths(host, None);
+    let args = TAP_LINK.parse(rest)?;
+    let name = operand(&args, "tap name", TAP_LINK_USAGE)?;
+    let data = call(
+        host,
+        "plus.skills.tapLink",
+        json!({
+            "name": name,
+            "plugins": args.all("--plugin"),
+            "dry_run": args.on("--dry-run"),
+        }),
+    )?;
+    let human = plan_text(&data);
+    Ok(Output::new(data, human))
+}
+
+pub fn tap_unlink(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let _paths = enter_paths(host, None);
+    let args = TAP_UNLINK.parse(rest)?;
+    let name = operand(&args, "tap name", TAP_UNLINK_USAGE)?;
+    let data = call(
+        host,
+        "plus.skills.tapUnlink",
+        json!({"name": name, "dry_run": args.on("--dry-run")}),
+    )?;
+    let human = plan_text(&data);
+    Ok(Output::new(data, human))
+}
+
 fn cut_description(text: &str) -> String {
     if text.chars().count() > DESCRIPTION_WIDTH {
         text.chars()
@@ -251,7 +289,7 @@ pub fn search(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let _paths = enter_paths(host, None);
     let args = SEARCH.parse(rest)?;
     let query = operand(&args, "query", SEARCH_USAGE)?;
-    let data = call("plus.skills.search", json!({"query": query}))?;
+    let data = call(host, "plus.skills.search", json!({"query": query}))?;
     let hits = data["results"].as_array().map_or(&[][..], Vec::as_slice);
     let body = if hits.is_empty() {
         let mut text = format!("No skills found matching '{query}'.");
@@ -333,7 +371,7 @@ pub fn install(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     if let Some(path) = args.one("--path") {
         request["repo_path"] = json!(path);
     }
-    let data = call("plus.skills.install", request)?;
+    let data = call(host, "plus.skills.install", request)?;
     let mut lines = vec![format!("Resolving {spec_text}...")];
     if let Some(version) = data["version"].as_str() {
         lines.push(format!(

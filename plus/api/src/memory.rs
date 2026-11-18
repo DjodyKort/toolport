@@ -736,10 +736,6 @@ impl crate::SettingsStore for MemoryHost {
         }
     }
 
-    fn write_hooks(&self, path: &Path, original: Option<&str>, root: &Value) -> Result<(), String> {
-        self.write_key(path, original, root, "hooks")
-    }
-
     fn write_key(
         &self,
         path: &Path,

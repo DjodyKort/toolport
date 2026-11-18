@@ -321,6 +321,16 @@ impl SettingsStore for Recording<'_> {
         self.journal.before_hooks(path, prior);
         self.inner.write_hooks(path, original, root)
     }
+
+    fn write_key(
+        &self,
+        path: &Path,
+        original: Option<&str>,
+        root: &Value,
+        key: &str,
+    ) -> Result<(), String> {
+        self.inner.write_key(path, original, root, key)
+    }
 }
 
 fn prune_blobs(dir: &Path, keep: &[&str]) {

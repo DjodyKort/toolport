@@ -1,5 +1,5 @@
 //! Claude Code settings files, reached through upstream's own writer so comments, formatting
-//! and every key other than `hooks` survive a write.
+//! and every key other than the one written survive a write.
 
 use std::path::{Path, PathBuf};
 
@@ -14,18 +14,18 @@ pub trait SettingsStore {
 
     /// Writes `root["hooks"]` back after a backup of what was there; nothing else changes.
     /// `original` is the text `read_settings` returned.
-    fn write_hooks(&self, path: &Path, original: Option<&str>, root: &Value) -> Result<(), String>;
+    fn write_hooks(&self, path: &Path, original: Option<&str>, root: &Value) -> Result<(), String> {
+        self.write_key(path, original, root, "hooks")
+    }
 
-    /// [`write_hooks`](Self::write_hooks) for another top-level key: `root[key]` is written back
-    /// (or removed when `root` has no such key) after a backup, and every other key and comment
-    /// stays as it was. Fails when the key changed since `original` was read.
+    /// [`write_hooks`](Self::write_hooks) for another top-level key (`enabledPlugins`,
+    /// `extraKnownMarketplaces`): `root[key]` is written back, or the key removed when `root`
+    /// has none. A change to that key since `original` was read is refused.
     fn write_key(
         &self,
-        _path: &Path,
-        _original: Option<&str>,
-        _root: &Value,
+        path: &Path,
+        original: Option<&str>,
+        root: &Value,
         key: &str,
-    ) -> Result<(), String> {
-        Err(format!("this host cannot write the settings key {key}"))
-    }
+    ) -> Result<(), String>;
 }

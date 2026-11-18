@@ -440,6 +440,7 @@ export interface TapRow {
   url: string;
   path: string;
   cloned: boolean;
+  marketplace?: { plugins?: Array<{ name: string }> } | null;
 }
 
 export interface TapListData {

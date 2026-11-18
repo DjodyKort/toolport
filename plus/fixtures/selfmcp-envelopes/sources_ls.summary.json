@@ -184,6 +184,76 @@
       },
       {
         "counts": {
+          "agent": 1,
+          "command": 1,
+          "memory": 0,
+          "rule": 0,
+          "skill": 1
+        },
+        "detector": "plugin",
+        "enabled": true,
+        "freshness": null,
+        "id": "plugin:alpha@market",
+        "managedBy": "marketplace",
+        "origin": {
+          "kind": "plugin",
+          "name": "alpha@market"
+        },
+        "owner": "third-party",
+        "root": "<WORLD>/home/.claude/plugins/cache/market/alpha/1.0.0",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "1.0.0; enabled in user settings",
+          "state": "ok"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 20
+        },
+        "visible": {
+          "skill": 1,
+          "skillTotal": 1
+        },
+        "warnings": [],
+        "writable": false
+      },
+      {
+        "counts": {
+          "agent": 0,
+          "command": 0,
+          "memory": 0,
+          "rule": 0,
+          "skill": 1
+        },
+        "detector": "plugin",
+        "enabled": false,
+        "freshness": null,
+        "id": "plugin:beta@market",
+        "managedBy": "marketplace",
+        "origin": {
+          "kind": "plugin",
+          "name": "beta@market"
+        },
+        "owner": "third-party",
+        "root": "<WORLD>/home/.claude/plugins/cache/market/beta/2.0.0",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "2.0.0; off (user)",
+          "state": "ok"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 7
+        },
+        "visible": {
+          "skill": 1,
+          "skillTotal": 1
+        },
+        "warnings": [],
+        "writable": false
+      },
+      {
+        "counts": {
           "agent": 0,
           "command": 2,
           "memory": 1,

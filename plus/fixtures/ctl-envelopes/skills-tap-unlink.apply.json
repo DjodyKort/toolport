@@ -1,0 +1,71 @@
+{
+  "argv": ["skills", "tap", "unlink", "plugins"],
+  "envelope": {
+    "command": "skills tap unlink",
+    "data": {
+      "changes": [
+        {
+          "action": "remove",
+          "key": "extraKnownMarketplaces.acme",
+          "path": "<WORLD>/home/.claude/settings.json",
+          "scope": "user"
+        },
+        {
+          "action": "remove",
+          "key": "enabledPlugins.core@acme",
+          "path": "<WORLD>/home/.claude/settings.json",
+          "scope": "user"
+        }
+      ],
+      "conflicts": [],
+      "cwd": null,
+      "dryRun": false,
+      "id": "plugins",
+      "marketplaces": ["acme"],
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "remove acme",
+            "diff": {
+              "after": "{}",
+              "before": "{\n  \"acme\": {\n    \"source\": {\n      \"path\": \"<WORLD>/data/taps/plugins\",\n      \"source\": \"directory\"\n    }\n  }\n}"
+            },
+            "keys": ["extraKnownMarketplaces"],
+            "op": "merge",
+            "path": "<WORLD>/home/.claude/settings.json"
+          },
+          {
+            "detail": "remove core@acme",
+            "diff": {
+              "after": "{}",
+              "before": "{\n  \"core@acme\": true\n}"
+            },
+            "keys": ["enabledPlugins"],
+            "op": "merge",
+            "path": "<WORLD>/home/.claude/settings.json"
+          }
+        ],
+        "summary": "Unlink tap plugins from Claude Code",
+        "undo": "toolportctl skills tap link plugins",
+        "warnings": [
+          "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "extraKnownMarketplaces.acme in <WORLD>/home/.claude/settings.json",
+          "enabledPlugins.core@acme in <WORLD>/home/.claude/settings.json"
+        ],
+        "undo": "toolportctl skills tap link plugins"
+      },
+      "scope": "user",
+      "tap": "plugins"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

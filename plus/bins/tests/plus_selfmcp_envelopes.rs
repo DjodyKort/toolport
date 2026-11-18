@@ -20,6 +20,7 @@ use common::client::Client;
 use common::compression;
 use common::library_world::{self, library_home};
 use common::server_repo_world::server_repo;
+use common::taps_world;
 use common::tasks_world::{scheduler_home, tasks_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
@@ -1719,6 +1720,87 @@ const CASES: &[Case] = &[
     case(
         "skills_tap_update",
         &[read("none", "skills_tap_update", "{}")],
+    ),
+    prepared(
+        "library_select_ls",
+        taps_world::select_src,
+        &[
+            read("empty", "library_select_ls", "{}"),
+            fails(
+                "unknown",
+                "not_found",
+                "library_select_ls",
+                r#"{"source":"nope"}"#,
+            ),
+            setup(
+                "skills_tap_add",
+                r#"{"repo":"{base}/select-src","name":"picks","dry_run":false}"#,
+            ),
+            read("items", "library_select_ls", r#"{"source":"picks"}"#),
+        ],
+    ),
+    prepared(
+        "library_select_plan",
+        taps_world::select_src,
+        &[
+            fails("missing", "invalid_arguments", "library_select_plan", "{}"),
+            setup(
+                "skills_tap_add",
+                r#"{"repo":"{base}/select-src","name":"picks","dry_run":false}"#,
+            ),
+            read("plan", "library_select_plan", r#"{"source":"picks"}"#),
+            read(
+                "local",
+                "library_select_plan",
+                r#"{"source":"picks","fetch":false}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "skills_tap_link",
+        taps_world::both,
+        &[
+            fails(
+                "unknown",
+                "not_found",
+                "skills_tap_link",
+                r#"{"name":"plugins"}"#,
+            ),
+            setup(
+                "skills_tap_add",
+                r#"{"repo":"{base}/plugin-src","name":"plugins","dry_run":false}"#,
+            ),
+            read("preview", "skills_tap_link", r#"{"name":"plugins"}"#),
+            fails(
+                "unknown_plugin",
+                "invalid_arguments",
+                "skills_tap_link",
+                r#"{"name":"plugins","plugins":["nope"]}"#,
+            ),
+            write(
+                "apply",
+                "skills_tap_link",
+                r#"{"name":"plugins","dry_run":false}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "skills_tap_unlink",
+        taps_world::both,
+        &[
+            setup(
+                "skills_tap_add",
+                r#"{"repo":"{base}/plugin-src","name":"plugins","dry_run":false}"#,
+            ),
+            read("not_linked", "skills_tap_unlink", r#"{"name":"plugins"}"#),
+            setup("skills_tap_link", r#"{"name":"plugins","dry_run":false}"#),
+            read("preview", "skills_tap_unlink", r#"{"name":"plugins"}"#),
+            write(
+                "apply",
+                "skills_tap_unlink",
+                r#"{"name":"plugins","dry_run":false}"#,
+            ),
+        ],
     ),
     case(
         "skills_install",

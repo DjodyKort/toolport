@@ -17,6 +17,7 @@ mod compression_hooks;
 mod context;
 mod flags;
 mod library;
+mod library_select;
 mod mcp;
 mod memory;
 mod output;
@@ -452,6 +453,16 @@ pub const COMMANDS: &[Command] = &[
         skills_taps::tap_update,
     ),
     cmd(
+        &["skills", "tap", "link"],
+        "Link a plugin marketplace tap to Claude Code at user scope (<name>, --plugin <plugin>, --dry-run)",
+        skills_taps::tap_link,
+    ),
+    cmd(
+        &["skills", "tap", "unlink"],
+        "Unlink a tap from Claude Code: remove its marketplace declaration and switch its plugins off (<name>, --dry-run)",
+        skills_taps::tap_unlink,
+    ),
+    cmd(
         &["skills", "search"],
         "Search the taps for skills by name, description or tags (<query>)",
         skills_taps::search,
@@ -651,6 +662,36 @@ pub const COMMANDS: &[Command] = &[
         &["library", "push"],
         "Audit and secret-scan, then push the skills library; never forces (--dry-run)",
         library::push,
+    ),
+    cmd(
+        &["library", "select", "ls"],
+        "List the sources that have a selection, or the items of one source with their state (<source>)",
+        library_select::ls,
+    ),
+    cmd(
+        &["library", "select", "set"],
+        "Record which items of a tap or plugin are on or off; nothing is loaded until a plan is applied (<source>, --on, --off, --tick-hook, --dry-run)",
+        library_select::set,
+    ),
+    cmd(
+        &["library", "select", "plan"],
+        "Fetch the source and show what applying would change, per item; writes nothing (<source>, --no-fetch, --switch)",
+        library_select::plan,
+    ),
+    cmd(
+        &["library", "select", "apply"],
+        "Apply a plan: generate the slice plugin of the chosen items and switch it on (<source>, --plan-hash <hash>, --no-fetch, --switch)",
+        library_select::apply,
+    ),
+    cmd(
+        &["library", "select", "undo"],
+        "Put back what the last apply for the source changed (<source>)",
+        library_select::undo,
+    ),
+    cmd(
+        &["library", "select", "check"],
+        "Fetch every source with a selection and record which have a plan waiting; applies nothing (--no-fetch)",
+        library_select::check,
     ),
     cmd(
         &["skills", "bundle"],

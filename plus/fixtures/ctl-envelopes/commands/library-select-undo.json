@@ -1,0 +1,31 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "library",
+  "id": "library select undo",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "source",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["library", "select", "undo"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Put back what the last apply for the source changed (<source>)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

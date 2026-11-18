@@ -3,8 +3,6 @@
 //! One [`SourceDetector`] per kind of place. Detectors are read-only (they only get the helpers
 //! in [`fsx`] and [`gitx`]), bounded by a [`Budget`] and cached by [`Cache`]; a budget hit makes
 //! the scan `partial` and is reported in `skipped`, never raised as an error.
-//!
-//! The `plugin` detector is not here: it reads the installed plugins, which the plugins slice owns.
 
 pub mod budget;
 pub mod cache;
@@ -23,6 +21,7 @@ mod inert;
 mod library;
 mod loose;
 mod org;
+mod plugin;
 mod repo;
 mod tap;
 mod vendored;
@@ -47,18 +46,22 @@ use std::time::{Duration, Instant};
 #[derive(Clone, Debug)]
 pub struct Places {
     pub claude_home: PathBuf,
+    /// The administrator's `managed-settings.json`; `None` when it is not looked at.
+    pub managed_settings: Option<PathBuf>,
     pub corp_tools_dir: PathBuf,
     pub clients_root: PathBuf,
 }
 
 pub const ENV_CORP_TOOLS_DIR: &str = "TOOLPORT_CORP_TOOLS_DIR";
 pub const ENV_CLIENTS_ROOT: &str = "TOOLPORT_CLIENTS_ROOT";
+pub const ENV_MANAGED_SETTINGS: &str = "TOOLPORT_CLAUDE_MANAGED_SETTINGS";
 const DEFAULT_CORP_TOOLS_REL: &str = ".local/share/corp-dev-tools";
 
 impl Places {
     pub fn from_config(roots: &Roots, config: &Config) -> Self {
         Self {
             claude_home: roots.home.join(".claude"),
+            managed_settings: None,
             corp_tools_dir: match config.corp_tools_dir.as_deref().filter(|v| !v.is_empty()) {
                 Some(raw) => roots.expand_user(raw),
                 None => roots.home.join(DEFAULT_CORP_TOOLS_REL),
@@ -80,7 +83,29 @@ impl Places {
         if let Some(dir) = var(ENV_CLIENTS_ROOT) {
             places.clients_root = roots.expand_user(&dir);
         }
+        places.managed_settings = managed_settings_path();
         places
+    }
+}
+
+/// The administrator's `managed-settings.json`, or `None` when the environment switches the
+/// lookup off.
+pub fn managed_settings_path() -> Option<PathBuf> {
+    match std::env::var_os(ENV_MANAGED_SETTINGS) {
+        Some(path) if path.is_empty() => None,
+        Some(path) => Some(PathBuf::from(path)),
+        None => Some(managed_dir().join("managed-settings.json")),
+    }
+}
+
+/// Where Claude Code reads what an administrator manages.
+fn managed_dir() -> PathBuf {
+    if cfg!(target_os = "macos") {
+        PathBuf::from("/Library/Application Support/ClaudeCode")
+    } else if cfg!(windows) {
+        PathBuf::from(r"C:\Program Files\ClaudeCode")
+    } else {
+        PathBuf::from("/etc/claude-code")
     }
 }
 
@@ -107,12 +132,13 @@ pub trait SourceDetector {
     fn scan(&self, ctx: &ScanCtx) -> DetectorOutput;
 }
 
-/// In result order: repo-native first, then org, account, library, tap, loose, inert.
+/// In result order: repo-native first, then plugin, org, account, library, tap, loose, inert.
 pub fn detectors() -> Vec<Box<dyn SourceDetector>> {
     vec![
         Box::new(repo::RepoDetector),
         Box::new(client::ClientDetector),
         Box::new(vendored::VendoredDetector),
+        Box::new(plugin::PluginDetector),
         Box::new(org::OrgDetector),
         Box::new(account::AccountDetector),
         Box::new(library::LibraryDetector),

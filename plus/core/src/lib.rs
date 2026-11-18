@@ -20,11 +20,13 @@ pub mod login_keychain;
 pub mod memory;
 pub mod oauth;
 pub mod op;
+pub mod plugins;
 pub mod progress;
 #[cfg(test)]
 mod randutil;
 mod redact;
 pub mod resource_links;
+pub mod selective;
 pub mod selfmcp;
 pub mod servers;
 pub mod setup;

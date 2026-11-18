@@ -1,0 +1,17 @@
+{
+  "argv": ["library", "select", "set", "picks", "--off", "deploy"],
+  "envelope": {
+    "command": "library select set",
+    "data": {
+      "changed": ["command:deploy off"],
+      "dryRun": false,
+      "next": "toolportctl library select plan picks",
+      "on": 4,
+      "source": "picks",
+      "total": 6
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

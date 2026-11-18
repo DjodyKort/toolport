@@ -1,0 +1,90 @@
+{
+  "argv": ["skills", "tap", "link", "plugins"],
+  "envelope": {
+    "command": "skills tap link",
+    "data": {
+      "changes": [
+        {
+          "action": "declare",
+          "key": "extraKnownMarketplaces.acme",
+          "path": "<WORLD>/home/.claude/settings.json",
+          "scope": "user"
+        },
+        {
+          "action": "enable",
+          "key": "enabledPlugins.core@acme",
+          "path": "<WORLD>/home/.claude/settings.json",
+          "scope": "user"
+        }
+      ],
+      "conflicts": [],
+      "cwd": null,
+      "dryRun": false,
+      "id": "acme",
+      "marketplace": "acme",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "declare acme",
+            "diff": {
+              "after": "{\n  \"acme\": {\n    \"source\": {\n      \"path\": \"<WORLD>/data/taps/plugins\",\n      \"source\": \"directory\"\n    }\n  }\n}",
+              "before": ""
+            },
+            "keys": ["extraKnownMarketplaces"],
+            "op": "merge",
+            "path": "<WORLD>/home/.claude/settings.json"
+          },
+          {
+            "detail": "enable core@acme",
+            "diff": {
+              "after": "{\n  \"core@acme\": true\n}",
+              "before": ""
+            },
+            "keys": ["enabledPlugins"],
+            "op": "merge",
+            "path": "<WORLD>/home/.claude/settings.json"
+          },
+          {
+            "detail": "Claude Code installs the switched-on plugins of a declared marketplace when a session starts",
+            "op": "note"
+          },
+          {
+            "detail": "updates: `toolportctl skills tap update` pulls the clone and runs `claude plugin update` for what is linked",
+            "op": "note"
+          }
+        ],
+        "summary": "Link tap plugins to Claude Code as marketplace acme",
+        "undo": "toolportctl skills tap unlink plugins",
+        "warnings": [
+          "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+        ]
+      },
+      "plugins": [
+        {
+          "agents": 0,
+          "hooks": false,
+          "id": "core@acme",
+          "linked": false,
+          "name": "core",
+          "skills": 1,
+          "version": "<masked>"
+        }
+      ],
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "extraKnownMarketplaces.acme in <WORLD>/home/.claude/settings.json",
+          "enabledPlugins.core@acme in <WORLD>/home/.claude/settings.json"
+        ],
+        "undo": "toolportctl skills tap unlink plugins"
+      },
+      "scope": "user",
+      "tap": "plugins"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

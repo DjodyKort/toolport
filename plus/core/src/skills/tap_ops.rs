@@ -108,10 +108,6 @@ impl Env<'_> {
     }
 }
 
-fn is_marketplace(clone: &Path) -> bool {
-    clone.join(".claude-plugin/marketplace.json").is_file()
-}
-
 fn shown(text: &str) -> String {
     text.escape_debug().to_string()
 }
@@ -654,7 +650,7 @@ pub fn install(env: &Env, spec: &str, opts: &InstallOptions) -> Result<InstallRe
         skills.retain(|s| s.name() == wanted);
     }
     if skills.is_empty() {
-        if is_marketplace(&clone) {
+        if crate::plugins::marketplace::is_marketplace(&clone) {
             return Err(TapError::not_found(format!(
                 "Tap '{name}' is a Claude Code plugin marketplace, not a skills repository: its \
                  plugins keep their own namespace and are linked, not installed. Run \

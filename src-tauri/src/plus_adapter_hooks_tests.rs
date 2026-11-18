@@ -77,6 +77,30 @@ fn a_write_after_the_hooks_changed_is_refused() {
 }
 
 #[test]
+fn writing_the_plugin_keys_keeps_the_comments_and_the_hooks() {
+    let env = DataDirTestEnv::new("plus-plugin-keys");
+    let (_, settings) = project(&env);
+    let (mut root, text) = HostAdapter.read_settings(&settings).unwrap();
+    root["enabledPlugins"] = serde_json::json!({"core@acme": true});
+    HostAdapter
+        .write_key(&settings, text.as_deref(), &root, "enabledPlugins")
+        .unwrap();
+    let written = std::fs::read_to_string(&settings).unwrap();
+    assert!(written.contains("// keep this comment"), "{written}");
+    assert!(written.contains("/u/keep.sh"), "{written}");
+    assert!(written.contains("\"core@acme\": true"), "{written}");
+
+    let (mut root, text) = HostAdapter.read_settings(&settings).unwrap();
+    root.as_object_mut().unwrap().remove("enabledPlugins");
+    HostAdapter
+        .write_key(&settings, text.as_deref(), &root, "enabledPlugins")
+        .unwrap();
+    let removed = std::fs::read_to_string(&settings).unwrap();
+    assert!(removed.contains("// keep this comment"), "{removed}");
+    assert!(!removed.contains("enabledPlugins"), "{removed}");
+}
+
+#[test]
 fn settings_that_do_not_parse_are_refused_and_left_alone() {
     let env = DataDirTestEnv::new("plus-hooks-malformed");
     let root = env.dir.join("project");

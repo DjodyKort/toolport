@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "tap", "remove", "plugins"],
+  "envelope": {
+    "command": "skills tap remove",
+    "error": {
+      "code": "skills",
+      "message": "Tap 'plugins' is linked to Claude Code; run `toolportctl skills tap unlink plugins` first"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

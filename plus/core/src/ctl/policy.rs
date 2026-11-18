@@ -17,6 +17,7 @@ use super::auth;
 use super::context;
 use super::flags::{switch, value, Flag, Spec};
 use super::library;
+use super::library_select;
 use super::mcp;
 use super::memory;
 use super::plugins;
@@ -606,6 +607,16 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&skills_taps::TAP_UPDATE])
         .args(&[opt("name")])
         .skip("pulls the clones; its --dry-run is a golden step"),
+    row("skills tap link", W)
+        .dry()
+        .spec(&[&skills_taps::TAP_LINK])
+        .args(&[req("name")])
+        .skip("writes the Claude Code settings; its --dry-run is a golden step"),
+    row("skills tap unlink", W)
+        .dry()
+        .spec(&[&skills_taps::TAP_UNLINK])
+        .args(&[req("name")])
+        .skip("writes the Claude Code settings; its --dry-run is a golden step"),
     row("skills search", R)
         .spec(&[&skills_taps::SEARCH])
         .args(&[some("query")])
@@ -695,6 +706,33 @@ pub(super) const ROWS: &[Row] = &[
         .needs(&[Needs::Network])
         .spec(&[&library::CHANGE])
         .skip("commits and pushes the library; its --dry-run is a golden step"),
+    row("library select ls", R)
+        .spec(&[&library_select::LS])
+        .args(&[opt("source")]),
+    row("library select set", W)
+        .dry()
+        .spec(&[&library_select::SET])
+        .args(&[req("source")])
+        .skip("writes the selection file; its --dry-run is a golden step"),
+    row("library select plan", W)
+        .needs(&[Needs::Network])
+        .spec(&[&library_select::PLAN])
+        .args(&[req("source")])
+        .skip("fetches the source into a temporary clone; it is a golden step"),
+    row("library select apply", W)
+        .needs(&[Needs::Network])
+        .spec(&[&library_select::APPLY])
+        .args(&[req("source")])
+        .requires(&["--plan-hash"])
+        .skip("generates the slice plugin and writes the Claude Code settings; it is a golden step"),
+    row("library select undo", W)
+        .spec(&[&library_select::UNDO])
+        .args(&[req("source")])
+        .skip("restores the settings and the slice plugin; it is a golden step"),
+    row("library select check", W)
+        .needs(&[Needs::Network])
+        .spec(&[&library_select::CHECK])
+        .skip("fetches every selected source; it is a golden step"),
     row("skills bundle", W)
         .dry()
         .spec(&[&skills_repo::BUNDLE])
@@ -1079,6 +1117,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_tap_add", W, "skills tap add").on(),
     maps("skills_tap_remove", W, "skills tap remove").on(),
     maps("skills_tap_update", W, "skills tap update").on(),
+    maps("skills_tap_link", W, "skills tap link").on(),
+    maps("skills_tap_unlink", W, "skills tap unlink").on(),
     maps("skills_install", W, "skills install").on(),
     maps("agents_list", R, "agents ls"),
     own("agents_get", R),
@@ -1110,6 +1150,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("library_connect", W, "library connect").on(),
     maps("library_remote_add", W, "library remote add").on(),
     maps("library_commit", W, "library commit").on(),
+    maps("library_select_ls", R, "library select ls"),
+    maps("library_select_plan", W, "library select plan"),
     own("skills_git_push", D),
     own("skills_edit_body", W),
     own("skills_edit_frontmatter", W),

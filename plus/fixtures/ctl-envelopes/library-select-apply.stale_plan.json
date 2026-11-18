@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "library",
+    "select",
+    "apply",
+    "picks",
+    "--plan-hash",
+    "sha256:0000000000000000"
+  ],
+  "envelope": {
+    "command": "library select apply",
+    "data": {
+      "planHash": "sha256:1ec014b1a33f82fe"
+    },
+    "error": {
+      "code": "conflict",
+      "message": "the plan changed since it was made (now sha256:1ec014b1a33f82fe); run `toolportctl library select plan picks` again and apply that"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

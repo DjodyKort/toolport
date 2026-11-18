@@ -392,7 +392,7 @@ fn applies(args: &Value) -> bool {
 }
 
 pub(super) fn tap_list(host: &dyn Host, args: &Value) -> Outcome {
-    with_paths(host, || tapped(taps::tap_list_value(args)))
+    with_paths(host, || tapped(taps::tap_list_value(host, args)))
 }
 
 pub(super) fn search(host: &dyn Host, args: &Value) -> Outcome {
@@ -411,19 +411,50 @@ pub(super) fn tap_add(host: &dyn Host, args: &Value) -> Outcome {
 
 pub(super) fn tap_remove(host: &dyn Host, args: &Value) -> Outcome {
     with_paths(host, || {
-        tapped(taps::tap_remove_value(&json!({
-            "name": str_arg(args, "name"),
-            "dry_run": !applies(args),
-        })))
+        tapped(taps::tap_remove_value(
+            host,
+            &json!({
+                "name": str_arg(args, "name"),
+                "dry_run": !applies(args),
+            }),
+        ))
     })
 }
 
 pub(super) fn tap_update(host: &dyn Host, args: &Value) -> Outcome {
     with_paths(host, || {
-        tapped(taps::tap_update_value(&json!({
-            "name": str_arg(args, "name"),
-            "dry_run": !applies(args),
-        })))
+        tapped(taps::tap_update_value(
+            host,
+            &json!({
+                "name": str_arg(args, "name"),
+                "dry_run": !applies(args),
+            }),
+        ))
+    })
+}
+
+pub(super) fn tap_link(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || {
+        tapped(taps::tap_link_value(
+            host,
+            &json!({
+                "name": str_arg(args, "name"),
+                "plugins": args.get("plugins").cloned().unwrap_or(Value::Null),
+                "dry_run": !applies(args),
+            }),
+        ))
+    })
+}
+
+pub(super) fn tap_unlink(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || {
+        tapped(taps::tap_unlink_value(
+            host,
+            &json!({
+                "name": str_arg(args, "name"),
+                "dry_run": !applies(args),
+            }),
+        ))
     })
 }
 
