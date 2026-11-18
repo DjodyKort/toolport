@@ -1,0 +1,78 @@
+{
+  "argv": ["memory", "clear", "--cwd", "{home}/proj-wt", "--dry-run"],
+  "envelope": {
+    "command": "memory clear",
+    "data": {
+      "alsoOff": false,
+      "confirm": null,
+      "cwd": "<WORLD>/home/proj-wt",
+      "directory": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory",
+      "dryRun": true,
+      "files": [
+        {
+          "bytes": 86,
+          "description": null,
+          "index": true,
+          "modified": "<TIME>",
+          "name": "MEMORY.md",
+          "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory/MEMORY.md",
+          "type": null
+        },
+        {
+          "bytes": 83,
+          "description": "how to test",
+          "index": false,
+          "modified": "<TIME>",
+          "name": "feedback_testing.md",
+          "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory/feedback_testing.md",
+          "type": "feedback"
+        },
+        {
+          "bytes": 77,
+          "description": "who the user is",
+          "index": false,
+          "modified": "<TIME>",
+          "name": "user_role.md",
+          "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory/user_role.md",
+          "type": "user"
+        }
+      ],
+      "forever": false,
+      "name": "proj",
+      "plan": {
+        "effects": {
+          "tokens": {
+            "after": 3,
+            "basis": "estimate",
+            "before": 27
+          }
+        },
+        "steps": [
+          {
+            "detail": "move 3 file(s), 246 bytes, to Toolport's trash; kept 30 days",
+            "op": "move",
+            "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory"
+          }
+        ],
+        "summary": "Clear the auto memory of proj",
+        "undo": "toolportctl memory undo --cwd <WORLD>/home/proj-wt",
+        "warnings": [
+          "Undo from the trash works for 30 days",
+          "1 worktree(s) share this memory"
+        ]
+      },
+      "result": null,
+      "root": "<WORLD>/home/proj",
+      "sharedBy": ["<WORLD>/home/proj-wt"],
+      "totals": {
+        "bytes": 246,
+        "count": 3,
+        "lastWritten": "<TIME>",
+        "topicFiles": 2
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["memory", "overview", "--all", "--filter", "bogus"],
+  "envelope": {
+    "command": "memory overview",
+    "error": {
+      "code": "usage",
+      "message": "unknown filter bogus; use one of memory-off, has-local-file, expiring, large"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

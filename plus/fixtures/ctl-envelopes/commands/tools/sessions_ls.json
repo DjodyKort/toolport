@@ -1,0 +1,7 @@
+{
+  "command": "sessions ls",
+  "dryRun": "none",
+  "name": "sessions_ls",
+  "tier": "read",
+  "toolTier": 1
+}

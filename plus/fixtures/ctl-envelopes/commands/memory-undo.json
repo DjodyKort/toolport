@@ -1,0 +1,54 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Any folder of the repository, to pick its newest cleared memory",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "memory",
+  "id": "memory undo",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "id",
+      "required": false,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["memory", "undo"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Put a cleared auto memory back from the trash (<id>, --cwd, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["memory_undo"]
+}

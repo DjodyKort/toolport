@@ -1,0 +1,6 @@
+{
+  "title": "Memory & history",
+  "status": "built",
+  "page": "settings:toolport",
+  "component": "src/plus/memory/MemoryOverview.tsx"
+}

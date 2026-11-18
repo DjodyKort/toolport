@@ -1,0 +1,13 @@
+{
+  "argv": ["memory", "clear", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "memory clear",
+    "error": {
+      "code": "not_found",
+      "message": "no auto memory is kept for proj"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

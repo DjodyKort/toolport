@@ -1,0 +1,13 @@
+{
+  "argv": ["sessions", "restore", "archive-nope"],
+  "envelope": {
+    "command": "sessions restore",
+    "error": {
+      "code": "not_found",
+      "message": "nothing called archive-nope in the archive"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

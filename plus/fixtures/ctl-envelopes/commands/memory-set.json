@@ -1,0 +1,65 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Any folder of the repository; the switch is written at the repository root",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Set the global default in ~/.claude/settings.json instead of one repository",
+      "escalates": false,
+      "hidden": false,
+      "name": "--global",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "memory",
+  "id": "memory set",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [["--cwd", "--global"]],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "position",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["memory", "set"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Set auto memory for a repository (default|on|off, --cwd) or the global default (--global), one click with Undo (--dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["memory_set"]
+}

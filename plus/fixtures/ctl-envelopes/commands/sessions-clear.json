@@ -1,0 +1,104 @@
+{
+  "baseTier": "destructive",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Any folder of the repository (required)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": true,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Session ids to clear, comma separated",
+      "escalates": false,
+      "hidden": false,
+      "name": "--ids",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Clear the sessions not written for more than this many days",
+      "escalates": false,
+      "hidden": false,
+      "name": "--older-than",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "choices": ["trash", "archive"],
+      "effect": "Where the sessions go (default: trash, kept 30 days; the archive is kept until you delete it)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--to",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "effect": "Delete for good; needs --confirm with the repository name",
+      "escalates": false,
+      "hidden": false,
+      "name": "--forever",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "The repository name, typed, to confirm --forever",
+      "escalates": false,
+      "hidden": false,
+      "name": "--confirm",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "List the sessions and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "sessions",
+  "id": "sessions clear",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [["--ids", "--older-than"]],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["sessions", "clear"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Move sessions to Toolport's trash or archive, or delete them for good (--cwd, --ids, --older-than, --to trash|archive, --forever --confirm <name>, --dry-run)",
+  "surface": "screen",
+  "tier": "destructive",
+  "tools": ["sessions_clear"]
+}

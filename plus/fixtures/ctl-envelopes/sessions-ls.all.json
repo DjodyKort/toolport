@@ -1,0 +1,69 @@
+{
+  "argv": ["sessions", "ls", "--all"],
+  "envelope": {
+    "command": "sessions ls",
+    "data": {
+      "other": {
+        "folders": 1,
+        "items": [
+          {
+            "bytes": 3,
+            "key": "-gone-folder",
+            "memoryBytes": 0,
+            "oldest": "<TIME>",
+            "sessions": 1
+          }
+        ],
+        "memoryBytes": 0,
+        "sessionBytes": 3,
+        "sessions": 1
+      },
+      "repositories": [
+        {
+          "key": "<WORLD-SLUG>-home-other",
+          "name": "other",
+          "root": "<WORLD>/home/other",
+          "sessions": {
+            "bytes": 0,
+            "count": 0,
+            "expiringThisWeek": 0,
+            "oldest": null
+          }
+        },
+        {
+          "key": "<WORLD-SLUG>-home-proj",
+          "name": "proj",
+          "root": "<WORLD>/home/proj",
+          "sessions": {
+            "bytes": 34,
+            "count": 3,
+            "expiringThisWeek": 1,
+            "oldest": "<TIME>"
+          }
+        }
+      ],
+      "retention": {
+        "days": 30,
+        "default": 30,
+        "file": "<WORLD>/home/.claude/settings.json",
+        "min": 1,
+        "perRepository": false,
+        "source": "default"
+      },
+      "scope": "all",
+      "totals": {
+        "asOf": "<TIME>",
+        "bytes": 292,
+        "expiringThisWeek": 1,
+        "memoryBytes": 258,
+        "memoryFiles": 4,
+        "repositories": 2,
+        "sessionBytes": 34,
+        "sessions": 3
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

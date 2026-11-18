@@ -1,0 +1,7 @@
+{
+  "command": "memory status",
+  "dryRun": "none",
+  "name": "memory_status",
+  "tier": "read",
+  "toolTier": 1
+}

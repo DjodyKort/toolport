@@ -1,0 +1,149 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj"
+  },
+  "isError": false,
+  "result": {
+    "cwd": "<WORLD>/home/proj",
+    "directory": {
+      "custom": false,
+      "exists": true,
+      "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/memory"
+    },
+    "index": {
+      "basis": "estimate",
+      "bytes": 86,
+      "lines": 2,
+      "loadedLines": 2,
+      "tokens": 24,
+      "truncated": false
+    },
+    "instructions": {
+      "basis": "estimate",
+      "excluded": 0,
+      "imports": 0,
+      "leftOutTokens": 0,
+      "localFiles": 0,
+      "memoryIndexTokens": 24,
+      "rows": [
+        {
+          "bytes": 0,
+          "canExclude": false,
+          "kind": "memory",
+          "lazy": false,
+          "loaded": false,
+          "name": "CLAUDE.md",
+          "note": "No managed policy file on this Mac. If one exists, it always loads and cannot be excluded.",
+          "path": "/Library/Application Support/ClaudeCode/CLAUDE.md",
+          "scope": "managed",
+          "source": "policy",
+          "state": "none",
+          "tokens": 0
+        },
+        {
+          "bytes": 13,
+          "canExclude": true,
+          "external": false,
+          "externalApproved": null,
+          "inGit": null,
+          "kind": "memory",
+          "lazy": false,
+          "leftOutBy": null,
+          "loaded": true,
+          "name": "CLAUDE.md",
+          "note": null,
+          "parent": null,
+          "path": "<WORLD>/home/.claude/CLAUDE.md",
+          "reason": "",
+          "scope": "user",
+          "source": "user",
+          "state": "loads",
+          "tokens": 3
+        },
+        {
+          "bytes": 14,
+          "canExclude": true,
+          "external": false,
+          "externalApproved": null,
+          "inGit": null,
+          "kind": "memory",
+          "lazy": false,
+          "leftOutBy": null,
+          "loaded": true,
+          "name": "CLAUDE.md",
+          "note": null,
+          "parent": null,
+          "path": "<WORLD>/home/proj/CLAUDE.md",
+          "reason": "",
+          "scope": "project",
+          "source": "project",
+          "state": "loads",
+          "tokens": 3
+        }
+      ],
+      "totalTokens": 30
+    },
+    "memory": {
+      "bytes": 246,
+      "count": 3,
+      "lastWritten": "<TIME>",
+      "topicFiles": 2
+    },
+    "notes": [
+      "Auto memory has a real switch; instruction files can only be excluded by path, and sessions have no switch"
+    ],
+    "repository": {
+      "git": true,
+      "key": "<WORLD-SLUG>-home-proj",
+      "linked": false,
+      "name": "proj",
+      "root": "<WORLD>/home/proj",
+      "worktrees": [
+        {
+          "current": true,
+          "exists": true,
+          "path": "<WORLD>/home/proj"
+        },
+        {
+          "current": false,
+          "exists": true,
+          "path": "<WORLD>/home/proj-wt"
+        }
+      ]
+    },
+    "sessions": {
+      "folders": 2,
+      "retention": {
+        "days": 30,
+        "default": 30,
+        "file": "<WORLD>/home/.claude/settings.json",
+        "min": 1,
+        "perRepository": false,
+        "source": "default"
+      },
+      "totals": {
+        "bytes": 34,
+        "count": 3,
+        "expiringThisWeek": 1,
+        "oldest": "<TIME>"
+      }
+    },
+    "state": {
+      "enabled": true,
+      "environment": null,
+      "file": "<WORLD>/home/proj/.claude/settings.local.json",
+      "global": null,
+      "globalFile": "<WORLD>/home/.claude/settings.json",
+      "locked": false,
+      "managed": null,
+      "project": null,
+      "setBy": "default",
+      "setByHand": false,
+      "switch": "default",
+      "toolportOwns": false,
+      "unreadable": []
+    },
+    "trash": []
+  },
+  "tool": "memory_status"
+}

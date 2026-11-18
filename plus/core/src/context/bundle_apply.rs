@@ -11,6 +11,7 @@ use super::bundle_json::{self as json, Found};
 use super::bundle_ledger::{self as ledger, BlockRec, ExcludeRec, FolderRec, Owned, SettingsRec};
 use super::bundle_store::{self, BundleError};
 use super::fsx;
+use super::gitlayout;
 use super::globs::glob_match;
 use super::hash::sha256_hex;
 use super::layers;
@@ -75,6 +76,7 @@ pub struct Desired {
     pub env: Vec<(String, String)>,
     pub deny_servers: Vec<String>,
     pub memory_off: bool,
+    pub memory_on: bool,
     pub layers: Vec<(String, String)>,
     pub warnings: Vec<String>,
 }
@@ -444,12 +446,12 @@ pub(super) fn compute_settings(
             &mut warnings,
         );
     }
-    if want.memory_off {
+    if want.memory_off || want.memory_on {
         own_set(
             &mut working,
             &mut rec,
             &["autoMemoryEnabled"],
-            "false",
+            if want.memory_off { "false" } else { "true" },
             &mut warnings,
         );
     }
@@ -561,12 +563,14 @@ fn compute_block(
 }
 
 pub(super) fn git_dir(cwd: &Path) -> Option<PathBuf> {
-    let dir = cwd.join(".git");
-    dir.is_dir().then_some(dir)
+    gitlayout::at(cwd).map(|layout| layout.common_dir)
 }
 
 pub(super) fn exclude_file(cwd: &Path) -> PathBuf {
-    cwd.join(".git").join("info").join("exclude")
+    gitlayout::at(cwd).map_or_else(
+        || cwd.join(".git").join("info").join("exclude"),
+        |layout| layout.exclude_file(),
+    )
 }
 
 fn exclude_lines(want_block: bool) -> Vec<&'static str> {

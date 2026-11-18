@@ -1,0 +1,7 @@
+{
+  "command": "memory set",
+  "dryRun": "default-on",
+  "name": "memory_set",
+  "tier": "write",
+  "toolTier": 2
+}

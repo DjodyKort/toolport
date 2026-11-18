@@ -1,0 +1,91 @@
+{
+  "arguments": {
+    "all": true,
+    "filter": "memory-off",
+    "sort": "size"
+  },
+  "isError": false,
+  "result": {
+    "filter": "memory-off",
+    "filters": ["memory-off", "has-local-file", "expiring", "large"],
+    "global": {
+      "enabled": null,
+      "file": "<WORLD>/home/.claude/settings.json"
+    },
+    "other": {
+      "folders": 1,
+      "items": [
+        {
+          "bytes": 3,
+          "key": "-gone-folder",
+          "memoryBytes": 0,
+          "oldest": "<TIME>",
+          "sessions": 1
+        }
+      ],
+      "memoryBytes": 0,
+      "sessionBytes": 3,
+      "sessions": 1
+    },
+    "retention": {
+      "days": 30,
+      "default": 30,
+      "file": "<WORLD>/home/.claude/settings.json",
+      "min": 1,
+      "perRepository": false,
+      "source": "default"
+    },
+    "rows": [
+      {
+        "bytes": 12,
+        "instructions": {
+          "basis": "estimate",
+          "excluded": 0,
+          "files": 2,
+          "flags": ["local file"],
+          "imports": 0,
+          "localFiles": 1,
+          "tokens": 6
+        },
+        "key": "<WORLD-SLUG>-home-other",
+        "lastActive": "<TIME>",
+        "memory": {
+          "bytes": 12,
+          "custom": false,
+          "directory": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-other/memory",
+          "enabled": false,
+          "exists": true,
+          "files": 1,
+          "lastWritten": "<TIME>",
+          "locked": false,
+          "setBy": "repository",
+          "switch": "off"
+        },
+        "name": "other",
+        "root": "<WORLD>/home/other",
+        "sessions": {
+          "bytes": 0,
+          "count": 0,
+          "expiringThisWeek": 0,
+          "oldest": null
+        },
+        "worktrees": 0
+      }
+    ],
+    "scope": "all",
+    "sort": "size",
+    "sorts": ["name", "memory", "sessions", "size", "active"],
+    "staleDays": 90,
+    "totals": {
+      "asOf": "<TIME>",
+      "bytes": 12,
+      "expiringThisWeek": 0,
+      "memoryBytes": 12,
+      "memoryFiles": 1,
+      "repositories": 1,
+      "sessionBytes": 0,
+      "sessions": 0
+    }
+  },
+  "tool": "memory_overview"
+}

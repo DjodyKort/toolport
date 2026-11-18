@@ -1,0 +1,81 @@
+{
+  "baseTier": "destructive",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Any folder of the repository (required)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": true,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Delete for good instead of moving to the trash; needs --confirm with the repository name",
+      "escalates": false,
+      "hidden": false,
+      "name": "--forever",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "The repository name, typed, to confirm --forever",
+      "escalates": false,
+      "hidden": false,
+      "name": "--confirm",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Also turn auto memory off for the repository",
+      "escalates": false,
+      "hidden": false,
+      "name": "--also-off",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "List the files and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "memory",
+  "id": "memory clear",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["memory", "clear"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Move a repository's auto memory to Toolport's trash for 30 days, or delete it for good with --forever --confirm <name> (--cwd, --also-off, --dry-run)",
+  "surface": "screen",
+  "tier": "destructive",
+  "tools": ["memory_clear"]
+}

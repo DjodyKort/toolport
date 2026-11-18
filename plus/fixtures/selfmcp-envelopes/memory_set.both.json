@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj",
+    "global": true,
+    "position": "on"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "give either cwd or global=true"
+    }
+  },
+  "text": "invalid_arguments: give either cwd or global=true",
+  "tool": "memory_set"
+}

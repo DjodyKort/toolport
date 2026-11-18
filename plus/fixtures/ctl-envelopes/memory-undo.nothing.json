@@ -1,0 +1,13 @@
+{
+  "argv": ["memory", "undo", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "memory undo",
+    "error": {
+      "code": "not_found",
+      "message": "nothing of memory to undo in the trash"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -990,6 +990,162 @@ const CASES: &[Case] = &[
             ),
         ],
     ),
+    prepared(
+        "memory_ls",
+        World::memory_files,
+        &[
+            read("folder", "memory_ls", r#"{"cwd":"{home}/proj-wt"}"#),
+            read("all", "memory_ls", r#"{"all":true}"#),
+            fails("no-cwd", "invalid_arguments", "memory_ls", "{}"),
+        ],
+    ),
+    prepared(
+        "memory_status",
+        World::memory_files,
+        &[
+            read("folder", "memory_status", r#"{"cwd":"{home}/proj"}"#),
+            read("by-hand", "memory_status", r#"{"cwd":"{home}/other"}"#),
+            fails("no-cwd", "invalid_arguments", "memory_status", "{}"),
+        ],
+    ),
+    prepared(
+        "memory_set",
+        World::memory_files,
+        &[
+            read(
+                "preview",
+                "memory_set",
+                r#"{"position":"off","cwd":"{home}/proj-wt"}"#,
+            ),
+            write(
+                "apply",
+                "memory_set",
+                r#"{"position":"off","cwd":"{home}/proj-wt","dry_run":false}"#,
+            ),
+            read(
+                "global-preview",
+                "memory_set",
+                r#"{"position":"off","global":true}"#,
+            ),
+            fails(
+                "bad-position",
+                "invalid_arguments",
+                "memory_set",
+                r#"{"position":"maybe","cwd":"{home}/proj"}"#,
+            ),
+            fails(
+                "both",
+                "invalid_arguments",
+                "memory_set",
+                r#"{"position":"on","cwd":"{home}/proj","global":true}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "memory_clear",
+        World::memory_files,
+        &[
+            read("plan", "memory_clear", r#"{"cwd":"{home}/proj-wt"}"#),
+            read(
+                "plan-with-off",
+                "memory_clear",
+                r#"{"cwd":"{home}/proj","also_off":true}"#,
+            ),
+            fails("no-cwd", "invalid_arguments", "memory_clear", "{}"),
+        ],
+    ),
+    prepared(
+        "memory_undo",
+        World::trashed_files,
+        &[
+            read("preview", "memory_undo", r#"{"cwd":"{home}/proj"}"#),
+            write(
+                "apply",
+                "memory_undo",
+                r#"{"id":"memory-20260101-000000","dry_run":false}"#,
+            ),
+            fails(
+                "nothing",
+                "not_found",
+                "memory_undo",
+                r#"{"cwd":"{home}/proj"}"#,
+            ),
+            fails(
+                "wrong-kind",
+                "invalid_arguments",
+                "memory_undo",
+                r#"{"id":"sessions-20260101-000000"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "memory_overview",
+        World::memory_files,
+        &[
+            read("all", "memory_overview", r#"{"all":true}"#),
+            read(
+                "filtered",
+                "memory_overview",
+                r#"{"all":true,"filter":"memory-off","sort":"size"}"#,
+            ),
+            read("folder", "memory_overview", r#"{"cwd":"{home}/proj"}"#),
+            fails("no-cwd", "invalid_arguments", "memory_overview", "{}"),
+        ],
+    ),
+    prepared(
+        "sessions_ls",
+        World::memory_files,
+        &[
+            read("folder", "sessions_ls", r#"{"cwd":"{home}/proj-wt"}"#),
+            read("all", "sessions_ls", r#"{"all":true}"#),
+            fails("no-cwd", "invalid_arguments", "sessions_ls", "{}"),
+        ],
+    ),
+    prepared(
+        "sessions_clear",
+        World::memory_files,
+        &[
+            read(
+                "plan",
+                "sessions_clear",
+                r#"{"cwd":"{home}/proj","older_than_days":7}"#,
+            ),
+            read(
+                "plan-ids",
+                "sessions_clear",
+                r#"{"cwd":"{home}/proj","ids":["sess-new"],"to":"archive"}"#,
+            ),
+            fails(
+                "no-selection",
+                "invalid_arguments",
+                "sessions_clear",
+                r#"{"cwd":"{home}/proj"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "sessions_undo",
+        World::trashed_files,
+        &[
+            read("preview", "sessions_undo", r#"{"cwd":"{home}/proj"}"#),
+            write(
+                "apply",
+                "sessions_undo",
+                r#"{"id":"sessions-20260101-000000","dry_run":false}"#,
+            ),
+            fails(
+                "nothing",
+                "not_found",
+                "sessions_undo",
+                r#"{"cwd":"{home}/proj"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "sessions_retention",
+        World::memory_files,
+        &[read("current", "sessions_retention", "{}")],
+    ),
     context_case(
         "context_loads",
         &[

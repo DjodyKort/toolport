@@ -1,0 +1,5 @@
+{
+  "route": "memory",
+  "action": "memory.overview",
+  "surface": "screen"
+}

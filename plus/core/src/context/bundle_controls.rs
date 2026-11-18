@@ -77,6 +77,7 @@ pub fn apply(
         && want.plugins.is_empty()
         && want.excludes.is_empty()
         && !want.memory_off
+        && !want.memory_on
     {
         return undo(data_dir, &cwd, control, dry_run);
     }

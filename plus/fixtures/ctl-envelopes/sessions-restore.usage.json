@@ -1,0 +1,13 @@
+{
+  "argv": ["sessions", "restore"],
+  "envelope": {
+    "command": "sessions restore",
+    "error": {
+      "code": "usage",
+      "message": "usage: sessions restore <archive-id> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

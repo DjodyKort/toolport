@@ -1,0 +1,5 @@
+{
+  "route": "context",
+  "action": "context.memory-clear",
+  "surface": "screen"
+}

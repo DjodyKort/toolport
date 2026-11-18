@@ -1,0 +1,13 @@
+{
+  "argv": ["sessions", "retention", "--set", "0"],
+  "envelope": {
+    "command": "sessions retention",
+    "error": {
+      "code": "usage",
+      "message": "cleanupPeriodDays must be at least 1; Claude Code rejects 0"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

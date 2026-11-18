@@ -1,0 +1,70 @@
+{
+  "argv": ["memory", "set", "off", "--cwd", "{home}/proj-wt"],
+  "envelope": {
+    "command": "memory set",
+    "data": {
+      "conflicts": [],
+      "cwd": "<WORLD>/home/proj-wt",
+      "dryRun": false,
+      "name": "proj",
+      "plan": {
+        "effects": {
+          "tokens": {
+            "after": 0,
+            "basis": "estimate",
+            "before": 3
+          }
+        },
+        "steps": [
+          {
+            "detail": "1 key(s) owned by leave-out",
+            "diff": {
+              "after": "autoMemoryEnabled: false\n",
+              "before": "autoMemoryEnabled: (absent)\n"
+            },
+            "keys": ["autoMemoryEnabled"],
+            "op": "create",
+            "path": "<WORLD>/home/proj/.claude/settings.local.json"
+          },
+          {
+            "detail": "git-ignore .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/proj/.git/info/exclude"
+          },
+          {
+            "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          }
+        ],
+        "summary": "Set auto memory to off for proj",
+        "undo": "toolportctl memory set default --cwd <WORLD>/home/proj-wt",
+        "warnings": [
+          "Claude Code documents reading the local settings file at the repository root; that it does so for a session started in a subfolder or a linked worktree is not verified on Claude Code 2.1.326, so the card shows Confirmed only after a measurement",
+          "Open sessions keep what they loaded; the change applies from the next session"
+        ]
+      },
+      "position": "off",
+      "previous": "default",
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "<WORLD>/home/proj/.claude/settings.local.json",
+          "<WORLD>/home/proj/.git/info/exclude"
+        ],
+        "undo": "toolportctl memory set default --cwd <WORLD>/home/proj-wt"
+      },
+      "root": "<WORLD>/home/proj",
+      "scope": "repository",
+      "state": {
+        "enabled": false,
+        "setBy": "repository",
+        "switch": "off"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

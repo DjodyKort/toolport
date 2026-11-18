@@ -126,6 +126,153 @@ impl World {
         std::fs::create_dir_all(world.home.join("proj/.git/info")).unwrap();
     }
 
+    /// What the memory and history commands read, on top of `context_files`: a project with
+    /// auto memory, a linked worktree, sessions of three ages, a second repository whose memory
+    /// is switched off by hand, `~/.claude.json` naming the folders Claude Code has run in, and
+    /// a transcript folder that belongs to no repository.
+    pub fn memory_files(&self) {
+        self.context_files();
+        let home = &self.home;
+        let put = |rel: &str, text: &str| {
+            let path = home.join(rel);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(&path, text).unwrap();
+            path
+        };
+        let slug = |path: &Path| -> String {
+            std::fs::canonicalize(path)
+                .unwrap()
+                .to_string_lossy()
+                .chars()
+                .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+                .collect()
+        };
+        let proj = home.join("proj");
+        let memory = format!(".claude/projects/{}/memory", slug(&proj));
+        put(
+            &format!("{memory}/MEMORY.md"),
+            "- [Role](user_role.md): who the user is\n- [Testing](feedback_testing.md): how to test\n",
+        );
+        put(
+            &format!("{memory}/user_role.md"),
+            "---\nname: Role\ndescription: who the user is\ntype: user\n---\nA data scientist.\n",
+        );
+        put(
+            &format!("{memory}/feedback_testing.md"),
+            "---\nname: Testing\ndescription: how to test\ntype: feedback\n---\nUse a real database.\n",
+        );
+        let linked = home.join("proj-wt");
+        std::fs::create_dir_all(&linked).unwrap();
+        let registered = proj.join(".git/worktrees/proj-wt");
+        std::fs::create_dir_all(&registered).unwrap();
+        put(
+            "proj-wt/.git",
+            &format!("gitdir: {}\n", registered.display()),
+        );
+        std::fs::write(registered.join("commondir"), "../..\n").unwrap();
+        std::fs::write(
+            registered.join("gitdir"),
+            format!("{}\n", linked.join(".git").display()),
+        )
+        .unwrap();
+        let old = |path: std::path::PathBuf, days: u64| {
+            let when = std::time::SystemTime::now() - std::time::Duration::from_secs(days * 86_400);
+            std::fs::File::options()
+                .write(true)
+                .open(path)
+                .unwrap()
+                .set_modified(when)
+                .unwrap();
+        };
+        for (folder, id, text, days) in [
+            (&proj, "sess-new", "{\"a\":1}\n", 1),
+            (&proj, "sess-old", "{\"a\":1}{\"b\":2}\n", 27),
+            (&linked, "sess-wt", "{\"w\":1}\n", 10),
+        ] {
+            let file = put(
+                &format!(".claude/projects/{}/{id}.jsonl", slug(folder)),
+                text,
+            );
+            old(file, days);
+        }
+        put(
+            &format!(
+                ".claude/projects/{}/sess-old/subagents/a.jsonl",
+                slug(&proj)
+            ),
+            "{}\n",
+        );
+        let other = home.join("other");
+        std::fs::create_dir_all(other.join(".git/info")).unwrap();
+        put("other/CLAUDE.local.md", "my notes\n");
+        put(
+            "other/.claude/settings.local.json",
+            "{\n  \"autoMemoryEnabled\": false\n}\n",
+        );
+        put(
+            &format!(".claude/projects/{}/memory/MEMORY.md", slug(&other)),
+            "- [x](x.md)\n",
+        );
+        put(".claude/projects/-gone-folder/sess-lost.jsonl", "{}\n");
+        put(
+            ".claude.json",
+            &serde_json::json!({
+                "projects": {
+                    proj.to_string_lossy(): {"hasClaudeMdExternalIncludesApproved": true},
+                    linked.to_string_lossy(): {},
+                    other.to_string_lossy(): {},
+                },
+                "oauthAccount": {"token": "never read"},
+            })
+            .to_string(),
+        );
+    }
+
+    /// `memory_files`, then the memory of `proj` and its oldest session sit in Toolport's trash as
+    /// a clear would have left them.
+    pub fn trashed_files(&self) {
+        self.memory_files();
+        let proj = std::fs::canonicalize(self.home.join("proj")).unwrap();
+        let slug: String = proj
+            .to_string_lossy()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        let project =
+            std::fs::canonicalize(self.home.join(format!(".claude/projects/{slug}"))).unwrap();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let trash = |id: &str, kind: &str, moves: &[(&str, u64)]| {
+            let dir = self.data.join("plus/memory/trash").join(id);
+            let mut items = Vec::new();
+            for (index, (name, bytes)) in moves.iter().enumerate() {
+                let from = project.join(name);
+                let payload = format!("{index}/{name}");
+                let to = dir.join("payload").join(&payload);
+                std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+                std::fs::rename(&from, &to).unwrap();
+                items.push(
+                    json!({"from": from.to_string_lossy(), "payload": payload, "bytes": bytes}),
+                );
+            }
+            write_json(
+                &dir.join("manifest.json"),
+                &json!({
+                    "id": id, "kind": kind, "created": now,
+                    "repoRoot": proj.to_string_lossy(), "repoName": "proj", "items": items,
+                }),
+            );
+        };
+        trash("memory-20260101-000000", "memory", &[("memory", 246)]);
+        trash(
+            "sessions-20260101-000000",
+            "sessions",
+            &[("sess-old.jsonl", 18), ("sess-old", 3)],
+        );
+    }
+
     /// What the checks of a library report: a skill with `references/`, a top-level `SETUP.md`,
     /// a dotfile in `templates/`, a file the sync leaves out, a dead link, a hook script without
     /// the execute bit and a 1,200 character description, next to a skill whose frontmatter does

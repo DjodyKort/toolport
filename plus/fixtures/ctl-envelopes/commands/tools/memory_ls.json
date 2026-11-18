@@ -1,0 +1,7 @@
+{
+  "command": "memory ls",
+  "dryRun": "none",
+  "name": "memory_ls",
+  "tier": "read",
+  "toolTier": 1
+}

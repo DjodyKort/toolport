@@ -4,6 +4,7 @@
 
 use super::fsx;
 use super::globs::glob_match;
+use crate::memory::resolve::{Layers, Repo};
 use serde_json::Value;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -31,6 +32,8 @@ pub struct LoadItem {
     pub left_out_by: Option<&'static str>,
     /// What a measured run's `InstructionsLoaded` log says about the row: `loaded`, `absent` or `mismatch`.
     pub confirmed: Option<&'static str>,
+    /// The file an `@import` row was pulled in by.
+    pub parent: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -83,7 +86,6 @@ struct Walk {
 #[derive(Default)]
 struct Settings {
     excludes: Vec<String>,
-    memory: Option<bool>,
 }
 
 fn read_settings(path: &Path, into: &mut Settings) {
@@ -96,9 +98,6 @@ fn read_settings(path: &Path, into: &mut Settings) {
     if let Some(list) = map.get("claudeMdExcludes").and_then(Value::as_array) {
         into.excludes
             .extend(list.iter().filter_map(|v| v.as_str().map(String::from)));
-    }
-    if let Some(on) = map.get("autoMemoryEnabled").and_then(Value::as_bool) {
-        into.memory = Some(on);
     }
 }
 
@@ -154,14 +153,8 @@ fn markdown_files(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
     }
 }
 
-fn project_slug(cwd: &Path) -> String {
-    fsx::display(cwd)
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect()
-}
-
 impl InstructionLoads<'_> {
+    #[allow(clippy::too_many_arguments)]
     fn row(
         &self,
         kind: &'static str,
@@ -170,6 +163,7 @@ impl InstructionLoads<'_> {
         text: &str,
         lazy: bool,
         settings: &Settings,
+        parent: Option<&Path>,
     ) -> LoadItem {
         let shown = fsx::display(path);
         let excluded =
@@ -196,6 +190,7 @@ impl InstructionLoads<'_> {
             tokens: (self.count_tokens)(text),
             left_out_by: None,
             confirmed: None,
+            parent: parent.map(fsx::display),
         }
     }
 
@@ -206,6 +201,7 @@ impl InstructionLoads<'_> {
         source: &'static str,
         path: &Path,
         hop: usize,
+        parent: Option<&Path>,
     ) {
         if walk.items.len() >= MAX_ITEMS {
             return;
@@ -218,7 +214,7 @@ impl InstructionLoads<'_> {
             return;
         };
         let lazy = kind == "rule" && has_paths_front_matter(&text);
-        let row = self.row(kind, source, path, &text, lazy, &walk.settings);
+        let row = self.row(kind, source, path, &text, lazy, &walk.settings, parent);
         let followed = row.loaded;
         walk.items.push(row);
         if !followed || hop >= MAX_IMPORT_HOPS {
@@ -231,7 +227,7 @@ impl InstructionLoads<'_> {
                 None if token.starts_with('/') => PathBuf::from(&token),
                 None => base.join(&token),
             };
-            self.push_file(walk, "import", source, &target, hop + 1);
+            self.push_file(walk, "import", source, &target, hop + 1, Some(path));
         }
     }
 }
@@ -243,17 +239,20 @@ impl LoadSource for InstructionLoads<'_> {
         }
         let cwd = fsx::canonical(cwd);
         let user_claude = self.home.join(".claude");
+        let repo = Repo::of(&cwd);
         let mut settings = Settings::default();
         read_settings(&user_claude.join("settings.json"), &mut settings);
-        read_settings(&cwd.join(".claude/settings.json"), &mut settings);
-        read_settings(&cwd.join(".claude/settings.local.json"), &mut settings);
+        for dir in [&cwd, &repo.root] {
+            read_settings(&dir.join(".claude/settings.json"), &mut settings);
+            read_settings(&dir.join(".claude/settings.local.json"), &mut settings);
+        }
         let mut walk = Walk {
             items: Vec::new(),
             seen: BTreeSet::new(),
             settings,
         };
         if let Some(policy) = self.policy_file {
-            self.push_file(&mut walk, "memory", "policy", policy, 0);
+            self.push_file(&mut walk, "memory", "policy", policy, 0, None);
         }
         self.push_file(
             &mut walk,
@@ -261,11 +260,12 @@ impl LoadSource for InstructionLoads<'_> {
             "user",
             &user_claude.join("CLAUDE.md"),
             0,
+            None,
         );
         let mut rules = Vec::new();
         markdown_files(&user_claude.join("rules"), 0, &mut rules);
         for rule in rules {
-            self.push_file(&mut walk, "rule", "user", &rule, 0);
+            self.push_file(&mut walk, "rule", "user", &rule, 0, None);
         }
         let mut chain: Vec<&Path> = cwd.ancestors().collect();
         chain.reverse();
@@ -275,30 +275,24 @@ impl LoadSource for InstructionLoads<'_> {
                 (".claude/CLAUDE.md", "project"),
                 ("CLAUDE.local.md", "local"),
             ] {
-                self.push_file(&mut walk, "memory", source, &dir.join(file), 0);
+                self.push_file(&mut walk, "memory", source, &dir.join(file), 0, None);
             }
             let mut rules = Vec::new();
             markdown_files(&dir.join(".claude/rules"), 0, &mut rules);
             for rule in rules {
-                self.push_file(&mut walk, "rule", "project", &rule, 0);
+                self.push_file(&mut walk, "rule", "project", &rule, 0, None);
             }
         }
-        let Walk {
-            mut items,
-            settings,
-            ..
-        } = walk;
-        let index = user_claude
-            .join("projects")
-            .join(project_slug(&cwd))
-            .join("memory/MEMORY.md");
+        let mut items = walk.items;
+        let layers = Layers::load(self.home, &repo, None, None);
+        let index = layers.directory(self.home, &repo).0.join("MEMORY.md");
         if let Some(text) = fsx::read_text(&index, MEMORY_INDEX_BYTES) {
             let text: String = text
                 .lines()
                 .take(MEMORY_INDEX_LINES)
                 .collect::<Vec<_>>()
                 .join("\n");
-            let off = settings.memory == Some(false);
+            let off = !layers.effective().0;
             items.push(LoadItem {
                 kind: "memory-index",
                 name: "MEMORY.md".into(),
@@ -318,6 +312,7 @@ impl LoadSource for InstructionLoads<'_> {
                 tokens: (self.count_tokens)(&text),
                 left_out_by: None,
                 confirmed: None,
+                parent: None,
             });
         }
         let total_tokens = items.iter().filter(|i| i.loaded).map(|i| i.tokens).sum();
@@ -331,6 +326,7 @@ impl LoadSource for InstructionLoads<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::memory::resolve::project_slug;
     use std::fs;
 
     fn put(path: &Path, text: &str) {

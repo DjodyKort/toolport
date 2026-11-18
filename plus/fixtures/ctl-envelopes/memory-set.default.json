@@ -1,0 +1,60 @@
+{
+  "argv": ["memory", "set", "default", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "memory set",
+    "data": {
+      "conflicts": [],
+      "cwd": "<WORLD>/home/proj",
+      "dryRun": false,
+      "name": "proj",
+      "plan": {
+        "effects": {
+          "tokens": {
+            "after": 54,
+            "basis": "estimate",
+            "before": 30
+          }
+        },
+        "steps": [
+          {
+            "detail": "put back 1 key(s) owned by leave-out",
+            "keys": ["autoMemoryEnabled"],
+            "op": "delete",
+            "path": "<WORLD>/home/proj/.claude/settings.local.json"
+          },
+          {
+            "detail": "drop the record of leave-out in this folder",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          }
+        ],
+        "summary": "Set auto memory to default for proj",
+        "undo": "toolportctl memory set off --cwd <WORLD>/home/proj",
+        "warnings": [
+          "Open sessions keep what they loaded; the change applies from the next session"
+        ]
+      },
+      "position": "default",
+      "previous": "off",
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "<WORLD>/home/proj/.claude/settings.local.json",
+          "<WORLD>/home/proj/.git/info/exclude"
+        ],
+        "undo": "toolportctl memory set off --cwd <WORLD>/home/proj"
+      },
+      "root": "<WORLD>/home/proj",
+      "scope": "repository",
+      "state": {
+        "enabled": true,
+        "setBy": "default",
+        "switch": "default"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

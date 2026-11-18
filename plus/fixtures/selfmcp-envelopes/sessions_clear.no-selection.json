@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "give --ids or --older-than"
+    }
+  },
+  "text": "invalid_arguments: give --ids or --older-than",
+  "tool": "sessions_clear"
+}

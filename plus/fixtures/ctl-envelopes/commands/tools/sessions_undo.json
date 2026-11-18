@@ -1,0 +1,7 @@
+{
+  "command": "sessions undo",
+  "dryRun": "default-on",
+  "name": "sessions_undo",
+  "tier": "write",
+  "toolTier": 2
+}

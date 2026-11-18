@@ -17,6 +17,7 @@ mod context;
 mod flags;
 mod library;
 mod mcp;
+mod memory;
 mod output;
 mod plugins;
 mod policy;
@@ -260,6 +261,61 @@ pub const COMMANDS: &[Command] = &[
         &["context", "leave-out"],
         "Leave a CLAUDE.md or rule out of a folder, or turn auto memory off there (add|rm <path> or --memory, --cwd, --dry-run)",
         context::leave_out,
+    ),
+    cmd(
+        &["memory", "ls"],
+        "List the auto memory files of a folder's repository, or every repository's memory (--cwd, --all)",
+        memory::ls,
+    ),
+    cmd(
+        &["memory", "status"],
+        "Everything about a repository's memory and history: the switch and who set it, the memory folder, the instruction files in load order, the sessions (--cwd)",
+        memory::status,
+    ),
+    cmd(
+        &["memory", "set"],
+        "Set auto memory for a repository (default|on|off, --cwd) or the global default (--global), one click with Undo (--dry-run)",
+        memory::set,
+    ),
+    cmd(
+        &["memory", "clear"],
+        "Move a repository's auto memory to Toolport's trash for 30 days, or delete it for good with --forever --confirm <name> (--cwd, --also-off, --dry-run)",
+        memory::clear,
+    ),
+    cmd(
+        &["memory", "undo"],
+        "Put a cleared auto memory back from the trash (<id>, --cwd, --dry-run)",
+        memory::undo,
+    ),
+    cmd(
+        &["memory", "overview"],
+        "One row per repository: auto memory, instruction files and sessions, with the folders that match none (--all, --cwd, --sort, --filter)",
+        memory::overview,
+    ),
+    cmd(
+        &["sessions", "ls"],
+        "List a repository's sessions with their size, age and expiry, or every repository's totals (--cwd, --all); no transcript is opened",
+        memory::sessions_ls,
+    ),
+    cmd(
+        &["sessions", "clear"],
+        "Move sessions to Toolport's trash or archive, or delete them for good (--cwd, --ids, --older-than, --to trash|archive, --forever --confirm <name>, --dry-run)",
+        memory::sessions_clear,
+    ),
+    cmd(
+        &["sessions", "undo"],
+        "Put cleared sessions back from the trash (<id>, --cwd, --dry-run)",
+        memory::sessions_undo,
+    ),
+    cmd(
+        &["sessions", "restore"],
+        "Put archived sessions back (<archive-id>, --dry-run)",
+        memory::sessions_restore,
+    ),
+    cmd(
+        &["sessions", "retention"],
+        "Show how long Claude Code keeps sessions, or set it for every project (--set <days>, at least 1, --dry-run)",
+        memory::sessions_retention,
     ),
     cmd(
         &["plugins", "off"],

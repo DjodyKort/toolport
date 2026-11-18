@@ -370,6 +370,7 @@ export function createContextWorld(options: ContextWorldOptions = {}) {
       {
         id: "leave-out",
         scope: "folder",
+        root: cwd,
         leftOut: state.leftOut,
         memoryOff: state.memoryOff,
       },

@@ -1,0 +1,12 @@
+{
+  "arguments": {},
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "cwd is required"
+    }
+  },
+  "text": "invalid_arguments: cwd is required",
+  "tool": "memory_overview"
+}

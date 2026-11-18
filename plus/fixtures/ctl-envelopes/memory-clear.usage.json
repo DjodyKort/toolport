@@ -1,0 +1,13 @@
+{
+  "argv": ["memory", "clear"],
+  "envelope": {
+    "command": "memory clear",
+    "error": {
+      "code": "usage",
+      "message": "usage: memory clear --cwd <dir> [--forever --confirm <name>] [--also-off] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

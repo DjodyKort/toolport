@@ -11,6 +11,7 @@ pub mod bundle_store;
 pub mod bundle_use;
 pub mod config;
 pub mod fsx;
+pub mod gitlayout;
 pub mod globs;
 pub mod hash;
 pub mod layers;

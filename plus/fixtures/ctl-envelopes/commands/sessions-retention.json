@@ -1,0 +1,48 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Keep sessions this many days for every project (at least 1: Claude Code rejects 0)",
+      "escalates": true,
+      "hidden": false,
+      "name": "--set",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "sessions",
+  "id": "sessions retention",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["sessions", "retention"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Show how long Claude Code keeps sessions, or set it for every project (--set <days>, at least 1, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["sessions_retention"]
+}

@@ -1,0 +1,16 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "note": "Claude Code keeps one retention value for every project and has no per-repository switch for transcripts",
+    "retention": {
+      "days": 30,
+      "default": 30,
+      "file": "<WORLD>/home/.claude/settings.json",
+      "min": 1,
+      "perRepository": false,
+      "source": "default"
+    }
+  },
+  "tool": "sessions_retention"
+}

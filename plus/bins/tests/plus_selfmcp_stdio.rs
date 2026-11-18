@@ -156,6 +156,7 @@ fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
     let world = World::new("stdio-parity");
     common::library_world::library_home(&world);
     common::tasks_world::tasks_home(&world);
+    world.memory_files();
     let mut client = Client::spawn(&world, &[]);
     client.handshake();
     for name in TOOLS.iter().filter(|t| t.tier == 1).map(|t| t.name) {
@@ -169,6 +170,12 @@ fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
             "tasks_get" => json!({"id": "portal-token"}),
             "context_bundle_status" | "context_loads" | "context_compose" | "context_status" => {
                 json!({"cwd": world.home.display().to_string()})
+            }
+            "memory_ls" | "memory_status" | "memory_clear" | "memory_overview" | "sessions_ls" => {
+                json!({"cwd": world.home.join("proj").display().to_string()})
+            }
+            "sessions_clear" => {
+                json!({"cwd": world.home.join("proj").display().to_string(), "older_than_days": 1})
             }
             _ => json!({}),
         };
