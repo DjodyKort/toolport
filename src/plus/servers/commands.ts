@@ -7,6 +7,7 @@ import type {
   MembershipData,
   ModeData,
   ProbeData,
+  ReachData,
   RestartData,
   SecretGetData,
   ServerInfoData,
@@ -66,6 +67,8 @@ export const setCallLimit = (key: string, ms: number | null) =>
     "--max-request-timeout-ms",
     ms === null ? "default" : String(ms),
   ]);
+
+export const loadReach = () => ctlData<ReachData>(["client", "reach"]);
 
 export const listAccessSets = () => callTool<AccessSetsData>("servers_list_profiles", {});
 

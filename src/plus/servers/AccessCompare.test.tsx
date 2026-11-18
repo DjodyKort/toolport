@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
+import type { WorldOptions } from "../fixtures/ctlWorld";
 import { resetPlusFixture } from "../fixtures/ipc";
 import { stdioServer } from "../fixtures/serverWorld";
 import { guiParity } from "../guiParity";
@@ -28,7 +29,11 @@ vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), message: vi.fn() }),
 }));
 
-const COVERS = ["servers.access-sets", "servers.access-set-member"] as const;
+const COVERS = [
+  "servers.access-sets",
+  "servers.access-set-member",
+  "servers.reach",
+] as const;
 
 const servers = [
   stdioServer("srv-alpha", "alpha-api"),
@@ -42,8 +47,12 @@ const sets = [
 ];
 const registry = registryOf(servers, sets);
 
-function setup(next = sets) {
-  resetPlusFixture({ servers: { servers, sets: next } });
+function setup(
+  next = sets,
+  reach?: WorldOptions["reach"],
+  defaultAccess?: string | null,
+) {
+  resetPlusFixture({ servers: { servers, sets: next, defaultAccess }, reach });
   getRegistryMock.mockResolvedValue(registry);
   const onRegistryChange = vi.fn();
   render(<AccessCompare registry={registry} onRegistryChange={onRegistryChange} />);
@@ -78,9 +87,9 @@ describe("Compare access sets", () => {
         .map((h) => h.textContent),
     ).toEqual([
       "Server",
-      "All servers3 servers",
-      "claude-code1 server",
-      "claude-desktop1 serversame as claude-code",
+      "All servers3 serversnone",
+      "claude-code1 servernone",
+      "claude-desktop1 servernonesame as claude-code",
     ]);
     expect(
       within(table)
@@ -176,5 +185,69 @@ describe("Compare access sets", () => {
       await screen.findByText("The access sets could not be read"),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
+  it("test10_servers_access_sets_says_who_uses_each_set_under_its_column", async () => {
+    setup(
+      sets,
+      {
+        clients: [{ id: "claude-code", name: "Claude Code", set: "claude-code" }],
+        folders: [{ path: "/work/proj", set: "claude-desktop" }],
+      },
+      "all",
+    );
+    const table = await screen.findByRole("table");
+    await waitFor(() =>
+      expect(
+        within(table)
+          .getAllByRole("columnheader")
+          .map((h) => h.textContent),
+      ).toEqual([
+        "Server",
+        "All servers3 serversdefault",
+        "claude-code1 serverClaude Code",
+        "claude-desktop1 serverfolder routingsame as claude-code",
+      ]),
+    );
+  });
+
+  it("test11_servers_access_sets_flags_a_server_no_set_reaches", async () => {
+    setup([{ id: "work", name: "Work", serverIds: ["srv-alpha"] }], undefined, "work");
+    const table = await screen.findByRole("table");
+    expect(await within(table).findByText("No set reaches it")).toBeInTheDocument();
+    expect(within(table).getByText("beta-crm").closest("tr")).toHaveTextContent(
+      "No set reaches it",
+    );
+    expect(within(table).getByText("alpha-api").closest("tr")).not.toHaveTextContent(
+      "No set reaches it",
+    );
+    expect(within(table).getByText("gamma-docs").closest("tr")).not.toHaveTextContent(
+      "No set reaches it",
+    );
+    expect(
+      await screen.findByText(/No access set reaches beta-crm: the default access/),
+    ).toBeInTheDocument();
+  });
+
+  it("test12_servers_access_sets_explains_a_folder_mapping_that_outranks_a_clients_set", async () => {
+    setup(
+      [
+        { id: "work", name: "Work", serverIds: ["srv-alpha"] },
+        { id: "bare", name: "Bare", serverIds: ["srv-alpha"] },
+        { id: "proj", name: "Proj", serverIds: ["srv-alpha", "srv-beta"] },
+      ],
+      {
+        clients: [{ id: "claude-code", name: "Claude Code", set: "bare" }],
+        folders: [{ path: "/work/proj", set: "proj" }],
+      },
+      "work",
+    );
+    const findings = await screen.findByRole("list", { name: "Access findings" });
+    expect(within(findings).getByText("Folder wins")).toBeInTheDocument();
+    expect(findings).toHaveTextContent(
+      "In /work/proj the gateway uses Proj, not Claude Code's own set: it adds 1 server its own set leaves out (beta-crm). A folder mapping outranks a client's own access set",
+    );
+    expect(screen.getByText("Folder routing")).toBeInTheDocument();
+    expect(screen.getByText("/work/proj")).toBeInTheDocument();
   });
 });

@@ -9,7 +9,7 @@ import {
 import { SectionHeader } from "@/components/ui/section-header";
 import { Badge } from "@/components/ui/badge";
 import { AdvancedRow } from "./AdvancedRow";
-import { listAccessSets, loadLogins, serverInfo } from "./commands";
+import { listAccessSets, loadLogins, loadReach, serverInfo } from "./commands";
 import { FinishSetup } from "./FinishSetup";
 import { useMembershipSync, type MembershipChange } from "./membership";
 import { LoginRow } from "./LoginRow";
@@ -55,6 +55,7 @@ export default function ServerOperations({
   const key = `${fingerprint(server)}|${enabled}|${sets}|${registry?.defaultAccessContextId ?? ""}`;
   const info = useLoad(() => serverInfo(server.id), key);
   const accessSets = useLoad(listAccessSets, key);
+  const reach = useLoad(loadReach, key);
   const logins = useLoad(loadLogins, key);
   const [secretsVersion, setSecretsVersion] = useState(0);
   const restart = useRestartState(server.id);
@@ -68,6 +69,7 @@ export default function ServerOperations({
     syncRegistry(change);
     info.reload();
     accessSets.reload();
+    reach.reload();
   }
 
   async function secretsChanged() {
@@ -126,6 +128,7 @@ export default function ServerOperations({
             registry={registry}
             info={info}
             sets={accessSets}
+            reach={reach}
             onChanged={refresh}
             onOpenAccessSets={host.openAccessSets}
           />

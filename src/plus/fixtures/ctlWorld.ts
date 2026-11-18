@@ -3,6 +3,7 @@ import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
 import { createCompressionWorld, type CompressionWorldOptions } from "./compressionWorld";
 import { createContextWorld, type ContextWorldOptions } from "./contextWorld";
 import { createDirectWorld, type DirectWorldOptions } from "./directWorld";
+import { createReachWorld, type ReachWorldOptions } from "./reachWorld";
 import { createLibraryWorld, type LibraryWorldOptions } from "./libraryWorld";
 import { createServerWorld, type ServerWorldOptions } from "./serverWorld";
 import { createTaskWorld, type TaskWorldOptions } from "./taskWorld";
@@ -54,6 +55,8 @@ export interface WorldOptions {
   library?: LibraryWorldOptions;
   /** The clients that can hold a direct entry and the entries they hold. */
   direct?: DirectWorldOptions;
+  /** The clients with an access set of their own and the folder mappings `client reach` reads. */
+  reach?: ReachWorldOptions;
 }
 
 /** A small in-memory toolportctl: enough state for install, uninstall and doctor to answer the way
@@ -66,6 +69,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
   const compressionWorld = createCompressionWorld(options.compression);
   const libraryWorld = createLibraryWorld(options.library);
   const directWorld = createDirectWorld(options.direct ?? {}, () => serverWorld.servers);
+  const reachWorld = createReachWorld(options.reach ?? {}, () => serverWorld);
   const defaultAccess = accessSets[0] ?? null;
   const doctorMode = options.doctor ?? "ok";
   let state: SelfMcpState = options.self ?? "missing";
@@ -306,6 +310,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "context" || first === "plugins") return contextWorld.run(key);
       if (first === "compression") return compressionWorld.run(key);
       if (first === "client" && second === "direct") return directWorld.run(key);
+      if (first === "client" && second === "reach") return reachWorld.run(key);
       if (["skills", "library", "sources", "agents", "styles"].includes(first ?? ""))
         return libraryWorld.run(key);
       if (first === "mcp") {

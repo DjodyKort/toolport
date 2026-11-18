@@ -120,6 +120,78 @@ export interface AccessSetsData {
   accessSets: AccessSetRow[];
 }
 
+/** What `client reach` says about one scope: the default access, a client or a folder mapping. */
+export interface ReachScope {
+  accessSet: string | null;
+  accessSetName: string | null;
+  /** The scope names an access set that no longer exists, so it reaches nothing. */
+  missing: boolean;
+  /** Ids of the enabled servers it reaches. */
+  servers: string[];
+}
+
+export interface ReachClient extends ReachScope {
+  id: string;
+  name: string;
+  /** The client holds Toolport's gateway entry. */
+  gateway: boolean;
+  /** The client has an access set of its own; otherwise it follows the default access. */
+  ownSet: boolean;
+}
+
+export interface ReachFolder extends ReachScope {
+  path: string;
+}
+
+export interface ReachSet {
+  id: string;
+  name: string;
+  listed: string[];
+  reached: string[];
+  default: boolean;
+  /** Ids of the clients that use this set. */
+  clients: string[];
+  folders: string[];
+}
+
+export interface ReachServer {
+  id: string;
+  name: string;
+  enabled: boolean;
+  listedIn: string[];
+  default: boolean;
+  clients: string[];
+  folders: string[];
+  direct: Array<{ client: string; state: string }>;
+  /** On, and reached by no access set. */
+  unreached: boolean;
+}
+
+export interface ReachFinding {
+  kind: "unreached" | "folder-outranks" | "missing-set" | "direct-orphan";
+  server: string | null;
+  client: string | null;
+  folder: string | null;
+  servers: string[];
+  text: string;
+}
+
+export interface ReachData {
+  defaultAccess: ReachScope | null;
+  accessSets: ReachSet[];
+  clients: ReachClient[];
+  folders: ReachFolder[];
+  servers: ReachServer[];
+  findings: ReachFinding[];
+  /** The rows the Access check of Attention shows: what is worth a look about who reaches what. */
+  accessRows: Array<{
+    id: string;
+    title: string;
+    detail: string;
+    action: { label: string; command: string[] };
+  }>;
+}
+
 export interface MembershipData {
   name: string;
   enabled: boolean;
