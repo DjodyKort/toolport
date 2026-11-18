@@ -18,7 +18,9 @@ use toolport_plus::ctl::{registry, rows, Smoke, Tier, COMMANDS, SCHEMA_VERSION};
 use toolport_plus::selfmcp::TOOLS;
 
 mod common;
-use common::attention_world::{attention_home, attention_quiet, attention_updates};
+use common::attention_world::{
+    attention_access, attention_home, attention_quiet, attention_updates,
+};
 use common::catalog_world;
 use common::compression::{
     edit_wrapped_hook, fake_proxy, fixture_hooks, lose_hooks, measure_world, rtk_home,
@@ -314,6 +316,8 @@ const CASES: &[Case] = &[
             read("quiet", &["attention", "ls"]),
             hook("busy-world", attention_home),
             read("busy", &["attention", "ls"]),
+            hook("access-world", attention_access),
+            read("access", &["attention", "ls"]),
             usage("usage", &["attention", "ls", "extra"]),
         ],
     ),

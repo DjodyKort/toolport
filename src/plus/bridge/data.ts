@@ -238,7 +238,8 @@ export interface AttentionHiddenRow extends AttentionRow {
   };
 }
 
-export type AttentionCheckName = "credentials" | "updates" | "tasks" | "library";
+export type AttentionCheckName =
+  "credentials" | "updates" | "access" | "tasks" | "library";
 
 /** `attention settings`: which checks run and which categories may notify. */
 export interface AttentionSettings {

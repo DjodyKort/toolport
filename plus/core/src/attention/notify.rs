@@ -41,6 +41,7 @@ fn category(item: &Item) -> &'static str {
     match item.source {
         "Credentials" => "credentials",
         "Tasks" => "tasks",
+        "Access" => "access",
         "Updates" => "updates",
         _ => "library",
     }
@@ -178,6 +179,7 @@ const FIRST_PASS_AFTER: Duration = Duration::from_secs(20);
 /// forgotten, so switching it on starts with a silent first pass instead of announcing rows that
 /// appeared in the meantime.
 pub fn pass(host: &dyn Host, notifier: &dyn Notifier) -> Result<Option<Report>, OpError> {
+    let _ = super::observe_access(host);
     let base = host
         .data_dir()
         .ok_or_else(|| OpError::failed("no_data_dir", "data directory could not be resolved"))?;

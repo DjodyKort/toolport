@@ -124,4 +124,19 @@ describe("Settings > Toolport+ > Attention", () => {
     );
     expect(screen.getByRole("button", { name: /Retry/ })).toBeInTheDocument();
   });
+
+  it("test08_the_access_check_has_its_own_switches_and_lists_its_rows", async () => {
+    resetPlusFixture({ attention: { scenario: "access" } });
+    mount();
+    const open = await screen.findByRole("region", { name: "Open now" });
+    expect(within(open).getByText("access:new:epsilon-db")).toBeInTheDocument();
+    expect(within(open).getByText("access:unreached:zeta-cache")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Check Access" })).toBeChecked();
+    await userEvent.click(
+      await screen.findByRole("switch", { name: "Notify me when something needs me" }),
+    );
+    expect(
+      await screen.findByRole("switch", { name: "Notify me about Access" }),
+    ).not.toBeChecked();
+  });
 });

@@ -115,6 +115,10 @@ fn inputs_of(world: &World) -> Inputs {
             store.as_ref().unwrap_or(&Store::default()),
         )),
         store,
+        access: Ok(super::feed_access::AccessInputs {
+            unreached: Vec::new(),
+            folders: Vec::new(),
+        }),
         credentials: Ok(super::feed_credentials::CredentialInputs {
             servers: Vec::new(),
             vault_error: None,

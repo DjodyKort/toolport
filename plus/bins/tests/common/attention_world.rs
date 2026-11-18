@@ -95,3 +95,28 @@ pub fn attention_updates(world: &World) {
     std::fs::write(upstream.join("README.md"), "two").unwrap();
     git(&upstream, &world.home, &["commit", "-q", "-am", "two"]);
 }
+
+/// Two servers on and one access set, the default access, that lists only the first: the second
+/// was added after the set last changed, as the ledger of an earlier observation says.
+pub fn attention_access(world: &World) {
+    let mut registry = world.registry();
+    registry["version"] = json!(3);
+    registry["servers"][0]["enabled"] = json!(true);
+    registry["servers"][1]["enabled"] = json!(true);
+    registry["defaultAccessProfileId"] = json!("default");
+    registry["profiles"] = json!([
+        {"id": "default", "name": "Default", "enabledServerIds": ["srv-alpha"]},
+    ]);
+    world.write_registry(&registry);
+    write_json(
+        &world.data.join("plus/attention.json"),
+        &json!({
+            "access": {
+                "observedAt": 1_000_000,
+                "servers": {"srv-alpha": 0},
+                "sets": {"default": "Default\nsrv-alpha"},
+                "setsChangedAt": 1_000_000,
+            },
+        }),
+    );
+}

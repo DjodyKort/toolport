@@ -1,5 +1,7 @@
 use toolport_plus_api::{Host, ServerRecord};
 
+use super::access;
+use super::feed_access::AccessInputs;
 use super::feed_credentials::{CredentialInputs, ServerFacts};
 use super::feed_library::LibraryInputs;
 use super::feed_tasks::{TaskFacts, TaskInputs};
@@ -64,6 +66,10 @@ pub fn credentials(host: &dyn Host) -> Result<CredentialInputs, String> {
         vault_error,
         logins,
     })
+}
+
+pub fn access(host: &dyn Host, store: Option<&Store>) -> Result<AccessInputs, String> {
+    access::inputs(host, store)
 }
 
 pub fn tasks(host: &dyn Host) -> Result<TaskInputs, String> {

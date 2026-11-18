@@ -46,6 +46,12 @@ const CHECK_INFO: Record<
       "New commits of your skill taps, plugin marketplaces and the library. The only check that uses the network.",
     runs: "When you press Check now, or daily with the updates-check task",
   },
+  access: {
+    title: "Access",
+    watches:
+      "A server added after your access sets last changed that no set reaches, so no agent sees its tools. Servers that no set reaches, and folder mappings that outrank a client's own set, as quiet rows.",
+    runs: "On every read",
+  },
   tasks: {
     title: "Tasks",
     watches:
@@ -61,6 +67,8 @@ const CHECK_INFO: Record<
 };
 
 const NOTIFY_NOTE: Partial<Record<AttentionCheckName, string>> = {
+  access:
+    "A new server nobody reaches can wait, so this never notifies unless you turn it on",
   updates: "Update rows are Worth a look, so they never notify unless you turn this on",
   library: "Library rows are Worth a look, so they never notify unless you turn this on",
 };

@@ -4,7 +4,7 @@
     "command": "attention set",
     "error": {
       "code": "usage",
-      "message": "unknown switch check.nothing; use notify, check.<name> or notify.<name> with one of credentials, updates, tasks, library"
+      "message": "unknown switch check.nothing; use notify, check.<name> or notify.<name> with one of credentials, updates, access, tasks, library"
     },
     "ok": false,
     "schemaVersion": 1

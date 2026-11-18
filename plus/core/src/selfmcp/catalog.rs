@@ -247,7 +247,7 @@ pub const TOOLS: &[ToolDef] = &[
         "attention_set",
         2,
         None,
-        "Switch a check or a notification on or off: key is notify, check.<name> or notify.<name> with name credentials, updates, tasks or library",
+        "Switch a check or a notification on or off: key is notify, check.<name> or notify.<name> with name credentials, updates, access, tasks or library",
         [p("key", Ty::Str, true, "notify, check.<name> or notify.<name>"), p("on", Ty::Bool, true, "true to switch on")],
         attention::set
     ),

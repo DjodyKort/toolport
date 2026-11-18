@@ -621,51 +621,73 @@ pub struct AccessRow {
     pub command: Vec<String>,
 }
 
+/// The row for servers no access set reaches, given as (id, name) sorted by id. `added` is for
+/// servers that appeared after the access sets last changed: the id differs, so a row snoozed or
+/// skipped for the older servers does not hide it.
+pub fn unreached_row(servers: &[(&str, &str)], added: bool) -> AccessRow {
+    let ids: Vec<&str> = servers.iter().map(|(id, _)| *id).collect();
+    let names: Vec<&str> = servers.iter().map(|(_, name)| *name).collect();
+    let (it, be) = if servers.len() == 1 {
+        ("it", "is")
+    } else {
+        ("them", "are")
+    };
+    AccessRow {
+        id: format!(
+            "access:{}:{}",
+            if added { "new" } else { "unreached" },
+            ids.join(",")
+        ),
+        title: if added {
+            match servers {
+                [(_, name)] => format!("{name} was added, and no access set reaches it"),
+                _ => format!(
+                    "{} were added, and no access set reaches them",
+                    plural(servers.len(), "server", "servers")
+                ),
+            }
+        } else {
+            format!(
+                "{} no access set reaches",
+                plural(servers.len(), "server", "servers")
+            )
+        },
+        detail: format!(
+            "{} {be} on, but neither the default access, a client's own set nor a folder \
+             mapping lists {it}. Add {it} to a set, or switch {it} off.",
+            names.join(", "),
+        ),
+        action_label: "Review",
+        command: vec!["toolportctl".into(), "client".into(), "reach".into()],
+    }
+}
+
 /// The hook the Access check of Attention calls: "N servers no access set reaches" as one row and
 /// one row per mapped folder that outranks the own sets of clients. The attention snapshot lives
 /// on its own branch, so this returns plain rows for it to wrap in its `Item`.
 pub fn access_rows(report: &Report) -> Vec<AccessRow> {
     let command = vec!["toolportctl".into(), "client".into(), "reach".into()];
     let mut rows = Vec::new();
-    let unreached: Vec<&Finding> = report
+    let mut ids: Vec<&str> = report
         .findings
         .iter()
         .filter(|f| f.kind == FindingKind::Unreached)
+        .filter_map(|f| f.server.as_deref())
         .collect();
-    if !unreached.is_empty() {
-        let mut ids: Vec<&str> = unreached
-            .iter()
-            .filter_map(|f| f.server.as_deref())
-            .collect();
-        ids.sort_unstable();
-        let names: Vec<&str> = ids
+    ids.sort_unstable();
+    if !ids.is_empty() {
+        let named: Vec<(&str, &str)> = ids
             .iter()
             .map(|id| {
-                report
+                let name = report
                     .servers
                     .iter()
                     .find(|s| s.id == *id)
-                    .map_or(*id, |s| s.name.as_str())
+                    .map_or(*id, |s| s.name.as_str());
+                (*id, name)
             })
             .collect();
-        rows.push(AccessRow {
-            id: format!("access:unreached:{}", ids.join(",")),
-            title: format!(
-                "{} no access set reaches",
-                plural(ids.len(), "server", "servers")
-            ),
-            detail: format!(
-                "{} {} on, but neither the default access, a client's own set nor a folder \
-                 mapping lists {}. Add {} to a set, or switch {} off.",
-                names.join(", "),
-                if ids.len() == 1 { "is" } else { "are" },
-                if ids.len() == 1 { "it" } else { "them" },
-                if ids.len() == 1 { "it" } else { "them" },
-                if ids.len() == 1 { "it" } else { "them" },
-            ),
-            action_label: "Review",
-            command: command.clone(),
-        });
+        rows.push(unreached_row(&named, false));
     }
     let mut by_folder: BTreeMap<&str, Vec<&Finding>> = BTreeMap::new();
     for finding in report

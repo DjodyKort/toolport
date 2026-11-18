@@ -19,7 +19,7 @@ const UNSEEN_KEEP: i64 = 30 * 24 * 3600;
 pub const NOTIFY_WINDOW_SECS: i64 = 6 * 3600;
 
 /// Checks that exist as a switch, in the order the Manage page shows them.
-pub const CHECKS: [&str; 4] = ["credentials", "updates", "tasks", "library"];
+pub const CHECKS: [&str; 5] = ["credentials", "updates", "access", "tasks", "library"];
 
 /// Whether a category notifies when the master switch is on and the person has not chosen:
 /// update and library rows are never urgent enough to wake the person.
@@ -92,6 +92,82 @@ pub struct UpdatesState {
     pub sources: BTreeMap<String, SourceCheck>,
 }
 
+/// What the Access check last saw of the registry, so a server that appeared after the access
+/// sets last changed can be told from one that has always been unreached.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessLedger {
+    /// When the registry was first observed; none of its servers count as added before this.
+    #[serde(default)]
+    pub observed_at: Option<i64>,
+    /// Server id to the time it was first seen; servers present at the first observation are 0.
+    #[serde(default)]
+    pub servers: BTreeMap<String, i64>,
+    /// Set id to what it lists, to notice a set that changed.
+    #[serde(default)]
+    pub sets: BTreeMap<String, String>,
+    #[serde(default)]
+    pub sets_changed_at: Option<i64>,
+}
+
+impl AccessLedger {
+    /// The fingerprint of a set: its name and members, so renaming and editing both count.
+    pub fn fingerprint(name: &str, server_ids: &[String]) -> String {
+        let mut ids: Vec<&str> = server_ids.iter().map(String::as_str).collect();
+        ids.sort_unstable();
+        format!("{name}\n{}", ids.join(","))
+    }
+
+    /// When `server` first appeared, if that was after the last change to any access set. A set
+    /// that differs from the last observation has just changed. Nothing counts as added before
+    /// the first observation.
+    pub fn added_after_sets(
+        &self,
+        server: &str,
+        sets: &BTreeMap<String, String>,
+        now: i64,
+    ) -> Option<i64> {
+        self.observed_at?;
+        let changed = if &self.sets == sets {
+            self.sets_changed_at.unwrap_or(0)
+        } else {
+            now
+        };
+        let first_seen = self.servers.get(server).copied().unwrap_or(now);
+        (first_seen > changed).then_some(first_seen)
+    }
+
+    /// Records the registry; true when the ledger changed and has to be written.
+    pub fn observe(
+        &mut self,
+        servers: &[String],
+        sets: BTreeMap<String, String>,
+        now: i64,
+    ) -> bool {
+        let before = self.clone();
+        let first = self.observed_at.is_none();
+        if first {
+            self.observed_at = Some(now);
+            self.sets_changed_at = Some(now);
+        } else if self.sets != sets {
+            self.sets_changed_at = Some(now);
+        }
+        self.sets = sets;
+        let known = std::mem::take(&mut self.servers);
+        self.servers = servers
+            .iter()
+            .map(|id| {
+                let seen = known
+                    .get(id)
+                    .copied()
+                    .unwrap_or(if first { 0 } else { now });
+                (id.clone(), seen)
+            })
+            .collect();
+        *self != before
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Notify {
     #[serde(default)]
@@ -152,6 +228,8 @@ pub struct Store {
     pub settings: Settings,
     #[serde(default)]
     pub updates: UpdatesState,
+    #[serde(default)]
+    pub access: AccessLedger,
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }

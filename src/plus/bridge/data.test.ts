@@ -162,6 +162,12 @@ describe("the envelope types match the Rust goldens", () => {
         );
       }
     }
-    expect([...seen].sort()).toEqual(["Credentials", "Library", "Tasks", "Updates"]);
+    expect([...seen].sort()).toEqual([
+      "Access",
+      "Credentials",
+      "Library",
+      "Tasks",
+      "Updates",
+    ]);
   });
 });

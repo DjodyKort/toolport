@@ -242,7 +242,7 @@
           "tier": 1
         },
         {
-          "description": "Switch a check or a notification on or off: key is notify, check.<name> or notify.<name> with name credentials, updates, tasks or library",
+          "description": "Switch a check or a notification on or off: key is notify, check.<name> or notify.<name> with name credentials, updates, access, tasks or library",
           "dryRunDefault": false,
           "gate": "none",
           "name": "attention_set",

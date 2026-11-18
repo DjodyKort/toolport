@@ -18,6 +18,10 @@
           "on": false
         },
         {
+          "name": "access",
+          "on": true
+        },
+        {
           "name": "tasks",
           "on": true
         },
@@ -34,6 +38,10 @@
           },
           {
             "name": "updates",
+            "on": false
+          },
+          {
+            "name": "access",
             "on": false
           },
           {

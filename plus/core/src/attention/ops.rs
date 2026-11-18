@@ -154,6 +154,7 @@ pub fn set_switch(host: &dyn Host, key: &str, on: bool) -> Result<Value, OpError
 }
 
 pub fn check(host: &dyn Host) -> Result<updates::Report, OpError> {
+    let _ = super::observe_access(host);
     let base = base(host)?;
     let base = crate::skills::repo::resolve_path(&base);
     let _paths = crate::fsx::enter(crate::fsx::Paths {

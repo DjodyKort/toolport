@@ -7,9 +7,9 @@
   "result": {
     "error": {
       "kind": "invalid_arguments",
-      "message": "unknown switch check.nothing; use notify, check.<name> or notify.<name> with one of credentials, updates, tasks, library"
+      "message": "unknown switch check.nothing; use notify, check.<name> or notify.<name> with one of credentials, updates, access, tasks, library"
     }
   },
-  "text": "invalid_arguments: unknown switch check.nothing; use notify, check.<name> or notify.<name> with one of credentials, updates, tasks, library",
+  "text": "invalid_arguments: unknown switch check.nothing; use notify, check.<name> or notify.<name> with one of credentials, updates, access, tasks, library",
   "tool": "attention_set"
 }

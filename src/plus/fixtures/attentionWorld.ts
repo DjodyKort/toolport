@@ -17,7 +17,8 @@ export type AttentionScenario =
   | "updates"
   | "server-update"
   | "peer-branch"
-  | "peer-newer";
+  | "peer-newer"
+  | "access";
 
 export interface AttentionWorldOptions {
   /** Without a scenario `attention ls` fails the way a build without toolportctl does, so the bell
@@ -110,6 +111,31 @@ function serverUpdate(now: number): AttentionRow[] {
   ];
 }
 
+function access(now: number): AttentionRow[] {
+  return [
+    {
+      id: "access:new:epsilon-db",
+      urgency: "needs-you",
+      title: "epsilon-db was added, and no access set reaches it",
+      detail:
+        "epsilon-db is on, but neither the default access, a client's own set nor a folder mapping lists it. Add it to a set, or switch it off.",
+      source: "Access",
+      since: iso(now - 2 * HOUR),
+      action: { label: "Review", screen: "servers" },
+    },
+    {
+      id: "access:unreached:zeta-cache",
+      urgency: "worth-a-look",
+      title: "1 server no access set reaches",
+      detail:
+        "zeta-cache is on, but neither the default access, a client's own set nor a folder mapping lists it. Add it to a set, or switch it off.",
+      source: "Access",
+      action: { label: "Review", screen: "servers" },
+      skip: { label: "these servers" },
+    },
+  ];
+}
+
 function peerBranch(now: number): AttentionRow[] {
   return [
     {
@@ -158,7 +184,13 @@ function peerNewer(now: number): AttentionRow[] {
   ];
 }
 
-const CHECKS: AttentionCheckName[] = ["credentials", "updates", "tasks", "library"];
+const CHECKS: AttentionCheckName[] = [
+  "credentials",
+  "updates",
+  "access",
+  "tasks",
+  "library",
+];
 const NOTIFIES_BY_DEFAULT: AttentionCheckName[] = ["credentials", "tasks"];
 
 const fail = (code: string, message: string): CtlReply => ({
@@ -191,6 +223,7 @@ export function createAttentionWorld(options: AttentionWorldOptions = {}) {
     if (options.scenario === "clear") return [];
     if (options.scenario === "server-update") return [...busy(now), ...serverUpdate(now)];
     if (options.scenario === "peer-newer") return [...busy(now), ...peerNewer(now)];
+    if (options.scenario === "access") return [...busy(now), ...access(now)];
     if (options.scenario === "peer-branch") return [...busy(now), ...peerBranch(now)];
     return options.scenario === "updates" ? [...busy(now), ...updates(now)] : busy(now);
   }

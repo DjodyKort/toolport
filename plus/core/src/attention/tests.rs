@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use serde_json::{json, Value};
 use toolport_plus_api::{MemoryHost, MemoryRegistry, MemorySecrets, ServerRecord};
 
+use super::feed_access;
 use super::feed_credentials::{self, CredentialInputs, ServerFacts};
 use super::feed_library::{self, LibraryInputs};
 use super::feed_tasks::{self, TaskFacts, TaskInputs};
@@ -533,6 +534,10 @@ fn test17_a_feed_that_cannot_be_read_is_named_and_the_others_still_answer() {
         now: NOW,
         store: Ok(Store::default()),
         updates: Ok(no_updates()),
+        access: Ok(feed_access::AccessInputs {
+            unreached: Vec::new(),
+            folders: Vec::new(),
+        }),
         credentials: Ok(credentials(
             vec![server("alpha", true, &["API_KEY"])],
             Vec::new(),
@@ -548,7 +553,7 @@ fn test17_a_feed_that_cannot_be_read_is_named_and_the_others_still_answer() {
     assert!(!snapshot.all_checked());
     let json = snapshot.to_json();
     assert_eq!(
-        json["checks"][2],
+        json["checks"][3],
         json!({"name": "tasks", "ok": false, "error": "the data directory could not be resolved"})
     );
     assert_eq!(json["counts"], json!({"needsYou": 1, "worthALook": 0}));

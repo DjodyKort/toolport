@@ -1,12 +1,15 @@
 //! The attention list: what needs the person right now, computed fresh on every call from the
 //! stores each area keeps (login status, the vault, task runs, the library's sync state). Nothing
-//! is stored here, so a row is gone as soon as its cause is.
+//! is stored here, so a row is gone as soon as its cause is; the one exception is the ledger the
+//! Access check keeps in [`store`] to tell a newly added server from an old one.
 //!
-//! One feed per area: [`feed_credentials`] (missing secrets, logins, the vault), [`feed_tasks`],
-//! [`feed_library`] and [`feed_updates`]. A feed is a pure function over plain inputs that
+//! One feed per area: [`feed_credentials`] (missing secrets, logins, the vault), [`feed_updates`],
+//! [`feed_access`] (servers no access set reaches), [`feed_tasks`] and [`feed_library`]. A feed is a pure function over plain inputs that
 //! [`gather`] reads through the host; a feed that cannot be read is reported next to the rows
 //! instead of showing nothing. What the person snoozed, skipped or switched off lives in [`store`].
 
+mod access;
+pub mod feed_access;
 pub mod feed_credentials;
 pub mod feed_library;
 pub mod feed_repo_heads;
@@ -20,6 +23,8 @@ pub mod store;
 pub mod test_toast;
 pub mod updates;
 
+pub use access::observe as observe_access;
+
 use std::cmp::Reverse;
 use std::collections::BTreeSet;
 
@@ -27,6 +32,7 @@ use toolport_plus_api::Host;
 
 pub use model::{Action, Check, Hidden, Item, Screen, Snapshot, Urgency};
 
+use feed_access::AccessInputs;
 use feed_credentials::CredentialInputs;
 use feed_library::LibraryInputs;
 use feed_tasks::TaskInputs;
@@ -37,6 +43,7 @@ pub struct Inputs {
     pub now: i64,
     pub store: Result<Store, String>,
     pub updates: Result<UpdateInputs, String>,
+    pub access: Result<AccessInputs, String>,
     pub credentials: Result<CredentialInputs, String>,
     pub tasks: Result<TaskInputs, String>,
     pub library: Result<LibraryInputs, String>,
@@ -47,6 +54,7 @@ pub fn read(host: &dyn Host) -> Inputs {
     Inputs {
         now: host.now_unix(),
         updates: gather::updates(host, store.as_ref().ok()),
+        access: gather::access(host, store.as_ref().ok()),
         store,
         credentials: gather::credentials(host),
         tasks: gather::tasks(host),
@@ -113,6 +121,12 @@ pub fn compute(inputs: &Inputs) -> Snapshot {
         on("updates"),
         store.updates.checked_at,
         inputs.updates.as_ref().map(feed_updates::items),
+    );
+    check(
+        "access",
+        on("access"),
+        None,
+        inputs.access.as_ref().map(feed_access::items),
     );
     check(
         "tasks",
@@ -241,6 +255,9 @@ pub fn human(snapshot: &Snapshot) -> String {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod tests_access;
 
 #[cfg(test)]
 mod tests_updates;
