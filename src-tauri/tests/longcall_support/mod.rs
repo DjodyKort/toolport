@@ -42,6 +42,8 @@ pub struct Behaviour {
 pub struct Timeouts {
     pub request_ms: Option<u64>,
     pub max_request_ms: Option<u64>,
+    /// `toolBudgets` of the server: seconds per tool name.
+    pub tool_budgets: &'static [(&'static str, f64)],
 }
 
 /// A scratch data directory; killing the daemons the case started is part of dropping it.
@@ -136,6 +138,14 @@ fn server_entry(log: &Path, behaviour: Behaviour, timeouts: Timeouts) -> ServerE
     let mut unknown_fields = serde_json::Map::new();
     if let Some(ms) = timeouts.max_request_ms {
         unknown_fields.insert("maxRequestTimeoutMs".to_string(), json!(ms));
+    }
+    if !timeouts.tool_budgets.is_empty() {
+        let budgets: serde_json::Map<String, Value> = timeouts
+            .tool_budgets
+            .iter()
+            .map(|(tool, secs)| ((*tool).to_string(), json!(secs)))
+            .collect();
+        unknown_fields.insert("toolBudgets".to_string(), Value::Object(budgets));
     }
     ServerEntry {
         enabled: true,

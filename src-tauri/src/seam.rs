@@ -187,13 +187,17 @@ impl CallClock {
         server_id: Option<&String>,
     ) -> Self {
         #[cfg(feature = "plus")]
-        return Self {
-            clock: toolport_plus::progress::Clock::start(
-                window,
-                toolport_plus::progress::request_token(params),
-            ),
-            server_id: server_id.cloned(),
-        };
+        {
+            let token = toolport_plus::progress::request_token(params);
+            let window = token
+                .as_deref()
+                .and_then(toolport_plus::progress::leased_window)
+                .unwrap_or(window);
+            return Self {
+                clock: toolport_plus::progress::Clock::start(window, token),
+                server_id: server_id.cloned(),
+            };
+        }
         #[cfg(not(feature = "plus"))]
         {
             let _ = (params, server_id);
@@ -241,6 +245,59 @@ impl CallClock {
         #[cfg(not(feature = "plus"))]
         ""
     }
+}
+
+/// What keeps one `tools/call` alive: the `_meta` to relay in place of the client's (`None`: as
+/// it is) and a lease that holds the call's window until the call ends.
+pub struct LongCall {
+    pub meta: Option<serde_json::Value>,
+    #[cfg(feature = "plus")]
+    _lease: Option<toolport_plus::progress::WindowLease>,
+}
+
+/// Prepares a `tools/call` of the tool listed as `name` in `catalog`, which is `tool` of
+/// `server_id`.
+pub fn long_call(
+    reg: &crate::registry::Registry,
+    server_id: &str,
+    tool: &str,
+    catalog: &dyn crate::tool_definitions::ToolCatalog,
+    name: &str,
+    meta: Option<&serde_json::Value>,
+) -> LongCall {
+    #[cfg(feature = "plus")]
+    {
+        let Some(server) = reg.servers.iter().find(|server| server.id == server_id) else {
+            return LongCall {
+                meta: None,
+                _lease: None,
+            };
+        };
+        let settings = toolport_plus::progress::CallSettings {
+            stdio: server.transport == "stdio",
+            max_request_timeout_ms: server
+                .unknown_fields
+                .get("maxRequestTimeoutMs")
+                .and_then(serde_json::Value::as_u64),
+            tool_budgets: server.unknown_fields.get("toolBudgets"),
+        };
+        let listed = catalog.iter().find(|listed| listed["name"] == name);
+        let prepared = toolport_plus::progress::prepare_call(&settings, tool, listed, meta);
+        LongCall {
+            meta: prepared.meta,
+            _lease: prepared.lease,
+        }
+    }
+    #[cfg(not(feature = "plus"))]
+    {
+        let _ = (reg, server_id, tool, catalog, name, meta);
+        LongCall { meta: None }
+    }
+}
+
+/// Whether a request that timed out is cancelled at the server, as a client's cancel would be.
+pub fn cancels_on_deadline(method: &str) -> bool {
+    cfg!(feature = "plus") && matches!(method, "tools/call" | "resources/read" | "prompts/get")
 }
 
 #[cfg(feature = "plus")]

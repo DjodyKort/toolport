@@ -4375,12 +4375,21 @@ impl StdioCore {
                                 .to_string(),
                         ));
                     }
+                    let message =
+                        format!("timed out waiting for '{method}' response{}", clock.cap_note());
+                    if crate::seam::cancels_on_deadline(method) {
+                        CancelEntry {
+                            stdin: Arc::clone(&self.stdin),
+                            forwarder: self.forwarder.clone(),
+                            downstream_id: waiter.downstream_id.clone(),
+                            waiter: None,
+                            forwarded,
+                        }
+                        .send_cancel_async(Some(message.clone()));
+                    }
                     return Err(TransportError::Classified(
                         crate::call_failure::CallFailureKind::Timeout { after_send: true },
-                        format!(
-                            "timed out waiting for '{method}' response{}",
-                            clock.cap_note()
-                        ),
+                        message,
                     ));
                 }
                 Err(RecvTimeoutError::Disconnected) => {

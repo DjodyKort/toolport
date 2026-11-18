@@ -21,6 +21,7 @@ mod longcall {
         Timeouts {
             request_ms: Some(WINDOW_MS),
             max_request_ms,
+            ..Default::default()
         }
     }
 
@@ -129,8 +130,10 @@ mod longcall {
         );
     }
 
+    #[cfg(feature = "plus")]
     #[test]
-    fn test04_longcall_without_a_client_token_the_call_is_not_extended() {
+    fn test04_longcall_without_a_client_token_a_minted_token_extends_the_call_and_reaches_no_client(
+    ) {
         let _guard = case_lock();
         let case = Case::new("notoken", Behaviour::default(), timeouts(Some(8000)));
         let mut client = started_client(&case);
@@ -142,14 +145,24 @@ mod longcall {
             None,
         );
         let (at, reply) = client.response(&json!(10), ANSWER_WITHIN);
-        assert!(timed_out(&reply), "{reply}");
-        assert!(elapsed_ms(sent, at) < WINDOW_MS + 1500);
-        let call = &case.received_calls("sleep")[0];
+        assert_eq!(text_of(&reply["result"]), "slept 2.5 s", "{reply}");
+        assert!(elapsed_ms(sent, at) >= 2400, "ran past the 1 s window");
+        let token = case.received_calls("sleep")[0]["token"].clone();
         assert!(
-            call.get("token").is_none(),
-            "the gateway mints no token of its own for the server: {call}"
+            token
+                .as_str()
+                .is_some_and(|token| token.starts_with("tpx-")),
+            "the server is told a token the gateway minted: {token}"
         );
-        assert_eq!(client.progress_seen("client-token"), 0);
+        client.listen(Duration::from_millis(300));
+        assert!(
+            client
+                .inbox
+                .iter()
+                .all(|(_, message)| message["method"] != "notifications/progress"),
+            "the client asked for no progress and gets none: {:?}",
+            client.inbox
+        );
     }
 
     #[test]
@@ -176,8 +189,9 @@ mod longcall {
         );
     }
 
+    #[cfg(feature = "plus")]
     #[test]
-    fn test06_longcall_the_listing_keeps_the_budget_and_the_call_ignores_it() {
+    fn test06_longcall_the_budget_in_the_listing_is_the_window_of_the_call() {
         let _guard = case_lock();
         let case = Case::new("budget", Behaviour::default(), timeouts(None));
         let mut client = started_client(&case);
@@ -189,11 +203,126 @@ mod longcall {
         );
         let sent = client.start_call(10, &name, json!({ "seconds": 3 }), None);
         let (at, reply) = client.response(&json!(10), ANSWER_WITHIN);
-        assert!(timed_out(&reply), "{reply}");
+        assert_eq!(text_of(&reply["result"]), "slept 3 s", "{reply}");
         assert!(
-            elapsed_ms(sent, at) < WINDOW_MS + 1500,
-            "the 120 s budget is not the window"
+            elapsed_ms(sent, at) >= 2900,
+            "a 3 s call without any progress outlives the 1 s server window"
         );
+    }
+
+    #[cfg(feature = "plus")]
+    #[test]
+    fn test17_longcall_a_tool_budget_of_the_server_beats_the_budget_in_the_listing() {
+        let _guard = case_lock();
+        let case = Case::new(
+            "tool-budgets",
+            Behaviour::default(),
+            Timeouts {
+                request_ms: Some(10_000),
+                tool_budgets: &[("budgeted_sleep", 1.0), ("sleep", 5.0)],
+                ..Default::default()
+            },
+        );
+        let mut client = started_client(&case);
+        let budgeted = client.tool_named("budgeted_sleep");
+        let sleep = client.tool_named("sleep");
+        let sent = client.start_call(10, &budgeted, json!({ "seconds": 3 }), None);
+        let (at, reply) = client.response(&json!(10), ANSWER_WITHIN);
+        assert!(timed_out(&reply), "{reply}");
+        let waited = elapsed_ms(sent, at);
+        assert!(
+            (900..2500).contains(&waited),
+            "cut at the 1 s toolBudgets entry, not the 120 s listing budget nor the 10 s window: {waited} ms"
+        );
+        let sent = client.start_call(11, &sleep, json!({ "seconds": 3 }), None);
+        let (at, reply) = client.response(&json!(11), ANSWER_WITHIN);
+        assert_eq!(text_of(&reply["result"]), "slept 3 s", "{reply}");
+        assert!(elapsed_ms(sent, at) >= 2900);
+    }
+
+    #[cfg(feature = "plus")]
+    #[test]
+    fn test18_longcall_the_cap_beats_a_tool_budget_and_the_listing_budget() {
+        let _guard = case_lock();
+        let case = Case::new(
+            "budget-cap",
+            Behaviour::default(),
+            Timeouts {
+                request_ms: Some(WINDOW_MS),
+                max_request_ms: Some(1500),
+                tool_budgets: &[("sleep", 600.0)],
+            },
+        );
+        let mut client = started_client(&case);
+        let sleep = client.tool_named("sleep");
+        let budgeted = client.tool_named("budgeted_sleep");
+        for (id, tool) in [(10, &sleep), (11, &budgeted)] {
+            let sent = client.start_call(id, tool, json!({ "seconds": 5 }), None);
+            let (at, reply) = client.response(&json!(id), ANSWER_WITHIN);
+            assert!(timed_out(&reply), "{reply}");
+            let waited = elapsed_ms(sent, at);
+            assert!(
+                (1400..3000).contains(&waited),
+                "{tool}: cut at the 1.5 s cap: {waited} ms"
+            );
+        }
+    }
+
+    #[cfg(feature = "plus")]
+    #[test]
+    fn test19_longcall_concurrent_calls_with_different_tokens_do_not_mix_progress() {
+        let _guard = case_lock();
+        let case = Case::new("two-tokens", Behaviour::default(), timeouts(Some(8000)));
+        let mut client = started_client(&case);
+        let sleep = client.tool_named("sleep");
+        client.start_call(
+            10,
+            &sleep,
+            json!({ "seconds": 3, "progress_every_ms": 200 }),
+            Some("token-long"),
+        );
+        client.start_call(
+            11,
+            &sleep,
+            json!({ "seconds": 1.2, "progress_every_ms": 200 }),
+            Some("token-short"),
+        );
+        client.start_call(
+            12,
+            &sleep,
+            json!({ "seconds": 1.2, "progress_every_ms": 200 }),
+            None,
+        );
+        for id in [10, 11, 12] {
+            let (_, reply) = client.response(&json!(id), ANSWER_WITHIN);
+            assert!(reply.get("result").is_some(), "{reply}");
+        }
+        let progressed = |token: &str| -> Vec<i64> {
+            client
+                .inbox
+                .iter()
+                .filter(|(_, message)| {
+                    message["method"] == "notifications/progress"
+                        && message["params"]["progressToken"] == token
+                })
+                .filter_map(|(_, message)| message["params"]["progress"].as_i64())
+                .collect()
+        };
+        let long = progressed("token-long");
+        let short = progressed("token-short");
+        assert!(!long.is_empty() && !short.is_empty(), "{:?}", client.inbox);
+        assert!(
+            short.iter().all(|ms| *ms <= 1700),
+            "progress of the 1.2 s call carries only its own time: {short:?}"
+        );
+        assert!(long.iter().any(|ms| *ms > 2000), "{long:?}");
+        let tokens: Vec<_> = case
+            .received_calls("sleep")
+            .iter()
+            .map(|call| call["token"].as_str().unwrap_or_default().to_string())
+            .collect();
+        let distinct: std::collections::HashSet<_> = tokens.iter().collect();
+        assert_eq!(distinct.len(), 3, "each call has its own token: {tokens:?}");
     }
 
     #[test]
@@ -204,7 +333,7 @@ mod longcall {
             Behaviour::default(),
             Timeouts {
                 request_ms: Some(10_000),
-                max_request_ms: None,
+                ..Default::default()
             },
         );
         let mut client = started_client(&case);
@@ -246,7 +375,7 @@ mod longcall {
             },
             Timeouts {
                 request_ms: Some(10_000),
-                max_request_ms: None,
+                ..Default::default()
             },
         );
         let mut client = started_client(&case);
@@ -275,8 +404,9 @@ mod longcall {
         );
     }
 
+    #[cfg(feature = "plus")]
     #[test]
-    fn test09_longcall_a_deadline_that_expires_does_not_cancel_the_call_at_the_server() {
+    fn test09_longcall_a_deadline_that_expires_cancels_the_call_at_the_server() {
         let _guard = case_lock();
         let case = Case::new("expiry", Behaviour::default(), timeouts(None));
         let mut client = started_client(&case);
@@ -284,10 +414,30 @@ mod longcall {
         client.start_call(10, &sleep, json!({ "seconds": 2 }), None);
         let (_, reply) = client.response(&json!(10), ANSWER_WITHIN);
         assert!(timed_out(&reply), "{reply}");
+        assert!(
+            wait_until(
+                || !case.received("notifications/cancelled").is_empty(),
+                Duration::from_secs(3)
+            ),
+            "the server is told the call is cancelled: {:?}",
+            case.entries()
+        );
+        let cancelled = &case.received("notifications/cancelled")[0];
+        assert_eq!(
+            cancelled["requestId"],
+            case.received_calls("sleep")[0]["id"],
+            "the server's own id of the call"
+        );
+        assert!(
+            cancelled["reason"]
+                .as_str()
+                .is_some_and(|reason| reason.contains("timed out")),
+            "{cancelled}"
+        );
         std::thread::sleep(Duration::from_millis(1500));
         assert!(
-            case.received("notifications/cancelled").is_empty(),
-            "no cancellation is sent when the deadline expires: {:?}",
+            !case.answered(&json!(3)),
+            "a server that honours the cancel never answers: {:?}",
             case.entries()
         );
     }
@@ -295,7 +445,14 @@ mod longcall {
     #[test]
     fn test10_longcall_the_late_answer_after_a_timeout_never_reaches_the_client() {
         let _guard = case_lock();
-        let case = Case::new("late", Behaviour::default(), timeouts(None));
+        let case = Case::new(
+            "late",
+            Behaviour {
+                ignore_cancel: true,
+                ..Default::default()
+            },
+            timeouts(None),
+        );
         let mut client = started_client(&case);
         let sleep = client.tool_named("sleep");
         let echo = client.tool_named("echo");
@@ -334,7 +491,7 @@ mod longcall {
             Behaviour::default(),
             Timeouts {
                 request_ms: Some(10_000),
-                max_request_ms: None,
+                ..Default::default()
             },
         );
         let mut client = started_client(&case);
@@ -385,7 +542,7 @@ mod longcall {
             },
             Timeouts {
                 request_ms: Some(10_000),
-                max_request_ms: None,
+                ..Default::default()
             },
         );
         let mut client = started_client(&case);
@@ -415,20 +572,21 @@ mod longcall {
         );
     }
 
+    #[cfg(feature = "plus")]
     #[test]
-    fn test13_longcall_a_client_that_disconnects_mid_call_does_not_cancel_at_the_server() {
+    fn test13_longcall_a_client_that_disconnects_mid_call_cancels_the_call_at_the_server() {
         let _guard = case_lock();
         let case = Case::new(
             "disconnect",
             Behaviour::default(),
             Timeouts {
-                request_ms: Some(10_000),
-                max_request_ms: None,
+                request_ms: Some(30_000),
+                ..Default::default()
             },
         );
         let mut client = started_client(&case);
         let sleep = client.tool_named("sleep");
-        client.start_call(10, &sleep, json!({ "seconds": 4 }), None);
+        client.start_call(10, &sleep, json!({ "seconds": 25 }), None);
         assert!(
             wait_until(
                 || !case.received_calls("sleep").is_empty(),
@@ -438,12 +596,17 @@ mod longcall {
         );
         client.close_stdin();
         assert!(
-            !wait_until(
+            wait_until(
                 || !case.received("notifications/cancelled").is_empty(),
-                Duration::from_secs(3)
+                Duration::from_secs(15)
             ),
-            "no cancellation follows a disconnect: {:?}",
+            "the server is told when the client is gone: {:?}",
             case.entries()
+        );
+        let cancelled = &case.received("notifications/cancelled")[0];
+        assert_eq!(
+            cancelled["requestId"],
+            case.received_calls("sleep")[0]["id"]
         );
     }
 
@@ -464,7 +627,7 @@ mod longcall {
             Behaviour::default(),
             Timeouts {
                 request_ms: Some(10_000),
-                max_request_ms: None,
+                ..Default::default()
             },
         );
         let mut client = warmed_lazy_client(&case);
@@ -513,9 +676,10 @@ mod longcall {
         );
     }
 
+    #[cfg(feature = "plus")]
     #[test]
-    fn test16_longcall_through_toolport_call_tool_without_a_client_token_the_call_is_not_extended()
-    {
+    fn test16_longcall_through_toolport_call_tool_without_a_client_token_a_minted_token_extends_the_call(
+    ) {
         let _guard = case_lock();
         let case = Case::new("lazy-notoken", Behaviour::default(), timeouts(Some(8000)));
         let mut client = warmed_lazy_client(&case);
@@ -526,11 +690,13 @@ mod longcall {
             None,
         );
         let (at, reply) = client.response(&json!(10), ANSWER_WITHIN);
-        assert!(timed_out(&reply), "{reply}");
-        assert!(elapsed_ms(sent, at) < WINDOW_MS + 1500);
+        assert_eq!(text_of(&reply["result"]), "slept 2.5 s", "{reply}");
+        assert!(elapsed_ms(sent, at) >= 2400, "ran past the 1 s window");
         assert!(
-            case.received_calls("sleep")[0].get("token").is_none(),
-            "the server is told no token"
+            case.received_calls("sleep")[0]["token"]
+                .as_str()
+                .is_some_and(|token| token.starts_with("tpx-")),
+            "the server is told a minted token"
         );
     }
 }

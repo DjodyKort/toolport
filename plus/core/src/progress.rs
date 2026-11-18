@@ -5,6 +5,7 @@
 //! waiting for a client to answer a server's request is charged to neither.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -36,6 +37,126 @@ pub fn request_token(params: &Value) -> Option<String> {
         .get("progressToken")
         .filter(|token| !token.is_null())
         .map(token_key)
+}
+
+/// The key under which a tool's listing states how long a call is expected to take, in seconds.
+pub const BUDGET_META_KEY: &str = "odh.dev/budget";
+/// Prefix of the progress tokens the gateway mints for calls whose client sent none.
+const MINTED_PREFIX: &str = "tpx-";
+static MINTED: AtomicU64 = AtomicU64::new(0);
+static WINDOWS: Mutex<Option<HashMap<String, Duration>>> = Mutex::new(None);
+
+/// What one server's settings say about the calls to it.
+pub struct CallSettings<'a> {
+    pub stdio: bool,
+    pub max_request_timeout_ms: Option<u64>,
+    /// The server's `toolBudgets`: seconds per original tool name.
+    pub tool_budgets: Option<&'a Value>,
+}
+
+/// A call as the gateway sends it: the `_meta` to relay in place of the client's, and the
+/// window the call waits for its response and for each progress.
+pub struct PreparedCall {
+    pub meta: Option<Value>,
+    pub lease: Option<WindowLease>,
+}
+
+/// Keeps a call's window known to its clock; dropping it forgets the call's token.
+pub struct WindowLease {
+    key: String,
+}
+
+impl Drop for WindowLease {
+    fn drop(&mut self) {
+        let mut guard = WINDOWS.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(windows) = guard.as_mut() {
+            windows.remove(&self.key);
+        }
+    }
+}
+
+/// The window the call that sends `params` was prepared with, if it was given one.
+pub fn leased_window(token: &str) -> Option<Duration> {
+    let guard = WINDOWS.lock().unwrap_or_else(PoisonError::into_inner);
+    guard.as_ref()?.get(token).copied()
+}
+
+fn seconds(value: &Value) -> Option<Duration> {
+    let secs = value
+        .as_f64()
+        .filter(|secs| secs.is_finite() && *secs > 0.0)?;
+    Some(Duration::from_secs_f64(
+        secs.min(MAX_CAP_MS as f64 / 1000.0),
+    ))
+}
+
+/// The window a tool's call is given instead of the server's `requestTimeoutMs`: its
+/// `toolBudgets` entry, else the budget in its listing, never beyond the cap.
+fn budget_window(
+    settings: &CallSettings<'_>,
+    tool: &str,
+    listed: Option<&Value>,
+) -> Option<Duration> {
+    let configured = settings
+        .tool_budgets
+        .and_then(|budgets| budgets.get(tool))
+        .and_then(seconds);
+    let listed = || {
+        listed
+            .and_then(|definition| definition.get("_meta")?.get(BUDGET_META_KEY))
+            .and_then(seconds)
+    };
+    let window = configured.or_else(listed)?;
+    Some(window.min(cap_from(settings.max_request_timeout_ms)))
+}
+
+/// Gets a `tools/call` ready: a stdio call without a progress token is given one the gateway
+/// minted, so the server's progress can keep it alive, and a tool with a budget is given that
+/// window. `meta` is the `_meta` the call would otherwise carry; `meta` of the result is `None`
+/// when it stays as it is.
+pub fn prepare_call(
+    settings: &CallSettings<'_>,
+    tool: &str,
+    listed: Option<&Value>,
+    meta: Option<&Value>,
+) -> PreparedCall {
+    if !settings.stdio {
+        return PreparedCall {
+            meta: None,
+            lease: None,
+        };
+    }
+    let carried = meta
+        .and_then(|meta| meta.get("progressToken"))
+        .filter(|token| !token.is_null());
+    let (token, relayed) = match carried {
+        Some(token) => (token.clone(), None),
+        None => {
+            let token = Value::String(format!(
+                "{MINTED_PREFIX}{}",
+                MINTED.fetch_add(1, Ordering::Relaxed) + 1
+            ));
+            let mut relayed = meta
+                .cloned()
+                .unwrap_or_else(|| Value::Object(Default::default()));
+            if let Some(object) = relayed.as_object_mut() {
+                object.insert("progressToken".to_string(), token.clone());
+            }
+            (token, Some(relayed))
+        }
+    };
+    let lease = budget_window(settings, tool, listed).map(|window| {
+        let key = token_key(&token);
+        let mut guard = WINDOWS.lock().unwrap_or_else(PoisonError::into_inner);
+        guard
+            .get_or_insert_with(HashMap::new)
+            .insert(key.clone(), window);
+        WindowLease { key }
+    });
+    PreparedCall {
+        meta: relayed,
+        lease,
+    }
 }
 
 /// Default `requestTimeoutMs` of a server without one.
@@ -413,5 +534,98 @@ mod tests {
         }
         let short = Duration::from_millis(300);
         assert_eq!(adapter_ceiling(short, "tools/call", servers()), short);
+    }
+
+    fn settings<'a>(budgets: Option<&'a Value>, cap_ms: Option<u64>) -> CallSettings<'a> {
+        CallSettings {
+            stdio: true,
+            max_request_timeout_ms: cap_ms,
+            tool_budgets: budgets,
+        }
+    }
+
+    fn listing(budget: Value) -> Value {
+        json!({ "name": "wait", "_meta": { BUDGET_META_KEY: budget } })
+    }
+
+    #[test]
+    fn test14_a_stdio_call_without_a_token_is_given_a_minted_one_and_a_client_token_is_kept() {
+        let none = settings(None, None);
+        let minted = prepare_call(&none, "wait", None, None);
+        let token = minted.meta.as_ref().unwrap()["progressToken"].clone();
+        assert!(token.as_str().unwrap().starts_with("tpx-"));
+        let with_other_keys = json!({ "traceparent": "00-x" });
+        let relayed = prepare_call(&none, "wait", None, Some(&with_other_keys))
+            .meta
+            .unwrap();
+        assert_eq!(relayed["traceparent"], "00-x");
+        assert_ne!(
+            relayed["progressToken"], token,
+            "every call has its own token"
+        );
+        let carried = json!({ "progressToken": "tp-3" });
+        assert!(prepare_call(&none, "wait", None, Some(&carried))
+            .meta
+            .is_none());
+        let null_token = json!({ "progressToken": null });
+        assert!(prepare_call(&none, "wait", None, Some(&null_token))
+            .meta
+            .is_some());
+    }
+
+    #[test]
+    fn test15_a_remote_servers_call_is_left_alone() {
+        let remote = CallSettings {
+            stdio: false,
+            ..settings(None, None)
+        };
+        let prepared = prepare_call(&remote, "wait", Some(&listing(json!(30))), None);
+        assert!(prepared.meta.is_none() && prepared.lease.is_none());
+    }
+
+    #[test]
+    fn test16_the_window_is_the_tool_budget_then_the_listing_budget_never_beyond_the_cap() {
+        let budgets = json!({ "wait": 90, "bad": -1, "text": "soon" });
+        let window = |settings: &CallSettings<'_>, tool: &str, listed: Option<&Value>| {
+            budget_window(settings, tool, listed)
+        };
+        let listed = listing(json!(120));
+        let own = settings(Some(&budgets), None);
+        assert_eq!(
+            window(&own, "wait", Some(&listed)),
+            Some(Duration::from_secs(90))
+        );
+        assert_eq!(
+            window(&settings(None, None), "wait", Some(&listed)),
+            Some(Duration::from_secs(120))
+        );
+        assert_eq!(window(&own, "other", None), None);
+        for unusable in [json!(0), json!(-5), json!("120"), json!(null)] {
+            assert_eq!(
+                window(&settings(None, None), "wait", Some(&listing(unusable))),
+                None
+            );
+        }
+        assert_eq!(window(&own, "bad", None), None);
+        assert_eq!(window(&own, "text", None), None);
+        let capped = settings(Some(&budgets), Some(60_000));
+        assert_eq!(
+            window(&capped, "wait", Some(&listed)),
+            Some(Duration::from_secs(60))
+        );
+        assert_eq!(
+            window(&settings(None, Some(60_000)), "wait", Some(&listed)),
+            Some(Duration::from_secs(60))
+        );
+    }
+
+    #[test]
+    fn test17_a_calls_window_is_known_to_its_clock_until_the_lease_is_dropped() {
+        let budgets = json!({ "wait": 90 });
+        let prepared = prepare_call(&settings(Some(&budgets), None), "wait", None, None);
+        let token = request_token(&json!({ "_meta": prepared.meta.clone().unwrap() })).unwrap();
+        assert_eq!(leased_window(&token), Some(Duration::from_secs(90)));
+        drop(prepared);
+        assert_eq!(leased_window(&token), None);
     }
 }
