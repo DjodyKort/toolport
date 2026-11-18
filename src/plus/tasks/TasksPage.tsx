@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { AttentionBanner } from "../attention/AttentionBanner";
 import { now } from "./clock";
 import { ms } from "./model";
 import TaskDetail from "./TaskDetail";
@@ -134,6 +135,7 @@ export default function TasksPage({ onOpenSettings }: TasksPageProps) {
           New from a command…
         </Button>
       </div>
+      <AttentionBanner page="tasks" except={["tasks:waiting:"]} />
       <Banners state={state} actions={actions} />
       <div role="tablist" aria-label="Tasks" className="flex gap-1 border-b">
         {tabs.map((t) => (

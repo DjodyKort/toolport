@@ -21,6 +21,8 @@ export interface AttentionItem {
 export interface AttentionAction {
   label: string;
   view: View;
+  /** The `toolportctl` argv that does the fix without opening the page. */
+  command?: string[];
 }
 
 export interface AttentionSnapshot {

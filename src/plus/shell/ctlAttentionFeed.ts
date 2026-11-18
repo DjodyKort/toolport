@@ -28,6 +28,7 @@ export function toItem(row: AttentionRow): AttentionItem {
     action: row.action && {
       label: row.action.label,
       view: VIEWS[row.action.screen],
+      command: row.action.command,
     },
     skip: row.skip,
   };

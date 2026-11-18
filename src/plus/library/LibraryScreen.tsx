@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AttentionBanner } from "../attention/AttentionBanner";
 import { useLoad } from "../servers/useLoad";
 import AgentsStyles from "./AgentsStyles";
 import { listAgents, listSources, listStyles } from "./commands";
@@ -81,6 +82,7 @@ export default function LibraryScreen() {
 
   return (
     <div className="flex flex-col gap-4">
+      <AttentionBanner page="library" />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div
           ref={tabs}
