@@ -11,16 +11,15 @@ use serde_json::{json, Value};
 use toolport_plus_api::{Host, ServerRecord};
 
 use super::discover::discover;
+use super::screen::{refusal as build_refusal, shown};
 use super::state::{self, RepoState, Verdict};
 use super::store::{Applied, Build, RepoStore};
 use crate::hashing::lock_hash;
 use crate::library::remote::git_out;
 use crate::op::OpError;
-use crate::redact::scrub_text;
 use crate::servers::restart::{self, RestartArgs, Status, Timing};
 use crate::servers::{find, read_servers};
 use crate::skills::gitexec::{git_stdout, run_command};
-use crate::skills::taps::redact;
 
 pub const BUILD_TIMEOUT: Duration = Duration::from_secs(120);
 const GIT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -84,6 +83,8 @@ pub struct BuildPlan {
     pub command: Option<String>,
     /// The command is the one agreed to earlier for this server.
     pub remembered: bool,
+    /// Why the remembered command was not taken: it now carries a secret.
+    pub blocked: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -216,21 +217,49 @@ fn hash_of(server_id: &str, state: &RepoState, build: &BuildPlan) -> String {
     ))
 }
 
-fn build_plan(args: &UpdateArgs, store: &RepoStore, server_id: &str) -> BuildPlan {
+fn build_refused(message: String) -> OpError {
+    OpError::failed("build_refused", message).with_details(json!({"reason": "secret"}))
+}
+
+fn build_plan(
+    host: &dyn Host,
+    args: &UpdateArgs,
+    store: &RepoStore,
+    server_id: &str,
+) -> Result<BuildPlan, OpError> {
     let remembered = store.remembered(server_id);
+    let explicit = args
+        .build
+        .as_deref()
+        .map(str::trim)
+        .filter(|c| !c.is_empty());
+    let mut blocked = None;
     let command = if args.no_build {
         None
+    } else if let Some(command) = explicit {
+        if let Some(message) = build_refusal(host, command) {
+            return Err(build_refused(message));
+        }
+        Some(command.to_string())
     } else {
-        args.build
-            .as_deref()
-            .or(remembered)
-            .map(|c| c.trim().to_string())
+        remembered
+            .map(str::trim)
             .filter(|c| !c.is_empty())
+            .and_then(|command| match build_refusal(host, command) {
+                Some(message) => {
+                    blocked = Some(format!(
+                        "the remembered build command was not taken: {message}"
+                    ));
+                    None
+                }
+                None => Some(command.to_string()),
+            })
     };
-    BuildPlan {
+    Ok(BuildPlan {
         remembered: command.is_some() && command.as_deref() == remembered,
         command,
-    }
+        blocked,
+    })
 }
 
 /// What an update would do right now, from the state the last check left on disk.
@@ -252,7 +281,7 @@ pub fn plan(host: &dyn Host, args: &UpdateArgs, ask_gateways: bool) -> Result<Pl
         .filter(|f| f.root == state.root && f.server_id != server.id)
         .map(|f| f.server_name)
         .collect();
-    let build = build_plan(args, &store, &server.id);
+    let build = build_plan(host, args, &store, &server.id)?;
     let in_flight = if ask_gateways && refusal.is_none() {
         restart::calls_in_flight(host, &server.id, args.timing, args.restart_wait)?
     } else {
@@ -298,6 +327,7 @@ impl Plan {
             "build": {
                 "command": self.build.command,
                 "remembered": self.build.remembered,
+                "blocked": self.build.blocked,
                 "timeoutSeconds": BUILD_TIMEOUT.as_secs(),
             },
             "inFlight": self.in_flight,
@@ -341,6 +371,11 @@ impl Plan {
                 }
             )),
             None => out.push_str("No build command: only the files change.\n"),
+        }
+        if let Some(blocked) = &self.build.blocked {
+            out.push_str(&format!(
+                "{blocked}. Pass --build <command> or --no-build to go on.\n"
+            ));
         }
         match self.in_flight {
             Some(0) => out.push_str("Then restart it; no call is running.\n"),
@@ -390,7 +425,7 @@ fn shell(command: &str) -> Command {
     cmd
 }
 
-fn tail(stdout: &str, stderr: &str) -> String {
+fn tail(host: &dyn Host, stdout: &str, stderr: &str) -> String {
     let lines: Vec<String> = stdout
         .lines()
         .chain(stderr.lines())
@@ -398,16 +433,25 @@ fn tail(stdout: &str, stderr: &str) -> String {
         .map(|l| l.chars().take(OUTPUT_LINE_CHARS).collect())
         .collect();
     let from = lines.len().saturating_sub(OUTPUT_LINES);
-    scrub_text(redact(&lines[from..].join("\n")))
+    shown(host, &lines[from..].join("\n"))
 }
 
-pub fn run_build(root: &Path, command: &str, timeout: Duration) -> BuildRun {
+pub fn run_build(host: &dyn Host, root: &Path, command: &str, timeout: Duration) -> BuildRun {
     let started = Instant::now();
+    if let Some(message) = build_refusal(host, command) {
+        return BuildRun {
+            command: "(refused)".into(),
+            ok: false,
+            code: -1,
+            elapsed_ms: 0,
+            output: message,
+        };
+    }
     let mut cmd = shell(command);
     cmd.current_dir(root);
     let (ok, code, output) = match run_command(cmd, timeout) {
-        Ok(out) => (out.ok(), out.code, tail(&out.stdout, &out.stderr)),
-        Err(error) => (false, -1, error),
+        Ok(out) => (out.ok(), out.code, tail(host, &out.stdout, &out.stderr)),
+        Err(error) => (false, -1, shown(host, &error)),
     };
     BuildRun {
         command: command.to_string(),
@@ -514,9 +558,9 @@ fn restart_after(
             } else {
                 done.line()
             };
-            (status, detail)
+            (status, shown(host, &detail))
         }
-        Err(error) => ("failed", error.message),
+        Err(error) => ("failed", shown(host, &error.message)),
     })
 }
 
@@ -557,6 +601,11 @@ pub fn apply(host: &dyn Host, args: &UpdateArgs) -> Result<Done, OpError> {
         )
         .with_details(json!({"planHash": plan.hash})));
     }
+    if let Some(blocked) = &plan.build.blocked {
+        return Err(build_refused(format!(
+            "{blocked}; pass --build <command> or --no-build"
+        )));
+    }
     let base = base_of(host)?;
     let state = &plan.state;
     let (root, branch) = (&state.root, text(&state.branch).to_string());
@@ -564,8 +613,12 @@ pub fn apply(host: &dyn Host, args: &UpdateArgs) -> Result<Done, OpError> {
         text(&state.head).to_string(),
         text(&state.upstream_head).to_string(),
     );
-    git_stdout(Some(root), &["merge", "--ff-only", &to], GIT_TIMEOUT)
-        .map_err(|e| OpError::failed("update_failed", format!("{e}; nothing was changed")))?;
+    git_stdout(Some(root), &["merge", "--ff-only", &to], GIT_TIMEOUT).map_err(|e| {
+        OpError::failed(
+            "update_failed",
+            shown(host, &format!("{e}; nothing was changed")),
+        )
+    })?;
     if git_out(root, &["rev-parse", "--verify", "-q", "HEAD"]).as_deref() != Some(to.as_str()) {
         return Err(OpError::failed(
             "update_failed",
@@ -577,7 +630,7 @@ pub fn apply(host: &dyn Host, args: &UpdateArgs) -> Result<Done, OpError> {
         .build
         .command
         .as_deref()
-        .map(|command| run_build(root, command, args.build_timeout));
+        .map(|command| run_build(host, root, command, args.build_timeout));
     let now = host.now_unix();
     let recorded = RepoStore::read(&base).and_then(|mut store| {
         store.applied.insert(
@@ -603,10 +656,13 @@ pub fn apply(host: &dyn Host, args: &UpdateArgs) -> Result<Done, OpError> {
         store.write(&base)
     });
     if let Err(error) = recorded {
-        warnings.push(format!(
-            "the update was applied but could not be recorded for undo: {error}; go back with git -C {} reset --keep {}",
-            root.display(),
-            short(&from)
+        warnings.push(shown(
+            host,
+            &format!(
+                "the update was applied but could not be recorded for undo: {error}; go back with git -C {} reset --keep {}",
+                root.display(),
+                short(&from)
+            ),
         ));
     }
     let built_ok = build.as_ref().is_none_or(|run| run.ok);
@@ -639,6 +695,8 @@ pub struct UndoPlan {
     pub server_name: String,
     pub applied: Applied,
     pub refusal: Option<Refusal>,
+    /// Why the build the update ran is not run again: it now carries a secret.
+    pub blocked: Option<String>,
 }
 
 impl UndoPlan {
@@ -651,6 +709,7 @@ impl UndoPlan {
             "from": self.applied.to,
             "to": self.applied.from,
             "build": self.applied.build,
+            "blocked": self.blocked,
             "refusal": self.refusal.as_ref().map(|r| json!({"code": r.code, "message": r.message})),
         })
     }
@@ -659,7 +718,7 @@ impl UndoPlan {
         match &self.refusal {
             Some(refusal) => format!("Cannot go back: {}.\n", refusal.message),
             None => format!(
-                "Would move {} on {} back from {} to {}{}, then restart it.\n",
+                "Would move {} on {} back from {} to {}{}, then restart it.\n{}",
                 self.server_name,
                 self.applied.branch,
                 short(&self.applied.to),
@@ -668,6 +727,10 @@ impl UndoPlan {
                     .build
                     .as_ref()
                     .map(|c| format!(", rebuild with {c}"))
+                    .unwrap_or_default(),
+                self.blocked
+                    .as_ref()
+                    .map(|b| format!("{b}. Pass --no-build to go back without a build.\n"))
                     .unwrap_or_default()
             ),
         }
@@ -731,11 +794,20 @@ pub fn undo_plan(host: &dyn Host, key: &str) -> Result<UndoPlan, OpError> {
     } else {
         None
     };
+    let mut applied = applied;
+    let blocked = applied
+        .build
+        .as_deref()
+        .and_then(|command| build_refusal(host, command));
+    if blocked.is_some() {
+        applied.build = None;
+    }
     Ok(UndoPlan {
         server_id: server.id,
         server_name: server.name,
         applied,
         refusal,
+        blocked,
     })
 }
 
@@ -746,24 +818,34 @@ pub fn undo(host: &dyn Host, args: &UpdateArgs) -> Result<Done, OpError> {
         return Err(OpError::failed("undo_refused", refusal.message.clone())
             .with_details(json!({"reason": refusal.code})));
     }
+    if let Some(blocked) = plan.blocked.as_ref().filter(|_| !args.no_build) {
+        return Err(build_refused(format!("{blocked}; pass --no-build")));
+    }
     let base = base_of(host)?;
     let applied = plan.applied.clone();
     let root = Path::new(&applied.root);
-    git_stdout(Some(root), &["reset", "--keep", &applied.from], GIT_TIMEOUT)
-        .map_err(|e| OpError::failed("undo_failed", format!("{e}; nothing was changed")))?;
+    git_stdout(Some(root), &["reset", "--keep", &applied.from], GIT_TIMEOUT).map_err(|e| {
+        OpError::failed(
+            "undo_failed",
+            shown(host, &format!("{e}; nothing was changed")),
+        )
+    })?;
     let mut warnings = Vec::new();
     let forgotten = RepoStore::read(&base).and_then(|mut store| {
         store.applied.remove(&plan.server_id);
         store.write(&base)
     });
     if let Err(error) = forgotten {
-        warnings.push(format!("the undo record could not be cleared: {error}"));
+        warnings.push(shown(
+            host,
+            &format!("the undo record could not be cleared: {error}"),
+        ));
     }
     let build = applied
         .build
         .as_deref()
         .filter(|_| !args.no_build)
-        .map(|command| run_build(root, command, args.build_timeout));
+        .map(|command| run_build(host, root, command, args.build_timeout));
     let restart = if build.as_ref().is_none_or(|run| run.ok) {
         restart_after(host, args, &plan.server_id)
     } else {

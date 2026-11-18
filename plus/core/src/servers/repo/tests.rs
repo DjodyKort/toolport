@@ -10,6 +10,7 @@ use toolport_plus_api::{
 };
 
 use super::discover::{candidates, discover, in_package_cache};
+use super::screen;
 use super::state::{self, Verdict};
 use super::update::{self, RestartChoice, UpdateArgs};
 use super::*;
@@ -744,15 +745,17 @@ fn test32_a_failed_build_keeps_the_files_skips_the_restart_and_can_be_undone() {
 #[test]
 fn test33_a_build_that_overruns_is_stopped_and_secrets_stay_out_of_its_output() {
     let world = World::new("slow");
-    let timed = update::run_build(&world.work, "sleep 5", Duration::from_millis(200));
+    let host = world.alpha();
+    let timed = update::run_build(&host, &world.work, "sleep 5", Duration::from_millis(200));
     assert!(!timed.ok && timed.output.contains("timed out"));
-    let leaked = update::run_build(
-        &world.work,
-        "echo https://user:hunter2@git.example.invalid/x.git",
-        Duration::from_secs(10),
-    );
+    std::fs::write(
+        world.work.join("log.txt"),
+        "https://user:hunter2@git.example.invalid/x.git\ntoken=fake-secret-value-123\n",
+    )
+    .unwrap();
+    let leaked = update::run_build(&host, &world.work, "cat log.txt", Duration::from_secs(10));
     assert!(
-        leaked.ok && !leaked.output.contains("hunter2"),
+        leaked.ok && !leaked.output.contains("hunter2") && !leaked.output.contains("fake-secret"),
         "{}",
         leaked.output
     );
@@ -973,4 +976,246 @@ fn test63_an_unreachable_remote_is_reported_by_the_calm_offline_row_not_a_server
     assert!(rows_of(&host).is_empty());
     let all = crate::attention::snapshot(&host).items;
     assert!(all.iter().any(|item| item.id == "updates:unreachable"));
+}
+
+const FAKE: &str = "fake-secret-value-123";
+
+fn tree_text(dir: &Path) -> String {
+    let mut text = String::new();
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return text;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.file_name().is_some_and(|n| n == ".git") {
+            continue;
+        }
+        if path.is_dir() {
+            text.push_str(&tree_text(&path));
+        } else if let Ok(body) = std::fs::read_to_string(&path) {
+            text.push_str(&body);
+        }
+    }
+    text
+}
+
+fn secret_commands() -> Vec<String> {
+    vec![
+        format!("make --token={FAKE}"),
+        format!("make --password {FAKE}"),
+        format!("make --api-key='{FAKE}'"),
+        format!("MY_API_KEY={FAKE} make"),
+        format!("make DB_PASSWORD=\"{FAKE}\""),
+        format!("curl -H 'Authorization: Bearer {FAKE}' https://example.invalid/x"),
+        format!("curl -H \"X-Api-Key: {FAKE}\" https://example.invalid/x"),
+        format!("git clone https://builder:{FAKE}@example.invalid/x.git"),
+        "make --id Zk3Qp9Xw2Lm8Vb5Nc7Rt1Yh4Gd6Fs0Jq".to_string(),
+        "make --id=\"aB3dE5fG7hJ9kL2mN4pQ6rS8tV0wX1yZ\"".to_string(),
+    ]
+}
+
+#[test]
+fn test34_a_build_command_with_a_secret_is_refused_and_leaves_no_trace() {
+    let world = World::new("screen");
+    let host = world.alpha();
+    host.tasks
+        .known_secrets
+        .borrow_mut()
+        .push("vault-held-value-77".into());
+    world.upstream_commit("two.txt", "two");
+    world.fetch();
+    let before = world.head();
+    let mut commands = secret_commands();
+    commands.push("make --flavor vault-held-value-77".into());
+    let mut seen = String::new();
+    for command in &commands {
+        if !command.contains("builder:") && !command.contains("vault-held") {
+            assert!(screen::pattern_reason(command).is_some(), "{command}");
+        }
+        let build = Some(command.clone());
+        let refused = update::plan(
+            &host,
+            &UpdateArgs {
+                build: build.clone(),
+                ..args("alpha")
+            },
+            false,
+        )
+        .unwrap_err();
+        assert_eq!(refused.code(), "build_refused", "{command}");
+        assert!(refused
+            .message
+            .contains("put the secret in the server's env"));
+        let apply = update::apply(
+            &host,
+            &UpdateArgs {
+                build,
+                restart: RestartChoice::Skip,
+                ..args("alpha")
+            },
+        )
+        .unwrap_err();
+        assert_eq!(apply.code(), "build_refused", "{command}");
+        seen.push_str(&format!("{refused:?}{apply:?}"));
+    }
+    assert_eq!(world.head(), before, "a refused command changes nothing");
+    assert!(!world.data.join("plus").join("server-repos.json").exists());
+    let all = format!("{seen}{}", tree_text(&world.base));
+    for needle in [FAKE, "vault-held-value-77", "Zk3Qp9Xw2Lm8", "aB3dE5fG7hJ9"] {
+        assert!(!all.contains(needle), "{needle} leaked");
+    }
+}
+
+#[test]
+fn test35_plain_commands_and_variable_references_pass_the_pattern_screen() {
+    let world = World::new("refs");
+    let host = world.alpha();
+    for command in ["npm ci && npm run build", "cargo build --release --locked"] {
+        assert_eq!(screen::refusal(&host, command), None, "{command}");
+    }
+    for command in [
+        "make --token=$BUILD_TOKEN",
+        "make --password \"$DB_PASSWORD\"",
+        "API_TOKEN=${API_TOKEN} make",
+        "curl -H \"Authorization: Bearer $TOKEN\" https://example.invalid/x",
+    ] {
+        assert_eq!(screen::pattern_reason(command), None, "{command}");
+    }
+}
+
+#[test]
+fn test36_a_remembered_command_that_now_carries_a_secret_is_not_run_until_replaced() {
+    let world = World::new("stale");
+    let host = world.alpha();
+    world.upstream_commit("two.txt", "two");
+    world.fetch();
+    let mut stored = store::RepoStore::default();
+    stored.builds.insert(
+        "srv-alpha".into(),
+        store::Build {
+            command: format!("make --token={FAKE}"),
+            at: 1,
+        },
+    );
+    stored.write(&world.data).unwrap();
+    let plan = update::plan(&host, &args("alpha"), false).unwrap();
+    assert!(plan.build.command.is_none() && plan.build.blocked.is_some());
+    let shown = format!("{}{}", plan.human(), plan.to_value());
+    assert!(!shown.contains(FAKE), "{shown}");
+    let refused = update::apply(
+        &host,
+        &UpdateArgs {
+            restart: RestartChoice::Skip,
+            ..args("alpha")
+        },
+    )
+    .unwrap_err();
+    assert_eq!(refused.code(), "build_refused");
+    assert!(!refused.message.contains(FAKE));
+    let skipped = update::apply(
+        &host,
+        &UpdateArgs {
+            no_build: true,
+            restart: RestartChoice::Skip,
+            ..args("alpha")
+        },
+    )
+    .unwrap();
+    assert!(skipped.build.is_none() && skipped.moved);
+}
+
+#[test]
+fn test37_an_undo_that_would_rebuild_with_a_secret_asks_for_no_build_and_prints_nothing() {
+    let world = World::new("undo-secret");
+    let host = world.alpha();
+    let before = world.head();
+    world.upstream_commit("two.txt", "two");
+    world.fetch();
+    update::apply(
+        &host,
+        &UpdateArgs {
+            build: Some("true".into()),
+            restart: RestartChoice::Skip,
+            ..args("alpha")
+        },
+    )
+    .unwrap();
+    let mut stored = store::RepoStore::read(&world.data).unwrap();
+    stored.applied.get_mut("srv-alpha").unwrap().build = Some(format!("make --token={FAKE}"));
+    stored.write(&world.data).unwrap();
+    let plan = update::undo_plan(&host, "alpha").unwrap();
+    assert!(plan.blocked.is_some());
+    assert!(!format!("{}{}", plan.human(), plan.to_value()).contains(FAKE));
+    let refused = update::undo(
+        &host,
+        &UpdateArgs {
+            restart: RestartChoice::Skip,
+            ..args("alpha")
+        },
+    )
+    .unwrap_err();
+    assert_eq!(refused.code(), "build_refused");
+    assert_ne!(world.head(), before, "nothing moved");
+    update::undo(
+        &host,
+        &UpdateArgs {
+            no_build: true,
+            restart: RestartChoice::Skip,
+            ..args("alpha")
+        },
+    )
+    .unwrap();
+    assert_eq!(world.head(), before);
+    assert!(!tree_text(&world.base).contains(FAKE));
+}
+
+#[test]
+fn test38_what_a_build_prints_is_masked_for_vault_values_and_inline_secrets() {
+    let world = World::new("mask");
+    let host = world.alpha();
+    host.tasks
+        .known_secrets
+        .borrow_mut()
+        .push("vault-held-value-77".into());
+    let text = format!(
+        "ok vault-held-value-77\nexport DB_PASSWORD={FAKE}\nAuthorization: Bearer {FAKE}\nBuilt 9be07d2a4c1f0e5d8b7a6c3f2e1d0c9b8a7f6e5d\nplain line"
+    );
+    let out = screen::shown(&host, &text);
+    for needle in ["vault-held-value-77", FAKE] {
+        assert!(!out.contains(needle), "{out}");
+    }
+    assert!(
+        out.contains("plain line") && out.contains("9be07d2a4c1f"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test39_the_command_line_refuses_a_secret_in_every_form_and_prints_none_of_it() {
+    let world = World::new("cli");
+    let host = world.alpha();
+    world.upstream_commit("two.txt", "two");
+    world.fetch();
+    let mut printed = String::new();
+    for command in secret_commands() {
+        for extra in [&["--dry-run"][..], &[][..]] {
+            let mut argv: Vec<String> = ["--json", "server", "repo", "update", "alpha"]
+                .iter()
+                .map(|a| a.to_string())
+                .collect();
+            argv.extend(extra.iter().map(|a| a.to_string()));
+            argv.extend(["--no-restart".into(), "--build".into(), command.clone()]);
+            let (mut out, mut err) = (Vec::new(), Vec::new());
+            let code = crate::ctl::run_with(&host, &argv, &mut out, &mut err);
+            assert_eq!(code, 1, "{command}");
+            printed.push_str(&String::from_utf8_lossy(&out));
+            printed.push_str(&String::from_utf8_lossy(&err));
+        }
+    }
+    assert!(printed.contains("build_refused"), "{printed}");
+    let all = format!("{printed}{}", tree_text(&world.base));
+    assert!(
+        !all.contains(FAKE) && !all.contains("Zk3Qp9Xw2Lm8"),
+        "{all}"
+    );
 }

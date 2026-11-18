@@ -6,6 +6,7 @@
       "plan": {
         "branch": "main",
         "build": {
+          "blocked": null,
           "command": null,
           "remembered": false,
           "timeoutSeconds": 120

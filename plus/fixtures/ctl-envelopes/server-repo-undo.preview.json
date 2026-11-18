@@ -4,6 +4,7 @@
     "command": "server repo undo",
     "data": {
       "plan": {
+        "blocked": null,
         "branch": "main",
         "build": "echo built",
         "from": "fab65b24170eb5d491fa9ad78d358f61054f8a4d",

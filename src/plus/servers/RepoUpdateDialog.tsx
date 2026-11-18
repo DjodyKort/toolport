@@ -73,6 +73,7 @@ function BuildSection({
           onChange={(e) => onCommand(e.target.value)}
         />
       )}
+      {plan.build.blocked && <p className="text-warning">{plan.build.blocked}</p>}
       {run && plan.build.remembered && command !== plan.build.command && (
         <p className="text-warning">
           A different command is a new yes: it runs once you press Update.

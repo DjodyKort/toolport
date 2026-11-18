@@ -220,7 +220,12 @@ export interface RepoPlan {
   filesTotal: number;
   sharedWith: string[];
   refusal: { code: string; message: string } | null;
-  build: { command: string | null; remembered: boolean; timeoutSeconds: number };
+  build: {
+    command: string | null;
+    remembered: boolean;
+    blocked?: string | null;
+    timeoutSeconds: number;
+  };
   /** `null` when no gateway answered: nothing is running that a restart could cut. */
   inFlight: number | null;
   planHash: string;

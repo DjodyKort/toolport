@@ -3,6 +3,7 @@
 //! the attention list's update rows.
 
 pub mod discover;
+pub mod screen;
 pub mod state;
 pub mod store;
 pub mod update;

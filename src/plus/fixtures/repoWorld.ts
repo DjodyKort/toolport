@@ -19,6 +19,8 @@ export interface RepoSeed {
   checkedAt?: string | null;
   sharedWith?: string[];
   buildFails?: boolean;
+  /** The remembered command now carries a secret, so the plan does not take it. */
+  blocked?: string;
   /** The next fetch fails with this reason. */
   fetchFails?: string;
 }
@@ -31,7 +33,8 @@ interface Applied {
   commits: Array<{ id: string; subject: string }>;
 }
 
-interface Repo extends Required<Omit<RepoSeed, "remembered" | "fetchFails">> {
+interface Repo extends Required<Omit<RepoSeed, "remembered" | "fetchFails" | "blocked">> {
+  blocked: string | null;
   remembered: string | null;
   fetchFails: string | null;
   applied: Applied | null;
@@ -100,6 +103,7 @@ export function createRepoWorld(
         ...seed,
         remembered: seed.remembered ?? null,
         fetchFails: seed.fetchFails ?? null,
+        blocked: seed.blocked ?? null,
         applied: null,
       },
     ]),
@@ -142,8 +146,14 @@ export function createRepoWorld(
 
   function buildOf(repo: Repo, argv: string[]) {
     const given = flagValue(argv, "--build");
-    const command = argv.includes("--no-build") ? null : (given ?? repo.remembered);
-    return { command, remembered: command !== null && command === repo.remembered };
+    const taken = given ?? (repo.blocked ? null : repo.remembered);
+    const command = argv.includes("--no-build") ? null : taken;
+    const blocked = !given && !argv.includes("--no-build") ? repo.blocked : null;
+    return {
+      command,
+      remembered: command !== null && command === repo.remembered,
+      blocked,
+    };
   }
 
   function plan(id: string, name: string, repo: Repo, argv: string[]): RepoPlan {
@@ -259,6 +269,12 @@ export function createRepoWorld(
       if (verb === "update") {
         if (argv.includes("--restart-now") && argv.includes("--no-restart"))
           return fail("usage", "usage: server repo update <id|name>");
+        const typed = flagValue(argv, "--build");
+        if (typed && /token=|password=/i.test(typed))
+          return fail(
+            "build_refused",
+            "the build command carries a secret; put the secret in the server's env (vault) instead",
+          );
         const current = plan(server.id, server.name, repo, argv);
         if (argv.includes("--dry-run")) return { ok: true, data: { plan: current } };
         if (current.refusal) {

@@ -152,6 +152,24 @@ describe("servers.repo-status and servers.repo-update", () => {
     expect(apply).not.toContain("--no-build");
   });
 
+  it("test12_a_remembered_command_with_a_secret_is_not_taken_and_a_typed_one_is_refused", async () => {
+    start({
+      ...BEHIND,
+      remembered: "make --token=fake-secret-value-123",
+      blocked: "the remembered build command was not taken: it carries a secret",
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Review update" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText(/was not taken/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("checkbox")).not.toBeChecked();
+    expect(dialog.textContent).not.toContain("fake-secret-value-123");
+    await userEvent.click(within(dialog).getByRole("checkbox"));
+    await userEvent.type(within(dialog).getByLabelText("Build command"), "make token=x");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Update GitHub" }));
+    expect(await within(dialog).findByText(/carries a secret/)).toBeInTheDocument();
+    expect(repoArgv().some((argv) => argv.includes("--plan-hash"))).toBe(false);
+  });
+
   it("test07_a_different_build_command_is_passed_explicitly_as_a_new_yes", async () => {
     start({ ...BEHIND, remembered: "./build.sh" });
     await userEvent.click(await screen.findByRole("button", { name: "Review update" }));
