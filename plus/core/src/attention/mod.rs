@@ -13,6 +13,7 @@ pub mod feed_tasks;
 pub mod feed_updates;
 mod gather;
 mod model;
+pub mod notify;
 pub mod ops;
 pub mod store;
 pub mod updates;
@@ -241,3 +242,6 @@ mod tests;
 
 #[cfg(test)]
 mod tests_updates;
+
+#[cfg(test)]
+mod tests_notify;

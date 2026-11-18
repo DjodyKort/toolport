@@ -20,10 +20,10 @@ use crate::tasks::store::{self, AttentionRecord, Run};
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 
-struct Dir(PathBuf);
+pub(super) struct Dir(pub(super) PathBuf);
 
 impl Dir {
-    fn new(tag: &str) -> Self {
+    pub(super) fn new(tag: &str) -> Self {
         let dir = std::env::temp_dir().join(format!(
             "plus-attention-{tag}-{}-{}",
             std::process::id(),
@@ -41,7 +41,7 @@ impl Drop for Dir {
     }
 }
 
-const NOW: i64 = 1_792_000_000;
+pub(super) const NOW: i64 = 1_792_000_000;
 const HOUR: i64 = 3600;
 
 fn ago(secs: i64) -> String {
@@ -552,7 +552,7 @@ fn test17_a_feed_that_cannot_be_read_is_named_and_the_others_still_answer() {
     assert!(super::human(&snapshot).contains("Not checked: tasks"));
 }
 
-fn secret_server(id: &str, enabled: bool) -> ServerRecord {
+pub(super) fn secret_server(id: &str, enabled: bool) -> ServerRecord {
     let mut record = ServerRecord {
         id: id.into(),
         name: id.into(),
@@ -566,7 +566,7 @@ fn secret_server(id: &str, enabled: bool) -> ServerRecord {
     record
 }
 
-fn host(dir: &Dir, servers: Vec<ServerRecord>) -> MemoryHost {
+pub(super) fn host(dir: &Dir, servers: Vec<ServerRecord>) -> MemoryHost {
     let host = MemoryHost {
         registry: MemoryRegistry::with_servers(servers),
         secrets: MemorySecrets {

@@ -1,5 +1,5 @@
 {
-  "route": "attention",
-  "action": "attention.hide",
+  "route": "attention-manage",
+  "action": "attention-manage.hide",
   "surface": "screen"
 }

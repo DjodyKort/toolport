@@ -145,6 +145,9 @@ pub struct Store {
     pub undo: Option<Undo>,
     #[serde(default)]
     pub notified: BTreeMap<String, i64>,
+    /// The needs-you ids the last notifier pass saw; only an id that was not there is news.
+    #[serde(default)]
+    pub announced: Option<Vec<String>>,
     #[serde(default)]
     pub settings: Settings,
     #[serde(default)]

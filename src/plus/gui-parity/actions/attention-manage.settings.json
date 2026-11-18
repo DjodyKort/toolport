@@ -1,5 +1,5 @@
 {
-  "route": "attention",
+  "route": "attention-manage",
   "status": "planned",
   "summary": "The four checks' switches and the notification categories in Settings > Toolport+ > Attention (attention settings, set; attention_settings, attention_set)"
 }

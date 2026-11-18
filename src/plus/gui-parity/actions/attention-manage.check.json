@@ -1,5 +1,5 @@
 {
-  "route": "attention",
+  "route": "attention-manage",
   "status": "planned",
   "summary": "Check now: fetch the taps, marketplaces and the library for new upstream commits, applying nothing (attention check; attention_check)"
 }

@@ -13,6 +13,7 @@ pub mod fork_data;
 pub mod http;
 pub mod memory;
 pub mod mirror;
+pub mod notifier;
 pub mod secrets;
 pub mod servers;
 pub mod settings;
@@ -30,6 +31,7 @@ pub use memory::{
     MemoryGateway, MemoryHost, MemoryRegistry, MemorySecrets, MemoryState, ScriptedHttp,
 };
 pub use mirror::{convert, ServerRecord};
+pub use notifier::{FakeNotifier, Notifier};
 pub use secrets::{SecretsHost, TrustInputs, VaultAccess, HTTP_AUTH_KEY};
 pub use servers::{
     CallsInFlight, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter, RestartOutcome,

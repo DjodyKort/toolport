@@ -1,5 +1,5 @@
 {
-  "route": "attention",
-  "action": "attention.check",
+  "route": "attention-manage",
+  "action": "attention-manage.check",
   "surface": "screen"
 }
