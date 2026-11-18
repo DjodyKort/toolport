@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { ArrowLeft, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ import {
   type PartsData,
   type RestoreData,
 } from "./model";
+
+const SyncView = lazy(() => import("./SyncView"));
 
 type View = "export" | "restore" | "reset" | "sync";
 
@@ -325,45 +327,6 @@ function ResetView() {
   );
 }
 
-function SyncView({ onRestore }: { onRestore: () => void }) {
-  const [last, setLast] = useState<string | null | undefined>(undefined);
-
-  useEffect(() => {
-    void ctlData<PartsData>(["setup", "parts"]).then(
-      (data) => setLast(data.lastExport),
-      () => setLast(null),
-    );
-  }, []);
-
-  return (
-    <div className="flex flex-col gap-4">
-      <section aria-label="How sync works">
-        <SectionHeader>Keeping machines in step</SectionHeader>
-        <p className="text-sm">
-          Sync here uses the same setup file as Export and Restore: write the file on one
-          machine, carry it over, and restore it on the other. A pull shows the same plan
-          as a restore, and your own servers and repositories are never changed.
-        </p>
-        <p className="mt-2 text-meta text-muted-foreground">
-          Upstream&apos;s Sync page stays as it is. It carries servers only and is not
-          part of this file. The skills library keeps its own git sync, and sign-in
-          sessions are never in the file.
-        </p>
-      </section>
-      <StatusCard
-        variant="info"
-        icon={<Info />}
-        title={last ? `Last export: ${last}` : "No export has been written yet"}
-      />
-      <div>
-        <Button variant="outline" onClick={onRestore}>
-          Pull from a file
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 /** Settings > Toolport+ > Setup & backup: export a setup file, restore one from a plan, and the
  * checklist before a reset. */
 export function SetupPage({ onBack }: { onBack: () => void }) {
@@ -393,7 +356,13 @@ export function SetupPage({ onBack }: { onBack: () => void }) {
       {view === "export" && <ExportView />}
       {view === "restore" && <RestoreView />}
       {view === "reset" && <ResetView />}
-      {view === "sync" && <SyncView onRestore={() => setView("restore")} />}
+      {view === "sync" && (
+        <Suspense
+          fallback={<p className="text-meta text-muted-foreground">Loading sync…</p>}
+        >
+          <SyncView />
+        </Suspense>
+      )}
     </div>
   );
 }

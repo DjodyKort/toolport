@@ -66,13 +66,4 @@ describe("SetupPage", () => {
     await user.click(await screen.findByLabelText("browser"));
     await waitFor(() => expect(screen.getByLabelText("browser")).toBeChecked());
   });
-
-  it("explains sync as the same file and leads to a restore", async () => {
-    const user = userEvent.setup();
-    render(<SetupPage onBack={() => {}} />);
-    await user.click(screen.getByRole("tab", { name: "Sync" }));
-    expect(await screen.findByText("No export has been written yet")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Pull from a file" }));
-    expect(screen.getByLabelText("Setup file")).toBeInTheDocument();
-  });
 });

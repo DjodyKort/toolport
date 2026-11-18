@@ -1,5 +1,6 @@
 {
-  "route": "setup-sync",
-  "status": "planned",
-  "summary": "Choose a private git repository or a folder, the parts that sync, the passphrase for the keychain and the 30-minute check (sync setup)"
+  "route": "setup",
+  "status": "built",
+  "summary": "Choose a private git repository or a folder, the parts that sync, the passphrase for the keychain and the 30-minute check (sync setup)",
+  "test": "src/plus/setup/SyncView.test.tsx"
 }

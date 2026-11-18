@@ -4,6 +4,7 @@ import { createCompressionWorld, type CompressionWorldOptions } from "./compress
 import { createContextWorld, type ContextWorldOptions } from "./contextWorld";
 import { createLibraryWorld, type LibraryWorldOptions } from "./libraryWorld";
 import { createSetupWorld } from "./setupWorld";
+import { createSyncWorld, type SyncWorldOptions } from "./syncWorld";
 import { createServerWorld, type ServerWorldOptions } from "./serverWorld";
 import { createTaskWorld, type TaskWorldOptions } from "./taskWorld";
 import type {
@@ -52,6 +53,8 @@ export interface WorldOptions {
   compression?: CompressionWorldOptions;
   /** The Library screen's library, plan, remote, taps and sources. */
   library?: LibraryWorldOptions;
+  /** The Sync view of Setup & backup: set up or not, locked keychain, conflicts, the remote. */
+  sync?: SyncWorldOptions;
 }
 
 /** A small in-memory toolportctl: enough state for install, uninstall and doctor to answer the way
@@ -63,6 +66,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
   const contextWorld = createContextWorld(options.context);
   const compressionWorld = createCompressionWorld(options.compression);
   const setupWorld = createSetupWorld();
+  const syncWorld = createSyncWorld(options.sync);
   const libraryWorld = createLibraryWorld(options.library);
   const defaultAccess = accessSets[0] ?? null;
   const doctorMode = options.doctor ?? "ok";
@@ -303,6 +307,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "context" || first === "plugins") return contextWorld.run(key);
       if (first === "compression") return compressionWorld.run(key);
       if (first === "setup") return setupWorld.run(key, stdin);
+      if (first === "sync") return syncWorld.run(key, stdin);
       if (["skills", "library", "sources", "agents", "styles"].includes(first ?? ""))
         return libraryWorld.run(key);
       if (first === "mcp") {
