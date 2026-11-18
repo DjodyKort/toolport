@@ -6,28 +6,28 @@
   "result": {
     "items": [
       {
-        "hash": "sha256:0217b9c1a6e743c2",
+        "hash": "<masked>",
         "id": "code-review",
         "inSlice": false,
         "kind": "skill",
         "state": "new"
       },
       {
-        "hash": "sha256:3b81926e493a0011",
+        "hash": "<masked>",
         "id": "tdd-workflow",
         "inSlice": false,
         "kind": "skill",
         "state": "new"
       },
       {
-        "hash": "sha256:70781a32a6ee403e",
+        "hash": "<masked>",
         "id": "reviewer",
         "inSlice": false,
         "kind": "agent",
         "state": "new"
       },
       {
-        "hash": "sha256:cbbba011fe934901",
+        "hash": "<masked>",
         "id": "deploy",
         "inSlice": false,
         "kind": "command",
@@ -36,7 +36,7 @@
       {
         "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/format.sh",
         "event": "PostToolUse",
-        "hash": "sha256:e27d1dcc2ee00749",
+        "hash": "<masked>",
         "id": "PostToolUse:Write|Edit",
         "inSlice": false,
         "kind": "hook",
@@ -44,7 +44,7 @@
         "state": "new"
       },
       {
-        "hash": "sha256:54b78f66ed0e3423",
+        "hash": "<masked>",
         "id": "style",
         "inSlice": false,
         "kind": "rule",
