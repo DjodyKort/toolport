@@ -480,4 +480,251 @@ mod tasks {
             "{via_lazy}"
         );
     }
+
+    fn wait_until(mut predicate: impl FnMut() -> bool) -> bool {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while Instant::now() < deadline {
+            if predicate() {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        predicate()
+    }
+
+    fn task_rows(case: &Case) -> Vec<Value> {
+        case.audit()
+            .into_iter()
+            .filter(|row| row["kind"] == "task")
+            .collect()
+    }
+
+    fn request(client: &mut Client, method: &str, task: &str) -> Value {
+        client.request(method, json!({ "taskId": task }))
+    }
+
+    fn fake_server_sent(case: &Case, method: &str) -> usize {
+        case.received(method).len()
+    }
+
+    #[test]
+    fn test13_every_tasks_action_is_audited_with_its_tool_and_its_action() {
+        let _guard = case_lock();
+        let case = Case::new("audit", TASKS, timeouts());
+        let mut client = tasking_client(&case, SERVER_ID);
+        let job = client.tool_of(SERVER_ID, "slow_job");
+        let first = task_id(&with_task(&mut client, 10, &job, json!({ "seconds": 0.3 })));
+        let second = task_id(&with_task(&mut client, 11, &job, json!({ "seconds": 5 })));
+        assert_eq!(
+            request(&mut client, "tasks/get", &first)["result"]["taskId"],
+            first
+        );
+        assert!(client.request("tasks/list", json!({}))["result"]["tasks"].is_array());
+        assert!(request(&mut client, "tasks/result", &first)["result"]["content"].is_array());
+        assert_eq!(
+            request(&mut client, "tasks/cancel", &second)["result"]["status"],
+            "cancelled"
+        );
+
+        assert!(
+            wait_until(|| task_rows(&case).len() >= 4),
+            "{:?}",
+            case.audit()
+        );
+        let rows = task_rows(&case);
+        let action = |name: &str| {
+            rows.iter()
+                .find(|row| row["action"] == name)
+                .unwrap_or_else(|| panic!("no audit row for {name}: {rows:?}"))
+                .clone()
+        };
+        for name in ["tasks/get", "tasks/result"] {
+            let row = action(name);
+            assert_eq!(row["tool"], "slow_job", "{row}");
+            assert_eq!(row["taskId"], first);
+            assert_eq!(row["serverId"], SERVER_ID);
+            assert_eq!(row["outcome"], "ok");
+        }
+        assert_eq!(action("tasks/cancel")["taskId"], second);
+        let listed = action("tasks/list");
+        assert_eq!(listed["serverId"], SERVER_ID);
+        assert!(
+            listed.get("tool").is_none() && listed.get("ok").is_none(),
+            "{listed}"
+        );
+    }
+
+    #[test]
+    fn test14_stricter_safety_after_the_task_began_refuses_get_and_result_but_not_cancel() {
+        let _guard = case_lock();
+        let case = Case::new("strict", TASKS, timeouts());
+        let _broker = case.broker(&["approved"]);
+        let mut client = tasking_client(&case, SERVER_ID);
+        let reset = client.tool_of(SERVER_ID, "reset_job");
+        let id = task_id(&with_task(
+            &mut client,
+            10,
+            &reset,
+            json!({ "seconds": 30 }),
+        ));
+        assert!(request(&mut client, "tasks/get", &id)
+            .get("result")
+            .is_some());
+
+        case.edit_registry(|registry| registry["safetyLevel"] = json!("strict"));
+        assert!(
+            wait_until(|| request(&mut client, "tasks/get", &id)
+                .get("error")
+                .is_some()),
+            "the daemon takes the change up"
+        );
+        let reached = fake_server_sent(&case, "tasks/get");
+        for method in ["tasks/get", "tasks/result"] {
+            let refused = request(&mut client, method, &id);
+            assert_eq!(error_code(&refused), -32602, "{refused}");
+            assert!(
+                refused["error"]["message"].as_str().is_some_and(
+                    |message| message.contains("tool of this task is no longer available")
+                ),
+                "{refused}"
+            );
+        }
+        assert_eq!(fake_server_sent(&case, "tasks/get"), reached);
+        assert_eq!(fake_server_sent(&case, "tasks/result"), 0);
+
+        let cancelled = request(&mut client, "tasks/cancel", &id);
+        assert_eq!(cancelled["result"]["status"], "cancelled", "{cancelled}");
+        assert!(
+            wait_until(|| task_rows(&case)
+                .iter()
+                .any(|row| row["action"] == "tasks/get" && row["outcome"] == "refused")
+                && task_rows(&case)
+                    .iter()
+                    .any(|row| row["action"] == "tasks/cancel" && row["outcome"] == "ok")),
+            "{:?}",
+            task_rows(&case)
+        );
+    }
+
+    #[test]
+    fn test15_a_tool_disabled_after_the_task_began_refuses_its_result() {
+        let _guard = case_lock();
+        let case = Case::new("tool-off", TASKS, timeouts());
+        let mut client = tasking_client(&case, SERVER_ID);
+        let job = client.tool_of(SERVER_ID, "slow_job");
+        let id = task_id(&with_task(&mut client, 10, &job, json!({ "seconds": 0.2 })));
+        case.edit_registry(|registry| {
+            registry["servers"][0]["disabledTools"] = json!(["slow_job"]);
+        });
+        assert!(
+            wait_until(|| request(&mut client, "tasks/result", &id)
+                .get("error")
+                .is_some()),
+            "the daemon takes the change up"
+        );
+        let reached = fake_server_sent(&case, "tasks/result");
+        let refused = request(&mut client, "tasks/result", &id);
+        assert_eq!(error_code(&refused), -32602, "{refused}");
+        assert_eq!(fake_server_sent(&case, "tasks/result"), reached);
+        assert!(
+            wait_until(|| task_rows(&case)
+                .iter()
+                .any(|row| row["action"] == "tasks/result" && row["outcome"] == "refused")),
+            "{:?}",
+            task_rows(&case)
+        );
+    }
+
+    #[test]
+    fn test16_the_result_of_a_destructive_tool_asks_a_human_and_get_and_list_do_not() {
+        let _guard = case_lock();
+        let case = Case::new("approval", TASKS, timeouts());
+        let broker = case.broker(&["approved"]);
+        let mut client = tasking_client(&case, SERVER_ID);
+        let reset = client.tool_of(SERVER_ID, "reset_job");
+        let id = task_id(&with_task(
+            &mut client,
+            10,
+            &reset,
+            json!({ "seconds": 0.2 }),
+        ));
+        assert_eq!(broker.requests().len(), 1, "the creation was asked about");
+        assert_eq!(
+            request(&mut client, "tasks/get", &id)["result"]["taskId"],
+            id
+        );
+        assert!(client.request("tasks/list", json!({}))["result"]["tasks"].is_array());
+        assert_eq!(broker.requests().len(), 1, "polling asks nothing");
+
+        let result = request(&mut client, "tasks/result", &id);
+        assert!(result["result"]["content"].is_array(), "{result}");
+        let asked = broker.requests();
+        assert_eq!(asked.len(), 2);
+        assert_eq!(asked[1].tool, "reset_job");
+        assert_eq!(asked[1].server, SERVER_ID);
+        assert_eq!(asked[1].arguments["taskAction"], "tasks/result");
+        assert_eq!(asked[1].arguments["taskId"], id);
+        assert!(
+            wait_until(|| case.audit().iter().any(|row| row["kind"] == "approval"
+                && row["decision"] == "approved"
+                && row["tool"] == "reset_job"
+                && row["held"] == false)
+                && task_rows(&case)
+                    .iter()
+                    .any(|row| row["action"] == "tasks/result" && row["outcome"] == "ok")),
+            "{:?}",
+            case.audit()
+        );
+    }
+
+    #[test]
+    fn test17_a_denied_result_never_reaches_the_server_and_leaves_polling_alone() {
+        let _guard = case_lock();
+        let case = Case::new("denied", TASKS, timeouts());
+        let broker = case.broker(&["approved", "denied"]);
+        let mut client = tasking_client(&case, SERVER_ID);
+        let reset = client.tool_of(SERVER_ID, "reset_job");
+        let id = task_id(&with_task(
+            &mut client,
+            10,
+            &reset,
+            json!({ "seconds": 0.2 }),
+        ));
+        let refused = request(&mut client, "tasks/result", &id);
+        assert_eq!(error_code(&refused), -32602, "{refused}");
+        assert!(
+            refused["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("denied by a human reviewer")),
+            "{refused}"
+        );
+        assert_eq!(fake_server_sent(&case, "tasks/result"), 0);
+        assert_eq!(broker.requests().len(), 2);
+        assert!(request(&mut client, "tasks/get", &id)
+            .get("result")
+            .is_some());
+        assert!(
+            wait_until(|| case.audit().iter().any(|row| row["kind"] == "approval"
+                && row["decision"] == "denied"
+                && row["tool"] == "reset_job")
+                && task_rows(&case)
+                    .iter()
+                    .any(|row| row["action"] == "tasks/result" && row["outcome"] == "refused")),
+            "{:?}",
+            case.audit()
+        );
+    }
+
+    #[test]
+    fn test18_a_non_destructive_task_asks_nobody() {
+        let _guard = case_lock();
+        let case = Case::new("no-approval", TASKS, timeouts());
+        let broker = case.broker(&["denied"]);
+        let mut client = tasking_client(&case, SERVER_ID);
+        let job = client.tool_of(SERVER_ID, "slow_job");
+        let id = task_id(&with_task(&mut client, 10, &job, json!({ "seconds": 0.2 })));
+        let result = request(&mut client, "tasks/result", &id);
+        assert!(result["result"]["content"].is_array(), "{result}");
+        assert!(broker.requests().is_empty());
+    }
 }

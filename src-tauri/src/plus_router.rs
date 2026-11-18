@@ -322,7 +322,7 @@ mod tests {
         let slot = &router.servers[0];
         let mut created =
             json!({ "task": { "taskId": "t-1", "status": "working", "ttl": 600000 } });
-        mcp_tasks::created("tasked", "session", &mut created);
+        mcp_tasks::created("tasked", "tool", "session", &mut created);
         assert_eq!(router.plus_calls_in_flight("tasked"), Some(1));
         let last_use = slot.supervisor.as_ref().unwrap().lock().unwrap().last_use;
         slot.maintain(last_use + SERVER_IDLE_TIMEOUT);

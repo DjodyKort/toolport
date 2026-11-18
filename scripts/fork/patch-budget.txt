@@ -36,15 +36,18 @@
 #   client progressToken one the gateway minted, and the call the window of its tool budget, and holds the
 #   call of a server set to `serial` until it is its turn (it takes the call's cancel context, so a call its
 #   client cancelled while it queued stops waiting); the logic is toolport_plus::progress and ::serial.
-# MCP Tasks relay (17 changed lines, logic in toolport_plus::mcp_tasks behind seam/tasks.rs):
+# MCP Tasks relay (15 changed lines, logic in toolport_plus::mcp_tasks behind seam/tasks.rs):
 #   initialize: seam::tasks_capability adds capabilities.tasks for a client that declared tasks (1).
 #   handle_request_with_cancel: seam::request_task keeps the `task` of a tools/call and the session of a
 #   tasks/* request on the thread for the request's lifetime (1); a tasks/get|result|cancel|list arm for
-#   legacy clients, ahead of the modern-only arm, answers through seam::tasks_request, with content defense
-#   for a tasks/result result passed in as a closure because defend_and_shape is private to this binary (9).
+#   legacy clients, ahead of the modern-only arm, answers through task_gate::request, a child module of this
+#   binary (gateway/plus_task_gate.rs, fork-owned, 2 lines for the `mod`): the content defense of a tasks/result
+#   result and the policy re-check, human approval and audit row of every tasks/* action use functions that are
+#   private to this binary (6; #[rustfmt::skip] keeps the one-line call, rustfmt would spread its nine
+#   arguments over eleven lines).
 #   execute_call: seam::task_created gives a CreateTaskResult the id its client knows (1).
 #   main: seam::set_task_sink hands the progress delivery to the relay for notifications/tasks/status (4).
-60	src-tauri/src/bin/toolport-gateway.rs
+58	src-tauri/src/bin/toolport-gateway.rs
 # desktop.rs, 6 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
 # plus_ctl commands (D-060) and hands every other command on (4); seam::app_started() at the start of
 # run() starts the task scheduler thread of the desktop app, the always-on tick of D-128 (2).

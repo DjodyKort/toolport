@@ -76,6 +76,8 @@ mod search_cache;
 mod search_query;
 #[path = "../gateway/search_static.rs"]
 mod search_static;
+#[path = "../gateway/plus_task_gate.rs"]
+mod task_gate;
 
 thread_local! {
     static CODE_MODE_FAILURE: std::cell::Cell<Option<codemode::FailureKind>> = const { std::cell::Cell::new(None) };
@@ -9484,16 +9486,12 @@ fn handle_request_with_cancel(
                 )),
             }
         }
-        method @ ("tasks/get" | "tasks/result" | "tasks/cancel" | "tasks/list")
+        #[rustfmt::skip]
+        "tasks/get" | "tasks/result" | "tasks/cancel" | "tasks/list"
             if !serving_modern_client() && conduit_lib::seam::tasks_enabled() =>
         {
-            let shape = &mut |owner: &str, result| {
-                defend_and_shape(reg, owner, method, client, result, "", true).result
-            };
-            Some(conduit_lib::seam::tasks_request(
-                id, req, router, allowed, cancel, shape,
-            ))
-        }
+            task_gate::request(id, req, reg, router, cached, live_router, cancel, client, allowed)
+        },
         method @ ("tasks/get" | "tasks/update" | "tasks/cancel") => {
             if !serving_modern_client() {
                 return Some(error(id, -32601, "Tasks extension requires MCP 2026-07-28"));

@@ -309,7 +309,7 @@ pub fn long_call(
             meta: prepared.meta,
             _lease: prepared.lease,
             _turn: turn,
-            _task: tasks::arm(server_id, name),
+            _task: tasks::arm(server_id, tool, name),
         }
     }
     #[cfg(not(feature = "plus"))]
@@ -437,8 +437,14 @@ fn tasks_on() -> bool {
     false
 }
 
+/// What a `tasks/*` request asks the host before it reaches a server, with the arguments
+/// `(method, server id, tool of the task, task id)`: `Ok` lets it through, `Err` is the message
+/// the client gets.
+pub type TaskAdmit<'a> =
+    &'a mut dyn FnMut(&str, &str, Option<&str>, Option<&str>) -> Result<(), String>;
+
 /// Answers a legacy client's `tasks/get|result|cancel|list`. `shape` passes the result of
-/// `tasks/result` through content defense.
+/// `tasks/result` through content defense, `admit` is the host's policy and approval check.
 pub fn tasks_request(
     id: serde_json::Value,
     req: &serde_json::Value,
@@ -446,12 +452,13 @@ pub fn tasks_request(
     allowed: Option<&std::collections::HashSet<String>>,
     cancel: Option<crate::downstream::CancelContext>,
     shape: &mut dyn FnMut(&str, serde_json::Value) -> serde_json::Value,
+    admit: TaskAdmit<'_>,
 ) -> serde_json::Value {
     #[cfg(feature = "plus")]
-    return tasks::request(id, req, router, allowed, cancel, shape);
+    return tasks::request(id, req, router, allowed, cancel, shape, admit);
     #[cfg(not(feature = "plus"))]
     {
-        let _ = (req, router, allowed, cancel, shape);
+        let _ = (req, router, allowed, cancel, shape, admit);
         serde_json::json!({ "jsonrpc": "2.0", "id": id,
             "error": { "code": -32601, "message": "Method not found" } })
     }

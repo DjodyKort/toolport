@@ -50,8 +50,34 @@ pub enum Forwarded {
     Failed(String),
 }
 
+/// What the host does around a `tasks/*` request: the policy re-check and human approval a
+/// `tools/call` of the task's tool goes through, and the audit row of the action.
+pub trait Governance {
+    /// Lets the request through (`Ok`) or refuses it with the message the client gets. `tool` is
+    /// the tool the task runs, `task` the id the client knows it by.
+    fn admit(
+        &mut self,
+        method: &str,
+        server: &str,
+        tool: Option<&str>,
+        task: Option<&str>,
+    ) -> Result<(), String>;
+
+    /// One finished action: `outcome` is `ok`, `error` or `refused`.
+    fn record(
+        &mut self,
+        method: &str,
+        server: &str,
+        tool: Option<&str>,
+        task: Option<&str>,
+        outcome: &str,
+        elapsed: Duration,
+    );
+}
+
 struct Entry {
     server: String,
+    tool: String,
     session: String,
     status: String,
     until: Instant,
@@ -218,9 +244,10 @@ fn make_room(state: &mut State, now: Instant) {
     }
 }
 
-/// A server answered a task-augmented `tools/call`. When the answer is a `CreateTaskResult`, its
-/// task id is replaced by the one the client gets and the task is remembered for `session`.
-pub fn created(server_id: &str, session: &str, result: &mut Value) {
+/// A server answered a task-augmented `tools/call` of `tool`. When the answer is a
+/// `CreateTaskResult`, its task id is replaced by the one the client gets and the task is
+/// remembered for `session`.
+pub fn created(server_id: &str, tool: &str, session: &str, result: &mut Value) {
     if result.get("content").is_some() {
         return;
     }
@@ -249,6 +276,7 @@ pub fn created(server_id: &str, session: &str, result: &mut Value) {
         exposed,
         Entry {
             server: server_id.to_string(),
+            tool: tool.to_string(),
             session: session.to_string(),
             status,
             until,
@@ -312,6 +340,7 @@ fn unknown() -> Value {
 struct Owned {
     server: String,
     native: String,
+    tool: String,
 }
 
 fn owned(exposed: &str, session: &str, in_scope: &dyn Fn(&str) -> bool) -> Option<Owned> {
@@ -322,7 +351,11 @@ fn owned(exposed: &str, session: &str, in_scope: &dyn Fn(&str) -> bool) -> Optio
         && entry.server == server
         && entry.until > Instant::now()
         && in_scope(&server))
-    .then_some(Owned { server, native })
+    .then(|| Owned {
+        server,
+        native,
+        tool: entry.tool.clone(),
+    })
 }
 
 fn remember_status(exposed: &str, status: Option<&str>) {
@@ -342,6 +375,14 @@ fn rewrite_error(mut error: Value, exposed: &str) -> Value {
     error
 }
 
+fn outcome_of(answer: &Forwarded) -> &'static str {
+    if matches!(answer, Forwarded::Reply(_)) {
+        "ok"
+    } else {
+        "error"
+    }
+}
+
 fn by_id(
     method: &str,
     params: &Value,
@@ -349,6 +390,7 @@ fn by_id(
     in_scope: &dyn Fn(&str) -> bool,
     forward: &mut dyn FnMut(&str, &str, Value, Wait) -> Forwarded,
     shape: &mut dyn FnMut(&str, Value) -> Value,
+    governance: &mut dyn Governance,
 ) -> Result<Value, Value> {
     let exposed = params
         .get("taskId")
@@ -359,15 +401,29 @@ fn by_id(
                 &format!("Toolport: {method} requires params.taskId"),
             )
         })?;
-    let Some(Owned { server, native }) = owned(exposed, session, in_scope) else {
+    let Some(Owned {
+        server,
+        native,
+        tool,
+    }) = owned(exposed, session, in_scope)
+    else {
         return Err(unknown());
     };
+    let (tool, task) = (Some(tool.as_str()), Some(exposed));
+    if let Err(message) = governance.admit(method, &server, tool, task) {
+        governance.record(method, &server, tool, task, "refused", Duration::ZERO);
+        return Err(rpc_error(INVALID_PARAMS, &message));
+    }
     let wait = if method == "tasks/result" {
         Wait::UntilTerminal
     } else {
         Wait::Window
     };
-    match forward(&server, method, json!({ "taskId": native }), wait) {
+    let started = Instant::now();
+    let forwarded = forward(&server, method, json!({ "taskId": native }), wait);
+    let outcome = outcome_of(&forwarded);
+    governance.record(method, &server, tool, task, outcome, started.elapsed());
+    match forwarded {
         Forwarded::Reply(mut reply) => {
             if method == "tasks/result" {
                 remember_status(exposed, Some("completed"));
@@ -418,6 +474,7 @@ fn list(
     session: &str,
     in_scope: &dyn Fn(&str) -> bool,
     forward: &mut dyn FnMut(&str, &str, Value, Wait) -> Forwarded,
+    governance: &mut dyn Governance,
 ) -> Result<Value, Value> {
     let mut listable: Vec<String> = state()
         .servers
@@ -443,13 +500,32 @@ fn list(
     }
     let mut tasks = Vec::new();
     let mut next_inner = None;
-    match forward(
-        &server,
-        "tasks/list",
-        Value::Object(forwarded),
-        Wait::Window,
-    ) {
-        Forwarded::Reply(reply) => {
+    let answer = match governance.admit("tasks/list", &server, None, None) {
+        Ok(()) => {
+            let started = Instant::now();
+            let answer = forward(
+                &server,
+                "tasks/list",
+                Value::Object(forwarded),
+                Wait::Window,
+            );
+            governance.record(
+                "tasks/list",
+                &server,
+                None,
+                None,
+                outcome_of(&answer),
+                started.elapsed(),
+            );
+            Some(answer)
+        }
+        Err(_) => {
+            governance.record("tasks/list", &server, None, None, "refused", Duration::ZERO);
+            None
+        }
+    };
+    match answer {
+        Some(Forwarded::Reply(reply)) => {
             next_inner = reply
                 .get("nextCursor")
                 .and_then(Value::as_str)
@@ -472,8 +548,8 @@ fn list(
                 tasks.push(task);
             }
         }
-        Forwarded::Gone => forget_server(&server),
-        Forwarded::Rpc(_) | Forwarded::Failed(_) => {}
+        Some(Forwarded::Gone) => forget_server(&server),
+        Some(Forwarded::Rpc(_) | Forwarded::Failed(_)) | None => {}
     }
     let mut page = json!({ "tasks": tasks });
     let next = match next_inner {
@@ -489,8 +565,9 @@ fn list(
     Ok(page)
 }
 
-/// Answers one `tasks/*` request of a client. `forward` sends a request to a server and `shape`
-/// passes a `tasks/result` result through content defense. The error is a JSON-RPC error object.
+/// Answers one `tasks/*` request of a client. `forward` sends a request to a server, `shape`
+/// passes a `tasks/result` result through content defense and `governance` admits and records
+/// every action. The error is a JSON-RPC error object.
 pub fn handle(
     method: &str,
     params: &Value,
@@ -498,12 +575,13 @@ pub fn handle(
     in_scope: &dyn Fn(&str) -> bool,
     forward: &mut dyn FnMut(&str, &str, Value, Wait) -> Forwarded,
     shape: &mut dyn FnMut(&str, Value) -> Value,
+    governance: &mut dyn Governance,
 ) -> Result<Value, Value> {
     match method {
-        "tasks/list" => list(params, session, in_scope, forward),
-        "tasks/get" | "tasks/result" | "tasks/cancel" => {
-            by_id(method, params, session, in_scope, forward, shape)
-        }
+        "tasks/list" => list(params, session, in_scope, forward, governance),
+        "tasks/get" | "tasks/result" | "tasks/cancel" => by_id(
+            method, params, session, in_scope, forward, shape, governance,
+        ),
         other => Err(rpc_error(-32601, &format!("Method not found: {other}"))),
     }
 }
@@ -550,7 +628,7 @@ mod tests {
 
     fn create(server: &str, native: &str, session: &str) -> String {
         let mut result = json!({ "task": { "taskId": native, "status": "working", "ttl": 60000 } });
-        created(server, session, &mut result);
+        created(server, "tool", session, &mut result);
         result["task"]["taskId"].as_str().unwrap().to_string()
     }
 
@@ -562,6 +640,31 @@ mod tests {
 
     fn keep(_: &str, value: Value) -> Value {
         value
+    }
+
+    struct Open;
+
+    impl Governance for Open {
+        fn admit(
+            &mut self,
+            _: &str,
+            _: &str,
+            _: Option<&str>,
+            _: Option<&str>,
+        ) -> Result<(), String> {
+            Ok(())
+        }
+
+        fn record(
+            &mut self,
+            _: &str,
+            _: &str,
+            _: Option<&str>,
+            _: Option<&str>,
+            _: &str,
+            _: Duration,
+        ) {
+        }
     }
 
     #[test]
@@ -635,7 +738,7 @@ mod tests {
     fn test05_a_create_result_gets_a_namespaced_id_and_a_plain_result_is_untouched() {
         let _held = guard();
         let mut created_result = json!({ "task": { "taskId": "task-1", "status": "working" } });
-        created("alpha", "s1", &mut created_result);
+        created("alpha", "tool", "s1", &mut created_result);
         assert_eq!(
             created_result["task"]["taskId"],
             json!(exposed_id("alpha", "task-1"))
@@ -643,7 +746,7 @@ mod tests {
         let mut plain =
             json!({ "content": [{ "type": "text", "text": "hi" }], "task": { "taskId": "x" } });
         let before = plain.clone();
-        created("alpha", "s1", &mut plain);
+        created("alpha", "tool", "s1", &mut plain);
         assert_eq!(plain, before);
         assert_eq!(running("alpha"), 1);
     }
@@ -667,6 +770,7 @@ mod tests {
             &all,
             &mut forward,
             &mut keep,
+            &mut Open,
         )
         .unwrap();
         assert_eq!(reply["taskId"], json!(exposed));
@@ -705,6 +809,7 @@ mod tests {
             &all,
             &mut forward,
             &mut keep,
+            &mut Open,
         )
         .unwrap();
         assert_eq!(reply["_meta"][RELATED_TASK_KEY]["taskId"], json!(exposed));
@@ -729,6 +834,7 @@ mod tests {
             &all,
             &mut forward,
             &mut keep,
+            &mut Open,
         )
         .unwrap_err();
         assert_eq!(error["code"], -32603);
@@ -761,6 +867,7 @@ mod tests {
                 &all,
                 &mut forward,
                 &mut keep,
+                &mut Open,
             )
             .unwrap_err();
             assert_eq!(error["code"], -32602, "{id}");
@@ -773,10 +880,19 @@ mod tests {
             &|_: &str| false,
             &mut forward,
             &mut keep,
+            &mut Open,
         );
         assert_eq!(outside.unwrap_err()["code"], -32602);
-        let missing =
-            handle("tasks/get", &json!({}), "s1", &all, &mut forward, &mut keep).unwrap_err();
+        let missing = handle(
+            "tasks/get",
+            &json!({}),
+            "s1",
+            &all,
+            &mut forward,
+            &mut keep,
+            &mut Open,
+        )
+        .unwrap_err();
         assert_eq!(missing["code"], -32602);
         assert_eq!(*called.lock().unwrap(), 0, "nothing reached a server");
     }
@@ -797,6 +913,7 @@ mod tests {
             &all,
             &mut forward,
             &mut keep,
+            &mut Open,
         );
         assert_eq!(gone.unwrap_err()["message"], UNKNOWN_TASK);
         assert!(handle(
@@ -805,7 +922,8 @@ mod tests {
             "s1",
             &all,
             &mut forward,
-            &mut keep
+            &mut keep,
+            &mut Open
         )
         .is_ok());
     }
@@ -823,6 +941,7 @@ mod tests {
             &all,
             &mut gone,
             &mut keep,
+            &mut Open,
         )
         .unwrap_err();
         assert_eq!(error["message"], UNKNOWN_TASK);
@@ -834,6 +953,7 @@ mod tests {
             &all,
             &mut forward,
             &mut keep,
+            &mut Open,
         )
         .unwrap_err();
         assert_eq!(
@@ -872,7 +992,16 @@ mod tests {
             let params = cursor
                 .as_ref()
                 .map_or(json!({}), |c| json!({ "cursor": c }));
-            let page = handle("tasks/list", &params, "s1", &all, &mut forward, &mut keep).unwrap();
+            let page = handle(
+                "tasks/list",
+                &params,
+                "s1",
+                &all,
+                &mut forward,
+                &mut keep,
+                &mut Open,
+            )
+            .unwrap();
             ids.extend(
                 page["tasks"]
                     .as_array()
@@ -895,6 +1024,7 @@ mod tests {
             &all,
             &mut forward,
             &mut keep,
+            &mut Open,
         );
         assert_eq!(bad.unwrap_err()["code"], -32602);
     }
@@ -941,7 +1071,7 @@ mod tests {
     fn test14_a_task_past_its_ttl_is_forgotten_and_no_longer_counts_as_running() {
         let _held = guard();
         let mut result = json!({ "task": { "taskId": "task-1", "status": "working", "ttl": 0 } });
-        created("alpha", "s1", &mut result);
+        created("alpha", "tool", "s1", &mut result);
         {
             let mut state = state();
             for entry in state.remembered.values_mut() {
@@ -958,7 +1088,187 @@ mod tests {
             &all,
             &mut forward,
             &mut keep,
+            &mut Open,
         );
         assert_eq!(error.unwrap_err()["code"], -32602);
+    }
+
+    #[derive(Default)]
+    struct Watching {
+        refuse: Vec<(String, String, String)>,
+        admitted: Vec<(String, String, Option<String>, Option<String>)>,
+        recorded: Vec<(String, String, Option<String>, String)>,
+    }
+
+    impl Governance for Watching {
+        fn admit(
+            &mut self,
+            method: &str,
+            server: &str,
+            tool: Option<&str>,
+            task: Option<&str>,
+        ) -> Result<(), String> {
+            self.admitted.push((
+                method.to_string(),
+                server.to_string(),
+                tool.map(str::to_string),
+                task.map(str::to_string),
+            ));
+            match self
+                .refuse
+                .iter()
+                .find(|(m, s, _)| m == method && s == server)
+            {
+                Some((_, _, message)) => Err(message.clone()),
+                None => Ok(()),
+            }
+        }
+
+        fn record(
+            &mut self,
+            method: &str,
+            server: &str,
+            tool: Option<&str>,
+            _: Option<&str>,
+            outcome: &str,
+            _: Duration,
+        ) {
+            self.recorded.push((
+                method.to_string(),
+                server.to_string(),
+                tool.map(str::to_string),
+                outcome.to_string(),
+            ));
+        }
+    }
+
+    #[test]
+    fn test15_every_by_id_action_is_admitted_with_its_tool_and_recorded_with_its_outcome() {
+        let _held = guard();
+        let exposed = create("alpha", "task-1", "s1");
+        let mut watching = Watching::default();
+        let mut forward = forwarding(|_, method, _, _| match method {
+            "tasks/cancel" => Forwarded::Rpc(json!({ "code": -32602, "message": "terminal" })),
+            _ => Forwarded::Reply(json!({ "status": "working", "content": [] })),
+        });
+        for method in ["tasks/get", "tasks/result", "tasks/cancel"] {
+            let reply = handle(
+                method,
+                &json!({ "taskId": exposed }),
+                "s1",
+                &all,
+                &mut forward,
+                &mut keep,
+                &mut watching,
+            );
+            assert_eq!(reply.is_ok(), method != "tasks/cancel");
+        }
+        let admitted: Vec<_> = watching.admitted.iter().map(|a| a.0.as_str()).collect();
+        assert_eq!(admitted, ["tasks/get", "tasks/result", "tasks/cancel"]);
+        assert!(watching
+            .admitted
+            .iter()
+            .all(|(_, server, tool, task)| server == "alpha"
+                && tool.as_deref() == Some("tool")
+                && task.as_deref() == Some(exposed.as_str())));
+        let outcomes: Vec<_> = watching.recorded.iter().map(|r| r.3.as_str()).collect();
+        assert_eq!(outcomes, ["ok", "ok", "error"]);
+    }
+
+    #[test]
+    fn test16_a_refused_action_is_answered_with_the_refusal_and_never_reaches_the_server() {
+        let _held = guard();
+        let exposed = create("alpha", "task-1", "s1");
+        let mut watching = Watching {
+            refuse: vec![(
+                "tasks/result".to_string(),
+                "alpha".to_string(),
+                "Blocked by Toolport".to_string(),
+            )],
+            ..Watching::default()
+        };
+        let sent = Mutex::new(0);
+        let mut forward = forwarding(|_, _, _, _| {
+            *sent.lock().unwrap() += 1;
+            Forwarded::Reply(json!({ "status": "working" }))
+        });
+        let error = handle(
+            "tasks/result",
+            &json!({ "taskId": exposed }),
+            "s1",
+            &all,
+            &mut forward,
+            &mut keep,
+            &mut watching,
+        )
+        .unwrap_err();
+        assert_eq!(error["code"], -32602);
+        assert_eq!(error["message"], "Blocked by Toolport");
+        assert_eq!(*sent.lock().unwrap(), 0);
+        assert_eq!(watching.recorded.len(), 1);
+        assert_eq!(watching.recorded[0].3, "refused");
+        assert!(handle(
+            "tasks/get",
+            &json!({ "taskId": exposed }),
+            "s1",
+            &all,
+            &mut forward,
+            &mut keep,
+            &mut watching,
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test17_an_unknown_id_is_never_admitted_so_it_cannot_probe_policy() {
+        let _held = guard();
+        let mut watching = Watching::default();
+        let mut forward = forwarding(|_, _, _, _| Forwarded::Reply(json!({})));
+        let error = handle(
+            "tasks/get",
+            &json!({ "taskId": exposed_id("alpha", "task-9") }),
+            "s1",
+            &all,
+            &mut forward,
+            &mut keep,
+            &mut watching,
+        )
+        .unwrap_err();
+        assert_eq!(error["message"], UNKNOWN_TASK);
+        assert!(watching.admitted.is_empty() && watching.recorded.is_empty());
+    }
+
+    #[test]
+    fn test18_list_admits_each_server_and_skips_one_that_is_refused() {
+        let _held = guard();
+        capable_server("alpha", true);
+        capable_server("beta", true);
+        let mut watching = Watching {
+            refuse: vec![(
+                "tasks/list".to_string(),
+                "alpha".to_string(),
+                "off".to_string(),
+            )],
+            ..Watching::default()
+        };
+        let sent = Mutex::new(Vec::new());
+        let mut forward = forwarding(|server, _, _, _| {
+            sent.lock().unwrap().push(server.to_string());
+            Forwarded::Reply(json!({ "tasks": [] }))
+        });
+        let first = handle(
+            "tasks/list",
+            &json!({}),
+            "s1",
+            &all,
+            &mut forward,
+            &mut keep,
+            &mut watching,
+        )
+        .unwrap();
+        assert!(sent.lock().unwrap().is_empty());
+        assert_eq!(watching.recorded[0].3, "refused");
+        assert_eq!(watching.recorded[0].2, None);
+        assert!(first["nextCursor"].is_string(), "beta is still to come");
     }
 }

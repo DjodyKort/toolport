@@ -6,7 +6,9 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 
 use serde_json::{json, Value};
-use toolport_plus::mcp_tasks::{self, Forwarded, Wait};
+use std::time::Duration;
+
+use toolport_plus::mcp_tasks::{self, Forwarded, Governance, Wait};
 use toolport_plus::progress;
 
 use crate::downstream::CancelContext;
@@ -22,6 +24,7 @@ struct Request {
 #[derive(Clone)]
 struct Outgoing {
     task: Value,
+    tool: String,
     session: String,
 }
 
@@ -68,9 +71,9 @@ impl Drop for OutgoingGuard {
     }
 }
 
-/// The call of tool `name` on `server_id` is the one the client sent with a `task`, and the
-/// server takes tasks: its `task` goes along.
-pub fn arm(server_id: &str, name: &str) -> Option<OutgoingGuard> {
+/// The call of tool `name` (`tool` on the server) on `server_id` is the one the client sent with
+/// a `task`, and the server takes tasks: its `task` goes along.
+pub fn arm(server_id: &str, tool: &str, name: &str) -> Option<OutgoingGuard> {
     let outgoing = REQUEST.with(|current| {
         let current = current.borrow();
         let request = current.as_ref()?;
@@ -81,6 +84,7 @@ pub fn arm(server_id: &str, name: &str) -> Option<OutgoingGuard> {
             .then(|| {
                 request.task.clone().map(|task| Outgoing {
                     task,
+                    tool: tool.to_string(),
                     session: request.session.clone(),
                 })
             })
@@ -102,11 +106,56 @@ pub fn with_task(mut params: Value) -> Value {
 
 pub fn task_created(server_id: &str, result: &mut Value) {
     if let Some(outgoing) = OUTGOING.with(|current| current.borrow().clone()) {
-        mcp_tasks::created(server_id, &outgoing.session, result);
+        mcp_tasks::created(server_id, &outgoing.tool, &outgoing.session, result);
     }
 }
 
-/// Answers a client's `tasks/*` request with the JSON-RPC response for `id`.
+struct Governed<'a>(super::TaskAdmit<'a>);
+
+impl Governance for Governed<'_> {
+    fn admit(
+        &mut self,
+        method: &str,
+        server: &str,
+        tool: Option<&str>,
+        task: Option<&str>,
+    ) -> Result<(), String> {
+        (self.0)(method, server, tool, task)
+    }
+
+    fn record(
+        &mut self,
+        method: &str,
+        server: &str,
+        tool: Option<&str>,
+        task: Option<&str>,
+        outcome: &str,
+        elapsed: Duration,
+    ) {
+        let Some(path) = crate::audit::audit_path() else {
+            return;
+        };
+        let mut entry = json!({
+            "kind": "task",
+            "server": crate::router::sanitize_segment(server),
+            "serverId": server,
+            "action": method,
+            "outcome": outcome,
+            "durationMs": u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX),
+        });
+        if let Some(tool) = tool {
+            entry["tool"] = json!(tool);
+        }
+        if let Some(task) = task {
+            entry["taskId"] = json!(task);
+        }
+        crate::session_observability::enrich(&mut entry);
+        crate::audit::record_session_at(&path, entry);
+    }
+}
+
+/// Answers a client's `tasks/*` request with the JSON-RPC response for `id`. `admit` is asked
+/// before a request reaches a server.
 pub fn request(
     id: Value,
     req: &Value,
@@ -114,6 +163,7 @@ pub fn request(
     allowed: Option<&HashSet<String>>,
     cancel: Option<CancelContext>,
     shape: &mut dyn FnMut(&str, Value) -> Value,
+    admit: super::TaskAdmit<'_>,
 ) -> Value {
     let method = req.get("method").and_then(Value::as_str).unwrap_or("");
     let params = req.get("params").cloned().unwrap_or_else(|| json!({}));
@@ -134,7 +184,15 @@ pub fn request(
         });
         router.plus_task_request(server, method, params, cancel.clone())
     };
-    match mcp_tasks::handle(method, &params, &session, &in_scope, &mut forward, shape) {
+    match mcp_tasks::handle(
+        method,
+        &params,
+        &session,
+        &in_scope,
+        &mut forward,
+        shape,
+        &mut Governed(admit),
+    ) {
         Ok(result) => json!({ "jsonrpc": "2.0", "id": id, "result": result }),
         Err(error) => json!({ "jsonrpc": "2.0", "id": id, "error": error }),
     }
