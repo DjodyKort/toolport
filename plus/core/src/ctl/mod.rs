@@ -23,6 +23,7 @@ mod plugins;
 mod policy;
 mod secret;
 mod server;
+mod setup;
 mod skills;
 mod skills_checks;
 mod skills_repo;
@@ -768,6 +769,36 @@ pub const COMMANDS: &[Command] = &[
         &["task", "disable"],
         "Turn a task off; nothing runs it until it is turned on (<id>, --dry-run)",
         task::disable,
+    ),
+    cmd(
+        &["setup", "parts"],
+        "List what a setup file can hold, with counts and sizes: repositories, servers, access sets, skills library, tasks, settings, Claude Code user files, memory, sessions, secrets (--roots <dir>...)",
+        setup::parts,
+    ),
+    cmd(
+        &["setup", "export"],
+        "Write one zip with a manifest holding the parts you tick; secrets and sessions only sealed with a passphrase from stdin (--parts, --out, --name, --secrets, --sessions, --passphrase-stdin, --roots, --no-worktrees, --skip-no-remote, --library-zip, --without, --session-repo, --peek, --dry-run)",
+        setup::export,
+    ),
+    cmd(
+        &["setup", "inspect"],
+        "Read a setup file without changing anything: parts, counts, hashes and what is damaged (<file>)",
+        setup::inspect,
+    ),
+    cmd(
+        &["setup", "restore"],
+        "Plan a restore of a setup file against this Mac (dry run); apply it with the plan hash. Existing servers, repositories and files are kept unless a row is taken (<file>, --parts, --take, --passphrase-stdin, --apply, --plan)",
+        setup::restore,
+    ),
+    cmd(
+        &["setup", "undo"],
+        "Undo the last restore run as far as nothing changed since (<run>, --dry-run)",
+        setup::undo,
+    ),
+    cmd(
+        &["setup", "check"],
+        "Before a reset: unpushed work, repositories without a remote, changes and stashes, plus the things you carry yourself (--roots, --tick, --untick, --ack)",
+        setup::check,
     ),
     cmd(
         &["mcp"],

@@ -1,0 +1,37 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Folders to search for repositories (default: the source folders of `sources root ls`, else the usual checkout folders)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--roots",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "paths"
+    }
+  ],
+  "group": "setup",
+  "id": "setup parts",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["setup", "parts"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List what a setup file can hold, with counts and sizes: repositories, servers, access sets, skills library, tasks, settings, Claude Code user files, memory, sessions, secrets (--roots <dir>...)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["setup_parts"]
+}

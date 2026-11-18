@@ -1,0 +1,81 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Only these parts: repos, servers, access, library, tasks, settings, claudeUser, memory, history, secrets",
+      "escalates": false,
+      "hidden": false,
+      "name": "--parts",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Take the file's copy of a conflict row (a file, bundle or memory row id) instead of keeping yours (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--take",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Read the passphrase of the sealed parts as one line from stdin",
+      "escalates": false,
+      "hidden": false,
+      "name": "--passphrase-stdin",
+      "repeatable": false,
+      "required": false,
+      "sensitive": true,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Apply the plan; without it the command only plans and writes nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--apply",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "The plan hash printed by the dry run; apply refuses when this Mac changed since",
+      "escalates": false,
+      "hidden": false,
+      "name": "--plan",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "setup",
+  "id": "setup restore",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": ["stdin"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["setup", "restore"],
+  "planned": false,
+  "preview": {
+    "flag": "--apply",
+    "mode": "unless-applied"
+  },
+  "summary": "Plan a restore of a setup file against this Mac (dry run); apply it with the plan hash. Existing servers, repositories and files are kept unless a row is taken (<file>, --parts, --take, --passphrase-stdin, --apply, --plan)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["setup_restore"]
+}

@@ -88,6 +88,9 @@ const fn refused(label: &'static str, tool: &'static str, args: &'static str) ->
 }
 
 /// A call that prepares the world for the ones after it: no golden.
+const SETUP_EXPORT_APPLY: &str =
+    r#"{"out":"{base}/out/a.zip","roots":["{home}/code"],"dry_run":false,"confirm":true}"#;
+
 const fn setup(tool: &'static str, args: &'static str) -> Call {
     Call {
         golden: false,
@@ -117,6 +120,13 @@ const fn case(tool: &'static str, calls: &'static [Call]) -> Case {
         tool,
         calls,
         prepare: None,
+    }
+}
+
+const fn setup_case(tool: &'static str, calls: &'static [Call]) -> Case {
+    Case {
+        prepare: Some(common::setup_world::setup_home),
+        ..case(tool, calls)
     }
 }
 
@@ -1556,6 +1566,65 @@ const CASES: &[Case] = &[
                 "invalid_arguments",
                 "skills_install",
                 r#"{"spec":"no-owner-or-repo"}"#,
+            ),
+        ],
+    ),
+    setup_case(
+        "setup_parts",
+        &[read("roots", "setup_parts", r#"{"roots":["{home}/code"]}"#)],
+    ),
+    setup_case(
+        "setup_export",
+        &[
+            read(
+                "preview",
+                "setup_export",
+                r#"{"out":"{base}/out","roots":["{home}/code"]}"#,
+            ),
+            refused(
+                "refused",
+                "setup_export",
+                r#"{"out":"{base}/out/a.zip","roots":["{home}/code"],"dry_run":false}"#,
+            ),
+            fails(
+                "sealed_parts",
+                "refused",
+                "setup_export",
+                r#"{"parts":"all,secrets","out":"{base}/out","dry_run":true}"#,
+            ),
+            write(
+                "apply",
+                "setup_export",
+                r#"{"out":"{base}/out/a.zip","roots":["{home}/code"],"dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "exists",
+                "conflict",
+                "setup_export",
+                r#"{"out":"{base}/out/a.zip","roots":["{home}/code"],"dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    setup_case(
+        "setup_check",
+        &[read("roots", "setup_check", r#"{"roots":["{home}/code"]}"#)],
+    ),
+    setup_case(
+        "setup_inspect",
+        &[
+            setup("setup_export", SETUP_EXPORT_APPLY),
+            read("file", "setup_inspect", r#"{"file":"{base}/out/a.zip"}"#),
+        ],
+    ),
+    setup_case(
+        "setup_restore",
+        &[
+            setup("setup_export", SETUP_EXPORT_APPLY),
+            read("plan", "setup_restore", r#"{"file":"{base}/out/a.zip"}"#),
+            refused(
+                "refused",
+                "setup_restore",
+                r#"{"file":"{base}/out/a.zip","dry_run":false}"#,
             ),
         ],
     ),

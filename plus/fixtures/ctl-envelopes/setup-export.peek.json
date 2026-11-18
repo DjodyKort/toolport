@@ -1,0 +1,109 @@
+{
+  "argv": [
+    "setup",
+    "export",
+    "--parts",
+    "repos",
+    "--peek",
+    "repos",
+    "--roots",
+    "{home}/code",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "setup export",
+    "data": {
+      "dryRun": true,
+      "peek": {
+        "files": [
+          {
+            "json": {
+              "repos": [
+                {
+                  "ahead": 0,
+                  "behind": 0,
+                  "branch": "main",
+                  "defaultBranch": null,
+                  "dirty": 0,
+                  "head": "<masked>",
+                  "name": "docs",
+                  "neverPushed": [],
+                  "noRemote": false,
+                  "path": "~/code/docs",
+                  "remotes": [
+                    {
+                      "name": "origin",
+                      "url": "<WORLD>/remotes/docs.git"
+                    }
+                  ],
+                  "stashes": 0,
+                  "submodules": [],
+                  "unpushed": [],
+                  "untracked": 0,
+                  "upstream": "origin/main",
+                  "worktrees": []
+                },
+                {
+                  "ahead": 0,
+                  "behind": 0,
+                  "branch": "main",
+                  "defaultBranch": null,
+                  "dirty": 0,
+                  "head": "<masked>",
+                  "name": "scratch",
+                  "neverPushed": [],
+                  "noRemote": true,
+                  "path": "~/code/scratch",
+                  "remotes": [],
+                  "stashes": 0,
+                  "submodules": [],
+                  "unpushed": [],
+                  "untracked": 0,
+                  "upstream": null,
+                  "worktrees": []
+                },
+                {
+                  "ahead": 1,
+                  "behind": 0,
+                  "branch": "main",
+                  "defaultBranch": null,
+                  "dirty": 0,
+                  "head": "<masked>",
+                  "name": "web",
+                  "neverPushed": [],
+                  "noRemote": false,
+                  "path": "~/code/web",
+                  "remotes": [
+                    {
+                      "name": "origin",
+                      "url": "<WORLD>/remotes/web.git"
+                    }
+                  ],
+                  "stashes": 0,
+                  "submodules": [],
+                  "unpushed": [
+                    {
+                      "ahead": 1,
+                      "branch": "main"
+                    }
+                  ],
+                  "untracked": 2,
+                  "upstream": "origin/main",
+                  "worktrees": []
+                }
+              ],
+              "roots": ["~/code"],
+              "version": 0
+            },
+            "name": "repos.json"
+          }
+        ],
+        "label": "Repositories",
+        "part": "repos"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

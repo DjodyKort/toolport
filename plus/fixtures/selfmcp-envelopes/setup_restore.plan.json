@@ -1,0 +1,180 @@
+{
+  "arguments": {
+    "file": "<WORLD>/out/a.zip"
+  },
+  "isError": false,
+  "result": {
+    "applied": false,
+    "dryRun": true,
+    "file": "<WORLD>/out/a.zip",
+    "file_info": [
+      {
+        "count": 3,
+        "fileSize": 0,
+        "id": "repos",
+        "label": "Repositories",
+        "sealed": false,
+        "standing": "ok"
+      },
+      {
+        "count": 2,
+        "fileSize": 0,
+        "id": "servers",
+        "label": "Servers",
+        "sealed": false,
+        "standing": "ok"
+      },
+      {
+        "count": 1,
+        "fileSize": 0,
+        "id": "access",
+        "label": "Clients and access sets",
+        "sealed": false,
+        "standing": "ok"
+      },
+      {
+        "count": 0,
+        "fileSize": 0,
+        "id": "library",
+        "label": "Skills library",
+        "sealed": false,
+        "standing": "ok"
+      },
+      {
+        "count": 0,
+        "fileSize": 0,
+        "id": "tasks",
+        "label": "Tasks",
+        "sealed": false,
+        "standing": "ok"
+      },
+      {
+        "count": 9,
+        "fileSize": 0,
+        "id": "settings",
+        "label": "Toolport settings",
+        "sealed": false,
+        "standing": "ok"
+      },
+      {
+        "count": 3,
+        "fileSize": 0,
+        "id": "claudeUser",
+        "label": "Claude Code user files",
+        "sealed": false,
+        "standing": "ok"
+      },
+      {
+        "count": 1,
+        "fileSize": 0,
+        "id": "memory",
+        "label": "Memory",
+        "sealed": false,
+        "standing": "ok"
+      }
+    ],
+    "locked": false,
+    "plan": "<PLAN>",
+    "rows": [
+      {
+        "id": "repo:~/code/docs",
+        "label": "docs → ~/code/docs",
+        "note": "already here, same branch",
+        "part": "repos",
+        "state": "here"
+      },
+      {
+        "id": "repo:~/code/scratch",
+        "label": "scratch → ~/code/scratch",
+        "note": "already here, same branch",
+        "part": "repos",
+        "state": "here"
+      },
+      {
+        "id": "repo:~/code/web",
+        "label": "web → ~/code/web",
+        "note": "already here, same branch",
+        "part": "repos",
+        "state": "here"
+      },
+      {
+        "id": "server:alpha",
+        "label": "alpha",
+        "note": "already here, same",
+        "part": "servers",
+        "state": "here"
+      },
+      {
+        "id": "server:beta",
+        "label": "beta",
+        "note": "already here, same",
+        "part": "servers",
+        "state": "here"
+      },
+      {
+        "id": "access",
+        "label": "Clients and access sets",
+        "note": "no access set to add",
+        "part": "access",
+        "state": "here"
+      },
+      {
+        "id": "library",
+        "label": "Skills library",
+        "note": "the file holds no library to restore",
+        "part": "library",
+        "state": "needs"
+      },
+      {
+        "id": "tasks",
+        "label": "Tasks",
+        "note": "0 already here",
+        "part": "tasks",
+        "state": "here"
+      },
+      {
+        "id": "settings",
+        "label": "Toolport settings",
+        "note": "same values",
+        "part": "settings",
+        "state": "here"
+      },
+      {
+        "id": "claude:CLAUDE.md",
+        "label": "~/.claude/CLAUDE.md",
+        "note": "already here, same",
+        "part": "claudeUser",
+        "state": "here"
+      },
+      {
+        "id": "claude:rules/style.md",
+        "label": "~/.claude/rules/style.md",
+        "note": "already here, same",
+        "part": "claudeUser",
+        "state": "here"
+      },
+      {
+        "id": "claude:settings.json",
+        "label": "~/.claude/settings.json",
+        "note": "the filtered copy is in the file; Claude Code settings are never written by a restore",
+        "part": "claudeUser",
+        "state": "needs"
+      },
+      {
+        "id": "memory:<WORLD-SLUG>_remotes_web",
+        "label": "Memory of web",
+        "note": "0 to add, 2 already here, 0 differ (kept unless taken)",
+        "part": "memory",
+        "state": "here"
+      }
+    ],
+    "summary": {
+      "add": 0,
+      "conflict": 0,
+      "here": 11,
+      "needs": 2,
+      "skip": 0
+    }
+  },
+  "tool": "setup_restore"
+}

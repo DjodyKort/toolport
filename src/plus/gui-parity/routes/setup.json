@@ -1,0 +1,6 @@
+{
+  "title": "Setup & backup",
+  "status": "built",
+  "page": "settings:toolport",
+  "component": "src/plus/setup/SetupPage.tsx"
+}

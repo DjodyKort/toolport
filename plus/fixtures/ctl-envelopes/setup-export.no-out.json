@@ -1,0 +1,13 @@
+{
+  "argv": ["setup", "export", "--roots", "{home}/code"],
+  "envelope": {
+    "command": "setup export",
+    "error": {
+      "code": "usage",
+      "message": "--out <file or folder> says where to write the file"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

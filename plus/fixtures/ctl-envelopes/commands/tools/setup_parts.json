@@ -1,0 +1,7 @@
+{
+  "command": "setup parts",
+  "dryRun": "none",
+  "name": "setup_parts",
+  "tier": "read",
+  "toolTier": 1
+}

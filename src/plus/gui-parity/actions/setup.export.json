@@ -1,0 +1,6 @@
+{
+  "route": "setup",
+  "status": "built",
+  "summary": "Tick the parts of a setup file, see what goes in, write one zip with a manifest; secrets and sessions only sealed with a passphrase (setup parts, setup export; setup_parts, setup_export)",
+  "test": "src/plus/setup/SetupPage.test.tsx"
+}

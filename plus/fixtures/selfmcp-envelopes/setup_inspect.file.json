@@ -1,0 +1,83 @@
+{
+  "arguments": {
+    "file": "<WORLD>/out/a.zip"
+  },
+  "isError": false,
+  "result": {
+    "file": "<WORLD>/out/a.zip",
+    "format": "toolport-setup",
+    "intact": true,
+    "machine": "<masked>",
+    "madeAt": "<TIME>",
+    "parts": [
+      {
+        "count": 3,
+        "fileSize": 0,
+        "id": "repos",
+        "label": "Repositories",
+        "sealed": false,
+        "standing": "ok"
+      },
+      {
+        "count": 2,
+        "fileSize": 0,
+        "id": "servers",
+        "label": "Servers",
+        "sealed": false,
+        "standing": "ok"
+      },
+      {
+        "count": 1,
+        "fileSize": 0,
+        "id": "access",
+        "label": "Clients and access sets",
+        "sealed": false,
+        "standing": "ok"
+      },
+      {
+        "count": 0,
+        "fileSize": 0,
+        "id": "library",
+        "label": "Skills library",
+        "sealed": false,
+        "standing": "ok"
+      },
+      {
+        "count": 0,
+        "fileSize": 0,
+        "id": "tasks",
+        "label": "Tasks",
+        "sealed": false,
+        "standing": "ok"
+      },
+      {
+        "count": 9,
+        "fileSize": 0,
+        "id": "settings",
+        "label": "Toolport settings",
+        "sealed": false,
+        "standing": "ok"
+      },
+      {
+        "count": 3,
+        "fileSize": 0,
+        "id": "claudeUser",
+        "label": "Claude Code user files",
+        "sealed": false,
+        "standing": "ok"
+      },
+      {
+        "count": 1,
+        "fileSize": 0,
+        "id": "memory",
+        "label": "Memory",
+        "sealed": false,
+        "standing": "ok"
+      }
+    ],
+    "problems": [],
+    "toolport": "2.3.7",
+    "version": 0
+  },
+  "tool": "setup_inspect"
+}

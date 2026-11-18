@@ -1,0 +1,13 @@
+{
+  "argv": ["setup", "undo"],
+  "envelope": {
+    "command": "setup undo",
+    "error": {
+      "code": "not_found",
+      "message": "no restore run to undo"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

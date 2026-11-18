@@ -1,0 +1,5 @@
+{
+  "route": "setup",
+  "action": "setup.check",
+  "surface": "screen"
+}

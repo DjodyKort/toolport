@@ -7,7 +7,7 @@ description = "Fork binaries: toolportctl and toolport-selfmcp"
 
 [dependencies]
 conduit = { path = "../../src-tauri", default-features = false, features = ["plus"] }
-toolport-plus = { path = "../core" }
+toolport-plus = { path = "../core", features = ["cipher"] }
 toolport-plus-api = { path = "../api" }
 serde_json = "1"
 

@@ -1,0 +1,13 @@
+{
+  "argv": ["setup", "restore"],
+  "envelope": {
+    "command": "setup restore",
+    "error": {
+      "code": "usage",
+      "message": "usage: setup restore <file> [--parts <list>] [--take <row>] [--passphrase-stdin] [--apply --plan <hash>]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

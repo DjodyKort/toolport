@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "file": "<WORLD>/out/a.zip"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: setup_restore (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: setup_restore (tier 3). Pass confirm=true to proceed.",
+  "tool": "setup_restore"
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["setup", "export", "--parts", "everything", "--dry-run"],
+  "envelope": {
+    "command": "setup export",
+    "error": {
+      "code": "usage",
+      "message": "unknown part \"everything\": use all or any of repos, servers, access, library, tasks, settings, claudeUser, memory, history, secrets"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

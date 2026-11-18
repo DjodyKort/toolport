@@ -1,0 +1,13 @@
+{
+  "argv": ["setup", "parts", "extra"],
+  "envelope": {
+    "command": "setup parts",
+    "error": {
+      "code": "usage",
+      "message": "unexpected argument: extra"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

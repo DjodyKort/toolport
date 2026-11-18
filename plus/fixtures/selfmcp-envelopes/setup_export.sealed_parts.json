@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "dry_run": true,
+    "out": "<WORLD>/out",
+    "parts": "all,secrets"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "secrets and sessions are sealed with a passphrase and only a person exports them, in the app or with toolportctl"
+    }
+  },
+  "text": "refused: secrets and sessions are sealed with a passphrase and only a person exports them, in the app or with toolportctl",
+  "tool": "setup_export"
+}

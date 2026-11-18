@@ -1,0 +1,31 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "setup",
+  "id": "setup inspect",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "file",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["setup", "inspect"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Read a setup file without changing anything: parts, counts, hashes and what is damaged (<file>)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["setup_inspect"]
+}

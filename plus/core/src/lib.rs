@@ -26,6 +26,7 @@ mod redact;
 pub mod resource_links;
 pub mod selfmcp;
 pub mod servers;
+pub mod setup;
 pub mod skills;
 pub mod sources;
 pub mod status;

@@ -1,0 +1,7 @@
+{
+  "command": "setup restore",
+  "dryRun": "default-on",
+  "name": "setup_restore",
+  "tier": "write",
+  "toolTier": 3
+}

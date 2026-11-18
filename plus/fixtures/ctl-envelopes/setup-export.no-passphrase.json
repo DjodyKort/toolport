@@ -1,0 +1,13 @@
+{
+  "argv": ["setup", "export", "--secrets", "--out", "{base}/out/none.zip"],
+  "envelope": {
+    "command": "setup export",
+    "error": {
+      "code": "usage",
+      "message": "secrets and sessions are sealed with a passphrase: pass --passphrase-stdin and write it on stdin"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

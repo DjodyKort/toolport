@@ -1,0 +1,13 @@
+{
+  "argv": ["setup", "check", "--tick", "nonsense"],
+  "envelope": {
+    "command": "setup check",
+    "error": {
+      "code": "usage",
+      "message": "--tick does not know \"nonsense\""
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

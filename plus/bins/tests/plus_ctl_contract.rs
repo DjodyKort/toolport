@@ -24,6 +24,7 @@ use common::compression::{
 };
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
+use common::setup_world::{self, PASSPHRASE};
 use common::tasks_world::{scheduler_extras, tasks_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
@@ -188,6 +189,10 @@ fn differing_setup(world: &World) {
     let path = world.home.join(".claude/skills/acceptance/SETUP.md");
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(path, "# my setup\nstep one\n").unwrap();
+}
+
+fn setup_home(world: &World) {
+    setup_world::setup_home(world);
 }
 
 fn sources_home(world: &World) {
@@ -1861,6 +1866,176 @@ const CASES: &[Case] = &[
     case(
         "skills audit",
         &[read("", &["skills", "audit", "--repo", "{repo}"])],
+    ),
+    case(
+        "setup parts",
+        &[
+            hook("setup-world", setup_home),
+            read("", &["setup", "parts", "--roots", "{home}/code"]),
+            read("default-roots", &["setup", "parts"]),
+            usage("usage", &["setup", "parts", "extra"]),
+        ],
+    ),
+    case(
+        "setup check",
+        &[
+            hook("setup-world", setup_home),
+            read("", &["setup", "check", "--roots", "{home}/code"]),
+            apply(
+                "ticked",
+                &["setup", "check", "--roots", "{home}/code", "--tick", "keys"],
+            ),
+            usage("unknown-item", &["setup", "check", "--tick", "nonsense"]),
+        ],
+    ),
+    case(
+        "setup inspect",
+        &[
+            hook("setup-world", setup_home),
+            apply(
+                "export",
+                &[
+                    "setup",
+                    "export",
+                    "--out",
+                    "{base}/out/setup.zip",
+                    "--roots",
+                    "{home}/code",
+                ],
+            ),
+            read("", &["setup", "inspect", "{base}/out/setup.zip"]),
+            usage("usage", &["setup", "inspect"]),
+        ],
+    ),
+    case(
+        "setup restore",
+        &[
+            hook("setup-world", setup_home),
+            apply(
+                "export",
+                &[
+                    "setup",
+                    "export",
+                    "--out",
+                    "{base}/out/setup.zip",
+                    "--roots",
+                    "{home}/code",
+                ],
+            ),
+            read("plan", &["setup", "restore", "{base}/out/setup.zip"]),
+            usage(
+                "no-plan",
+                &["setup", "restore", "{base}/out/setup.zip", "--apply"],
+            ),
+            usage("usage", &["setup", "restore"]),
+        ],
+    ),
+    case(
+        "setup undo",
+        &[
+            hook("setup-world", setup_home),
+            read("nothing", &["setup", "undo"]).exit(1),
+        ],
+    ),
+    case(
+        "setup export",
+        &[
+            hook("setup-world", setup_home),
+            read(
+                "preview",
+                &[
+                    "setup",
+                    "export",
+                    "--out",
+                    "{base}/out",
+                    "--roots",
+                    "{home}/code",
+                    "--dry-run",
+                ],
+            ),
+            read(
+                "peek",
+                &[
+                    "setup",
+                    "export",
+                    "--parts",
+                    "repos",
+                    "--peek",
+                    "repos",
+                    "--roots",
+                    "{home}/code",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "setup",
+                    "export",
+                    "--out",
+                    "{base}/out/setup.zip",
+                    "--roots",
+                    "{home}/code",
+                ],
+            ),
+            apply(
+                "again",
+                &[
+                    "setup",
+                    "export",
+                    "--out",
+                    "{base}/out/setup.zip",
+                    "--roots",
+                    "{home}/code",
+                ],
+            )
+            .exit(1),
+            setup("vault", &["secret", "set", "alpha", "API_KEY"]).stdin(VAULTED),
+            apply(
+                "sealed",
+                &[
+                    "setup",
+                    "export",
+                    "--secrets",
+                    "--sessions",
+                    "--passphrase-stdin",
+                    "--out",
+                    "{base}/out/sealed.zip",
+                    "--roots",
+                    "{home}/code",
+                ],
+            )
+            .stdin(PASSPHRASE),
+            usage(
+                "no-passphrase",
+                &[
+                    "setup",
+                    "export",
+                    "--secrets",
+                    "--out",
+                    "{base}/out/none.zip",
+                ],
+            ),
+            usage(
+                "short-passphrase",
+                &[
+                    "setup",
+                    "export",
+                    "--secrets",
+                    "--passphrase-stdin",
+                    "--out",
+                    "{base}/out/short.zip",
+                    "--roots",
+                    "{home}/code",
+                ],
+            )
+            .stdin("short\n"),
+            usage(
+                "bad-part",
+                &["setup", "export", "--parts", "everything", "--dry-run"],
+            ),
+            usage("no-out", &["setup", "export", "--roots", "{home}/code"]),
+        ],
     ),
     case(
         "skills status",

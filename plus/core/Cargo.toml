@@ -5,6 +5,11 @@ edition = "2021"
 publish = false
 description = "Fork logic that runs on top of upstream Toolport through toolport-plus-api"
 
+[features]
+# Passphrase encryption of the setup file: Argon2id and XChaCha20-Poly1305. Off here, on in toolport-plus-bins,
+# so the conduit dependency graph (and src-tauri/Cargo.lock) does not gain a crate.
+cipher = ["dep:argon2", "dep:chacha20poly1305"]
+
 [dependencies]
 toolport-plus-api = { path = "../api" }
 serde = { version = "1", features = ["derive"] }
@@ -12,6 +17,8 @@ serde_json = "1"
 sha2 = "0.10"
 serde_yaml = "0.9"
 regex = "1"
+argon2 = { version = "0.5", default-features = false, features = ["alloc"], optional = true }
+chacha20poly1305 = { version = "0.10", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

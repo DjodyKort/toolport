@@ -13,6 +13,7 @@ mod library;
 mod memory;
 pub mod register;
 mod servers;
+mod setup;
 mod skills;
 mod sources;
 mod tasks;
