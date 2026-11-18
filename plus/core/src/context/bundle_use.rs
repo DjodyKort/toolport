@@ -22,7 +22,7 @@ pub fn launch_dir(w: &World) -> PathBuf {
         .join("profiles")
 }
 
-fn shell_word(text: &str) -> String {
+pub(super) fn shell_word(text: &str) -> String {
     if !text.is_empty()
         && text
             .chars()

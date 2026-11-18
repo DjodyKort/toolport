@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "name": "bare",
+    "set": "bare"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: context_launch_profile_add (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: context_launch_profile_add (tier 3). Pass confirm=true to proceed.",
+  "tool": "context_launch_profile_add"
+}

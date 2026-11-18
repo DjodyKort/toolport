@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "launch-profile", "rm"],
+  "envelope": {
+    "command": "context launch-profile rm",
+    "error": {
+      "code": "usage",
+      "message": "usage: context launch-profile rm <name> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

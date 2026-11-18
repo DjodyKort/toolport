@@ -988,6 +988,103 @@ const CASES: &[Case] = &[
             ),
         ],
     ),
+    prepared(
+        "context_launch_profile_ls",
+        launch_profile_world,
+        &[
+            read("none", "context_launch_profile_ls", "{}"),
+            setup(
+                "context_launch_profile_add",
+                r#"{"name":"bare","set":"bare","dry_run":false,"confirm":true}"#,
+            ),
+            read("one", "context_launch_profile_ls", r#"{"name":"bare"}"#),
+            fails(
+                "unknown",
+                "not_found",
+                "context_launch_profile_ls",
+                r#"{"name":"nope"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "context_launch_profile_add",
+        launch_profile_world,
+        &[
+            read(
+                "plan",
+                "context_launch_profile_add",
+                r#"{"name":"bare","set":"bare"}"#,
+            ),
+            refused(
+                "refused",
+                "context_launch_profile_add",
+                r#"{"name":"bare","set":"bare","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "context_launch_profile_add",
+                r#"{"name":"bare","set":"bare","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "unknown_set",
+                "not_found",
+                "context_launch_profile_add",
+                r#"{"name":"other","set":"nope"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "context_launch_profile_rm",
+        launch_profile_world,
+        &[
+            setup(
+                "context_launch_profile_add",
+                r#"{"name":"bare","set":"bare","dry_run":false,"confirm":true}"#,
+            ),
+            read("plan", "context_launch_profile_rm", r#"{"name":"bare"}"#),
+            write(
+                "apply",
+                "context_launch_profile_rm",
+                r#"{"name":"bare","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "gone",
+                "not_found",
+                "context_launch_profile_rm",
+                r#"{"name":"bare"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "context_launch_profile_policy",
+        launch_profile_world,
+        &[
+            setup(
+                "client_direct_add",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false,"confirm":true}"#,
+            ),
+            setup(
+                "context_launch_profile_add",
+                r#"{"name":"bare","set":"empty","deny_direct":true,"dry_run":false,"confirm":true}"#,
+            ),
+            read(
+                "plan",
+                "context_launch_profile_policy",
+                r#"{"name":"bare","cwd":"{home}/proj"}"#,
+            ),
+            write(
+                "apply",
+                "context_launch_profile_policy",
+                r#"{"name":"bare","cwd":"{home}/proj","dry_run":false}"#,
+            ),
+            fails(
+                "unknown",
+                "not_found",
+                "context_launch_profile_policy",
+                r#"{"name":"nope","cwd":"{home}/proj"}"#,
+            ),
+        ],
+    ),
     context_case(
         "context_loads",
         &[
@@ -1712,6 +1809,22 @@ fn claude_code_home(world: &World) {
         r#"{"theme": "dark", "mcpServers": {"legacy-lint": {"command": "lint", "args": []}}}"#,
     )
     .unwrap();
+}
+
+fn launch_profile_world(world: &World) {
+    world.context_files();
+    claude_code_home(world);
+    let mut registry = world.registry();
+    registry["version"] = serde_json::json!(3);
+    registry["servers"][0]["enabled"] = serde_json::json!(true);
+    registry["servers"][1]["enabled"] = serde_json::json!(true);
+    registry["defaultAccessProfileId"] = serde_json::json!("default");
+    registry["profiles"] = serde_json::json!([
+        {"id": "default", "name": "Default", "enabledServerIds": ["srv-alpha", "srv-beta"]},
+        {"id": "bare", "name": "Bare", "enabledServerIds": ["srv-alpha"]},
+        {"id": "empty", "name": "Empty", "enabledServerIds": []},
+    ]);
+    world.write_registry(&registry);
 }
 
 fn folder_routing_world(world: &World) {

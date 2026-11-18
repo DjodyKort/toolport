@@ -1,0 +1,69 @@
+{
+  "argv": ["context", "launch-profile", "add", "bare", "--deny-direct", "off"],
+  "envelope": {
+    "command": "context launch-profile add",
+    "data": {
+      "clientId": "claude-code-bare",
+      "created": false,
+      "dryRun": false,
+      "folderWarnings": [],
+      "name": "bare",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "change the record of bare",
+            "diff": {
+              "after": "accessSet: empty\ndenyDirect: false\n",
+              "before": "accessSet: empty\ndenyDirect: true\n"
+            },
+            "keys": ["launchProfiles.bare"],
+            "op": "merge",
+            "path": "<WORLD>/home/.config/mcpm/context.json"
+          },
+          {
+            "detail": "put back 1 key(s) owned by launch-policy:bare",
+            "keys": ["deniedMcpServers"],
+            "op": "delete",
+            "path": "<WORLD>/home/proj/.claude/settings.local.json"
+          }
+        ],
+        "summary": "Update launch profile bare: Claude Code started with claude-code-bare sees the access set Empty",
+        "undo": "toolportctl context launch-profile add bare --set empty --deny-direct on",
+        "warnings": [
+          "claude-code has no discovery override, so claude-code-bare follows the global mode; the small-catalog Full that claude-code gets under Auto is built into that client id and cannot be copied"
+        ]
+      },
+      "profile": {
+        "accessSet": {
+          "id": "empty",
+          "name": "Empty"
+        },
+        "accessSetRef": "empty",
+        "clientId": "claude-code-bare",
+        "command": "claude --strict-mcp-config --mcp-config <WORLD>/home/.config/toolport/profiles/bare/mcp.json",
+        "denyDirect": false,
+        "discovery": null,
+        "folderWarnings": [],
+        "mcpFile": "<WORLD>/home/.config/toolport/profiles/bare/mcp.json",
+        "name": "bare",
+        "policyFolders": [],
+        "problems": [],
+        "state": "ok"
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "<WORLD>/home/.config/mcpm/context.json",
+          "<WORLD>/home/proj/.claude/settings.local.json",
+          "<WORLD>/home/proj/.git/info/exclude"
+        ],
+        "undo": "toolportctl context launch-profile add bare --set empty --deny-direct on"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -17,6 +17,7 @@ mod compression_cfg;
 mod compression_hooks;
 mod context;
 mod flags;
+mod launch_profile;
 mod library;
 mod mcp;
 mod output;
@@ -287,6 +288,26 @@ pub const COMMANDS: &[Command] = &[
         &["context", "leave-out"],
         "Leave a CLAUDE.md or rule out of a folder, or turn auto memory off there (add|rm <path> or --memory, --cwd, --dry-run)",
         context::leave_out,
+    ),
+    cmd(
+        &["context", "launch-profile", "ls"],
+        "List the launch profiles: client id, access set, state and the folder mappings that would outrank them (<name>, --cwd)",
+        launch_profile::ls,
+    ),
+    cmd(
+        &["context", "launch-profile", "add"],
+        "Add or change a launch profile: its own client id claude-code-<name> bound to an access set, one gateway entry in mcp.json (<name>, --set, --deny-direct on|off, --dry-run)",
+        launch_profile::add,
+    ),
+    cmd(
+        &["context", "launch-profile", "rm"],
+        "Remove a launch profile with its binding, file and rendered policy (<name>, --dry-run)",
+        launch_profile::rm,
+    ),
+    cmd(
+        &["context", "launch-profile", "policy"],
+        "Write deniedMcpServers for the direct Claude Code entries a profile's access set leaves out, when its --deny-direct switch is on (<name>, --cwd, --dry-run)",
+        launch_profile::policy,
     ),
     cmd(
         &["plugins", "off"],

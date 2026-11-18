@@ -467,7 +467,7 @@ pub fn sync(host: &dyn Host, dry_run: bool) -> Result<Value, OpError> {
         "dryRun": dry_run,
         "bundles": bundles,
         "autoApply": bundles.is_some(),
-        "deploy": { "built": false, "note": "rule layers, shims and launch profiles are not part of this build yet" },
+        "deploy": { "built": false, "note": "rule layers and shims are not part of this build yet" },
     }))
 }
 

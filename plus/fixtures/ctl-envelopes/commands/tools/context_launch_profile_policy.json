@@ -1,0 +1,7 @@
+{
+  "command": "context launch-profile policy",
+  "dryRun": "default-on",
+  "name": "context_launch_profile_policy",
+  "tier": "write",
+  "toolTier": 2
+}

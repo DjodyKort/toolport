@@ -1,0 +1,38 @@
+{
+  "argv": ["context", "launch-profile", "ls", "bare", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "context launch-profile ls",
+    "data": {
+      "base": "claude-code",
+      "profiles": [
+        {
+          "accessSet": {
+            "id": "bare",
+            "name": "Bare"
+          },
+          "accessSetRef": "bare",
+          "clientId": "claude-code-bare",
+          "command": "claude --strict-mcp-config --mcp-config <WORLD>/home/.config/toolport/profiles/bare/mcp.json",
+          "denyDirect": false,
+          "discovery": null,
+          "folderWarnings": [
+            {
+              "folder": "<WORLD>/home/proj",
+              "rule": "A folder mapping outranks a client's own access set: inside a mapped folder, and below it, the gateway uses the folder's set for every client. Order: folder mapping, the client's own set, TOOLPORT_PROFILE, Default access.",
+              "servers": ["srv-beta"],
+              "text": "In <WORLD>/home/proj the gateway uses Wide, not launch profile bare's own set: it adds 1 server its own set leaves out (beta). A folder mapping outranks a client's own access set: inside a mapped folder, and below it, the gateway uses the folder's set for every client. Order: folder mapping, the client's own set, TOOLPORT_PROFILE, Default access."
+            }
+          ],
+          "mcpFile": "<WORLD>/home/.config/toolport/profiles/bare/mcp.json",
+          "name": "bare",
+          "policyFolders": [],
+          "problems": [],
+          "state": "ok"
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

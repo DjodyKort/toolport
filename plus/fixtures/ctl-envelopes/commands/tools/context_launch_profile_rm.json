@@ -1,0 +1,7 @@
+{
+  "command": "context launch-profile rm",
+  "dryRun": "default-on",
+  "name": "context_launch_profile_rm",
+  "tier": "destructive",
+  "toolTier": 4
+}

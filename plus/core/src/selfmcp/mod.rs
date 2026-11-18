@@ -10,6 +10,7 @@ mod compression;
 mod compression_tests;
 mod content;
 mod context;
+mod launch_profile;
 mod library;
 mod reach;
 pub mod register;

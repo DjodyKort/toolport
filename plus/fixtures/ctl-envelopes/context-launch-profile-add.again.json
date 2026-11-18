@@ -1,0 +1,27 @@
+{
+  "argv": ["context", "launch-profile", "add", "bare", "--dry-run"],
+  "envelope": {
+    "command": "context launch-profile add",
+    "data": {
+      "clientId": "claude-code-bare",
+      "created": false,
+      "dryRun": true,
+      "folderWarnings": [],
+      "name": "bare",
+      "plan": {
+        "effects": {},
+        "steps": [],
+        "summary": "Launch profile bare is up to date",
+        "undo": "toolportctl context launch-profile add bare --set bare --deny-direct off",
+        "warnings": [
+          "claude-code has no discovery override, so claude-code-bare follows the global mode; the small-catalog Full that claude-code gets under Auto is built into that client id and cannot be copied"
+        ]
+      },
+      "profile": null,
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

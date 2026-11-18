@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "launch-profile", "add", "other", "--dry-run"],
+  "envelope": {
+    "command": "context launch-profile add",
+    "error": {
+      "code": "usage",
+      "message": "--set <access set> is required for a new launch profile"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

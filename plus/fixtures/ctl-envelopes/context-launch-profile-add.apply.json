@@ -1,0 +1,82 @@
+{
+  "argv": ["context", "launch-profile", "add", "bare", "--set", "bare"],
+  "envelope": {
+    "command": "context launch-profile add",
+    "data": {
+      "clientId": "claude-code-bare",
+      "created": true,
+      "dryRun": false,
+      "folderWarnings": [],
+      "name": "bare",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "bind claude-code-bare to the access set Bare and give it Claude Code's discovery mode",
+            "diff": {
+              "after": "clientScopes.claude-code-bare: bare\nclientDiscovery.claude-code-bare: (inherits the global mode)\n",
+              "before": "clientScopes.claude-code-bare: (none)\nclientDiscovery.claude-code-bare: (inherits the global mode)\n"
+            },
+            "keys": ["clientScopes.claude-code-bare", "clientDiscovery.claude-code-bare"],
+            "op": "update",
+            "path": "<WORLD>/data/registry.json"
+          },
+          {
+            "detail": "one gateway entry carrying TOOLPORT_CLIENT_ID=claude-code-bare",
+            "diff": {
+              "after": "{\n  \"mcpServers\": {\n    \"toolport\": {\n      \"args\": [],\n      \"command\": \"<BIN>/toolport-gateway\",\n      \"env\": {\n        \"TOOLPORT_CLIENT_ID\": \"claude-code-bare\",\n        \"TOOLPORT_PROFILE\": \"bare\"\n      }\n    }\n  }\n}\n",
+              "before": ""
+            },
+            "op": "create",
+            "path": "<WORLD>/home/.config/toolport/profiles/bare/mcp.json"
+          },
+          {
+            "detail": "record launch profile bare",
+            "diff": {
+              "after": "accessSet: bare\ndenyDirect: false\n",
+              "before": ""
+            },
+            "keys": ["launchProfiles.bare"],
+            "op": "create",
+            "path": "<WORLD>/home/.config/mcpm/context.json"
+          }
+        ],
+        "summary": "Add launch profile bare: Claude Code started with claude-code-bare sees the access set Bare",
+        "undo": "toolportctl context launch-profile rm bare",
+        "warnings": [
+          "claude-code has no discovery override, so claude-code-bare follows the global mode; the small-catalog Full that claude-code gets under Auto is built into that client id and cannot be copied"
+        ]
+      },
+      "profile": {
+        "accessSet": {
+          "id": "bare",
+          "name": "Bare"
+        },
+        "accessSetRef": "bare",
+        "clientId": "claude-code-bare",
+        "command": "claude --strict-mcp-config --mcp-config <WORLD>/home/.config/toolport/profiles/bare/mcp.json",
+        "denyDirect": false,
+        "discovery": null,
+        "folderWarnings": [],
+        "mcpFile": "<WORLD>/home/.config/toolport/profiles/bare/mcp.json",
+        "name": "bare",
+        "policyFolders": [],
+        "problems": [],
+        "state": "ok"
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "registry",
+          "<WORLD>/home/.config/toolport/profiles/bare/mcp.json",
+          "<WORLD>/home/.config/mcpm/context.json"
+        ],
+        "undo": "toolportctl context launch-profile rm bare"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

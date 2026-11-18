@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "launch-profile", "rm", "bare"],
+  "envelope": {
+    "command": "context launch-profile rm",
+    "error": {
+      "code": "not_found",
+      "message": "no launch profile called bare"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

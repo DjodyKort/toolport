@@ -13,6 +13,7 @@ pub mod config;
 pub mod fsx;
 pub mod globs;
 pub mod hash;
+pub mod launch_profile;
 pub mod layers;
 pub mod leave_out;
 pub mod loads;

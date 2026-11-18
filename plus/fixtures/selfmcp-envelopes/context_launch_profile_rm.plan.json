@@ -1,0 +1,50 @@
+{
+  "arguments": {
+    "name": "bare"
+  },
+  "isError": false,
+  "result": {
+    "clientId": "claude-code-bare",
+    "dryRun": true,
+    "name": "bare",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "remove the binding and the discovery override of claude-code-bare",
+          "diff": {
+            "after": "",
+            "before": "clientScopes.claude-code-bare: bare\nclientDiscovery.claude-code-bare: (none)\n"
+          },
+          "keys": ["clientScopes.claude-code-bare", "clientDiscovery.claude-code-bare"],
+          "op": "update",
+          "path": "<WORLD>/data/registry.json"
+        },
+        {
+          "detail": "remove the generated mcp.json",
+          "diff": {
+            "after": "",
+            "before": "{\n  \"mcpServers\": {\n    \"toolport\": {\n      \"args\": [],\n      \"command\": \"<BIN>/toolport-gateway\",\n      \"env\": {\n        \"TOOLPORT_CLIENT_ID\": \"claude-code-bare\",\n        \"TOOLPORT_PROFILE\": \"bare\"\n      }\n    }\n  }\n}\n"
+          },
+          "op": "delete",
+          "path": "<WORLD>/home/.config/toolport/profiles/bare/mcp.json"
+        },
+        {
+          "detail": "remove the record of bare",
+          "diff": {
+            "after": "",
+            "before": "accessSet: bare\ndenyDirect: false\n"
+          },
+          "keys": ["launchProfiles.bare"],
+          "op": "update",
+          "path": "<WORLD>/home/.config/mcpm/context.json"
+        }
+      ],
+      "summary": "Remove launch profile bare",
+      "undo": "toolportctl context launch-profile add bare --set bare",
+      "warnings": []
+    },
+    "result": null
+  },
+  "tool": "context_launch_profile_rm"
+}

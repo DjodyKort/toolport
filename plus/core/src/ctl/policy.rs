@@ -17,6 +17,7 @@ use super::client_direct;
 use super::client_reach;
 use super::context;
 use super::flags::{switch, value, Flag, Spec};
+use super::launch_profile;
 use super::library;
 use super::mcp;
 use super::plugins;
@@ -429,6 +430,23 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&context::LEAVE_OUT])
         .args(&[req("action"), opt("path")])
+        .requires(&["--cwd"])
+        .skip("writes a folder's settings; its --dry-run is a golden step"),
+    row("context launch-profile ls", R).spec(&[&launch_profile::LS]),
+    row("context launch-profile add", W)
+        .dry()
+        .spec(&[&launch_profile::ADD])
+        .args(&[req("name")])
+        .skip("binds a client id in the registry and writes a file; its --dry-run is a golden step"),
+    row("context launch-profile rm", D)
+        .dry()
+        .spec(&[&launch_profile::RM])
+        .args(&[req("name")])
+        .skip("removes a binding and a file; its --dry-run is a golden step"),
+    row("context launch-profile policy", W)
+        .dry()
+        .spec(&[&launch_profile::POLICY])
+        .args(&[req("name")])
         .requires(&["--cwd"])
         .skip("writes a folder's settings; its --dry-run is a golden step"),
     row("plugins off", W)
@@ -928,6 +946,10 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("context_bundle_apply", W, "context bundle apply").param(),
     maps("context_bundle_undo", W, "context bundle undo").param(),
     maps("context_leave_out", W, "context leave-out").on(),
+    maps("context_launch_profile_ls", R, "context launch-profile ls"),
+    maps("context_launch_profile_add", W, "context launch-profile add").on(),
+    maps("context_launch_profile_rm", D, "context launch-profile rm").on(),
+    maps("context_launch_profile_policy", W, "context launch-profile policy").on(),
     maps("context_loads", R, "context loads"),
     maps("context_measure", W, "context measure"),
     maps("context_status", R, "context status"),

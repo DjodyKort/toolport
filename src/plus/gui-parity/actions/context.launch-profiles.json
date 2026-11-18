@@ -1,0 +1,6 @@
+{
+  "route": "context",
+  "status": "built",
+  "summary": "Launch profiles on Rules and launch: add, change and remove a profile after its plan, with the folder mappings that outrank it and the policy switch (context launch-profile ls|add|rm|policy, context_launch_profile_*)",
+  "test": "src/plus/context/LaunchProfiles.test.tsx"
+}

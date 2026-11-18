@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "launch-profile", "policy", "bare"],
+  "envelope": {
+    "command": "context launch-profile policy",
+    "error": {
+      "code": "usage",
+      "message": "usage: context launch-profile policy <name> --cwd <dir> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -2,7 +2,7 @@ use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
 use super::{
-    backend, clients, compression, content, context, library, reach, servers, skills, sources,
+    backend, clients, compression, content, context, launch_profile, library, reach, servers, skills, sources,
     tasks, ToolError,
 };
 
@@ -1036,6 +1036,50 @@ pub const TOOLS: &[ToolDef] = &[
             DRY_ON
         ],
         context::leave_out
+    ),
+    tool!(
+        "context_launch_profile_ls",
+        1,
+        None,
+        "List the launch profiles: each is a named start of Claude Code with its own client id claude-code-<name> bound to an access set, with its state, the command that starts it and the folder mappings that would outrank it. Read only",
+        [
+            p("name", Ty::Str, false, "Only this profile"),
+            p("cwd", Ty::Str, false, "The folder the launch starts in; narrows the folder warnings to the mappings that cover it")
+        ],
+        launch_profile::ls
+    ),
+    tool!(
+        "context_launch_profile_add",
+        3,
+        UnlessDryRun,
+        "Add or change a launch profile: bind the client id claude-code-<name> to an access set in the registry, copy Claude Code's discovery override to it and write mcp.json with one gateway entry. dry_run is on by default and returns the plan, including a warning when a folder mapping outranks the profile (apply with dry_run=false and confirm=true)",
+        [
+            p("name", Ty::Str, true, "Profile name, lower case letters, digits and hyphens"),
+            p("set", Ty::Str, false, "Access set by name or id; required for a new profile"),
+            p("deny_direct", Ty::Bool, false, "Whether context_launch_profile_policy may render deniedMcpServers for this profile; off by default"),
+            DRY_ON
+        ],
+        launch_profile::add
+    ),
+    tool!(
+        "context_launch_profile_rm",
+        4,
+        UnlessDryRun,
+        "Remove a launch profile: its registry binding, discovery override, mcp.json, record and any rendered deniedMcpServers keys. dry_run is on by default and returns the plan (apply with dry_run=false and confirm=true)",
+        [p("name", Ty::Str, true, "Profile name"), DRY_ON],
+        launch_profile::rm
+    ),
+    tool!(
+        "context_launch_profile_policy",
+        2,
+        None,
+        "Write deniedMcpServers into a folder's git-ignored .claude/settings.local.json for the Claude Code direct entries a profile's access set leaves out, when the profile's deny_direct switch is on; with the switch off it removes what it wrote. Unverified against a real Claude Code launch. dry_run is on by default",
+        [
+            p("name", Ty::Str, true, "Profile name"),
+            p("cwd", Ty::Str, true, "Folder where Claude Code starts; nothing is written above it"),
+            DRY_ON
+        ],
+        launch_profile::policy
     ),
     tool!(
         "context_loads",

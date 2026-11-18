@@ -169,6 +169,29 @@ fn a_set_that_was_deleted(world: &World) {
     world.write_registry(&registry);
 }
 
+fn launch_profile_sets(world: &World) {
+    let mut registry = world.registry();
+    registry["version"] = json!(3);
+    registry["servers"][0]["enabled"] = json!(true);
+    registry["servers"][1]["enabled"] = json!(true);
+    registry["defaultAccessProfileId"] = json!("default");
+    registry["profiles"] = json!([
+        {"id": "default", "name": "Default", "enabledServerIds": ["srv-alpha", "srv-beta"]},
+        {"id": "bare", "name": "Bare", "enabledServerIds": ["srv-alpha"]},
+        {"id": "wide", "name": "Wide", "enabledServerIds": ["srv-alpha", "srv-beta"]},
+        {"id": "empty", "name": "Empty", "enabledServerIds": []},
+    ]);
+    world.write_registry(&registry);
+}
+
+fn map_the_project_folder(world: &World) {
+    let mut registry = world.registry();
+    registry["folderProfiles"] = json!([
+        {"path": world.home.join("proj").to_string_lossy(), "profile": "wide"}
+    ]);
+    world.write_registry(&registry);
+}
+
 fn opt_alpha_into_the_stdio_probe(world: &World) {
     let mut registry = world.registry();
     registry["servers"][0]["plus"] = json!({"authProbe": {"kind": "stdio"}});
@@ -1421,6 +1444,199 @@ const CASES: &[Case] = &[
             )
             .exit(1),
             usage("usage", &["context", "leave-out", "add"]),
+        ],
+    ),
+    case(
+        "context launch-profile add",
+        &[
+            hook("files", context_files),
+            hook("sets", launch_profile_sets),
+            read(
+                "plan",
+                &[
+                    "context",
+                    "launch-profile",
+                    "add",
+                    "bare",
+                    "--set",
+                    "bare",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &["context", "launch-profile", "add", "bare", "--set", "bare"],
+            ),
+            read(
+                "again",
+                &["context", "launch-profile", "add", "bare", "--dry-run"],
+            ),
+            read(
+                "unknown-set",
+                &[
+                    "context",
+                    "launch-profile",
+                    "add",
+                    "bare",
+                    "--set",
+                    "nope",
+                    "--dry-run",
+                ],
+            )
+            .exit(1),
+            read(
+                "needs-a-set",
+                &["context", "launch-profile", "add", "other", "--dry-run"],
+            )
+            .exit(2),
+            usage("usage", &["context", "launch-profile", "add"]),
+            hook("map-the-folder", map_the_project_folder),
+            read(
+                "folder-outranks",
+                &[
+                    "context",
+                    "launch-profile",
+                    "add",
+                    "bare",
+                    "--set",
+                    "empty",
+                    "--dry-run",
+                ],
+            ),
+        ],
+    ),
+    case(
+        "context launch-profile ls",
+        &[
+            hook("files", context_files),
+            hook("sets", launch_profile_sets),
+            read("none", &["context", "launch-profile", "ls"]),
+            setup(
+                "add",
+                &["context", "launch-profile", "add", "bare", "--set", "bare"],
+            ),
+            hook("map-the-folder", map_the_project_folder),
+            read("ls", &["context", "launch-profile", "ls"]),
+            read(
+                "ls-inside",
+                &[
+                    "context",
+                    "launch-profile",
+                    "ls",
+                    "bare",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            read("ls-unknown", &["context", "launch-profile", "ls", "nope"]).exit(1),
+        ],
+    ),
+    case(
+        "context launch-profile rm",
+        &[
+            hook("files", context_files),
+            hook("sets", launch_profile_sets),
+            setup(
+                "add",
+                &["context", "launch-profile", "add", "bare", "--set", "bare"],
+            ),
+            read(
+                "plan",
+                &["context", "launch-profile", "rm", "bare", "--dry-run"],
+            ),
+            apply("apply", &["context", "launch-profile", "rm", "bare"]),
+            read("gone", &["context", "launch-profile", "rm", "bare"]).exit(1),
+            usage("usage", &["context", "launch-profile", "rm"]),
+        ],
+    ),
+    case(
+        "context launch-profile policy",
+        &[
+            hook("files", context_files),
+            hook("sets", launch_profile_sets),
+            hook("home", claude_code_home),
+            setup(
+                "direct",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
+            setup(
+                "add",
+                &[
+                    "context",
+                    "launch-profile",
+                    "add",
+                    "bare",
+                    "--set",
+                    "empty",
+                    "--deny-direct",
+                    "on",
+                ],
+            ),
+            read(
+                "plan",
+                &[
+                    "context",
+                    "launch-profile",
+                    "policy",
+                    "bare",
+                    "--cwd",
+                    "{home}/proj",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "context",
+                    "launch-profile",
+                    "policy",
+                    "bare",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            apply(
+                "off",
+                &[
+                    "context",
+                    "launch-profile",
+                    "add",
+                    "bare",
+                    "--deny-direct",
+                    "off",
+                ],
+            ),
+            read(
+                "switched-off",
+                &[
+                    "context",
+                    "launch-profile",
+                    "policy",
+                    "bare",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            read(
+                "unknown-profile",
+                &[
+                    "context",
+                    "launch-profile",
+                    "policy",
+                    "nope",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            )
+            .exit(1),
+            usage("usage", &["context", "launch-profile", "policy", "bare"]),
         ],
     ),
     case(

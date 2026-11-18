@@ -1,0 +1,32 @@
+{
+  "argv": ["context", "launch-profile", "policy", "bare", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "context launch-profile policy",
+    "data": {
+      "conflicts": [],
+      "cwd": "<WORLD>/home/proj",
+      "denyDirect": false,
+      "dryRun": false,
+      "keys": [],
+      "name": "bare",
+      "plan": {
+        "effects": {},
+        "steps": [],
+        "summary": "Policy rendering for bare in <WORLD>/home/proj",
+        "undo": "toolportctl context launch-profile add bare --deny-direct on",
+        "warnings": [
+          "policy rendering is off for bare; turn it on with `toolportctl context launch-profile add bare --deny-direct on`"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [],
+        "undo": "toolportctl context launch-profile add bare --deny-direct on"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
