@@ -1,0 +1,34 @@
+{
+  "argv": ["access-set", "rm", "empty"],
+  "envelope": {
+    "command": "access-set rm",
+    "data": {
+      "accessSet": {
+        "id": "empty",
+        "name": "Empty"
+      },
+      "dryRun": false,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "delete the access set Empty",
+            "op": "registry"
+          }
+        ],
+        "summary": "Delete access set Empty",
+        "undo": "toolportctl access-set add Empty",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["registry"],
+        "undo": "toolportctl access-set add Empty"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

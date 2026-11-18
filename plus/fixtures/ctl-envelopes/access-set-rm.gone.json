@@ -1,0 +1,13 @@
+{
+  "argv": ["access-set", "rm", "empty"],
+  "envelope": {
+    "command": "access-set rm",
+    "error": {
+      "code": "not_found",
+      "message": "no access set called empty; the access sets are: Default, Wide"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,34 @@
+{
+  "argv": ["access-set", "default", "wide"],
+  "envelope": {
+    "command": "access-set default",
+    "data": {
+      "defaultAccess": {
+        "id": "wide",
+        "name": "Wide"
+      },
+      "dryRun": false,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "clients without their own set reach the enabled servers Wide lists",
+            "op": "registry"
+          }
+        ],
+        "summary": "Make Wide the default access",
+        "undo": "toolportctl access-set default Default",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["registry"],
+        "undo": "toolportctl access-set default Default"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

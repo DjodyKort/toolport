@@ -1,0 +1,13 @@
+{
+  "argv": ["access-set", "add", "deep work", "--dry-run"],
+  "envelope": {
+    "command": "access-set add",
+    "error": {
+      "code": "conflict",
+      "message": "an access set called Deep Work exists already"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

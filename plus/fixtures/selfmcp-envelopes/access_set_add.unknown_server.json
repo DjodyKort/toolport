@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "New",
+    "servers": ["nope"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no server 'nope'"
+    }
+  },
+  "text": "not_found: no server 'nope'",
+  "tool": "access_set_add"
+}

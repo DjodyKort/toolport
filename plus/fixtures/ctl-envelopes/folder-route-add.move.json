@@ -1,0 +1,30 @@
+{
+  "argv": ["folder", "route", "add", "/work/proj", "wide", "--dry-run"],
+  "envelope": {
+    "command": "folder route add",
+    "data": {
+      "accessSet": {
+        "id": "wide",
+        "name": "Wide"
+      },
+      "dryRun": true,
+      "path": "/work/proj",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "/work/proj and the folders below it use Wide",
+            "op": "registry"
+          }
+        ],
+        "summary": "Route /work/proj to the access set Wide",
+        "undo": "toolportctl folder route add /work/proj Bare",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

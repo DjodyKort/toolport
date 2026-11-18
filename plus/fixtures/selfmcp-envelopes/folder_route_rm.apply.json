@@ -1,0 +1,34 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "folder": "/work/proj"
+  },
+  "isError": false,
+  "result": {
+    "accessSet": {
+      "name": "Wide"
+    },
+    "dryRun": false,
+    "path": "/work/proj",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "/work/proj and the folders below it stop using Wide",
+          "op": "registry"
+        }
+      ],
+      "summary": "Remove the folder route for /work/proj",
+      "undo": "toolportctl folder route add /work/proj Wide",
+      "warnings": []
+    },
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": ["registry"],
+      "undo": "toolportctl folder route add /work/proj Wide"
+    }
+  },
+  "tool": "folder_route_rm"
+}

@@ -191,6 +191,22 @@ fn launch_profile_sets(world: &World) {
     world.write_registry(&registry);
 }
 
+fn bare_in_use(world: &World) {
+    let mut registry = world.registry();
+    registry["clientScopes"] = json!({"claude-code": "bare"});
+    registry["folderProfiles"] = json!([{"path": "/work/proj", "profile": "bare"}]);
+    world.write_registry(&registry);
+}
+
+fn a_route_to_a_deleted_set(world: &World) {
+    let mut registry = world.registry();
+    registry["folderProfiles"] = json!([
+        {"path": "/work/proj", "profile": "wide"},
+        {"path": "/old/proj", "profile": "gone"},
+    ]);
+    world.write_registry(&registry);
+}
+
 fn map_the_project_folder(world: &World) {
     let mut registry = world.registry();
     registry["folderProfiles"] = json!([
@@ -903,6 +919,175 @@ const CASES: &[Case] = &[
                 ],
             ),
             usage("usage", &["server", "edit"]),
+        ],
+    ),
+    case(
+        "access-set ls",
+        &[
+            hook("sets", explicit_default_access),
+            read("ls", &["access-set", "ls"]),
+            hook("route", folder_routing),
+            read("routed", &["access-set", "ls"]),
+            usage("usage", &["access-set", "ls", "extra"]),
+        ],
+    ),
+    case(
+        "access-set add",
+        &[
+            hook("sets", launch_profile_sets),
+            read(
+                "plan",
+                &[
+                    "access-set",
+                    "add",
+                    "Deep Work",
+                    "--server",
+                    "alpha",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &["access-set", "add", "Deep Work", "--server", "alpha"],
+            ),
+            read("exists", &["access-set", "add", "deep work", "--dry-run"]).exit(1),
+            read(
+                "unknown-server",
+                &["access-set", "add", "New", "--server", "nope", "--dry-run"],
+            )
+            .exit(1),
+            read("reserved", &["access-set", "add", "@all", "--dry-run"]).exit(2),
+            read(
+                "empty-set",
+                &["access-set", "add", "Empty Too", "--dry-run"],
+            ),
+            usage("usage", &["access-set", "add"]),
+        ],
+    ),
+    case(
+        "access-set rm",
+        &[
+            hook("sets", launch_profile_sets),
+            hook("bare-in-use", bare_in_use),
+            read("in-use", &["access-set", "rm", "bare", "--dry-run"]).exit(1),
+            read(
+                "detach-plan",
+                &["access-set", "rm", "bare", "--detach", "--dry-run"],
+            ),
+            read(
+                "leave-plan",
+                &["access-set", "rm", "bare", "--leave", "--dry-run"],
+            ),
+            apply("detach", &["access-set", "rm", "bare", "--detach"]),
+            read("default", &["access-set", "rm", "default", "--dry-run"]).exit(1),
+            read(
+                "both-flags",
+                &["access-set", "rm", "wide", "--detach", "--leave"],
+            )
+            .exit(2),
+            apply("apply", &["access-set", "rm", "empty"]),
+            read("gone", &["access-set", "rm", "empty"]).exit(1),
+            usage("usage", &["access-set", "rm"]),
+        ],
+    ),
+    case(
+        "access-set default",
+        &[
+            hook("sets", launch_profile_sets),
+            read("plan", &["access-set", "default", "wide", "--dry-run"]),
+            apply("apply", &["access-set", "default", "wide"]),
+            apply("none", &["access-set", "default", "--none"]),
+            read("again", &["access-set", "default", "--none", "--dry-run"]),
+            read(
+                "unknown-set",
+                &["access-set", "default", "nope", "--dry-run"],
+            )
+            .exit(1),
+            read("both", &["access-set", "default", "wide", "--none"]).exit(2),
+            read("nothing", &["access-set", "default"]).exit(2),
+        ],
+    ),
+    case(
+        "client scope",
+        &[
+            hook("sets", launch_profile_sets),
+            read(
+                "plan",
+                &["client", "scope", "claude-code", "bare", "--dry-run"],
+            ),
+            apply("apply", &["client", "scope", "claude-code", "bare"]),
+            hook("map-the-folder", map_the_project_folder),
+            read(
+                "folder-outranks",
+                &["client", "scope", "claude-code", "wide", "--dry-run"],
+            ),
+            apply("clear", &["client", "scope", "claude-code", "--none"]),
+            read(
+                "unknown-client",
+                &["client", "scope", "claud-code", "bare", "--dry-run"],
+            )
+            .exit(1),
+            read(
+                "unknown-set",
+                &["client", "scope", "claude-code", "nope", "--dry-run"],
+            )
+            .exit(1),
+            read("needs-a-set", &["client", "scope", "claude-code"]).exit(2),
+            usage("usage", &["client", "scope"]),
+        ],
+    ),
+    case(
+        "folder route ls",
+        &[
+            hook("sets", launch_profile_sets),
+            read("none", &["folder", "route", "ls"]),
+            hook("routes", a_route_to_a_deleted_set),
+            read("ls", &["folder", "route", "ls"]),
+            usage("usage", &["folder", "route", "ls", "extra"]),
+        ],
+    ),
+    case(
+        "folder route add",
+        &[
+            hook("sets", launch_profile_sets),
+            read(
+                "plan",
+                &["folder", "route", "add", "/work/proj", "bare", "--dry-run"],
+            ),
+            apply("apply", &["folder", "route", "add", "/work/proj", "bare"]),
+            read(
+                "again",
+                &["folder", "route", "add", "/work/proj/", "bare", "--dry-run"],
+            ),
+            read(
+                "move",
+                &["folder", "route", "add", "/work/proj", "wide", "--dry-run"],
+            ),
+            read(
+                "relative",
+                &["folder", "route", "add", "proj", "bare", "--dry-run"],
+            )
+            .exit(2),
+            read(
+                "unknown-set",
+                &["folder", "route", "add", "/work/proj", "gone", "--dry-run"],
+            )
+            .exit(1),
+            usage("usage", &["folder", "route", "add", "/work/proj"]),
+        ],
+    ),
+    case(
+        "folder route rm",
+        &[
+            hook("sets", launch_profile_sets),
+            setup("add", &["folder", "route", "add", "/work/proj", "bare"]),
+            read(
+                "plan",
+                &["folder", "route", "rm", "/work/proj", "--dry-run"],
+            ),
+            apply("apply", &["folder", "route", "rm", "/work/proj"]),
+            read("gone", &["folder", "route", "rm", "/work/proj"]).exit(1),
+            usage("usage", &["folder", "route", "rm"]),
         ],
     ),
     case(

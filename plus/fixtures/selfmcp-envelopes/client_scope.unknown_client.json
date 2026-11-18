@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "client": "claud-code",
+    "set": "wide"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no client 'claud-code'; the clients are: claude-desktop, cursor, droid, crush, anythingllm, vscode, amp, windsurf, devin-cli, opencode, kilo-code, grok, codex, github-copilot-cli, antigravity, claude-code, gemini-cli, qwen-code, junie, cline, roo-code, warp, amazon-q, kiro, auggie, kimi-code, deepseek-harness, reasonix, codewhale, openclaw, openhands, nanobot, zcode, command-code, tabnine, tabnine-cli, zed, lm-studio, jan, boltai, pi, omp, goose, hermes, continue, witsy"
+    }
+  },
+  "text": "not_found: no client 'claud-code'; the clients are: claude-desktop, cursor, droid, crush, anythingllm, vscode, amp, windsurf, devin-cli, opencode, kilo-code, grok, codex, github-copilot-cli, antigravity, claude-code, gemini-cli, qwen-code, junie, cline, roo-code, warp, amazon-q, kiro, auggie, kimi-code, deepseek-harness, reasonix, codewhale, openclaw, openhands, nanobot, zcode, command-code, tabnine, tabnine-cli, zed, lm-studio, jan, boltai, pi, omp, goose, hermes, continue, witsy",
+  "tool": "client_scope"
+}

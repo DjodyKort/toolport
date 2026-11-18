@@ -1,0 +1,7 @@
+{
+  "command": "folder route rm",
+  "dryRun": "default-on",
+  "name": "folder_route_rm",
+  "tier": "destructive",
+  "toolTier": 4
+}

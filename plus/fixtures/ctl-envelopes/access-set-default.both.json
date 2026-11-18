@@ -1,0 +1,13 @@
+{
+  "argv": ["access-set", "default", "wide", "--none"],
+  "envelope": {
+    "command": "access-set default",
+    "error": {
+      "code": "usage",
+      "message": "give a set or --none, not both\nusage: access-set default (<set> | --none) [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

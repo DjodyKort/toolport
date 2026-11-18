@@ -1,0 +1,7 @@
+{
+  "command": "access-set ls",
+  "dryRun": "none",
+  "name": "access_set_ls",
+  "tier": "read",
+  "toolTier": 1
+}

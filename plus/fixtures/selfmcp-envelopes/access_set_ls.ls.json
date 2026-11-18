@@ -1,0 +1,56 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "accessSets": [
+      {
+        "clients": [],
+        "default": true,
+        "folders": [],
+        "id": "default",
+        "name": "Default",
+        "reached": 1,
+        "servers": [
+          {
+            "id": "srv-alpha",
+            "name": "alpha"
+          }
+        ]
+      },
+      {
+        "clients": ["claude-code"],
+        "default": false,
+        "folders": [],
+        "id": "focus",
+        "name": "Focus",
+        "reached": 1,
+        "servers": [
+          {
+            "id": "srv-alpha",
+            "name": "alpha"
+          }
+        ]
+      },
+      {
+        "clients": [],
+        "default": false,
+        "folders": ["/work/proj"],
+        "id": "wide",
+        "name": "Wide",
+        "reached": 2,
+        "servers": [
+          {
+            "id": "srv-alpha",
+            "name": "alpha"
+          },
+          {
+            "id": "srv-beta",
+            "name": "beta"
+          }
+        ]
+      }
+    ],
+    "defaultAccess": "default"
+  },
+  "tool": "access_set_ls"
+}

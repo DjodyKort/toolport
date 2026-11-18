@@ -1,0 +1,5 @@
+{
+  "route": "access-write",
+  "action": "access.write",
+  "surface": "screen"
+}

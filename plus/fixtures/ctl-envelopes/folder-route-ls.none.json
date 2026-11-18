@@ -1,0 +1,13 @@
+{
+  "argv": ["folder", "route", "ls"],
+  "envelope": {
+    "command": "folder route ls",
+    "data": {
+      "routes": [],
+      "rule": "A folder route outranks a client's own access set: inside a routed folder the gateway uses the folder's set for every client."
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,5 @@
+{
+  "route": "servers",
+  "action": "servers.access-sets",
+  "surface": "screen"
+}

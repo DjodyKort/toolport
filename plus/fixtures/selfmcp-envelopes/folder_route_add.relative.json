@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "folder": "other",
+    "set": "focus"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "other is not an absolute folder; the gateway matches the absolute folder a client reports"
+    }
+  },
+  "text": "invalid_arguments: other is not an absolute folder; the gateway matches the absolute folder a client reports",
+  "tool": "folder_route_add"
+}

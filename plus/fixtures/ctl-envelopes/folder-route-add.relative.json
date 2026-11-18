@@ -1,0 +1,13 @@
+{
+  "argv": ["folder", "route", "add", "proj", "bare", "--dry-run"],
+  "envelope": {
+    "command": "folder route add",
+    "error": {
+      "code": "usage",
+      "message": "proj is not an absolute folder; the gateway matches the absolute folder a client reports"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

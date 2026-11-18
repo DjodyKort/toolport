@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "set": "default"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "Default is the default access; choose another with `access-set default <set>` or `access-set default --none` first"
+    }
+  },
+  "text": "conflict: Default is the default access; choose another with `access-set default <set>` or `access-set default --none` first",
+  "tool": "access_set_rm"
+}

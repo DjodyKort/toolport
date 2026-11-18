@@ -1,0 +1,29 @@
+{
+  "argv": ["folder", "route", "rm", "/work/proj", "--dry-run"],
+  "envelope": {
+    "command": "folder route rm",
+    "data": {
+      "accessSet": {
+        "name": "Bare"
+      },
+      "dryRun": true,
+      "path": "/work/proj",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "/work/proj and the folders below it stop using Bare",
+            "op": "registry"
+          }
+        ],
+        "summary": "Remove the folder route for /work/proj",
+        "undo": "toolportctl folder route add /work/proj Bare",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "folder": "/work/proj"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: folder_route_rm (tier 4). Pass confirm=true to proceed. WARNING: this modifies remote state or removes entries."
+    }
+  },
+  "text": "refused: Refused: folder_route_rm (tier 4). Pass confirm=true to proceed. WARNING: this modifies remote state or removes entries.",
+  "tool": "folder_route_rm"
+}

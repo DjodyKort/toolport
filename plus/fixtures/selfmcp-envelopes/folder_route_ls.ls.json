@@ -1,0 +1,29 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "routes": [
+      {
+        "accessSet": {
+          "id": "wide",
+          "name": "Wide"
+        },
+        "missing": false,
+        "path": "/work/proj",
+        "reference": "wide",
+        "servers": [
+          {
+            "id": "srv-alpha",
+            "name": "alpha"
+          },
+          {
+            "id": "srv-beta",
+            "name": "beta"
+          }
+        ]
+      }
+    ],
+    "rule": "A folder route outranks a client's own access set: inside a routed folder the gateway uses the folder's set for every client."
+  },
+  "tool": "folder_route_ls"
+}

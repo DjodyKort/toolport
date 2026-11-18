@@ -1,0 +1,32 @@
+{
+  "argv": ["client", "scope", "claude-code", "--none"],
+  "envelope": {
+    "command": "client scope",
+    "data": {
+      "accessSet": null,
+      "client": "claude-code",
+      "dryRun": false,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "claude-code follows the default access",
+            "op": "registry"
+          }
+        ],
+        "summary": "Unbind claude-code from its access set",
+        "undo": "toolportctl client scope claude-code Bare",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["registry"],
+        "undo": "toolportctl client scope claude-code Bare"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

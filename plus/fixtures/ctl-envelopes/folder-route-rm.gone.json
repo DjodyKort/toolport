@@ -1,0 +1,13 @@
+{
+  "argv": ["folder", "route", "rm", "/work/proj"],
+  "envelope": {
+    "command": "folder route rm",
+    "error": {
+      "code": "not_found",
+      "message": "no folder route for /work/proj"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

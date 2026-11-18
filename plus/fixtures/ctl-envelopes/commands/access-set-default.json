@@ -1,0 +1,54 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Return to no explicit default: every enabled server",
+      "escalates": false,
+      "hidden": false,
+      "name": "--none",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "access-set",
+  "id": "access-set default",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "set",
+      "required": false,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["access-set", "default"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Make a set the default access for clients without their own, or --none for every enabled server (<set> | --none, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["access_set_default"]
+}

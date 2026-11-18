@@ -1,0 +1,25 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "access-set",
+  "id": "access-set ls",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["access-set", "ls"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List the access sets with their servers and what uses each: the default access, clients and folder routes",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["access_set_ls"]
+}

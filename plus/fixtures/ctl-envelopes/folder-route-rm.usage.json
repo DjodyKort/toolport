@@ -1,0 +1,13 @@
+{
+  "argv": ["folder", "route", "rm"],
+  "envelope": {
+    "command": "folder route rm",
+    "error": {
+      "code": "usage",
+      "message": "usage: folder route rm <folder> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

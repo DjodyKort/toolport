@@ -1,0 +1,30 @@
+{
+  "argv": ["folder", "route", "add", "/work/proj", "bare", "--dry-run"],
+  "envelope": {
+    "command": "folder route add",
+    "data": {
+      "accessSet": {
+        "id": "bare",
+        "name": "Bare"
+      },
+      "dryRun": true,
+      "path": "/work/proj",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "/work/proj and the folders below it use Bare",
+            "op": "registry"
+          }
+        ],
+        "summary": "Route /work/proj to the access set Bare",
+        "undo": "toolportctl folder route rm /work/proj",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

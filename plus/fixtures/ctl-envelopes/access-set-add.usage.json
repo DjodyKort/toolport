@@ -1,0 +1,13 @@
+{
+  "argv": ["access-set", "add"],
+  "envelope": {
+    "command": "access-set add",
+    "error": {
+      "code": "usage",
+      "message": "usage: access-set add <name> [--server <id|name>]... [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "orphans": "drop",
+    "set": "focus"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "orphans is detach or leave"
+    }
+  },
+  "text": "invalid_arguments: orphans is detach or leave",
+  "tool": "access_set_rm"
+}

@@ -1,0 +1,37 @@
+{
+  "argv": ["access-set", "ls"],
+  "envelope": {
+    "command": "access-set ls",
+    "data": {
+      "accessSets": [
+        {
+          "clients": [],
+          "default": true,
+          "folders": [],
+          "id": "default",
+          "name": "Default",
+          "reached": 1,
+          "servers": [
+            {
+              "id": "srv-alpha",
+              "name": "alpha"
+            }
+          ]
+        },
+        {
+          "clients": ["claude-code"],
+          "default": false,
+          "folders": [],
+          "id": "focus",
+          "name": "Focus",
+          "reached": 0,
+          "servers": []
+        }
+      ],
+      "defaultAccess": "default"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

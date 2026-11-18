@@ -1,0 +1,7 @@
+{
+  "command": "folder route ls",
+  "dryRun": "none",
+  "name": "folder_route_ls",
+  "tier": "read",
+  "toolTier": 1
+}

@@ -2445,6 +2445,220 @@
           "tier": 1
         },
         {
+          "description": "List the access sets: their servers, whether one is the default access, and the clients and folder routes that use each. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "access_set_ls",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Create an access set and list servers in it. dry_run is on by default and returns the plan with the command that undoes it (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "access_set_add",
+          "params": [
+            {
+              "description": "Name of the new set; not starting with @",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Servers to list in it, by id or name",
+              "name": "servers",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Delete an access set. A set that clients or folder routes still name is refused unless orphans says what happens to them; the default access cannot be deleted. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "access_set_rm",
+          "params": [
+            {
+              "description": "Access set by name or id",
+              "name": "set",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "detach unbinds the clients and folders that name it (clients follow the default access); leave deletes the set only and they reach nothing",
+              "name": "orphans",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
+          "description": "Make an access set the default access for clients without their own, or none=true for every enabled server. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "access_set_default",
+          "params": [
+            {
+              "description": "Access set by name or id",
+              "name": "set",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Return to every enabled server instead of a set",
+              "name": "none",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Bind a client to an access set, or none=true so it follows the default access. A folder route still outranks the binding. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "client_scope",
+          "params": [
+            {
+              "description": "Client id, as clients_reach shows",
+              "name": "client",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Access set by name or id",
+              "name": "set",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Remove the client's own set",
+              "name": "none",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "List the folder routes: each folder's access set and the servers it reaches. A route outranks a client's own set. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "folder_route_ls",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Route an absolute project folder and everything below it to an access set. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "folder_route_add",
+          "params": [
+            {
+              "description": "Absolute folder path",
+              "name": "folder",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Access set by name or id",
+              "name": "set",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Remove a folder route. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "folder_route_rm",
+          "params": [
+            {
+              "description": "The routed folder",
+              "name": "folder",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
           "description": "List the direct client entries Toolport wrote, with their state: ok, stale, customized, missing, orphan, unrecorded or relocated",
           "dryRunDefault": false,
           "gate": "none",

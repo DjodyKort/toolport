@@ -1,0 +1,32 @@
+{
+  "argv": ["client", "scope", "claude-code", "wide", "--dry-run"],
+  "envelope": {
+    "command": "client scope",
+    "data": {
+      "accessSet": {
+        "id": "wide",
+        "name": "Wide"
+      },
+      "client": "claude-code",
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "claude-code reaches the enabled servers Wide lists",
+            "op": "registry"
+          }
+        ],
+        "summary": "Bind claude-code to the access set Wide",
+        "undo": "toolportctl client scope claude-code Bare",
+        "warnings": [
+          "A folder route outranks a client's own access set: inside a routed folder the gateway uses the folder's set for every client. Routed folders: <WORLD>/home/proj."
+        ]
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

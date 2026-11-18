@@ -1,0 +1,13 @@
+{
+  "argv": ["folder", "route", "add", "/work/proj", "gone", "--dry-run"],
+  "envelope": {
+    "command": "folder route add",
+    "error": {
+      "code": "not_found",
+      "message": "no access set called gone; the access sets are: Default, Bare, Wide, Empty"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

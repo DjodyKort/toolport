@@ -1,0 +1,13 @@
+{
+  "argv": ["folder", "route", "ls", "extra"],
+  "envelope": {
+    "command": "folder route ls",
+    "error": {
+      "code": "usage",
+      "message": "unexpected argument: extra"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

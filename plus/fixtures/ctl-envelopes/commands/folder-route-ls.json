@@ -1,0 +1,25 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "folder",
+  "id": "folder route ls",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["folder", "route", "ls"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List the folder routes: each folder's access set and the servers it reaches, and the rule that a route outranks a client's own set",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["folder_route_ls"]
+}

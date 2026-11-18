@@ -6,6 +6,7 @@
 //! [`policy`], and `toolportctl commands` prints both, so the registry cannot drift from what a
 //! handler accepts.
 
+mod access;
 mod agents;
 mod attention;
 mod auth;
@@ -200,6 +201,48 @@ pub const COMMANDS: &[Command] = &[
         &["client", "reach"],
         "Show which access sets, clients and folders reach each server, and the servers nothing reaches [--server <id|name>] [--client <id>]",
         client_reach::run,
+    ),
+    cmd(
+        &["access-set", "ls"],
+        "List the access sets with their servers and what uses each: the default access, clients and folder routes",
+        access::set_ls,
+    )
+    .no_options(),
+    cmd(
+        &["access-set", "add"],
+        "Create an access set, optionally listing servers in it <name> [--server <id|name>]... [--dry-run]",
+        access::set_add,
+    ),
+    cmd(
+        &["access-set", "rm"],
+        "Delete an access set; one that clients or folders still name needs --detach (unbind them) or --leave (they reach nothing) <set> [--detach | --leave] [--dry-run]",
+        access::set_rm,
+    ),
+    cmd(
+        &["access-set", "default"],
+        "Make a set the default access for clients without their own, or --none for every enabled server (<set> | --none, --dry-run)",
+        access::set_default,
+    ),
+    cmd(
+        &["client", "scope"],
+        "Bind a client to an access set, or --none to follow the default access again (<client> (<set> | --none), --dry-run)",
+        access::client_scope,
+    ),
+    cmd(
+        &["folder", "route", "ls"],
+        "List the folder routes: each folder's access set and the servers it reaches, and the rule that a route outranks a client's own set",
+        access::route_ls,
+    )
+    .no_options(),
+    cmd(
+        &["folder", "route", "add"],
+        "Route a project folder and everything below it to an access set (<folder> <set>, --dry-run)",
+        access::route_add,
+    ),
+    cmd(
+        &["folder", "route", "rm"],
+        "Remove a folder route (<folder>, --dry-run)",
+        access::route_rm,
     ),
     cmd(
         &["auth", "statusline"],

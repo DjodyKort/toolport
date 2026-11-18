@@ -1,0 +1,13 @@
+{
+  "argv": ["client", "scope", "claude-code"],
+  "envelope": {
+    "command": "client scope",
+    "error": {
+      "code": "usage",
+      "message": "usage: client scope <client> (<set> | --none) [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

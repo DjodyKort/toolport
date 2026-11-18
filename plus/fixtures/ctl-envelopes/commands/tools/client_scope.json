@@ -1,0 +1,7 @@
+{
+  "command": "client scope",
+  "dryRun": "default-on",
+  "name": "client_scope",
+  "tier": "write",
+  "toolTier": 3
+}

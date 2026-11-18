@@ -1,0 +1,13 @@
+{
+  "argv": ["access-set", "default", "nope", "--dry-run"],
+  "envelope": {
+    "command": "access-set default",
+    "error": {
+      "code": "not_found",
+      "message": "no access set called nope; the access sets are: Default, Bare, Wide, Empty"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

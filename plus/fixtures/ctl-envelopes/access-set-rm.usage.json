@@ -1,0 +1,13 @@
+{
+  "argv": ["access-set", "rm"],
+  "envelope": {
+    "command": "access-set rm",
+    "error": {
+      "code": "usage",
+      "message": "usage: access-set rm <set> [--detach | --leave] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

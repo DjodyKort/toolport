@@ -1,0 +1,27 @@
+{
+  "arguments": {
+    "set": "wide"
+  },
+  "isError": false,
+  "result": {
+    "defaultAccess": {
+      "id": "wide",
+      "name": "Wide"
+    },
+    "dryRun": true,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "clients without their own set reach the enabled servers Wide lists",
+          "op": "registry"
+        }
+      ],
+      "summary": "Make Wide the default access",
+      "undo": "toolportctl access-set default Default",
+      "warnings": []
+    },
+    "result": null
+  },
+  "tool": "access_set_default"
+}

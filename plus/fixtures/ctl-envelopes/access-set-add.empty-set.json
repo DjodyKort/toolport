@@ -1,0 +1,26 @@
+{
+  "argv": ["access-set", "add", "Empty Too", "--dry-run"],
+  "envelope": {
+    "command": "access-set add",
+    "data": {
+      "dryRun": true,
+      "name": "Empty Too",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "create the access set Empty Too",
+            "op": "registry"
+          }
+        ],
+        "summary": "Add access set Empty Too",
+        "undo": "toolportctl access-set rm 'Empty Too'",
+        "warnings": ["Empty Too lists no server, so a client bound to it reaches nothing"]
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

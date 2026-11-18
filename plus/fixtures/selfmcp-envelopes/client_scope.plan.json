@@ -1,0 +1,31 @@
+{
+  "arguments": {
+    "client": "claude-code",
+    "set": "wide"
+  },
+  "isError": false,
+  "result": {
+    "accessSet": {
+      "id": "wide",
+      "name": "Wide"
+    },
+    "client": "claude-code",
+    "dryRun": true,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "claude-code reaches the enabled servers Wide lists",
+          "op": "registry"
+        }
+      ],
+      "summary": "Bind claude-code to the access set Wide",
+      "undo": "toolportctl client scope claude-code Focus",
+      "warnings": [
+        "A folder route outranks a client's own access set: inside a routed folder the gateway uses the folder's set for every client. Routed folders: /work/proj."
+      ]
+    },
+    "result": null
+  },
+  "tool": "client_scope"
+}

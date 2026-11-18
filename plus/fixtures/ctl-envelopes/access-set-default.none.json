@@ -1,0 +1,31 @@
+{
+  "argv": ["access-set", "default", "--none"],
+  "envelope": {
+    "command": "access-set default",
+    "data": {
+      "defaultAccess": null,
+      "dryRun": false,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "clients without their own set reach every enabled server",
+            "op": "registry"
+          }
+        ],
+        "summary": "Return the default access to every enabled server",
+        "undo": "toolportctl access-set default Wide",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["registry"],
+        "undo": "toolportctl access-set default Wide"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,30 @@
+{
+  "argv": ["client", "scope", "claude-code", "bare", "--dry-run"],
+  "envelope": {
+    "command": "client scope",
+    "data": {
+      "accessSet": {
+        "id": "bare",
+        "name": "Bare"
+      },
+      "client": "claude-code",
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "claude-code reaches the enabled servers Bare lists",
+            "op": "registry"
+          }
+        ],
+        "summary": "Bind claude-code to the access set Bare",
+        "undo": "toolportctl client scope claude-code --none",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

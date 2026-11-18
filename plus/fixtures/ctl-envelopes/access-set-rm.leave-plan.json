@@ -1,0 +1,32 @@
+{
+  "argv": ["access-set", "rm", "bare", "--leave", "--dry-run"],
+  "envelope": {
+    "command": "access-set rm",
+    "data": {
+      "accessSet": {
+        "id": "bare",
+        "name": "Bare"
+      },
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "delete the access set Bare",
+            "op": "registry"
+          }
+        ],
+        "summary": "Delete access set Bare",
+        "undo": "toolportctl access-set add Bare --server srv-alpha && toolportctl client scope claude-code Bare && toolportctl folder route add /work/proj Bare",
+        "warnings": [
+          "client claude-code keeps naming Bare and reaches nothing until it is bound again",
+          "folder /work/proj keeps naming Bare and reaches nothing until it is bound again"
+        ]
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

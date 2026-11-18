@@ -11,6 +11,7 @@
 //! writes either names an argv that only reads or gives the reason it is not run. The test walks
 //! the rows, so a new command is classified by adding its row and nothing else.
 
+use super::access;
 use super::agents;
 use super::attention;
 use super::auth;
@@ -401,6 +402,38 @@ pub(super) const ROWS: &[Row] = &[
     row("client direct ls", R).spec(&[&client_direct::READ]),
     row("client direct check", R).spec(&[&client_direct::READ]),
     row("client reach", R).spec(&[&client_reach::REACH]),
+    row("access-set ls", R),
+    row("access-set add", W)
+        .dry()
+        .spec(&[&access::ADD])
+        .args(&[req("name")])
+        .skip("creates an access set; its --dry-run is a golden step"),
+    row("access-set rm", D)
+        .dry()
+        .spec(&[&access::RM])
+        .args(&[req("set")])
+        .skip("deletes an access set; its --dry-run is a golden step"),
+    row("access-set default", W)
+        .dry()
+        .spec(&[&access::DEFAULT])
+        .args(&[opt("set")])
+        .skip("changes the default access; its --dry-run is a golden step"),
+    row("client scope", W)
+        .dry()
+        .spec(&[&access::SCOPE])
+        .args(&[req("client"), opt("set")])
+        .skip("binds a client to an access set; its --dry-run is a golden step"),
+    row("folder route ls", R),
+    row("folder route add", W)
+        .dry()
+        .spec(&[&access::ROUTE_ADD])
+        .args(&[req("folder"), req("set")])
+        .skip("routes a folder to an access set; its --dry-run is a golden step"),
+    row("folder route rm", D)
+        .dry()
+        .spec(&[&access::ROUTE_RM])
+        .args(&[req("folder")])
+        .skip("removes a folder route; its --dry-run is a golden step"),
     row("auth statusline", R),
     row("auth hook", R),
     row("auth probe", R).needs(&[Needs::Network]).spec(&[&auth::PROBE]),
@@ -1129,6 +1162,14 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("servers_update_config", W, "server edit"),
     maps("servers_set_mode", W, "server mode"),
     maps("servers_uninstall", D, "server uninstall"),
+    maps("access_set_ls", R, "access-set ls"),
+    maps("access_set_add", W, "access-set add").on(),
+    maps("access_set_rm", D, "access-set rm").on(),
+    maps("access_set_default", W, "access-set default").on(),
+    maps("client_scope", W, "client scope").on(),
+    maps("folder_route_ls", R, "folder route ls"),
+    maps("folder_route_add", W, "folder route add").on(),
+    maps("folder_route_rm", D, "folder route rm").on(),
     maps("clients_reach", R, "client reach"),
     maps("client_direct_ls", R, "client direct ls"),
     maps("client_direct_check", R, "client direct check"),

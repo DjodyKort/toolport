@@ -1,0 +1,17 @@
+{
+  "argv": ["access-set", "rm", "bare", "--dry-run"],
+  "envelope": {
+    "command": "access-set rm",
+    "data": {
+      "clients": ["claude-code"],
+      "folders": ["/work/proj"]
+    },
+    "error": {
+      "code": "conflict",
+      "message": "Bare is still used by 1 client (claude-code) and 1 folder route (/work/proj). Choose what happens to them: --detach removes their binding (clients follow the default access), --leave deletes the set only (they reach nothing until bound again)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

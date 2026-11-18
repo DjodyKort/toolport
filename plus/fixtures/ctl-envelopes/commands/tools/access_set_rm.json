@@ -1,0 +1,7 @@
+{
+  "command": "access-set rm",
+  "dryRun": "default-on",
+  "name": "access_set_rm",
+  "tier": "destructive",
+  "toolTier": 4
+}

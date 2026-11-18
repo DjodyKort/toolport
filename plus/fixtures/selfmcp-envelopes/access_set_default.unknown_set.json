@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "set": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no access set called nope; the access sets are: Default, Focus, Wide"
+    }
+  },
+  "text": "not_found: no access set called nope; the access sets are: Default, Focus, Wide",
+  "tool": "access_set_default"
+}

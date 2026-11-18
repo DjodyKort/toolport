@@ -1,0 +1,26 @@
+{
+  "argv": ["access-set", "default", "--none", "--dry-run"],
+  "envelope": {
+    "command": "access-set default",
+    "data": {
+      "defaultAccess": null,
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "the default access is already this",
+            "op": "note"
+          }
+        ],
+        "summary": "The default access is up to date",
+        "undo": "toolportctl access-set default --none",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

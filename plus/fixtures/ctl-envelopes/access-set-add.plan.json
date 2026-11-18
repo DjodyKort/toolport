@@ -1,0 +1,30 @@
+{
+  "argv": ["access-set", "add", "Deep Work", "--server", "alpha", "--dry-run"],
+  "envelope": {
+    "command": "access-set add",
+    "data": {
+      "dryRun": true,
+      "name": "Deep Work",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "create the access set Deep Work",
+            "op": "registry"
+          },
+          {
+            "detail": "list alpha in Deep Work",
+            "op": "registry"
+          }
+        ],
+        "summary": "Add access set Deep Work",
+        "undo": "toolportctl access-set rm 'Deep Work'",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

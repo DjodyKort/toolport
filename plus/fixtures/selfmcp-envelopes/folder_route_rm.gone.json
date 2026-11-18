@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "folder": "/work/proj"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no folder route for /work/proj"
+    }
+  },
+  "text": "not_found: no folder route for /work/proj",
+  "tool": "folder_route_rm"
+}

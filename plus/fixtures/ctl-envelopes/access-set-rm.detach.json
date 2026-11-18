@@ -1,0 +1,44 @@
+{
+  "argv": ["access-set", "rm", "bare", "--detach"],
+  "envelope": {
+    "command": "access-set rm",
+    "data": {
+      "accessSet": {
+        "id": "bare",
+        "name": "Bare"
+      },
+      "dryRun": false,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "delete the access set Bare",
+            "op": "registry"
+          },
+          {
+            "detail": "remove the binding of client claude-code",
+            "op": "registry"
+          },
+          {
+            "detail": "remove the binding of folder /work/proj",
+            "op": "registry"
+          }
+        ],
+        "summary": "Delete access set Bare",
+        "undo": "toolportctl access-set add Bare --server srv-alpha && toolportctl client scope claude-code Bare && toolportctl folder route add /work/proj Bare",
+        "warnings": [
+          "detached clients follow the default access, which may list more servers"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["registry"],
+        "undo": "toolportctl access-set add Bare --server srv-alpha && toolportctl client scope claude-code Bare && toolportctl folder route add /work/proj Bare"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

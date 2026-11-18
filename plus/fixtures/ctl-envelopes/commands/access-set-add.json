@@ -1,0 +1,54 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "List this server in the new set, by id or name; repeat for several",
+      "escalates": false,
+      "hidden": false,
+      "name": "--server",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "access-set",
+  "id": "access-set add",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "name",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["access-set", "add"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Create an access set, optionally listing servers in it <name> [--server <id|name>]... [--dry-run]",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["access_set_add"]
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["access-set", "rm", "default", "--dry-run"],
+  "envelope": {
+    "command": "access-set rm",
+    "error": {
+      "code": "conflict",
+      "message": "Default is the default access; choose another with `access-set default <set>` or `access-set default --none` first"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

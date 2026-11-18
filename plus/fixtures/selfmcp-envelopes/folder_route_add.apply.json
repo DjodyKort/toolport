@@ -1,0 +1,38 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "folder": "/work/other",
+    "set": "focus"
+  },
+  "isError": false,
+  "result": {
+    "accessSet": {
+      "id": "focus",
+      "name": "Focus"
+    },
+    "dryRun": false,
+    "path": "/work/other",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "/work/other and the folders below it use Focus",
+          "op": "registry"
+        }
+      ],
+      "summary": "Route /work/other to the access set Focus",
+      "undo": "toolportctl folder route rm /work/other",
+      "warnings": [
+        "A folder route outranks a client's own access set: inside a routed folder the gateway uses the folder's set for every client. Clients with their own set: claude-code."
+      ]
+    },
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": ["registry"],
+      "undo": "toolportctl folder route rm /work/other"
+    }
+  },
+  "tool": "folder_route_add"
+}

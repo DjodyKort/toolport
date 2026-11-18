@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "orphans": "detach",
+    "set": "wide"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: access_set_rm (tier 4). Pass confirm=true to proceed. WARNING: this modifies remote state or removes entries."
+    }
+  },
+  "text": "refused: Refused: access_set_rm (tier 4). Pass confirm=true to proceed. WARNING: this modifies remote state or removes entries.",
+  "tool": "access_set_rm"
+}

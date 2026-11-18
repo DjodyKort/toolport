@@ -1,0 +1,13 @@
+{
+  "argv": ["access-set", "rm", "wide", "--detach", "--leave"],
+  "envelope": {
+    "command": "access-set rm",
+    "error": {
+      "code": "usage",
+      "message": "choose --detach or --leave, not both"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

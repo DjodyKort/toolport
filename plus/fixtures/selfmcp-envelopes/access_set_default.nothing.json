@@ -1,0 +1,12 @@
+{
+  "arguments": {},
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "give set, or none=true to remove the binding"
+    }
+  },
+  "text": "invalid_arguments: give set, or none=true to remove the binding",
+  "tool": "access_set_default"
+}

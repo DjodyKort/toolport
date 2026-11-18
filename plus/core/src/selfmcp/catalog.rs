@@ -2,8 +2,9 @@ use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
 use super::{
-    attention, backend, catalog_index, clients, compression, content, context, launch_profile,
-    library, memory, reach, servers, setup, skills, sources, sync, tasks, ToolError,
+    access, attention, backend, catalog_index, clients, compression, content, context,
+    launch_profile, library, memory, reach, servers, setup, skills, sources, sync, tasks,
+    ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1118,6 +1119,91 @@ pub const TOOLS: &[ToolDef] = &[
             CLIENT
         ],
         reach::run
+    ),
+    tool!(
+        "access_set_ls",
+        1,
+        None,
+        "List the access sets: their servers, whether one is the default access, and the clients and folder routes that use each. Read only",
+        [],
+        access::set_ls
+    ),
+    tool!(
+        "access_set_add",
+        3,
+        UnlessDryRun,
+        "Create an access set and list servers in it. dry_run is on by default and returns the plan with the command that undoes it (apply with dry_run=false and confirm=true)",
+        [
+            p("name", Ty::Str, true, "Name of the new set; not starting with @"),
+            p("servers", Ty::StrList, false, "Servers to list in it, by id or name"),
+            DRY_ON
+        ],
+        access::set_add
+    ),
+    tool!(
+        "access_set_rm",
+        4,
+        UnlessDryRun,
+        "Delete an access set. A set that clients or folder routes still name is refused unless orphans says what happens to them; the default access cannot be deleted. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("set", Ty::Str, true, "Access set by name or id"),
+            p("orphans", Ty::Str, false, "detach unbinds the clients and folders that name it (clients follow the default access); leave deletes the set only and they reach nothing"),
+            DRY_ON
+        ],
+        access::set_rm
+    ),
+    tool!(
+        "access_set_default",
+        3,
+        UnlessDryRun,
+        "Make an access set the default access for clients without their own, or none=true for every enabled server. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("set", Ty::Str, false, "Access set by name or id"),
+            p("none", Ty::Bool, false, "Return to every enabled server instead of a set"),
+            DRY_ON
+        ],
+        access::set_default
+    ),
+    tool!(
+        "client_scope",
+        3,
+        UnlessDryRun,
+        "Bind a client to an access set, or none=true so it follows the default access. A folder route still outranks the binding. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("client", Ty::Str, true, "Client id, as clients_reach shows"),
+            p("set", Ty::Str, false, "Access set by name or id"),
+            p("none", Ty::Bool, false, "Remove the client's own set"),
+            DRY_ON
+        ],
+        access::client_scope
+    ),
+    tool!(
+        "folder_route_ls",
+        1,
+        None,
+        "List the folder routes: each folder's access set and the servers it reaches. A route outranks a client's own set. Read only",
+        [],
+        access::route_ls
+    ),
+    tool!(
+        "folder_route_add",
+        3,
+        UnlessDryRun,
+        "Route an absolute project folder and everything below it to an access set. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("folder", Ty::Str, true, "Absolute folder path"),
+            p("set", Ty::Str, true, "Access set by name or id"),
+            DRY_ON
+        ],
+        access::route_add
+    ),
+    tool!(
+        "folder_route_rm",
+        4,
+        UnlessDryRun,
+        "Remove a folder route. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [p("folder", Ty::Str, true, "The routed folder"), DRY_ON],
+        access::route_rm
     ),
     tool!(
         "client_direct_ls",

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "deep work"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "an access set called Deep Work exists already"
+    }
+  },
+  "text": "conflict: an access set called Deep Work exists already",
+  "tool": "access_set_add"
+}

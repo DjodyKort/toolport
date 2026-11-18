@@ -1,0 +1,40 @@
+{
+  "argv": ["folder", "route", "ls"],
+  "envelope": {
+    "command": "folder route ls",
+    "data": {
+      "routes": [
+        {
+          "accessSet": {
+            "id": "wide",
+            "name": "Wide"
+          },
+          "missing": false,
+          "path": "/work/proj",
+          "reference": "wide",
+          "servers": [
+            {
+              "id": "srv-alpha",
+              "name": "alpha"
+            },
+            {
+              "id": "srv-beta",
+              "name": "beta"
+            }
+          ]
+        },
+        {
+          "accessSet": null,
+          "missing": true,
+          "path": "/old/proj",
+          "reference": "gone",
+          "servers": []
+        }
+      ],
+      "rule": "A folder route outranks a client's own access set: inside a routed folder the gateway uses the folder's set for every client."
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

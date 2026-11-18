@@ -1,0 +1,13 @@
+{
+  "argv": ["access-set", "add", "@all", "--dry-run"],
+  "envelope": {
+    "command": "access-set add",
+    "error": {
+      "code": "usage",
+      "message": "access set names beginning with @ are reserved"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,29 @@
+{
+  "arguments": {
+    "name": "Deep Work",
+    "servers": ["beta"]
+  },
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "name": "Deep Work",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "create the access set Deep Work",
+          "op": "registry"
+        },
+        {
+          "detail": "list beta in Deep Work",
+          "op": "registry"
+        }
+      ],
+      "summary": "Add access set Deep Work",
+      "undo": "toolportctl access-set rm 'Deep Work'",
+      "warnings": []
+    },
+    "result": null
+  },
+  "tool": "access_set_add"
+}

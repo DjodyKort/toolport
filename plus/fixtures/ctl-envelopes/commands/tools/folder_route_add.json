@@ -1,0 +1,7 @@
+{
+  "command": "folder route add",
+  "dryRun": "default-on",
+  "name": "folder_route_add",
+  "tier": "write",
+  "toolTier": 3
+}

@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "set": "wide"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: access_set_default (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: access_set_default (tier 3). Pass confirm=true to proceed.",
+  "tool": "access_set_default"
+}

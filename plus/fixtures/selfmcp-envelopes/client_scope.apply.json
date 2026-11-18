@@ -1,0 +1,33 @@
+{
+  "arguments": {
+    "client": "claude-code",
+    "confirm": true,
+    "dry_run": false,
+    "none": true
+  },
+  "isError": false,
+  "result": {
+    "accessSet": null,
+    "client": "claude-code",
+    "dryRun": false,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "claude-code follows the default access",
+          "op": "registry"
+        }
+      ],
+      "summary": "Unbind claude-code from its access set",
+      "undo": "toolportctl client scope claude-code Focus",
+      "warnings": []
+    },
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": ["registry"],
+      "undo": "toolportctl client scope claude-code Focus"
+    }
+  },
+  "tool": "client_scope"
+}
