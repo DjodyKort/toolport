@@ -1,0 +1,6 @@
+{
+  "route": "attention",
+  "status": "built",
+  "summary": "The footer bell: what needs you now, one row per cause with the button that opens its page (attention ls; attention_list)",
+  "test": "src/plus/shell/PlusFooterBell.test.tsx"
+}

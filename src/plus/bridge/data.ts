@@ -208,3 +208,27 @@ export interface CommandsData {
   needs: Need[];
   tiers: Tier[];
 }
+
+/** `attention ls`: what needs the person now, from the four areas the bell reads. */
+export interface AttentionData {
+  checkedAt: string;
+  counts: { needsYou: number; worthALook: number };
+  checks: Array<{ name: string; ok: boolean; error?: string }>;
+  items: AttentionRow[];
+}
+
+export interface AttentionRow {
+  id: string;
+  urgency: "needs-you" | "worth-a-look";
+  title: string;
+  detail: string;
+  source: string;
+  /** RFC 3339; absent when the store behind the row keeps no time. */
+  since?: string;
+  action?: {
+    label: string;
+    screen: "servers" | "tasks" | "library";
+    /** The `toolportctl` argv that fixes the row without opening the screen. */
+    command?: string[];
+  };
+}

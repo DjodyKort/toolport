@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { View } from "@/lib/types";
 
 export type AttentionUrgency = "needs-you" | "worth-a-look";
 
@@ -11,11 +12,20 @@ export interface AttentionItem {
   source: string;
   /** Epoch milliseconds. */
   since?: number;
+  /** The one button of the row: it opens the page that owns the condition. */
+  action?: AttentionAction;
+}
+
+export interface AttentionAction {
+  label: string;
+  view: View;
 }
 
 export interface AttentionSnapshot {
   items: AttentionItem[];
   checkedAt: number | null;
+  /** Areas that could not be read; while any exists the list is not an all-clear. */
+  unchecked?: string[];
 }
 
 /** Where the footer bell gets its rows. Slice S9 supplies the real feed; until a feed is

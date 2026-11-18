@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   ageLabel,
@@ -8,6 +8,7 @@ import {
   type AttentionSnapshot,
 } from "./attentionFeed";
 import { PlusFooterBell } from "./PlusFooterBell";
+import { PLUS_NAVIGATE_EVENT } from "./navigate";
 
 function feed(initial: AttentionSnapshot) {
   let snapshot = initial;
@@ -104,5 +105,63 @@ describe("PlusFooterBell", () => {
     expect(ageLabel(NOW - 25 * 60_000, NOW)).toBe("25 min ago");
     expect(ageLabel(NOW - 5 * 3_600_000, NOW)).toBe("5 h ago");
     expect(ageLabel(NOW - 3 * 86_400_000, NOW)).toBe("3 d ago");
+  });
+});
+
+describe("attention.bell rows with an action", () => {
+  const withActions: AttentionSnapshot = {
+    checkedAt: NOW,
+    items: [
+      {
+        id: "tasks:waiting:r1",
+        urgency: "needs-you",
+        title: "Task export is waiting for you",
+        source: "Tasks",
+        action: { label: "Continue", view: "tasks" },
+      },
+      {
+        id: "credentials:secret:alpha",
+        urgency: "needs-you",
+        title: "alpha is missing a secret",
+        source: "Credentials",
+        action: { label: "Set secret", view: "servers" },
+      },
+    ],
+  };
+
+  it("test07_the_row_button_opens_the_page_that_owns_the_row_and_closes_the_list", async () => {
+    registerAttentionFeed(feed(withActions).value);
+    const opened = vi.fn();
+    const listener = (event: Event) => opened((event as CustomEvent).detail);
+    window.addEventListener(PLUS_NAVIGATE_EVENT, listener);
+    try {
+      render(<PlusFooterBell />);
+      await userEvent.click(screen.getByRole("button", { name: /Needs attention/ }));
+      await userEvent.click(screen.getByRole("button", { name: "Set secret" }));
+      expect(opened).toHaveBeenCalledWith("servers");
+      expect(screen.queryByRole("region", { name: "Needs you" })).not.toBeInTheDocument();
+    } finally {
+      window.removeEventListener(PLUS_NAVIGATE_EVENT, listener);
+    }
+  });
+
+  it("test08_a_row_without_an_action_has_no_button", async () => {
+    registerAttentionFeed(feed(items).value);
+    render(<PlusFooterBell />);
+    await userEvent.click(screen.getByRole("button", { name: /Needs attention/ }));
+    const list = screen.getByRole("region", { name: "Needs you" });
+    expect(within(list).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("test09_an_area_that_could_not_be_read_is_named_instead_of_an_all_clear", async () => {
+    registerAttentionFeed(
+      feed({ items: [], checkedAt: NOW, unchecked: ["tasks"] }).value,
+    );
+    render(<PlusFooterBell />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Needs attention, not fully checked" }),
+    );
+    expect(screen.getByText(/Not checked: tasks/)).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing needs you/)).not.toBeInTheDocument();
   });
 });

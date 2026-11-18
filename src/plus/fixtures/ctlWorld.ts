@@ -1,4 +1,5 @@
 import { commandsGolden } from "./commandsGolden";
+import { createAttentionWorld, type AttentionWorldOptions } from "./attentionWorld";
 import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
 import { createCompressionWorld, type CompressionWorldOptions } from "./compressionWorld";
 import { createContextWorld, type ContextWorldOptions } from "./contextWorld";
@@ -45,6 +46,8 @@ export interface WorldOptions {
   servers?: ServerWorldOptions;
   /** The tasks, their runs and how the `task` commands answer. */
   tasks?: TaskWorldOptions;
+  /** What `attention ls` answers; without it the command fails and the bell stays out. */
+  attention?: AttentionWorldOptions;
   /** The Context screen's folders, bundles and measurements. */
   context?: ContextWorldOptions;
   /** The hook entries, the pause and the measurements of the Hooks & compression tab. */
@@ -62,6 +65,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
   const contextWorld = createContextWorld(options.context);
   const compressionWorld = createCompressionWorld(options.compression);
   const libraryWorld = createLibraryWorld(options.library);
+  const attentionWorld = createAttentionWorld(options.attention);
   const defaultAccess = accessSets[0] ?? null;
   const doctorMode = options.doctor ?? "ok";
   let state: SelfMcpState = options.self ?? "missing";
@@ -294,6 +298,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "status") return status();
       if (first === "doctor") return doctor();
       if (first === "commands") return { ok: true, data: commands };
+      if (first === "attention") return attentionWorld.run(key);
       if (first === "server") return serverWorld.run(key);
       if (first === "secret") return serverWorld.secret(key, stdin);
       if (first === "auth") return serverWorld.auth(key);
