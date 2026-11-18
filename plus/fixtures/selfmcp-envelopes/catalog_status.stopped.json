@@ -1,0 +1,17 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "background": true,
+    "count": 2,
+    "error": {
+      "kind": "registry",
+      "message": "the MCP Registry did not answer: connection failed: down"
+    },
+    "lastAttemptAt": "<TIME>",
+    "lastSyncedAt": "<TIME>",
+    "resumable": true,
+    "state": "error"
+  },
+  "tool": "catalog_status"
+}

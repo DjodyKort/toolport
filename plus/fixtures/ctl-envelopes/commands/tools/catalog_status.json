@@ -1,0 +1,7 @@
+{
+  "command": "catalog status",
+  "dryRun": "none",
+  "name": "catalog_status",
+  "tier": "read",
+  "toolTier": 1
+}

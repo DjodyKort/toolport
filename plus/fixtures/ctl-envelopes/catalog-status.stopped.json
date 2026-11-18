@@ -1,0 +1,21 @@
+{
+  "argv": ["catalog", "status"],
+  "envelope": {
+    "command": "catalog status",
+    "data": {
+      "background": true,
+      "count": 2,
+      "error": {
+        "kind": "registry",
+        "message": "the MCP Registry did not answer: connection failed: down"
+      },
+      "lastAttemptAt": "<TIME>",
+      "lastSyncedAt": "<TIME>",
+      "resumable": true,
+      "state": "error"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

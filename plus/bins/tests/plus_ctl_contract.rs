@@ -18,6 +18,7 @@ use toolport_plus::ctl::{registry, rows, Smoke, Tier, COMMANDS, SCHEMA_VERSION};
 use toolport_plus::selfmcp::TOOLS;
 
 mod common;
+use common::catalog_world;
 use common::compression::{
     edit_wrapped_hook, fake_proxy, fixture_hooks, lose_hooks, measure_world, rtk_home,
     silent_hooks, transcripts,
@@ -1788,6 +1789,21 @@ const CASES: &[Case] = &[
     case(
         "styles status",
         &[read("", &["styles", "status", "--repo", "{repo}"])],
+    ),
+    case(
+        "catalog status",
+        &[
+            read("empty", &["catalog", "status"]),
+            hook("indexed-world", catalog_world::indexed),
+            read("indexed", &["catalog", "status"]),
+            hook("stopped-world", catalog_world::stopped),
+            read("stopped", &["catalog", "status"]),
+            usage("usage", &["catalog", "status", "extra"]),
+        ],
+    ),
+    case(
+        "catalog sync",
+        &[usage("usage", &["catalog", "sync", "extra"])],
     ),
     case(
         "library status",

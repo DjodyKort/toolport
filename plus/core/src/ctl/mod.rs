@@ -8,6 +8,7 @@
 
 mod agents;
 mod auth;
+mod catalog;
 mod commands;
 mod commands_json;
 pub(crate) mod compression;
@@ -482,6 +483,16 @@ pub const COMMANDS: &[Command] = &[
         &["sources", "root", "rm"],
         "Stop searching a folder (<dir>, --dry-run)",
         sources::root_rm,
+    ),
+    cmd(
+        &["catalog", "status"],
+        "Show the local index of the MCP Registry: how many servers, when it was last synced, whether it is fresh",
+        catalog::status,
+    ),
+    cmd(
+        &["catalog", "sync"],
+        "Sync the local index of the MCP Registry from the registry; continues an unfinished sync (--full starts over)",
+        catalog::sync,
     ),
     cmd(
         &["library", "status"],

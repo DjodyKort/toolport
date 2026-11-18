@@ -15,6 +15,7 @@ use serde_json::{json, Value};
 use toolport_plus::selfmcp::{RESOURCES, TOOLS};
 
 mod common;
+use common::catalog_world;
 use common::client::Client;
 use common::compression;
 use common::library_world::{self, library_home};
@@ -563,6 +564,14 @@ const CASES: &[Case] = &[
             read("preview", "styles_remove", AIDER_REMOVE_PREVIEW),
             refused("refused", "styles_remove", AIDER_REMOVE_UNCONFIRMED),
             write("apply", "styles_remove", AIDER_REMOVE),
+        ],
+    ),
+    case(
+        "catalog_status",
+        &[
+            read("empty", "catalog_status", "{}"),
+            hook("stopped-world", catalog_world::stopped),
+            read("stopped", "catalog_status", "{}"),
         ],
     ),
     prepared(

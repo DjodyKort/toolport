@@ -343,6 +343,7 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("context bundle rm", m("--force", Bool, "Delete even while the bundle is applied in a folder")),
     ("context leave-out", m("--cwd", Path, "Folder whose .claude/settings.local.json gets the entry (required)")),
     ("context leave-out", m("--memory", Bool, "Act on auto memory (autoMemoryEnabled) instead of a file")),
+    ("catalog sync", m("--full", Bool, "Start a new pass over the whole registry and drop what it no longer lists")),
     ("plugins off", m("--cwd", Path, "Folder whose .claude/settings.local.json gets enabledPlugins.<id> = false (required)")),
     ("plugins on", m("--cwd", Path, "Folder whose .claude/settings.local.json loses the entry `plugins off` wrote (required)")),
     ("plugins off", m("--dry-run", Bool, "Show the plan and change nothing")),

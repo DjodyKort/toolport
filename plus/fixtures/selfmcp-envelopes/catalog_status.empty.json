@@ -1,0 +1,14 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "background": true,
+    "count": 0,
+    "error": null,
+    "lastAttemptAt": null,
+    "lastSyncedAt": null,
+    "resumable": false,
+    "state": "stale"
+  },
+  "tool": "catalog_status"
+}

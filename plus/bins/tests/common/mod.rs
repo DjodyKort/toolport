@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+pub mod catalog_world;
 pub mod client;
 pub mod compression;
 pub mod golden;

@@ -1,4 +1,5 @@
 import { commandsGolden } from "./commandsGolden";
+import { createCatalogWorld, type CatalogWorldOptions } from "./catalogWorld";
 import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
 import { createCompressionWorld, type CompressionWorldOptions } from "./compressionWorld";
 import { createContextWorld, type ContextWorldOptions } from "./contextWorld";
@@ -51,6 +52,8 @@ export interface WorldOptions {
   compression?: CompressionWorldOptions;
   /** The Library screen's library, plan, remote, taps and sources. */
   library?: LibraryWorldOptions;
+  /** The local registry index the Settings card reads. */
+  catalog?: CatalogWorldOptions;
 }
 
 /** A small in-memory toolportctl: enough state for install, uninstall and doctor to answer the way
@@ -62,6 +65,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
   const contextWorld = createContextWorld(options.context);
   const compressionWorld = createCompressionWorld(options.compression);
   const libraryWorld = createLibraryWorld(options.library);
+  const catalogWorld = createCatalogWorld(options.catalog);
   const defaultAccess = accessSets[0] ?? null;
   const doctorMode = options.doctor ?? "ok";
   let state: SelfMcpState = options.self ?? "missing";
@@ -288,6 +292,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
     servers: serverWorld,
     tasks: taskWorld,
     library: libraryWorld,
+    catalog: catalogWorld,
     run(argv: string[], stdin?: string): CtlReply {
       const key = argv.filter((a) => a !== "--json");
       const [first, second] = key;
@@ -300,6 +305,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "task") return taskWorld.run(key.slice(1), stdin);
       if (first === "context" || first === "plugins") return contextWorld.run(key);
       if (first === "compression") return compressionWorld.run(key);
+      if (first === "catalog") return catalogWorld.run(key);
       if (["skills", "library", "sources", "agents", "styles"].includes(first ?? ""))
         return libraryWorld.run(key);
       if (first === "mcp") {

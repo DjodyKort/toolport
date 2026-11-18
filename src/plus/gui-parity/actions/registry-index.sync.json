@@ -1,0 +1,6 @@
+{
+  "route": "registry-index",
+  "status": "built",
+  "summary": "Sync the local registry index now (catalog sync)",
+  "test": "src/plus/settings/ToolportPlusPage.test.tsx"
+}

@@ -26,8 +26,9 @@ vi.mock("@/lib/api", async (importOriginal) => ({
 const registry = registryWithSets("local", "work");
 
 /** The actions of src/plus/gui-parity/ this file proves: status and doctor lead the page and
- * list the checks, the self-management row connects, removes, shows its checks and tools, and the
- * commands page lists the registry and runs a tool through mcp call. */
+ * list the checks, the self-management row connects, removes, shows its checks and tools, the
+ * commands page lists the registry and runs a tool through mcp call, and the registry index card
+ * reads catalog status and runs catalog sync. */
 const COVERS = [
   "system.status",
   "system.doctor",
@@ -37,6 +38,8 @@ const COVERS = [
   "system.mcp-tools",
   "catalog.commands",
   "catalog.mcp-call",
+  "registry-index.status",
+  "registry-index.sync",
 ] as const;
 
 function renderPage(props: Partial<React.ComponentProps<typeof ToolportPlusPage>> = {}) {
@@ -220,5 +223,53 @@ describe("Settings > Toolport+", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Run" }));
     await waitFor(() => expect(within(dialog).getByText("Done")).toBeInTheDocument());
     expect(within(dialog).getByLabelText("Output")).toHaveTextContent('"serverCount": 3');
+  });
+});
+
+describe("Settings > Toolport+ > Registry index", () => {
+  const card = async () =>
+    within(await screen.findByRole("region", { name: "Registry index" }));
+
+  it("test20_shows_the_server_count_and_when_the_index_was_synced", async () => {
+    resetPlusFixture({ self: "enabled", catalog: { index: "fresh" } });
+    renderPage();
+    const index = await card();
+    expect(await index.findByText("Up to date")).toBeInTheDocument();
+    expect(index.getByText("13,712 servers, synced 3 h ago")).toBeInTheDocument();
+  });
+
+  it("test21_a_stale_index_says_search_asks_the_live_registry", async () => {
+    resetPlusFixture({ self: "enabled", catalog: { index: "stale" } });
+    renderPage();
+    const index = await card();
+    expect(await index.findByText("Out of date")).toBeInTheDocument();
+    expect(index.getByText(/ask the live registry/)).toBeInTheDocument();
+  });
+
+  it("test22_a_failed_sync_shows_its_reason", async () => {
+    resetPlusFixture({ self: "enabled", catalog: { index: "error" } });
+    renderPage();
+    const index = await card();
+    expect(await index.findByText("Sync failed")).toBeInTheDocument();
+    expect(index.getByText(/did not answer/)).toBeInTheDocument();
+  });
+
+  it("test23_refresh_now_runs_catalog_sync_and_shows_the_fresh_index", async () => {
+    resetPlusFixture({ self: "enabled", catalog: { index: "never" } });
+    renderPage();
+    const index = await card();
+    expect(await index.findByText("Not synced yet")).toBeInTheDocument();
+    await userEvent.click(index.getByRole("button", { name: "Refresh now" }));
+    expect(await index.findByText("Up to date")).toBeInTheDocument();
+    expect(index.getByText("13,712 servers, synced 3 h ago")).toBeInTheDocument();
+  });
+
+  it("test24_a_refresh_that_fails_leaves_the_card_with_the_error", async () => {
+    resetPlusFixture({ self: "enabled", catalog: { index: "stale", syncFails: true } });
+    renderPage();
+    const index = await card();
+    await userEvent.click(await index.findByRole("button", { name: "Refresh now" }));
+    expect(await index.findByText("Sync failed")).toBeInTheDocument();
+    expect(index.getByRole("button", { name: "Refresh now" })).toBeEnabled();
   });
 });

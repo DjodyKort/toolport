@@ -1,0 +1,6 @@
+{
+  "title": "Registry index",
+  "status": "built",
+  "page": "settings:toolport",
+  "component": "src/plus/settings/RegistryIndexCard.tsx"
+}
