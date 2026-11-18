@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "edit", "gamma", "--serial", "--no-serial"],
+  "envelope": {
+    "command": "server edit",
+    "error": {
+      "code": "usage",
+      "message": "--serial and --no-serial are mutually exclusive"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

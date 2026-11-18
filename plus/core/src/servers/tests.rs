@@ -525,3 +525,64 @@ fn test17_a_server_opted_in_is_pending_while_a_running_gateway_has_it_connected_
     assert!(!pending_redeclare(&host, &odh));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn test19_tool_budgets_are_set_removed_one_by_one_and_refused_outside_a_day() {
+    let host = host_with(vec![base("srv-a", "a", "stdio")]);
+    let budgets = |changes: &[(&str, Option<f64>)]| Patch {
+        tool_budgets: changes.iter().map(|(t, s)| (t.to_string(), *s)).collect(),
+        ..Default::default()
+    };
+    update(
+        &host,
+        "srv-a",
+        &budgets(&[("job_wait", Some(600.0)), ("sleep", Some(2.5))]),
+        &[],
+    )
+    .unwrap();
+    update(&host, "srv-a", &budgets(&[("sleep", None)]), &[]).unwrap();
+    let kept = stored(&host, "srv-a").fork.tool_budgets.unwrap();
+    assert_eq!(kept.len(), 1);
+    assert_eq!(kept["job_wait"].as_f64(), Some(600.0));
+    for refused in [0.0, -1.0, f64::NAN, 86_401.0] {
+        let error = update(&host, "srv-a", &budgets(&[("x", Some(refused))]), &[]).unwrap_err();
+        assert!(
+            matches!(&error, ServerError::Rejected(m) if m.contains("a tool budget must be")),
+            "{refused}: {error:?}"
+        );
+    }
+    update(&host, "srv-a", &budgets(&[("job_wait", None)]), &[]).unwrap();
+    assert_eq!(stored(&host, "srv-a").fork.tool_budgets, None);
+    let all = vec![stored(&host, "srv-a")];
+    assert_eq!(
+        info_value(&all[0], &[], &all, false).unwrap()["toolBudgets"],
+        json!({})
+    );
+}
+
+#[test]
+fn test18_a_tool_budget_text_is_seconds_or_default() {
+    assert_eq!(parse_tool_budget(" 2.5 "), Ok(Some(2.5)));
+    assert_eq!(parse_tool_budget("DEFAULT"), Ok(None));
+    for refused in ["0", "86401", "-3", "soon", ""] {
+        assert!(parse_tool_budget(refused).is_err(), "{refused}");
+    }
+}
+
+#[test]
+fn test20_serial_is_switched_on_and_off_and_shown_in_the_info() {
+    let host = host_with(vec![base("srv-a", "a", "stdio")]);
+    let serial = |on| Patch {
+        serial: Some(on),
+        ..Default::default()
+    };
+    update(&host, "srv-a", &serial(true), &[]).unwrap();
+    assert_eq!(stored(&host, "srv-a").fork.serial, Some(true));
+    let all = vec![stored(&host, "srv-a")];
+    assert_eq!(
+        info_value(&all[0], &[], &all, false).unwrap()["serial"],
+        json!(true)
+    );
+    update(&host, "srv-a", &serial(false), &[]).unwrap();
+    assert_eq!(stored(&host, "srv-a").fork.serial, None);
+}

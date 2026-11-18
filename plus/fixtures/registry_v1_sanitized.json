@@ -30,6 +30,8 @@
       "forwardInstructions": true,
       "declareClientCapabilities": true,
       "maxRequestTimeoutMs": 600000,
+      "toolBudgets": { "job_wait": 600 },
+      "serial": true,
       "serverMode": "search"
     },
     {

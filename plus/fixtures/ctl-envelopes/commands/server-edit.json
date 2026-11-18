@@ -138,6 +138,39 @@
       "required": false,
       "sensitive": false,
       "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Longest a call to one tool may run, as <tool>=<seconds> (up to 86400), or <tool>=default to remove it (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--tool-budget",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Send this server one call at a time, in the order they arrive (for a server that cannot interleave calls)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--serial",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Let calls to this server run at the same time again",
+      "escalates": false,
+      "hidden": false,
+      "name": "--no-serial",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
     }
   ],
   "group": "server",

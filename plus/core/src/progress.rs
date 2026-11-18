@@ -1,10 +1,13 @@
 //! The deadline of one stdio call that a server keeps alive by reporting progress.
 //!
 //! A `notifications/progress` for the call's own `progressToken` moves the deadline to the
-//! progress time plus the call's window, never past an absolute cap. Time the gateway spends
-//! waiting for a client to answer a server's request is charged to neither.
+//! progress time plus the call's window, never past an absolute cap. Only the server the call
+//! was sent to can extend it: a token that another server's connection reports means nothing.
+//! Time the gateway spends waiting for a client to answer a server's request is charged to
+//! neither.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -24,7 +27,15 @@ pub fn cap_from(max_request_timeout_ms: Option<u64>) -> Duration {
     })
 }
 
-/// The ledger key of a progress token.
+/// Names the connection to one server process; progress counts only on the connection the call
+/// was sent on.
+pub type Producer = usize;
+
+fn ledger_key(producer: Producer, token: &str) -> String {
+    format!("{producer}/{token}")
+}
+
+/// The key of a progress token in a lease or a call's window.
 pub fn token_key(token: &Value) -> String {
     token.to_string()
 }
@@ -38,13 +49,155 @@ pub fn request_token(params: &Value) -> Option<String> {
         .map(token_key)
 }
 
+/// The key under which a tool's listing states how long a call is expected to take, in seconds.
+pub const BUDGET_META_KEY: &str = "odh.dev/budget";
+/// Prefix of the progress tokens the gateway mints for calls whose client sent none.
+const MINTED_PREFIX: &str = "tpx-";
+static MINTED: AtomicU64 = AtomicU64::new(0);
+static WINDOWS: Mutex<Option<HashMap<String, Duration>>> = Mutex::new(None);
+
+/// What one server's settings say about the calls to it.
+pub struct CallSettings<'a> {
+    pub stdio: bool,
+    pub max_request_timeout_ms: Option<u64>,
+    /// The server's `toolBudgets`: seconds per original tool name.
+    pub tool_budgets: Option<&'a Value>,
+}
+
+/// A call as the gateway sends it: the `_meta` to relay in place of the client's, and the
+/// window the call waits for its response and for each progress.
+pub struct PreparedCall {
+    pub meta: Option<Value>,
+    pub lease: Option<WindowLease>,
+}
+
+/// Keeps a call's window known to its clock; dropping it forgets the call's token.
+pub struct WindowLease {
+    key: String,
+}
+
+impl Drop for WindowLease {
+    fn drop(&mut self) {
+        let mut guard = WINDOWS.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(windows) = guard.as_mut() {
+            windows.remove(&self.key);
+        }
+    }
+}
+
+/// The window the call that sends `params` was prepared with, if it was given one.
+pub fn leased_window(token: &str) -> Option<Duration> {
+    let guard = WINDOWS.lock().unwrap_or_else(PoisonError::into_inner);
+    guard.as_ref()?.get(token).copied()
+}
+
+fn seconds(value: &Value) -> Option<Duration> {
+    let secs = value
+        .as_f64()
+        .filter(|secs| secs.is_finite() && *secs > 0.0)?;
+    Some(Duration::from_secs_f64(
+        secs.min(MAX_CAP_MS as f64 / 1000.0),
+    ))
+}
+
+/// The window a tool's call is given instead of the server's `requestTimeoutMs`: its
+/// `toolBudgets` entry, else the budget in its listing, never beyond the cap.
+fn budget_window(
+    settings: &CallSettings<'_>,
+    tool: &str,
+    listed: Option<&Value>,
+) -> Option<Duration> {
+    let configured = settings
+        .tool_budgets
+        .and_then(|budgets| budgets.get(tool))
+        .and_then(seconds);
+    let listed = || {
+        listed
+            .and_then(|definition| definition.get("_meta")?.get(BUDGET_META_KEY))
+            .and_then(seconds)
+    };
+    let window = configured.or_else(listed)?;
+    Some(window.min(cap_from(settings.max_request_timeout_ms)))
+}
+
+/// Gets a `tools/call` ready: a stdio call without a progress token is given one the gateway
+/// minted, so the server's progress can keep it alive, and a tool with a budget is given that
+/// window. `meta` is the `_meta` the call would otherwise carry; `meta` of the result is `None`
+/// when it stays as it is.
+pub fn prepare_call(
+    settings: &CallSettings<'_>,
+    tool: &str,
+    listed: Option<&Value>,
+    meta: Option<&Value>,
+) -> PreparedCall {
+    if !settings.stdio {
+        return PreparedCall {
+            meta: None,
+            lease: None,
+        };
+    }
+    let carried = meta
+        .and_then(|meta| meta.get("progressToken"))
+        .filter(|token| !token.is_null());
+    let (token, relayed) = match carried {
+        Some(token) => (token.clone(), None),
+        None => {
+            let token = Value::String(format!(
+                "{MINTED_PREFIX}{}",
+                MINTED.fetch_add(1, Ordering::Relaxed) + 1
+            ));
+            let mut relayed = meta
+                .cloned()
+                .unwrap_or_else(|| Value::Object(Default::default()));
+            if let Some(object) = relayed.as_object_mut() {
+                object.insert("progressToken".to_string(), token.clone());
+            }
+            (token, Some(relayed))
+        }
+    };
+    let lease = budget_window(settings, tool, listed).map(|window| {
+        let key = token_key(&token);
+        let mut guard = WINDOWS.lock().unwrap_or_else(PoisonError::into_inner);
+        guard
+            .get_or_insert_with(HashMap::new)
+            .insert(key.clone(), window);
+        WindowLease { key }
+    });
+    PreparedCall {
+        meta: relayed,
+        lease,
+    }
+}
+
+/// A token and a window for a request that must be allowed to wait as long as `window`
+/// (`tasks/result` is bounded by the cap, not by the server's call window). Send the token as the
+/// request's `progressToken`; the lease holds the window until it is dropped.
+pub fn lease_wait(window: Duration) -> (Value, WindowLease) {
+    let token = Value::String(format!(
+        "{MINTED_PREFIX}{}",
+        MINTED.fetch_add(1, Ordering::Relaxed) + 1
+    ));
+    let key = token_key(&token);
+    WINDOWS
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .get_or_insert_with(HashMap::new)
+        .insert(key.clone(), window);
+    (token, WindowLease { key })
+}
+
 /// Default `requestTimeoutMs` of a server without one.
 pub const DEFAULT_WINDOW: Duration = Duration::from_secs(30);
 /// Slack between a server's deadline and the adapter's, so the server's own timeout text arrives.
 pub const ADAPTER_GRACE: Duration = Duration::from_secs(60);
 /// A caller-set timeout below this is a deliberate short one (tests, probes) and is kept.
 pub const EXTENDABLE_FROM: Duration = Duration::from_secs(600);
-const ADAPTER_METHODS: [&str; 3] = ["tools/call", "resources/read", "prompts/get"];
+const ADAPTER_METHODS: [&str; 4] = [
+    "tools/call",
+    "resources/read",
+    "prompts/get",
+    "tasks/result",
+];
 
 /// What one server allows a call: its `requestTimeoutMs`, and for a stdio server also the cap that
 /// progress can stretch it to. Only a stdio server's deadline is re-armed by progress.
@@ -96,18 +249,18 @@ fn with_ledger<R>(use_ledger: impl FnOnce(&mut HashMap<String, Watched>) -> R) -
 
 /// A server reported progress under `notification`'s token. Only tokens a running call watches
 /// are kept; any other progress costs one lookup.
-pub fn note(notification: &Value) {
-    note_at(notification, Instant::now());
+pub fn note(notification: &Value, producer: Producer) {
+    note_at(notification, Instant::now(), producer);
 }
 
-fn note_at(notification: &Value, at: Instant) {
+fn note_at(notification: &Value, at: Instant, producer: Producer) {
     let Some(token) = notification
         .get("params")
         .and_then(|params| params.get("progressToken"))
     else {
         return;
     };
-    let key = token_key(token);
+    let key = ledger_key(producer, &token_key(token));
     with_ledger(|ledger| {
         if let Some(watched) = ledger.get_mut(&key) {
             watched.last = Some(at);
@@ -162,8 +315,9 @@ pub struct Clock {
 }
 
 impl Clock {
-    /// `window` is how long the call waits for its response, and for the next progress.
-    pub fn start(window: Duration, token: Option<String>) -> Self {
+    /// `window` is how long the call waits for its response, and for the next progress; `producer`
+    /// is the connection the call is sent on.
+    pub fn start(window: Duration, token: Option<String>, producer: Producer) -> Self {
         let started = Instant::now();
         Self {
             started,
@@ -172,7 +326,7 @@ impl Clock {
             hard: None,
             rearmed: false,
             seen: None,
-            watch: token.map(Watch::new),
+            watch: token.map(|token| Watch::new(ledger_key(producer, &token))),
         }
     }
 
@@ -237,7 +391,7 @@ mod tests {
 
     #[test]
     fn test01_a_call_without_a_token_keeps_its_fixed_deadline() {
-        let mut clock = Clock::start(Duration::from_millis(500), None);
+        let mut clock = Clock::start(Duration::from_millis(500), None, 1);
         let wait = clock.next_wait(|| unreachable!("no progress, no cap lookup"));
         assert!(wait > Duration::from_millis(400) && wait <= Duration::from_millis(500));
         assert!(!clock.expired());
@@ -248,10 +402,14 @@ mod tests {
 
     #[test]
     fn test02_progress_for_the_calls_token_moves_the_deadline_to_progress_plus_window() {
-        let mut clock = Clock::start(Duration::from_millis(400), Some(token_key(&json!("t-02"))));
+        let mut clock = Clock::start(
+            Duration::from_millis(400),
+            Some(token_key(&json!("t-02"))),
+            1,
+        );
         let first = clock.deadline;
         let at = after(&clock, Duration::from_millis(300));
-        note_at(&progress("t-02"), at);
+        note_at(&progress("t-02"), at, 1);
         clock.next_wait(|| Duration::from_secs(60));
         assert_eq!(clock.deadline, at + Duration::from_millis(400));
         assert!(clock.deadline > first);
@@ -260,20 +418,60 @@ mod tests {
 
     #[test]
     fn test03_progress_under_another_token_does_not_extend_the_call() {
-        let mut clock = Clock::start(Duration::from_millis(400), Some(token_key(&json!("t-03"))));
+        let mut clock = Clock::start(
+            Duration::from_millis(400),
+            Some(token_key(&json!("t-03"))),
+            1,
+        );
         let first = clock.deadline;
         note_at(
             &progress("t-03-other"),
             after(&clock, Duration::from_millis(300)),
+            1,
         );
         clock.next_wait(|| unreachable!("another call's progress"));
         assert_eq!(clock.deadline, first);
     }
 
     #[test]
+    fn test18_progress_for_the_calls_token_from_another_connection_does_not_extend_it() {
+        let mut clock = Clock::start(
+            Duration::from_millis(400),
+            Some(token_key(&json!("t-18"))),
+            1,
+        );
+        let first = clock.deadline;
+        note_at(
+            &progress("t-18"),
+            after(&clock, Duration::from_millis(300)),
+            2,
+        );
+        clock.next_wait(|| unreachable!("another connection's progress"));
+        assert_eq!(clock.deadline, first);
+        note_at(
+            &progress("t-18"),
+            after(&clock, Duration::from_millis(300)),
+            1,
+        );
+        clock.next_wait(|| Duration::from_secs(60));
+        assert!(
+            clock.deadline > first,
+            "the connection the call is on still extends it"
+        );
+    }
+
+    #[test]
     fn test04_the_cap_ends_a_call_that_keeps_reporting_progress_and_says_so() {
-        let mut clock = Clock::start(Duration::from_millis(400), Some(token_key(&json!("t-04"))));
-        note_at(&progress("t-04"), after(&clock, Duration::from_millis(900)));
+        let mut clock = Clock::start(
+            Duration::from_millis(400),
+            Some(token_key(&json!("t-04"))),
+            1,
+        );
+        note_at(
+            &progress("t-04"),
+            after(&clock, Duration::from_millis(900)),
+            1,
+        );
         clock.next_wait(|| Duration::from_millis(1000));
         assert_eq!(clock.deadline, clock.started + Duration::from_millis(1000));
         assert!(clock.cap_note().unwrap().contains("maxRequestTimeoutMs"));
@@ -281,8 +479,16 @@ mod tests {
 
     #[test]
     fn test05_a_cap_below_the_window_never_shortens_the_call() {
-        let mut clock = Clock::start(Duration::from_millis(400), Some(token_key(&json!("t-05"))));
-        note_at(&progress("t-05"), after(&clock, Duration::from_millis(100)));
+        let mut clock = Clock::start(
+            Duration::from_millis(400),
+            Some(token_key(&json!("t-05"))),
+            1,
+        );
+        note_at(
+            &progress("t-05"),
+            after(&clock, Duration::from_millis(100)),
+            1,
+        );
         clock.next_wait(|| Duration::from_millis(10));
         assert_eq!(clock.deadline, clock.started + Duration::from_millis(400));
         assert_eq!(clock.cap_note(), None);
@@ -290,8 +496,16 @@ mod tests {
 
     #[test]
     fn test06_time_spent_waiting_for_the_client_is_charged_to_neither_deadline_nor_cap() {
-        let mut clock = Clock::start(Duration::from_millis(400), Some(token_key(&json!("t-06"))));
-        note_at(&progress("t-06"), after(&clock, Duration::from_millis(100)));
+        let mut clock = Clock::start(
+            Duration::from_millis(400),
+            Some(token_key(&json!("t-06"))),
+            1,
+        );
+        note_at(
+            &progress("t-06"),
+            after(&clock, Duration::from_millis(100)),
+            1,
+        );
         clock.next_wait(|| Duration::from_secs(10));
         let (deadline, hard) = (clock.deadline, clock.hard.unwrap());
         clock.charge_back(Duration::from_secs(3));
@@ -301,11 +515,15 @@ mod tests {
 
     #[test]
     fn test07_the_ledger_forgets_a_token_when_its_call_ends() {
-        let clock = Clock::start(Duration::from_millis(400), Some(token_key(&json!("t-07"))));
-        note_at(&progress("t-07"), Instant::now());
-        assert!(latest("\"t-07\"").is_some());
+        let clock = Clock::start(
+            Duration::from_millis(400),
+            Some(token_key(&json!("t-07"))),
+            1,
+        );
+        note_at(&progress("t-07"), Instant::now(), 1);
+        assert!(latest(&ledger_key(1, "\"t-07\"")).is_some());
         drop(clock);
-        assert!(latest("\"t-07\"").is_none());
+        assert!(latest(&ledger_key(1, "\"t-07\"")).is_none());
     }
 
     #[test]
@@ -341,10 +559,10 @@ mod tests {
 
     #[test]
     fn test10_a_progress_extended_call_outlives_ten_minutes_without_waiting_for_them() {
-        let mut clock = Clock::start(Duration::from_secs(30), Some(token_key(&json!("t-10"))));
+        let mut clock = Clock::start(Duration::from_secs(30), Some(token_key(&json!("t-10"))), 1);
         for minute in 1..=12u64 {
             let at = after(&clock, Duration::from_secs(minute * 60 - 5));
-            note_at(&progress("t-10"), at);
+            note_at(&progress("t-10"), at, 1);
             clock.next_wait(|| Duration::from_secs(3600));
             assert_eq!(
                 clock.deadline,
@@ -413,5 +631,98 @@ mod tests {
         }
         let short = Duration::from_millis(300);
         assert_eq!(adapter_ceiling(short, "tools/call", servers()), short);
+    }
+
+    fn settings<'a>(budgets: Option<&'a Value>, cap_ms: Option<u64>) -> CallSettings<'a> {
+        CallSettings {
+            stdio: true,
+            max_request_timeout_ms: cap_ms,
+            tool_budgets: budgets,
+        }
+    }
+
+    fn listing(budget: Value) -> Value {
+        json!({ "name": "wait", "_meta": { BUDGET_META_KEY: budget } })
+    }
+
+    #[test]
+    fn test14_a_stdio_call_without_a_token_is_given_a_minted_one_and_a_client_token_is_kept() {
+        let none = settings(None, None);
+        let minted = prepare_call(&none, "wait", None, None);
+        let token = minted.meta.as_ref().unwrap()["progressToken"].clone();
+        assert!(token.as_str().unwrap().starts_with("tpx-"));
+        let with_other_keys = json!({ "traceparent": "00-x" });
+        let relayed = prepare_call(&none, "wait", None, Some(&with_other_keys))
+            .meta
+            .unwrap();
+        assert_eq!(relayed["traceparent"], "00-x");
+        assert_ne!(
+            relayed["progressToken"], token,
+            "every call has its own token"
+        );
+        let carried = json!({ "progressToken": "tp-3" });
+        assert!(prepare_call(&none, "wait", None, Some(&carried))
+            .meta
+            .is_none());
+        let null_token = json!({ "progressToken": null });
+        assert!(prepare_call(&none, "wait", None, Some(&null_token))
+            .meta
+            .is_some());
+    }
+
+    #[test]
+    fn test15_a_remote_servers_call_is_left_alone() {
+        let remote = CallSettings {
+            stdio: false,
+            ..settings(None, None)
+        };
+        let prepared = prepare_call(&remote, "wait", Some(&listing(json!(30))), None);
+        assert!(prepared.meta.is_none() && prepared.lease.is_none());
+    }
+
+    #[test]
+    fn test16_the_window_is_the_tool_budget_then_the_listing_budget_never_beyond_the_cap() {
+        let budgets = json!({ "wait": 90, "bad": -1, "text": "soon" });
+        let window = |settings: &CallSettings<'_>, tool: &str, listed: Option<&Value>| {
+            budget_window(settings, tool, listed)
+        };
+        let listed = listing(json!(120));
+        let own = settings(Some(&budgets), None);
+        assert_eq!(
+            window(&own, "wait", Some(&listed)),
+            Some(Duration::from_secs(90))
+        );
+        assert_eq!(
+            window(&settings(None, None), "wait", Some(&listed)),
+            Some(Duration::from_secs(120))
+        );
+        assert_eq!(window(&own, "other", None), None);
+        for unusable in [json!(0), json!(-5), json!("120"), json!(null)] {
+            assert_eq!(
+                window(&settings(None, None), "wait", Some(&listing(unusable))),
+                None
+            );
+        }
+        assert_eq!(window(&own, "bad", None), None);
+        assert_eq!(window(&own, "text", None), None);
+        let capped = settings(Some(&budgets), Some(60_000));
+        assert_eq!(
+            window(&capped, "wait", Some(&listed)),
+            Some(Duration::from_secs(60))
+        );
+        assert_eq!(
+            window(&settings(None, Some(60_000)), "wait", Some(&listed)),
+            Some(Duration::from_secs(60))
+        );
+    }
+
+    #[test]
+    fn test17_a_calls_window_is_known_to_its_clock_until_the_lease_is_dropped() {
+        let budgets = json!({ "wait": 90 });
+        let prepared = prepare_call(&settings(Some(&budgets), None), "wait", None, None);
+        let token = request_token(&json!({ "_meta": prepared.meta.clone().unwrap() })).unwrap();
+        assert_eq!(leased_window(&token), Some(Duration::from_secs(90)));
+        drop(prepared);
+        assert_eq!(leased_window(&token), None);
     }
 }

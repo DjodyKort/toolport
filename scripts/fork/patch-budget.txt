@@ -32,7 +32,22 @@
 #   closures). It touches the surface the client is sent only; the Full baseline the savings row compares
 #   with stays whole. The gateway tests of the mode are included from plus_gateway.rs (2 lines in the test
 #   module).
-38	src-tauri/src/bin/toolport-gateway.rs
+#   execute_call, after prepare_progress: seam::long_call (5 changed lines) gives a stdio tools/call without a
+#   client progressToken one the gateway minted, and the call the window of its tool budget, and holds the
+#   call of a server set to `serial` until it is its turn (it takes the call's cancel context, so a call its
+#   client cancelled while it queued stops waiting); the logic is toolport_plus::progress and ::serial.
+# MCP Tasks relay (15 changed lines, logic in toolport_plus::mcp_tasks behind seam/tasks.rs):
+#   initialize: seam::tasks_capability adds capabilities.tasks for a client that declared tasks (1).
+#   handle_request_with_cancel: seam::request_task keeps the `task` of a tools/call and the session of a
+#   tasks/* request on the thread for the request's lifetime (1); a tasks/get|result|cancel|list arm for
+#   legacy clients, ahead of the modern-only arm, answers through task_gate::request, a child module of this
+#   binary (gateway/plus_task_gate.rs, fork-owned, 2 lines for the `mod`): the content defense of a tasks/result
+#   result and the policy re-check, human approval and audit row of every tasks/* action use functions that are
+#   private to this binary (6; #[rustfmt::skip] keeps the one-line call, rustfmt would spread its nine
+#   arguments over eleven lines).
+#   execute_call: seam::task_created gives a CreateTaskResult the id its client knows (1).
+#   main: seam::set_task_sink hands the progress delivery to the relay for notifications/tasks/status (4).
+58	src-tauri/src/bin/toolport-gateway.rs
 # catalog.rs, 8 changed lines for the local registry index (D-118): `search` hands search_with_registry
 # seam::registry_lookup instead of search_registry (2), so the desktop IPC search and the Linux native
 # search both ask the index first and fall back to the live search; map_server, is_latest and is_active
@@ -49,7 +64,7 @@
 # seam::app_ready(handle) in the setup closure starts the notifier thread of the attention list,
 # which needs the AppHandle that app_started() runs too early to have (1).
 7	src-tauri/src/desktop.rs
-# downstream.rs, 29 changed lines:
+# downstream.rs, 44 changed lines:
 #   1: `is_download_launcher` asks seam::is_uv_download_launcher for the `uv` arm, so `uv run` and
 #      `uv tool run` get the launcher connect budget and the desktop's background pre-warm.
 #   21 for progress re-arm on StdioCore: `wait` takes its deadline from seam::CallClock instead of a fixed
@@ -60,7 +75,20 @@
 #   4 for the handshake switches: the legacy `initialize` declares seam::downstream_capabilities(&id) instead
 #      of `{}` (still `{}` unless the server opted in and a client declared something), and both eras hand
 #      their handshake result to seam::handshake_seen, which keeps the server's `instructions`.
-29	src-tauri/src/downstream.rs
+#   11 for the cancel on a deadline: when `wait` times out a tools/call, resources/read or prompts/get, it sends
+#      notifications/cancelled with the timeout text through the same CancelEntry a client cancel uses (behind
+#      seam::cancels_on_deadline, false without the plus feature).
+#   2 for the connection a progress notification belongs to: `wait` and `route_line` hand seam::CallClock and
+#      seam::progress_seen the address of the StdioCore, so only the server a call was sent to can extend its
+#      deadline (a server that reports progress under another server's token extends nothing).
+#   2 for the MCP Tasks relay: the `tools/call` params go through seam::with_task, which adds the client's
+#      `task` to the one call it belongs to. (`route_line` also hands seam::progress_seen the server id, on a
+#      line counted above, so a notifications/tasks/status reaches the client that created the task.)
+#   2 for the revision of the legacy `initialize`: seam::offered_protocol_version(transport.supports_request_headers())
+#      offers a stdio server 2025-11-25 (it answers with the lower revision it speaks) and an HTTP server
+#      2025-06-18 as before, because a server may declare `tasks` only to a client that offers 2025-11-25 and the
+#      HTTP transport's MCP-Protocol-Version header keeps naming PROTOCOL_VERSION. Era::Legacy already records the answer.
+46	src-tauri/src/downstream.rs
 2	src-tauri/src/http_client.rs
 # lib.rs, 3 lines: the two fork modules, and seam is pub (was pub(crate)) so the gateway binary can call
 # seam::gateway_tick.
@@ -91,7 +119,9 @@
 # `resource_server` falls back to seam::linked_owner (a connected server that returned a link to the uri,
 # looked up in the router's own server_order so the answer stays a borrowed &str) after listed uris and
 # templates.
-6	src-tauri/src/router.rs
+# +1 line for the Tasks relay: the idle shutdown of a server also waits for the tasks last seen working
+# (seam::tasks_running), so a server running a task is not stopped silently.
+7	src-tauri/src/router.rs
 # secrets.rs, 20 changed lines for the login-keychain mode and the vault backup, all forwarding to seam.rs:
 #   2: `mod platform` becomes pub(crate), so the adapter reaches read/ensure_master_key
 #   2: `add_with_shared_access` becomes pub(crate), so the adapter can rewrite the ACL

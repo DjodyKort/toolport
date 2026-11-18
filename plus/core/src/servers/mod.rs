@@ -62,8 +62,11 @@ pub struct Patch {
     pub inherit_env: Option<bool>,
     pub declare_client_capabilities: Option<bool>,
     pub forward_instructions: Option<bool>,
+    pub serial: Option<bool>,
     /// `Some(None)` removes the limit, so the default applies.
     pub max_request_timeout_ms: Option<Option<u64>>,
+    /// Seconds per original tool name; `None` removes that tool's entry.
+    pub tool_budgets: Vec<(String, Option<f64>)>,
 }
 
 /// The call limit as a surface gives it: milliseconds, or `default` for none.
@@ -77,6 +80,30 @@ pub fn parse_call_limit(raw: &str) -> Result<Option<u64>, String> {
         .map_err(|_| format!("'{raw}' is not a number of milliseconds or 'default'"))?;
     check_call_limit(ms)?;
     Ok(Some(ms))
+}
+
+/// A tool budget as a surface gives it: seconds, or `default` for none.
+pub fn parse_tool_budget(raw: &str) -> Result<Option<f64>, String> {
+    let raw = raw.trim();
+    if raw.eq_ignore_ascii_case("default") {
+        return Ok(None);
+    }
+    let seconds: f64 = raw
+        .parse()
+        .map_err(|_| format!("'{raw}' is not a number of seconds or 'default'"))?;
+    check_tool_budget(seconds)?;
+    Ok(Some(seconds))
+}
+
+pub fn check_tool_budget(seconds: f64) -> Result<(), String> {
+    let longest = progress::MAX_CAP_MS as f64 / 1000.0;
+    if seconds.is_finite() && seconds > 0.0 && seconds <= longest {
+        Ok(())
+    } else {
+        Err(format!(
+            "a tool budget must be more than 0 and at most {longest} seconds (24 hours)"
+        ))
+    }
 }
 
 pub fn check_call_limit(ms: u64) -> Result<(), String> {
@@ -225,6 +252,16 @@ pub fn add(host: &dyn Host, patch: &Patch, env_changes: &[Change]) -> Result<Str
 }
 
 fn check_patch(patch: &Patch) -> Result<(), ServerError> {
+    for (tool, seconds) in &patch.tool_budgets {
+        if tool.trim().is_empty() {
+            return Err(ServerError::Rejected(
+                "a tool budget needs a tool name".into(),
+            ));
+        }
+        if let Some(seconds) = seconds {
+            check_tool_budget(*seconds).map_err(ServerError::Rejected)?;
+        }
+    }
     match patch.max_request_timeout_ms {
         Some(Some(ms)) => check_call_limit(ms).map_err(ServerError::Rejected),
         _ => Ok(()),
@@ -234,6 +271,10 @@ fn check_patch(patch: &Patch) -> Result<(), ServerError> {
 /// The call limit is a fork field the host writes under its own lock, so it follows the commit of
 /// the transaction that carries the rest of the patch.
 fn apply_call_limit(host: &dyn Host, server_id: &str, patch: &Patch) -> Result<(), ServerError> {
+    for (tool, seconds) in &patch.tool_budgets {
+        host.set_server_tool_budget(server_id, tool, *seconds)
+            .map_err(ServerError::Rejected)?;
+    }
     match patch.max_request_timeout_ms {
         Some(limit) => host
             .set_server_max_request_timeout_ms(server_id, limit)
@@ -249,6 +290,10 @@ fn apply_switches(
 ) -> Result<(), ServerError> {
     if let Some(on) = patch.forward_instructions {
         tx.set_forward_instructions(server_id, on)
+            .map_err(ServerError::Rejected)?;
+    }
+    if let Some(on) = patch.serial {
+        tx.set_serial(server_id, on)
             .map_err(ServerError::Rejected)?;
     }
     if let Some(on) = patch.declare_client_capabilities {
@@ -522,8 +567,10 @@ pub fn info_value(
         "disabledTools": server.strings("disabledTools"),
         "declareClientCapabilities": server.fork.declare_client_capabilities.unwrap_or(false),
         "forwardInstructions": server.fork.forward_instructions.unwrap_or(false),
+        "serial": server.fork.serial.unwrap_or(false),
         "mode": mode::normalize(server.fork.server_mode.as_deref()),
         "maxRequestTimeoutMs": server.fork.max_request_timeout_ms,
+        "toolBudgets": server.fork.tool_budgets.clone().unwrap_or_default(),
         "requestTimeoutMs": timeouts_of(server).request_timeout_ms,
         "interop": interop_value(server, all, pending_redeclare),
         "accessSets": access_sets,

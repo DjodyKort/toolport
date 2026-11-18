@@ -12,7 +12,9 @@ use std::sync::Arc;
 
 use serde_json::{Map, Value};
 
-use crate::fork_data::{plus_ops, AuthProbe, DirectEntry, McpmSource, RegistryPlus, SelfMcpRecord};
+use crate::fork_data::{
+    budget_number, plus_ops, AuthProbe, DirectEntry, McpmSource, RegistryPlus, SelfMcpRecord,
+};
 use crate::{
     AccessSetInfo, AuthAccess, AuthChild, CallsInFlight, CatalogAccess, CatalogEntryRecord,
     ConsentSink, ContextHost, EnvEntry, GatewayRouter, HostEnv, HttpAccess, HttpError, HttpRequest,
@@ -516,6 +518,11 @@ impl RegistryTx for MemoryState {
         Ok(())
     }
 
+    fn set_serial(&mut self, server_id: &str, enabled: bool) -> Result<(), String> {
+        self.server_mut(server_id)?.fork.serial = enabled.then_some(true);
+        Ok(())
+    }
+
     fn set_declare_client_capabilities(
         &mut self,
         server_id: &str,
@@ -804,6 +811,28 @@ impl RegistryAccess for MemoryRegistry {
     ) -> Result<(), String> {
         self.edit(server_id, |server| {
             server.fork.max_request_timeout_ms = timeout_ms;
+            Ok(())
+        })
+    }
+
+    fn set_server_tool_budget(
+        &self,
+        server_id: &str,
+        tool: &str,
+        seconds: Option<f64>,
+    ) -> Result<(), String> {
+        self.edit(server_id, |server| {
+            let budgets = server
+                .fork
+                .tool_budgets
+                .get_or_insert_with(Default::default);
+            match seconds {
+                Some(seconds) => budgets.insert(tool.to_string(), budget_number(seconds)?),
+                None => budgets.remove(tool),
+            };
+            if budgets.is_empty() {
+                server.fork.tool_budgets = None;
+            }
             Ok(())
         })
     }
@@ -1133,6 +1162,15 @@ impl RegistryAccess for MemoryHost {
     ) -> Result<(), String> {
         self.registry
             .set_server_max_request_timeout_ms(server_id, timeout_ms)
+    }
+    fn set_server_tool_budget(
+        &self,
+        server_id: &str,
+        tool: &str,
+        seconds: Option<f64>,
+    ) -> Result<(), String> {
+        self.registry
+            .set_server_tool_budget(server_id, tool, seconds)
     }
     fn set_server_mode(&self, server_id: &str, mode: Option<&str>) -> Result<(), String> {
         self.registry.set_server_mode(server_id, mode)

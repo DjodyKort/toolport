@@ -40,7 +40,9 @@
       "mode": "auto",
       "name": "gamma",
       "requestTimeoutMs": null,
+      "serial": false,
       "source": "manual",
+      "toolBudgets": {},
       "transport": "stdio",
       "url": null
     },

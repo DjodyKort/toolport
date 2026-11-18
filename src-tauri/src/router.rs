@@ -1183,6 +1183,7 @@ impl ServerSlot {
                     } else if now.saturating_duration_since(state.last_use) >= server_idle_timeout()
                         && self.handle_calls.load(Ordering::Acquire) == 0
                         && server.suspended_calls() == 0
+                        && crate::seam::tasks_running(&self.id) == 0
                         && !state.subscription_use.as_ref().is_some_and(|used| used())
                     {
                         crate::gatewaylog::append(&format!("supervisor_transition server={} reason=idle_timeout prior=Ready next=Stopped", sanitize_segment(&self.id)));

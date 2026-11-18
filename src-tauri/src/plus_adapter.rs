@@ -4,13 +4,14 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 use toolport_plus_api::{
-    convert, plus_ops, AccessSetInfo, AuthProbe, CallsInFlight, CatalogAccess, CatalogEntryRecord,
-    ClientEntryInfo, ClientInfo, ClientWriteError, ClientsHost, ContextHost, DirectEntry,
-    EntrySpec, EntryWrite, EnvEntry, ForkServerFields, GatewayRouter, HostEnv, HttpAccess,
-    HttpBody, HttpError, HttpRequest, HttpResponse, McpmSource, ProcessOutcome, ProcessSpec,
-    RegistryAccess, RegistryEntries, RegistryPlus, RegistryTx, RegistryView, RestartOutcome,
-    RunApproval, RunDecision, ScopeKind, ScopeReach, SecretsHost, SelfMcpRecord, ServerRecord,
-    ServerRules, ServerSpec, SetupHost, TaskHost, TrustInputs, VaultAccess,
+    convert, fork_data::budget_number, plus_ops, AccessSetInfo, AuthProbe, CallsInFlight,
+    CatalogAccess, CatalogEntryRecord, ClientEntryInfo, ClientInfo, ClientWriteError, ClientsHost,
+    ContextHost, DirectEntry, EntrySpec, EntryWrite, EnvEntry, ForkServerFields, GatewayRouter,
+    HostEnv, HttpAccess, HttpBody, HttpError, HttpRequest, HttpResponse, McpmSource,
+    ProcessOutcome, ProcessSpec, RegistryAccess, RegistryEntries, RegistryPlus, RegistryTx,
+    RegistryView, RestartOutcome, RunApproval, RunDecision, ScopeKind, ScopeReach, SecretsHost,
+    SelfMcpRecord, ServerRecord, ServerRules, ServerSpec, SetupHost, TaskHost, TrustInputs,
+    VaultAccess,
 };
 
 pub struct HostAdapter;
@@ -424,6 +425,10 @@ impl RegistryTx for TxView<'_> {
         })
     }
 
+    fn set_serial(&mut self, server_id: &str, enabled: bool) -> Result<(), String> {
+        self.fork_fields(server_id, |fields| fields.serial = enabled.then_some(true))
+    }
+
     fn set_declare_client_capabilities(
         &mut self,
         server_id: &str,
@@ -646,6 +651,25 @@ impl RegistryAccess for HostAdapter {
     ) -> Result<(), String> {
         edit_server_fork_fields(server_id, |fields| {
             fields.max_request_timeout_ms = timeout_ms;
+            Ok(())
+        })
+    }
+
+    fn set_server_tool_budget(
+        &self,
+        server_id: &str,
+        tool: &str,
+        seconds: Option<f64>,
+    ) -> Result<(), String> {
+        edit_server_fork_fields(server_id, |fields| {
+            let budgets = fields.tool_budgets.get_or_insert_with(Default::default);
+            match seconds {
+                Some(seconds) => budgets.insert(tool.to_string(), budget_number(seconds)?),
+                None => budgets.remove(tool),
+            };
+            if budgets.is_empty() {
+                fields.tool_budgets = None;
+            }
             Ok(())
         })
     }

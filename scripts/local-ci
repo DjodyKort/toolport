@@ -115,7 +115,16 @@ step_seam_tests() {
   # Egress guard in conduit, the upstream -> mirror -> upstream round trip against the fixture, the adapter's
   # server operations and the router extension (restart, calls in flight).
   app_cargo test --locked --manifest-path "$APP_MANIFEST" --lib \
-    --no-default-features --features search-static,test-support,plus -- seam:: plus_adapter:: router::plus_ext::
+    --no-default-features --features search-static,test-support,plus -- seam:: plus_adapter:: router::plus_ext:: || return 1
+  # Long-running calls through the real gateway binary against the fake slow server (needs node).
+  app_cargo test --locked --manifest-path "$APP_MANIFEST" --test plus_longcall \
+    --no-default-features --features search-static,test-support,plus -- --test-threads=1 || return 1
+  # The acceptance of the long-call work: odoo_job_wait outliving its window next to a quick call.
+  app_cargo test --locked --manifest-path "$APP_MANIFEST" --test plus_longcall_acceptance \
+    --no-default-features --features search-static,test-support,plus -- --test-threads=1 || return 1
+  # MCP Tasks relayed through the real gateway binary against the fake server's task mode.
+  app_cargo test --locked --manifest-path "$APP_MANIFEST" --test plus_tasks \
+    --no-default-features --features search-static,test-support,plus -- --test-threads=1
 }
 
 ensure_node_modules() {

@@ -167,6 +167,9 @@ pub trait RegistryTx: RegistryView {
     fn set_forward_instructions(&mut self, server_id: &str, enabled: bool) -> Result<(), String>;
 
     /// Off removes the key.
+    fn set_serial(&mut self, server_id: &str, enabled: bool) -> Result<(), String>;
+
+    /// Off removes the key.
     fn set_declare_client_capabilities(
         &mut self,
         server_id: &str,

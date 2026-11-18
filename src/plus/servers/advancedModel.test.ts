@@ -39,6 +39,8 @@ function info(extra: Partial<ServerInfoData> = {}): ServerInfoData {
     declareClientCapabilities: false,
     forwardInstructions: false,
     maxRequestTimeoutMs: null,
+    toolBudgets: {},
+    serial: false,
     requestTimeoutMs: null,
     interop,
     disabledTools: [],

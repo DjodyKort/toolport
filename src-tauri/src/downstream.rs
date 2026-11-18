@@ -4272,7 +4272,9 @@ impl StdioCore {
         cancel_guard: Option<CancelGuard>,
         forwarded: Arc<AtomicBool>,
     ) -> Result<Value, TransportError> {
-        let mut clock = crate::seam::CallClock::start(timeout, params, self.server_id.get());
+        let connection = self as *const Self as usize;
+        let mut clock =
+            crate::seam::CallClock::start(timeout, params, self.server_id.get(), connection);
         loop {
             let remaining = clock.next_wait();
             match rx.recv_timeout(remaining) {
@@ -4375,12 +4377,23 @@ impl StdioCore {
                                 .to_string(),
                         ));
                     }
+                    let message = format!(
+                        "timed out waiting for '{method}' response{}",
+                        clock.cap_note()
+                    );
+                    if crate::seam::cancels_on_deadline(method) {
+                        CancelEntry {
+                            stdin: Arc::clone(&self.stdin),
+                            forwarder: self.forwarder.clone(),
+                            downstream_id: waiter.downstream_id.clone(),
+                            waiter: None,
+                            forwarded,
+                        }
+                        .send_cancel_async(Some(message.clone()));
+                    }
                     return Err(TransportError::Classified(
                         crate::call_failure::CallFailureKind::Timeout { after_send: true },
-                        format!(
-                            "timed out waiting for '{method}' response{}",
-                            clock.cap_note()
-                        ),
+                        message,
                     ));
                 }
                 Err(RecvTimeoutError::Disconnected) => {
@@ -4748,7 +4761,7 @@ impl StdioCore {
         }
         // Notifications were already handled by the stdout drain.
         if value.get("method").is_some() {
-            crate::seam::progress_seen(&value);
+            crate::seam::progress_seen(&value, self as *const Self as usize, self.server_id.get());
             return;
         }
         let Some(key) = value.get("id").and_then(id_key) else {
@@ -8752,7 +8765,7 @@ impl DownstreamServer {
         let initialize_result = transport.request(
             "initialize",
             json!({
-                "protocolVersion": PROTOCOL_VERSION,
+                "protocolVersion": crate::seam::offered_protocol_version(transport.supports_request_headers()),
                 "capabilities": crate::seam::downstream_capabilities(&id),
                 "clientInfo": { "name": "toolport-gateway", "version": env!("CARGO_PKG_VERSION") }
             }),
@@ -9839,7 +9852,7 @@ pub trait ServerDispatch {
         );
         self.request_with_mrtr(
             "tools/call",
-            json!({ "name": tool, "arguments": arguments }),
+            crate::seam::with_task(json!({ "name": tool, "arguments": arguments })),
             cancel,
             meta,
             mrtr,

@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "edit", "gamma", "--tool-budget", "job_wait"],
+  "envelope": {
+    "command": "server edit",
+    "error": {
+      "code": "usage",
+      "message": "--tool-budget: 'job_wait' is not <tool>=<seconds>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

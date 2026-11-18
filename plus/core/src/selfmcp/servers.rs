@@ -15,7 +15,7 @@ use crate::servers::{self, mode, Patch, ServerError, UninstallArgs};
 
 type Outcome = Result<Value, ToolError>;
 
-const CONFIG_KEYS: [&str; 10] = [
+const CONFIG_KEYS: [&str; 12] = [
     "command",
     "args",
     "env",
@@ -26,6 +26,8 @@ const CONFIG_KEYS: [&str; 10] = [
     "declareClientCapabilities",
     "forwardInstructions",
     "maxRequestTimeoutMs",
+    "toolBudgets",
+    "serial",
 ];
 
 fn invalid(message: impl Into<String>) -> ToolError {
@@ -189,6 +191,30 @@ fn config_call_limit(cfg: &Map<String, Value>) -> Result<Option<Option<u64>>, To
     }
 }
 
+/// Seconds per tool name; null removes a tool's budget.
+fn config_tool_budgets(cfg: &Map<String, Value>) -> Result<Vec<(String, Option<f64>)>, ToolError> {
+    let map = match cfg.get("toolBudgets") {
+        None | Some(Value::Null) => return Ok(Vec::new()),
+        Some(Value::Object(map)) => map,
+        Some(_) => return Err(invalid(
+            "toolBudgets must be an object of tool: seconds pairs; null removes a tool's budget",
+        )),
+    };
+    map.iter()
+        .map(|(tool, value)| match value {
+            Value::Null => Ok((tool.clone(), None)),
+            Value::Number(n) => {
+                let seconds = n.as_f64().unwrap_or(f64::NAN);
+                servers::check_tool_budget(seconds).map_err(invalid)?;
+                Ok((tool.clone(), Some(seconds)))
+            }
+            _ => Err(invalid(format!(
+                "toolBudgets.{tool} must be seconds or null"
+            ))),
+        })
+        .collect()
+}
+
 fn env_changes(cfg: &Map<String, Value>) -> Result<Vec<Change>, ToolError> {
     let map = match cfg.get("env") {
         None | Some(Value::Null) => return Ok(Vec::new()),
@@ -259,6 +285,8 @@ fn patch_from(
         declare_client_capabilities: config_switch(cfg, "declareClientCapabilities")?,
         forward_instructions: config_switch(cfg, "forwardInstructions")?,
         max_request_timeout_ms: config_call_limit(cfg)?,
+        tool_budgets: config_tool_budgets(cfg)?,
+        serial: config_switch(cfg, "serial")?,
     })
 }
 

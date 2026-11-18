@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "edit", "gamma", "--no-serial"],
+  "envelope": {
+    "command": "server edit",
+    "data": {
+      "changed": ["serial"],
+      "id": "gamma"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

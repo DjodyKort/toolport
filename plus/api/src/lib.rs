@@ -159,6 +159,14 @@ pub trait RegistryAccess {
         timeout_ms: Option<u64>,
     ) -> Result<(), String>;
 
+    /// Sets the budget in seconds of one tool; `None` removes it, and the last one removes the key.
+    fn set_server_tool_budget(
+        &self,
+        server_id: &str,
+        tool: &str,
+        seconds: Option<f64>,
+    ) -> Result<(), String>;
+
     /// `None` removes the key.
     fn set_server_mode(&self, server_id: &str, mode: Option<&str>) -> Result<(), String>;
 }

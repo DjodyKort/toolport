@@ -34,7 +34,9 @@
     "mode": "auto",
     "name": "alpha",
     "requestTimeoutMs": null,
+    "serial": false,
     "source": null,
+    "toolBudgets": {},
     "transport": "stdio",
     "url": null
   },
