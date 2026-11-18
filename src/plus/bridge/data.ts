@@ -213,8 +213,18 @@ export interface CommandsData {
 export interface AttentionData {
   checkedAt: string;
   counts: { needsYou: number; worthALook: number };
-  checks: Array<{ name: string; ok: boolean; error?: string }>;
+  checks: Array<{
+    name: string;
+    ok: boolean;
+    error?: string;
+    /** The person switched this check off; it raises nothing. */
+    off?: boolean;
+    /** When a check that asks the network last ran. */
+    checkedAt?: string;
+  }>;
   items: AttentionRow[];
+  /** Rows a snooze, skip or dismissal keeps out of `items`. */
+  hiddenCount?: number;
 }
 
 export interface AttentionRow {
@@ -231,4 +241,6 @@ export interface AttentionRow {
     /** The `toolportctl` argv that fixes the row without opening the screen. */
     command?: string[];
   };
+  /** Only a row whose id carries a version or commit range can be skipped. */
+  skip?: { label: string };
 }

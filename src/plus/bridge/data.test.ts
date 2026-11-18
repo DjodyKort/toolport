@@ -135,7 +135,13 @@ describe("the envelope types match the Rust goldens", () => {
     const seen = new Set<string>();
     for (const { envelope } of all) {
       const data = envelope.data as AttentionData;
-      expect(keys(data)).toEqual(["checkedAt", "checks", "counts", "items"]);
+      expect(keys(data)).toEqual([
+        "checkedAt",
+        "checks",
+        "counts",
+        "hiddenCount",
+        "items",
+      ]);
       expect(keys(data.counts)).toEqual(["needsYou", "worthALook"]);
       for (const check of data.checks) expect(check.name).toBeTruthy();
       for (const row of data.items) {
@@ -151,10 +157,11 @@ describe("the envelope types match the Rust goldens", () => {
             "title",
             "urgency",
             ...(row.since ? ["since"] : []),
+            ...(row.skip ? ["skip"] : []),
           ].sort(),
         );
       }
     }
-    expect([...seen].sort()).toEqual(["Credentials", "Library", "Tasks"]);
+    expect([...seen].sort()).toEqual(["Credentials", "Library", "Tasks", "Updates"]);
   });
 });
