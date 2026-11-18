@@ -947,9 +947,19 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("context_bundle_undo", W, "context bundle undo").param(),
     maps("context_leave_out", W, "context leave-out").on(),
     maps("context_launch_profile_ls", R, "context launch-profile ls"),
-    maps("context_launch_profile_add", W, "context launch-profile add").on(),
+    maps(
+        "context_launch_profile_add",
+        W,
+        "context launch-profile add",
+    )
+    .on(),
     maps("context_launch_profile_rm", D, "context launch-profile rm").on(),
-    maps("context_launch_profile_policy", W, "context launch-profile policy").on(),
+    maps(
+        "context_launch_profile_policy",
+        W,
+        "context launch-profile policy",
+    )
+    .on(),
     maps("context_loads", R, "context loads"),
     maps("context_measure", W, "context measure"),
     maps("context_status", R, "context status"),
