@@ -38,6 +38,8 @@ pub struct MemoryRegistry {
     pub folder_routes: RefCell<Vec<(String, String)>>,
     /// `client_discovery`: client id to its pinned mode.
     pub client_discovery: RefCell<BTreeMap<String, String>>,
+    /// Narrowed tools per access set id and server id.
+    pub tool_scopes: RefCell<BTreeMap<String, BTreeMap<String, Vec<String>>>>,
     /// Where `registry_path` points; the data dir of tests that write files next to it.
     pub path: Option<PathBuf>,
 }
@@ -52,6 +54,7 @@ pub struct MemoryState {
     pub client_scopes: BTreeMap<String, String>,
     pub folder_routes: Vec<(String, String)>,
     pub client_discovery: BTreeMap<String, String>,
+    pub tool_scopes: BTreeMap<String, BTreeMap<String, Vec<String>>>,
     pub unknown_fields: Map<String, Value>,
 }
 
@@ -168,6 +171,17 @@ impl MemoryState {
         Ok(())
     }
 
+    fn find_set(&self, reference: &str) -> Option<&AccessSetInfo> {
+        self.access_sets
+            .iter()
+            .find(|set| set.id == reference)
+            .or_else(|| {
+                self.access_sets
+                    .iter()
+                    .find(|set| set.name.eq_ignore_ascii_case(reference))
+            })
+    }
+
     fn server_mut(&mut self, server_id: &str) -> Result<&mut ServerRecord, String> {
         self.servers
             .iter_mut()
@@ -248,6 +262,116 @@ impl RegistryTx for MemoryState {
         if included {
             set.server_ids.push(server_id.into());
         }
+        Ok(())
+    }
+
+    fn create_access_set(&mut self, name: &str) -> Result<String, String> {
+        if name.trim().is_empty() {
+            return Err("Give the access set a name".into());
+        }
+        if name.trim().starts_with('@') {
+            return Err("Access-set names beginning with @ are reserved".into());
+        }
+        let mut base = slug(name);
+        while base.contains("--") {
+            base = base.replace("--", "-");
+        }
+        if base.is_empty() {
+            base = "item".into();
+        }
+        let mut id = base.clone();
+        let mut n = 1;
+        while self.access_sets.iter().any(|set| set.id == id) {
+            n += 1;
+            id = format!("{base}-{n}");
+        }
+        self.access_sets.push(AccessSetInfo {
+            id: id.clone(),
+            name: name.trim().into(),
+            server_ids: Vec::new(),
+        });
+        Ok(id)
+    }
+
+    fn delete_access_set(&mut self, access_set_id: &str) -> Result<(), String> {
+        if self.default_access.as_deref() == Some(access_set_id) {
+            return Err("Cannot remove the default access set or its policy context".into());
+        }
+        if self.access_sets.len() <= 1 {
+            return Err("Cannot remove the last profile".into());
+        }
+        let before = self.access_sets.len();
+        self.access_sets.retain(|set| set.id != access_set_id);
+        if self.access_sets.len() == before {
+            return Err(format!("No profile with id '{access_set_id}'"));
+        }
+        self.tool_scopes.remove(access_set_id);
+        Ok(())
+    }
+
+    fn set_default_access(&mut self, access_set_id: Option<&str>) -> Result<(), String> {
+        self.default_access = match access_set_id.filter(|set| !set.is_empty()) {
+            None => None,
+            Some(reference) => Some(
+                self.find_set(reference)
+                    .map(|set| set.id.clone())
+                    .ok_or_else(|| format!("No unique profile matches '{reference}'"))?,
+            ),
+        };
+        Ok(())
+    }
+
+    fn set_access_tools(
+        &mut self,
+        access_set_id: &str,
+        server_id: &str,
+        tools: Option<Vec<String>>,
+    ) -> Result<(), String> {
+        if !self.access_sets.iter().any(|set| set.id == access_set_id) {
+            return Err(format!("No profile with id '{access_set_id}'"));
+        }
+        match tools {
+            Some(tools) => {
+                self.tool_scopes
+                    .entry(access_set_id.to_string())
+                    .or_default()
+                    .insert(server_id.to_string(), tools);
+            }
+            None => {
+                if let Some(scope) = self.tool_scopes.get_mut(access_set_id) {
+                    scope.remove(server_id);
+                    if scope.is_empty() {
+                        self.tool_scopes.remove(access_set_id);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn set_folder_route(&mut self, path: &str, access_set_id: &str) -> Result<(), String> {
+        let path = path.trim();
+        if path.is_empty() {
+            return Err("choose a project folder".into());
+        }
+        let reference = access_set_id.trim();
+        if reference.is_empty() {
+            return Err("choose a profile".into());
+        }
+        let set = self
+            .access_sets
+            .iter()
+            .find(|set| set.id == reference || set.name == reference)
+            .ok_or("the selected profile no longer exists")?;
+        let stored = set.id.clone();
+        self.folder_routes
+            .retain(|(existing, _)| existing.trim() != path);
+        self.folder_routes.push((path.to_string(), stored));
+        Ok(())
+    }
+
+    fn remove_folder_route(&mut self, path: &str) -> Result<(), String> {
+        self.folder_routes.retain(|(existing, _)| existing != path);
         Ok(())
     }
 
@@ -461,6 +585,7 @@ impl MemoryRegistry {
             client_scopes: self.client_scopes.borrow().clone(),
             folder_routes: self.folder_routes.borrow().clone(),
             client_discovery: self.client_discovery.borrow().clone(),
+            tool_scopes: self.tool_scopes.borrow().clone(),
             unknown_fields: self.unknown_fields.borrow().clone(),
         }
     }
@@ -519,8 +644,11 @@ impl RegistryAccess for MemoryRegistry {
         edit(&mut state)?;
         *self.servers.borrow_mut() = state.servers;
         *self.access_sets.borrow_mut() = state.access_sets;
+        *self.default_access.borrow_mut() = state.default_access;
         *self.client_scopes.borrow_mut() = state.client_scopes;
+        *self.folder_routes.borrow_mut() = state.folder_routes;
         *self.client_discovery.borrow_mut() = state.client_discovery;
+        *self.tool_scopes.borrow_mut() = state.tool_scopes;
         *self.unknown_fields.borrow_mut() = state.unknown_fields;
         Ok(())
     }
@@ -1865,5 +1993,75 @@ mod tests {
             Some(vec!["p".to_string()])
         );
         assert!(registry.set_server_mcpm_oauth("missing", None).is_err());
+    }
+
+    fn with_sets(ids: &[&str]) -> MemoryRegistry {
+        let registry = MemoryRegistry::with_servers(vec![]);
+        *registry.access_sets.borrow_mut() = ids
+            .iter()
+            .map(|id| AccessSetInfo {
+                id: (*id).into(),
+                name: id.to_uppercase(),
+                server_ids: vec![],
+            })
+            .collect();
+        registry
+    }
+
+    #[test]
+    fn test01_memory_access_set_writes_follow_upstream_rules() {
+        let registry = with_sets(&["work"]);
+        registry
+            .transact(&mut |tx| {
+                assert_eq!(tx.create_access_set(" Deep  Work ")?, "deep-work");
+                assert_eq!(tx.create_access_set("deep work")?, "deep-work-2");
+                assert!(tx.create_access_set("@all").is_err());
+                assert!(tx.create_access_set("  ").is_err());
+                tx.set_default_access(Some("WORK"))?;
+                assert!(tx.delete_access_set("work").is_err());
+                tx.delete_access_set("deep-work-2")
+            })
+            .unwrap();
+        assert_eq!(registry.default_access.borrow().as_deref(), Some("work"));
+        assert_eq!(registry.access_sets.borrow().len(), 2);
+        let only = with_sets(&["work"]);
+        assert!(only
+            .transact(&mut |tx| tx.delete_access_set("work"))
+            .is_err());
+    }
+
+    #[test]
+    fn test02_memory_folder_routes_replace_by_path_and_need_an_existing_set() {
+        let registry = with_sets(&["work", "focus"]);
+        registry
+            .transact(&mut |tx| {
+                tx.set_folder_route("/a", "work")?;
+                tx.set_folder_route("/b", "FOCUS".to_lowercase().as_str())?;
+                tx.set_folder_route("/a", "focus")?;
+                assert!(tx.set_folder_route("/c", "gone").is_err());
+                assert!(tx.set_folder_route("", "work").is_err());
+                tx.remove_folder_route("/b")
+            })
+            .unwrap();
+        assert_eq!(
+            *registry.folder_routes.borrow(),
+            vec![("/a".to_string(), "focus".to_string())]
+        );
+    }
+
+    #[test]
+    fn test03_memory_access_tools_narrow_and_restore() {
+        let registry = with_sets(&["work"]);
+        registry
+            .transact(&mut |tx| tx.set_access_tools("work", "s", Some(vec!["t".into()])))
+            .unwrap();
+        assert_eq!(registry.tool_scopes.borrow()["work"]["s"], ["t"]);
+        registry
+            .transact(&mut |tx| tx.set_access_tools("work", "s", None))
+            .unwrap();
+        assert!(registry.tool_scopes.borrow().is_empty());
+        assert!(registry
+            .transact(&mut |tx| tx.set_access_tools("gone", "s", None))
+            .is_err());
     }
 }

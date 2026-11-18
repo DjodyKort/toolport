@@ -302,6 +302,73 @@ impl RegistryTx for TxView<'_> {
         self.0.set_access_server(access_set_id, server_id, included)
     }
 
+    fn create_access_set(&mut self, name: &str) -> Result<String, String> {
+        crate::registry_controller::apply_create_profile(self.0, name)?;
+        self.0
+            .profiles
+            .last()
+            .map(|profile| profile.id.clone())
+            .ok_or_else(|| "the access set was not created".into())
+    }
+
+    fn delete_access_set(&mut self, access_set_id: &str) -> Result<(), String> {
+        crate::registry_controller::apply_delete_profile(self.0, access_set_id)
+    }
+
+    fn set_default_access(&mut self, access_set_id: Option<&str>) -> Result<(), String> {
+        self.0.set_default_access(access_set_id)
+    }
+
+    fn set_access_tools(
+        &mut self,
+        access_set_id: &str,
+        server_id: &str,
+        tools: Option<Vec<String>>,
+    ) -> Result<(), String> {
+        self.0
+            .set_profile_server_tools(access_set_id, server_id, tools)
+    }
+
+    fn set_folder_route(&mut self, path: &str, access_set_id: &str) -> Result<(), String> {
+        let path = path.trim();
+        if path.is_empty() {
+            return Err("choose a project folder".into());
+        }
+        let profile = access_set_id.trim();
+        if profile.is_empty() {
+            return Err("choose a profile".into());
+        }
+        if !self
+            .0
+            .profiles
+            .iter()
+            .any(|candidate| candidate.id == profile || candidate.name == profile)
+        {
+            return Err("the selected profile no longer exists".into());
+        }
+        let mut mappings = self.0.folder_profiles.clone();
+        mappings.retain(|mapping| mapping.path.trim() != path);
+        mappings.push(crate::registry::FolderProfile {
+            path: path.to_string(),
+            profile: profile.to_string(),
+            unknown_fields: Default::default(),
+        });
+        self.0.set_folder_profiles(mappings);
+        Ok(())
+    }
+
+    fn remove_folder_route(&mut self, path: &str) -> Result<(), String> {
+        let mappings = self
+            .0
+            .folder_profiles
+            .iter()
+            .filter(|mapping| mapping.path != path)
+            .cloned()
+            .collect();
+        self.0.set_folder_profiles(mappings);
+        Ok(())
+    }
+
     fn set_client_scope(
         &mut self,
         client_id: &str,
@@ -386,7 +453,21 @@ impl RegistryAccess for HostAdapter {
         &self,
         edit: &mut dyn FnMut(&mut dyn RegistryTx) -> Result<(), String>,
     ) -> Result<(), String> {
-        crate::registry::update(|registry| edit(&mut TxView(registry))).map(|_| ())
+        let mut before = Vec::new();
+        let (registry, ()) = crate::registry::update(|registry| {
+            before = registry
+                .profiles
+                .iter()
+                .map(|profile| profile.id.clone())
+                .collect::<Vec<_>>();
+            edit(&mut TxView(registry))
+        })?;
+        for id in before {
+            if !registry.profiles.iter().any(|profile| profile.id == id) {
+                crate::registry_controller::cleanup_deleted_profile_reviews(&id, &registry);
+            }
+        }
+        Ok(())
     }
 
     fn registry_path(&self) -> Option<PathBuf> {
@@ -3546,6 +3627,168 @@ mod tests {
         let view = HostAdapter.read_view().unwrap().unwrap();
         assert!(view.servers().unwrap()[0].enabled);
         assert_eq!(view.default_access(), None);
+    }
+
+    fn access_scratch(label: &str) -> Scratch {
+        let scratch = Scratch::new(label);
+        scratch.write_registry(
+            &json!({
+                "version": 3,
+                "servers": [],
+                "profiles": [
+                    {"id": "work", "name": "Work", "enabledServerIds": []},
+                    {"id": "focus", "name": "Focus", "enabledServerIds": []},
+                ],
+            })
+            .to_string(),
+        );
+        scratch
+    }
+
+    #[test]
+    fn test01_create_access_set_returns_the_id_and_refuses_reserved_names() {
+        let scratch = access_scratch("access-create");
+        let mut created = String::new();
+        HostAdapter
+            .transact(&mut |tx| {
+                created = tx.create_access_set("  Deep Work ")?;
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(created, "deep-work");
+        let saved = scratch.raw_registry();
+        assert_eq!(saved["profiles"][2]["id"], "deep-work");
+        assert_eq!(saved["profiles"][2]["name"], "Deep Work");
+        for bad in ["  ", "@all"] {
+            let error = HostAdapter
+                .transact(&mut |tx| tx.create_access_set(bad).map(|_| ()))
+                .unwrap_err();
+            assert!(
+                error.contains("access set") || error.contains("Access-set"),
+                "{error}"
+            );
+        }
+        assert_eq!(
+            scratch.raw_registry()["profiles"].as_array().unwrap().len(),
+            3
+        );
+    }
+
+    #[test]
+    fn test02_delete_access_set_refuses_the_default_and_the_last_set() {
+        let scratch = access_scratch("access-delete");
+        HostAdapter
+            .transact(&mut |tx| tx.set_default_access(Some("work")))
+            .unwrap();
+        let error = HostAdapter
+            .transact(&mut |tx| tx.delete_access_set("work"))
+            .unwrap_err();
+        assert!(error.contains("default access"), "{error}");
+        HostAdapter
+            .transact(&mut |tx| tx.delete_access_set("focus"))
+            .unwrap();
+        HostAdapter
+            .transact(&mut |tx| tx.set_default_access(None))
+            .unwrap();
+        let error = HostAdapter
+            .transact(&mut |tx| tx.delete_access_set("work"))
+            .unwrap_err();
+        assert!(error.contains("last profile"), "{error}");
+        assert_eq!(
+            scratch.raw_registry()["profiles"].as_array().unwrap().len(),
+            1
+        );
+    }
+
+    #[test]
+    fn test03_delete_access_set_leaves_clients_that_named_it_dangling() {
+        let _scratch = access_scratch("access-dangling");
+        HostAdapter
+            .transact(&mut |tx| tx.set_client_scope("codex", Some("focus")))
+            .unwrap();
+        HostAdapter
+            .transact(&mut |tx| tx.delete_access_set("focus"))
+            .unwrap();
+        let view = HostAdapter.read_view().unwrap().unwrap();
+        let codex = view
+            .scope_reach()
+            .into_iter()
+            .find(|scope| scope.key == "codex")
+            .unwrap();
+        assert!(codex.dangling && codex.server_ids.is_empty());
+    }
+
+    #[test]
+    fn test04_set_default_access_takes_an_id_or_name_and_none_clears_it() {
+        let scratch = access_scratch("access-default");
+        HostAdapter
+            .transact(&mut |tx| tx.set_default_access(Some("FOCUS")))
+            .unwrap();
+        assert_eq!(scratch.raw_registry()["defaultAccessProfileId"], "focus");
+        let error = HostAdapter
+            .transact(&mut |tx| tx.set_default_access(Some("nope")))
+            .unwrap_err();
+        assert!(error.contains("No unique profile"), "{error}");
+        HostAdapter
+            .transact(&mut |tx| tx.set_default_access(None))
+            .unwrap();
+        assert!(scratch
+            .raw_registry()
+            .get("defaultAccessProfileId")
+            .is_none());
+    }
+
+    #[test]
+    fn test05_set_access_tools_narrows_and_restores_one_server() {
+        let scratch = access_scratch("access-tools");
+        HostAdapter
+            .transact(&mut |tx| tx.set_access_tools("work", "probe", Some(vec!["read".into()])))
+            .unwrap();
+        assert_eq!(
+            scratch.raw_registry()["profiles"][0]["toolScope"],
+            json!({"probe": ["read"]})
+        );
+        HostAdapter
+            .transact(&mut |tx| tx.set_access_tools("work", "probe", None))
+            .unwrap();
+        let scope = &scratch.raw_registry()["profiles"][0]["toolScope"];
+        assert!(scope.is_null() || scope == &json!({}), "{scope}");
+        let error = HostAdapter
+            .transact(&mut |tx| tx.set_access_tools("nope", "probe", None))
+            .unwrap_err();
+        assert!(error.contains("No profile"), "{error}");
+    }
+
+    #[test]
+    fn test06_folder_routes_replace_by_path_and_refuse_a_missing_set() {
+        let scratch = access_scratch("access-folders");
+        HostAdapter
+            .transact(&mut |tx| {
+                tx.set_folder_route("/work/a", "Work")?;
+                tx.set_folder_route("/work/b", "focus")?;
+                tx.set_folder_route(" /work/a ", "focus")
+            })
+            .unwrap();
+        let saved = scratch.raw_registry();
+        assert_eq!(
+            saved["folderProfiles"],
+            json!([
+                {"path": "/work/b", "profile": "focus"},
+                {"path": "/work/a", "profile": "focus"},
+            ])
+        );
+        for (path, set) in [("", "work"), ("/x", ""), ("/x", "missing")] {
+            assert!(HostAdapter
+                .transact(&mut |tx| tx.set_folder_route(path, set))
+                .is_err());
+        }
+        HostAdapter
+            .transact(&mut |tx| tx.remove_folder_route("/work/b"))
+            .unwrap();
+        assert_eq!(
+            scratch.raw_registry()["folderProfiles"],
+            json!([{"path": "/work/a", "profile": "focus"}])
+        );
     }
 
     #[test]

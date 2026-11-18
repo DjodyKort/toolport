@@ -111,6 +111,30 @@ pub trait RegistryTx: RegistryView {
         included: bool,
     ) -> Result<(), String>;
 
+    /// Creates an empty access set through upstream's own create (name rules included) and
+    /// returns its id.
+    fn create_access_set(&mut self, name: &str) -> Result<String, String>;
+
+    /// Deletes a set through upstream's own removal, which refuses the default access and the
+    /// last set. Clients and folders that still name it are left dangling and reach nothing.
+    fn delete_access_set(&mut self, access_set_id: &str) -> Result<(), String>;
+
+    /// Makes a set the explicit default access; `None` returns to "every enabled server".
+    fn set_default_access(&mut self, access_set_id: Option<&str>) -> Result<(), String>;
+
+    /// Narrows the tools a set exposes from one server; `None` restores all tools.
+    fn set_access_tools(
+        &mut self,
+        access_set_id: &str,
+        server_id: &str,
+        tools: Option<Vec<String>>,
+    ) -> Result<(), String>;
+
+    /// Maps a project folder to a set, replacing an earlier mapping of the same folder.
+    fn set_folder_route(&mut self, path: &str, access_set_id: &str) -> Result<(), String>;
+
+    fn remove_folder_route(&mut self, path: &str) -> Result<(), String>;
+
     fn set_selfmcp_record(&mut self, record: Option<SelfMcpRecord>) -> Result<(), String>;
 
     /// Binds a client id to an access set through upstream's `set_client_scope`; `None` removes
