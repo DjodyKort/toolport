@@ -6019,6 +6019,7 @@ fn execute_call(
         exec_router.route_call_typed(name, arguments, cancel.clone(), client_meta, effective_mrtr)
     }) {
         Ok(mut result) => {
+            conduit_lib::seam::task_created(server_id, &mut result);
             if let Some(profiler) = &mut call_profiler {
                 profiler.mark_downstream();
             }
@@ -8416,6 +8417,7 @@ fn handle_request_with_cancel(
     // older version in `_meta` is still served, just in its own era's shape.
     let _era = UpstreamEraGuard::enter(declared.filter(|v| v.as_str() == MODERN_PROTOCOL_VERSION));
     let _capabilities = UpstreamCapabilitiesGuard::enter(req);
+    let _tasks = conduit_lib::seam::request_task(req, progress_target);
     // A profile-selected or per-client filtered catalog must never be shared
     // across authorization contexts, even when every downstream says public.
     let cache_scoped = profile.is_some() || allowed.is_some();
@@ -8475,6 +8477,7 @@ fn handle_request_with_cancel(
             }) {
                 result["instructions"] = Value::String(text);
             }
+            conduit_lib::seam::tasks_capability(&mut result, req, allowed);
             Some(success(id, result))
         }
         "tools/list" => {
@@ -9480,6 +9483,16 @@ fn handle_request_with_cancel(
                     ),
                 )),
             }
+        }
+        method @ ("tasks/get" | "tasks/result" | "tasks/cancel" | "tasks/list")
+            if !serving_modern_client() && conduit_lib::seam::tasks_enabled() =>
+        {
+            let shape = &mut |owner: &str, result| {
+                defend_and_shape(reg, owner, method, client, result, "", true).result
+            };
+            Some(conduit_lib::seam::tasks_request(
+                id, req, router, allowed, cancel, shape,
+            ))
         }
         method @ ("tasks/get" | "tasks/update" | "tasks/cancel") => {
             if !serving_modern_client() {
@@ -23336,6 +23349,10 @@ fn gateway_main(cli_args: Vec<String>) {
         Arc::clone(&mcp_sessions),
         Arc::clone(progress_routes()),
     ));
+    let (task_stdio, task_sessions) = (Arc::clone(&stdio_upstream), Arc::clone(&mcp_sessions));
+    conduit_lib::seam::set_task_sink(Arc::new(move |session: &str, note: &Value| {
+        deliver_progress_to(&task_stdio, &task_sessions, session, note, None)
+    }));
     // Single-flight for every router build/swap (startup, watcher self-heal, and
     // ${ROOT} rebuilds). Created up front so the startup build can share it.
     let rebuild_lock = Arc::new(Mutex::new(()));

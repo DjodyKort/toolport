@@ -4761,7 +4761,7 @@ impl StdioCore {
         }
         // Notifications were already handled by the stdout drain.
         if value.get("method").is_some() {
-            crate::seam::progress_seen(&value, self as *const Self as usize);
+            crate::seam::progress_seen(&value, self as *const Self as usize, self.server_id.get());
             return;
         }
         let Some(key) = value.get("id").and_then(id_key) else {
@@ -9852,7 +9852,7 @@ pub trait ServerDispatch {
         );
         self.request_with_mrtr(
             "tools/call",
-            json!({ "name": tool, "arguments": arguments }),
+            crate::seam::with_task(json!({ "name": tool, "arguments": arguments })),
             cancel,
             meta,
             mrtr,

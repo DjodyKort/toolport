@@ -16,6 +16,7 @@ pub mod keychain_trust;
 pub mod launcher;
 pub mod library;
 pub mod login_keychain;
+pub mod mcp_tasks;
 pub mod oauth;
 pub mod op;
 pub mod progress;

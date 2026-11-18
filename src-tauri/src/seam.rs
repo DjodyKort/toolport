@@ -14,6 +14,8 @@ mod plus_ctl;
 mod handshake;
 #[cfg(all(test, feature = "plus"))]
 mod interop_tests;
+#[cfg(feature = "plus")]
+mod tasks;
 
 /// Wraps the app's invoke handler so the fork's `plus_ctl*` commands are answered here and every
 /// other command still reaches `next`.
@@ -257,6 +259,8 @@ pub struct LongCall {
     _lease: Option<toolport_plus::progress::WindowLease>,
     #[cfg(feature = "plus")]
     _turn: Option<toolport_plus::serial::Turn>,
+    #[cfg(feature = "plus")]
+    _task: Option<tasks::OutgoingGuard>,
 }
 
 /// Prepares a `tools/call` of the tool listed as `name` in `catalog`, which is `tool` of
@@ -278,6 +282,7 @@ pub fn long_call(
                 meta: None,
                 _lease: None,
                 _turn: None,
+                _task: None,
             };
         };
         let turn = server
@@ -304,6 +309,7 @@ pub fn long_call(
             meta: prepared.meta,
             _lease: prepared.lease,
             _turn: turn,
+            _task: tasks::arm(server_id, name),
         }
     }
     #[cfg(not(feature = "plus"))]
@@ -342,12 +348,21 @@ fn max_request_timeout_ms(server_id: Option<String>) -> Option<u64> {
         .as_u64()
 }
 
-/// A server sent a notification on a stdio connection.
-pub fn progress_seen(notification: &serde_json::Value, connection: usize) {
+/// A server sent a notification on a stdio connection. `server_id` is the server, once known.
+pub fn progress_seen(
+    notification: &serde_json::Value,
+    connection: usize,
+    server_id: Option<&String>,
+) {
     #[cfg(feature = "plus")]
-    toolport_plus::progress::note(notification, connection);
+    {
+        toolport_plus::progress::note(notification, connection);
+        if let Some(server_id) = server_id {
+            toolport_plus::mcp_tasks::status_seen(server_id, notification);
+        }
+    }
     #[cfg(not(feature = "plus"))]
-    let _ = (notification, connection);
+    let _ = (notification, connection, server_id);
 }
 
 /// What the legacy `initialize` to a server declares as client capabilities: `{}`, unless the
@@ -365,9 +380,117 @@ pub fn downstream_capabilities(server_id: &str) -> serde_json::Value {
 /// A server answered `initialize` or `server/discover` with `result`.
 pub fn handshake_seen(server_id: &str, result: &serde_json::Value) {
     #[cfg(feature = "plus")]
-    toolport_plus::handshake::store_instructions(server_id, result);
+    {
+        toolport_plus::handshake::store_instructions(server_id, result);
+        toolport_plus::mcp_tasks::server_connected(server_id, result);
+    }
     #[cfg(not(feature = "plus"))]
     let _ = (server_id, result);
+}
+
+/// Adds `capabilities.tasks` to the `initialize` result of a client that declared tasks, when a
+/// server in its scope takes task-augmented `tools/call`s.
+pub fn tasks_capability(
+    result: &mut serde_json::Value,
+    req: &serde_json::Value,
+    allowed: Option<&std::collections::HashSet<String>>,
+) {
+    #[cfg(feature = "plus")]
+    toolport_plus::mcp_tasks::advertise(result, req, &|server| {
+        allowed.is_none_or(|scope| scope.contains(server))
+    });
+    #[cfg(not(feature = "plus"))]
+    let _ = (result, req, allowed);
+}
+
+/// What the request being served says about tasks, held until the guard drops: the `task` of a
+/// `tools/call`, the session of a `tasks/*` request. `session` names the caller's session.
+pub struct RequestTask {
+    #[cfg(feature = "plus")]
+    _guard: tasks::RequestGuard,
+}
+
+pub fn request_task(req: &serde_json::Value, session: fn() -> Option<String>) -> RequestTask {
+    #[cfg(feature = "plus")]
+    return RequestTask {
+        _guard: tasks::request_task(req, session),
+    };
+    #[cfg(not(feature = "plus"))]
+    {
+        let _ = (req, session);
+        RequestTask {}
+    }
+}
+
+/// Whether tasks were offered to some client and a server still takes them.
+pub fn tasks_enabled() -> bool {
+    cfg!(feature = "plus") && tasks_on()
+}
+
+#[cfg(feature = "plus")]
+fn tasks_on() -> bool {
+    toolport_plus::mcp_tasks::enabled()
+}
+
+#[cfg(not(feature = "plus"))]
+fn tasks_on() -> bool {
+    false
+}
+
+/// Answers a legacy client's `tasks/get|result|cancel|list`. `shape` passes the result of
+/// `tasks/result` through content defense.
+pub fn tasks_request(
+    id: serde_json::Value,
+    req: &serde_json::Value,
+    router: &crate::router::Router,
+    allowed: Option<&std::collections::HashSet<String>>,
+    cancel: Option<crate::downstream::CancelContext>,
+    shape: &mut dyn FnMut(&str, serde_json::Value) -> serde_json::Value,
+) -> serde_json::Value {
+    #[cfg(feature = "plus")]
+    return tasks::request(id, req, router, allowed, cancel, shape);
+    #[cfg(not(feature = "plus"))]
+    {
+        let _ = (req, router, allowed, cancel, shape);
+        serde_json::json!({ "jsonrpc": "2.0", "id": id,
+            "error": { "code": -32601, "message": "Method not found" } })
+    }
+}
+
+/// Where a notification for a task goes: `sink` delivers it to the client session that created it.
+pub fn set_task_sink(sink: std::sync::Arc<dyn Fn(&str, &serde_json::Value) + Send + Sync>) {
+    #[cfg(feature = "plus")]
+    toolport_plus::mcp_tasks::set_sink(sink);
+    #[cfg(not(feature = "plus"))]
+    let _ = sink;
+}
+
+/// The `params` of a `tools/call` to a server as it is sent: with the client's `task`, when this
+/// call carries one the server takes.
+pub fn with_task(params: serde_json::Value) -> serde_json::Value {
+    #[cfg(feature = "plus")]
+    return tasks::with_task(params);
+    #[cfg(not(feature = "plus"))]
+    params
+}
+
+/// A server answered a `tools/call`: a `CreateTaskResult` gets the id its client will know.
+pub fn task_created(server_id: &str, result: &mut serde_json::Value) {
+    #[cfg(feature = "plus")]
+    tasks::task_created(server_id, result);
+    #[cfg(not(feature = "plus"))]
+    let _ = (server_id, result);
+}
+
+/// Tasks of `server_id` last seen working: the server is not idle while they run.
+pub fn tasks_running(server_id: &str) -> usize {
+    #[cfg(feature = "plus")]
+    return toolport_plus::mcp_tasks::running(server_id);
+    #[cfg(not(feature = "plus"))]
+    {
+        let _ = server_id;
+        0
+    }
 }
 
 /// Adds the instructions of the servers that opted in, within the caller's scope, to the
@@ -431,9 +554,14 @@ pub fn adapter_ceiling(base: std::time::Duration, body: &str) -> std::time::Dura
     #[cfg(feature = "plus")]
     {
         use toolport_plus::progress::{adapter_ceiling, ServerTimeouts};
-        let call = ["tools/call", "resources/read", "prompts/get"]
-            .into_iter()
-            .find(|method| body.contains(method));
+        let call = [
+            "tools/call",
+            "resources/read",
+            "prompts/get",
+            "tasks/result",
+        ]
+        .into_iter()
+        .find(|method| body.contains(method));
         let Some(method) = call else {
             return base;
         };

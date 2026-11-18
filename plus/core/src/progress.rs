@@ -169,13 +169,35 @@ pub fn prepare_call(
     }
 }
 
+/// A token and a window for a request that must be allowed to wait as long as `window`
+/// (`tasks/result` is bounded by the cap, not by the server's call window). Send the token as the
+/// request's `progressToken`; the lease holds the window until it is dropped.
+pub fn lease_wait(window: Duration) -> (Value, WindowLease) {
+    let token = Value::String(format!(
+        "{MINTED_PREFIX}{}",
+        MINTED.fetch_add(1, Ordering::Relaxed) + 1
+    ));
+    let key = token_key(&token);
+    WINDOWS
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .get_or_insert_with(HashMap::new)
+        .insert(key.clone(), window);
+    (token, WindowLease { key })
+}
+
 /// Default `requestTimeoutMs` of a server without one.
 pub const DEFAULT_WINDOW: Duration = Duration::from_secs(30);
 /// Slack between a server's deadline and the adapter's, so the server's own timeout text arrives.
 pub const ADAPTER_GRACE: Duration = Duration::from_secs(60);
 /// A caller-set timeout below this is a deliberate short one (tests, probes) and is kept.
 pub const EXTENDABLE_FROM: Duration = Duration::from_secs(600);
-const ADAPTER_METHODS: [&str; 3] = ["tools/call", "resources/read", "prompts/get"];
+const ADAPTER_METHODS: [&str; 4] = [
+    "tools/call",
+    "resources/read",
+    "prompts/get",
+    "tasks/result",
+];
 
 /// What one server allows a call: its `requestTimeoutMs`, and for a stdio server also the cap that
 /// progress can stretch it to. Only a stdio server's deadline is re-armed by progress.

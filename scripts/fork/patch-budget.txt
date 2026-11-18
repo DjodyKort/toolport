@@ -36,7 +36,15 @@
 #   client progressToken one the gateway minted, and the call the window of its tool budget, and holds the
 #   call of a server set to `serial` until it is its turn (it takes the call's cancel context, so a call its
 #   client cancelled while it queued stops waiting); the logic is toolport_plus::progress and ::serial.
-43	src-tauri/src/bin/toolport-gateway.rs
+# MCP Tasks relay (17 changed lines, logic in toolport_plus::mcp_tasks behind seam/tasks.rs):
+#   initialize: seam::tasks_capability adds capabilities.tasks for a client that declared tasks (1).
+#   handle_request_with_cancel: seam::request_task keeps the `task` of a tools/call and the session of a
+#   tasks/* request on the thread for the request's lifetime (1); a tasks/get|result|cancel|list arm for
+#   legacy clients, ahead of the modern-only arm, answers through seam::tasks_request, with content defense
+#   for a tasks/result result passed in as a closure because defend_and_shape is private to this binary (9).
+#   execute_call: seam::task_created gives a CreateTaskResult the id its client knows (1).
+#   main: seam::set_task_sink hands the progress delivery to the relay for notifications/tasks/status (4).
+60	src-tauri/src/bin/toolport-gateway.rs
 # desktop.rs, 6 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
 # plus_ctl commands (D-060) and hands every other command on (4); seam::app_started() at the start of
 # run() starts the task scheduler thread of the desktop app, the always-on tick of D-128 (2).
@@ -58,7 +66,10 @@
 #   2 for the connection a progress notification belongs to: `wait` and `route_line` hand seam::CallClock and
 #      seam::progress_seen the address of the StdioCore, so only the server a call was sent to can extend its
 #      deadline (a server that reports progress under another server's token extends nothing).
-42	src-tauri/src/downstream.rs
+#   2 for the MCP Tasks relay: the `tools/call` params go through seam::with_task, which adds the client's
+#      `task` to the one call it belongs to. (`route_line` also hands seam::progress_seen the server id, on a
+#      line counted above, so a notifications/tasks/status reaches the client that created the task.)
+44	src-tauri/src/downstream.rs
 2	src-tauri/src/http_client.rs
 # lib.rs, 3 lines: the two fork modules, and seam is pub (was pub(crate)) so the gateway binary can call
 # seam::gateway_tick.
@@ -87,7 +98,9 @@
 # `resource_server` falls back to seam::linked_owner (a connected server that returned a link to the uri,
 # looked up in the router's own server_order so the answer stays a borrowed &str) after listed uris and
 # templates.
-6	src-tauri/src/router.rs
+# +1 line for the Tasks relay: the idle shutdown of a server also waits for the tasks last seen working
+# (seam::tasks_running), so a server running a task is not stopped silently.
+7	src-tauri/src/router.rs
 # secrets.rs, 20 changed lines for the login-keychain mode and the vault backup, all forwarding to seam.rs:
 #   2: `mod platform` becomes pub(crate), so the adapter reaches read/ensure_master_key
 #   2: `add_with_shared_access` becomes pub(crate), so the adapter can rewrite the ACL

@@ -22,6 +22,47 @@ impl Router {
     /// Replaces the server's connection with a fresh one now, so a server whose code changed runs
     /// it. `None` when this router holds no such server; otherwise whether it restarted and a line
     /// for the result. The old connection stays when a fresh one cannot start.
+    /// Sends one `tasks/*` request to the server that owns the task. A JSON-RPC error of the server
+    /// comes back as it is.
+    pub(crate) fn plus_task_request(
+        &self,
+        server_id: &str,
+        method: &str,
+        params: Value,
+        cancel: Option<CancelContext>,
+    ) -> toolport_plus::mcp_tasks::Forwarded {
+        use toolport_plus::mcp_tasks::Forwarded;
+        // Cancelling stops work the server already took on, so it still reaches a server turned off.
+        let slot = if method == "tasks/cancel" {
+            self.slot_for(server_id)
+        } else {
+            self.authorized_slot(server_id)
+        };
+        let slot = match slot {
+            Ok(slot) => slot,
+            Err(message) => return Forwarded::Failed(message),
+        };
+        let outcome = self.call_with_retry_typed(
+            &slot,
+            cancel.as_ref(),
+            false,
+            ReplayPolicy::for_task(method),
+            SlotAccess::Shared,
+            |server| match server.send_plain(method, params.clone(), cancel.clone()) {
+                Err(TransportError::Rpc(error)) => Ok(Err(error)),
+                other => other.map(Ok),
+            },
+        );
+        match outcome {
+            Ok(Ok(reply)) => Forwarded::Reply(reply),
+            Ok(Err(error)) => Forwarded::Rpc(error),
+            Err(failure) => match failure.kind {
+                CallFailureKind::Unavailable { .. } => Forwarded::Gone,
+                _ => Forwarded::Failed(client_safe_error(&failure.detail)),
+            },
+        }
+    }
+
     pub(crate) fn plus_restart_server(&self, server_id: &str) -> Option<(bool, String)> {
         let slot = self.servers.get(*self.by_id.get(server_id)?)?;
         Some(restart_slot(slot))
@@ -46,7 +87,10 @@ fn calls_in_flight(slot: &ServerSlot) -> usize {
         .inner
         .try_lock()
         .map_or(0, |server| server.suspended_calls());
-    running + suspended + crate::seam::serial_waiting(&slot.id)
+    running
+        + suspended
+        + crate::seam::serial_waiting(&slot.id)
+        + crate::seam::tasks_running(&slot.id)
 }
 
 fn restart_slot(slot: &Arc<ServerSlot>) -> (bool, String) {
@@ -177,16 +221,20 @@ mod tests {
     }
 
     fn router_with(connect: Connect, state: SupervisorState) -> Router {
+        router_named("s", connect, state)
+    }
+
+    fn router_named(id: &str, connect: Connect, state: SupervisorState) -> Router {
         let mut router = Router::new();
         router.add_supervised(
-            "s".to_string(),
+            id.to_string(),
             Vec::new(),
             connect,
             ReconnectBackoff::default(),
             json!({}),
         );
         let slot = &router.servers[0];
-        *slot.inner.lock().unwrap() = connected("s");
+        *slot.inner.lock().unwrap() = connected(id);
         slot.supervisor.as_ref().unwrap().lock().unwrap().state = state;
         router
     }
@@ -264,6 +312,35 @@ mod tests {
         assert_eq!(router.plus_calls_in_flight("s"), Some(2));
         assert_eq!(router.plus_calls_in_flight("ghost"), None);
         assert!(router.plus_holds_server("s") && !router.plus_holds_server("ghost"));
+    }
+
+    #[test]
+    fn a_server_with_a_working_task_counts_as_in_flight_and_is_not_stopped_for_idling() {
+        use toolport_plus::mcp_tasks;
+        let spawns = Arc::new(AtomicU64::new(0));
+        let router = router_named("tasked", counting(&spawns, false), SupervisorState::Ready);
+        let slot = &router.servers[0];
+        let mut created =
+            json!({ "task": { "taskId": "t-1", "status": "working", "ttl": 600000 } });
+        mcp_tasks::created("tasked", "session", &mut created);
+        assert_eq!(router.plus_calls_in_flight("tasked"), Some(1));
+        let last_use = slot.supervisor.as_ref().unwrap().lock().unwrap().last_use;
+        slot.maintain(last_use + SERVER_IDLE_TIMEOUT);
+        assert_eq!(
+            slot.supervisor.as_ref().unwrap().lock().unwrap().state,
+            SupervisorState::Ready
+        );
+        mcp_tasks::status_seen(
+            "tasked",
+            &json!({ "method": "notifications/tasks/status",
+                "params": { "taskId": "t-1", "status": "completed" } }),
+        );
+        assert_eq!(router.plus_calls_in_flight("tasked"), Some(0));
+        slot.maintain(last_use + SERVER_IDLE_TIMEOUT);
+        assert_eq!(
+            slot.supervisor.as_ref().unwrap().lock().unwrap().state,
+            SupervisorState::Stopped
+        );
     }
 
     fn folder_launch(spawns: &Arc<AtomicU64>, fail: bool) -> SharedServerSlot {
