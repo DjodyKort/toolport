@@ -1,0 +1,7 @@
+{
+  "command": "attention set",
+  "dryRun": "none",
+  "name": "attention_set",
+  "tier": "write",
+  "toolTier": 2
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "repo", "undo", "gamma"],
+  "envelope": {
+    "command": "server repo undo",
+    "error": {
+      "code": "not_found",
+      "message": "no update of gamma to take back"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

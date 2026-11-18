@@ -1,0 +1,14 @@
+{
+  "argv": ["attention", "restore", "tasks:failed:nightly-report"],
+  "envelope": {
+    "command": "attention restore",
+    "data": {
+      "id": "tasks:failed:nightly-report",
+      "restored": true,
+      "undo": ["toolportctl", "attention", "undo"]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

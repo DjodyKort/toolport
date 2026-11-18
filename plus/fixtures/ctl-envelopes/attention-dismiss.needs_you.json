@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "dismiss", "library:held"],
+  "envelope": {
+    "command": "attention dismiss",
+    "error": {
+      "code": "usage",
+      "message": "a row that needs you cannot be dismissed; snooze it"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

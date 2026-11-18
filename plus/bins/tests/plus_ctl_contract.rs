@@ -18,12 +18,14 @@ use toolport_plus::ctl::{registry, rows, Smoke, Tier, COMMANDS, SCHEMA_VERSION};
 use toolport_plus::selfmcp::TOOLS;
 
 mod common;
+use common::attention_world::{attention_home, attention_quiet, attention_updates};
 use common::compression::{
     edit_wrapped_hook, fake_proxy, fixture_hooks, lose_hooks, measure_world, rtk_home,
     silent_hooks, transcripts,
 };
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
+use common::server_repo_world::{server_repo, server_repo_dirty};
 use common::setup_world::{self, PASSPHRASE};
 use common::tasks_world::{scheduler_extras, tasks_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
@@ -223,6 +225,155 @@ const PIPED_TASK: &str = r#"{"id":"piped-cleanup","title":"Cleanup from stdin","
 const PIPED_EDIT: &str = r#"{"id":"nightly-report","title":"Nightly report (from stdin)","description":"","enabled":true,"requires":{"servers":[],"commands":["echo"]},"writesSecrets":[],"steps":[{"id":"say","title":"Say hello","type":"exec","program":"echo","args":["report"]}],"triggers":{"manual":true,"cli":false,"selfMcp":{"enabled":false,"approval":"every-run"},"schedule":{"cron":"0 3 * * *","autoRun":true},"onAuthFailure":[]},"createdFrom":null}"#;
 
 const CASES: &[Case] = &[
+    case(
+        "attention ls",
+        &[
+            hook("quiet-world", attention_quiet),
+            read("quiet", &["attention", "ls"]),
+            hook("busy-world", attention_home),
+            read("busy", &["attention", "ls"]),
+            usage("usage", &["attention", "ls", "extra"]),
+        ],
+    ),
+    case(
+        "attention snooze",
+        &[
+            hook("busy-world", attention_home),
+            apply(
+                "hour",
+                &["attention", "snooze", "library:held", "--for", "1h"],
+            ),
+            read(
+                "preview",
+                &[
+                    "attention",
+                    "snooze",
+                    "tasks:failed:nightly-report",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "too_long",
+                &["attention", "snooze", "library:held", "--for", "8d"],
+            )
+            .exit(2),
+            apply("unknown_row", &["attention", "snooze", "no-such-row"]).exit(1),
+            usage("usage", &["attention", "snooze"]),
+        ],
+    ),
+    case(
+        "attention skip",
+        &[
+            hook("updates-world", attention_updates),
+            setup("fetch", &["attention", "check"]),
+            read("listed", &["attention", "ls"]),
+            read(
+                "preview",
+                &[
+                    "attention",
+                    "skip",
+                    "updates:tap:team-skills:3c5d9d8e>60abf5fe",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "skip",
+                &[
+                    "attention",
+                    "skip",
+                    "updates:tap:team-skills:3c5d9d8e>60abf5fe",
+                ],
+            ),
+            read("hidden", &["attention", "ls", "--hidden"]),
+            apply(
+                "without_a_version",
+                &["attention", "skip", "tasks:failed:nightly-report"],
+            )
+            .exit(2),
+            apply("needs_you", &["attention", "skip", "library:held"]).exit(2),
+        ],
+    ),
+    case(
+        "attention dismiss",
+        &[
+            hook("busy-world", attention_home),
+            read(
+                "preview",
+                &[
+                    "attention",
+                    "dismiss",
+                    "tasks:failed:nightly-report",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "dismiss",
+                &["attention", "dismiss", "tasks:failed:nightly-report"],
+            ),
+            read("hidden", &["attention", "ls", "--hidden"]),
+            apply("needs_you", &["attention", "dismiss", "library:held"]).exit(2),
+        ],
+    ),
+    case(
+        "attention restore",
+        &[
+            hook("busy-world", attention_home),
+            apply("not_hidden", &["attention", "restore", "library:held"]).exit(1),
+            setup(
+                "dismiss",
+                &["attention", "dismiss", "tasks:failed:nightly-report"],
+            ),
+            apply(
+                "restore",
+                &["attention", "restore", "tasks:failed:nightly-report"],
+            ),
+        ],
+    ),
+    case(
+        "attention undo",
+        &[
+            hook("busy-world", attention_home),
+            apply("nothing", &["attention", "undo"]).exit(1),
+            setup(
+                "dismiss",
+                &["attention", "dismiss", "tasks:failed:nightly-report"],
+            ),
+            apply("undo", &["attention", "undo"]),
+        ],
+    ),
+    case(
+        "attention check",
+        &[
+            hook("busy-world", attention_home),
+            apply("no_sources", &["attention", "check"]),
+            hook("updates-world", attention_updates),
+            apply("one_tap", &["attention", "check"]),
+        ],
+    ),
+    case(
+        "attention settings",
+        &[
+            hook("busy-world", attention_home),
+            read("defaults", &["attention", "settings"]),
+        ],
+    ),
+    case(
+        "attention notify",
+        &[
+            hook("busy-world", attention_home),
+            usage("usage", &["attention", "notify"]),
+        ],
+    ),
+    case(
+        "attention set",
+        &[
+            hook("busy-world", attention_home),
+            apply("check_off", &["attention", "set", "check.updates", "off"]),
+            apply("notify_on", &["attention", "set", "notify", "on"]),
+            apply("unknown", &["attention", "set", "check.nothing", "on"]).exit(2),
+            usage("usage", &["attention", "set", "notify"]),
+        ],
+    ),
     case(
         "task ls",
         &[
@@ -693,6 +844,116 @@ const CASES: &[Case] = &[
                 "not-running",
                 &["server", "restart", "alpha", "--wait", "1"],
             ),
+        ],
+    ),
+    case(
+        "server repo status",
+        &[
+            hook("repo-world", server_repo),
+            read("never_checked", &["server", "repo", "status"]),
+            setup("fetch", &["server", "repo", "check"]),
+            read("behind", &["server", "repo", "status"]),
+            read("one", &["server", "repo", "status", "gamma"]),
+            read("unknown", &["server", "repo", "status", "ghost"]).exit(1),
+            read("no_checkout", &["server", "repo", "status", "alpha"]).exit(1),
+            usage("usage", &["server", "repo", "status", "a", "b"]),
+        ],
+    ),
+    case(
+        "server repo check",
+        &[
+            hook("repo-world", server_repo),
+            apply("fetched", &["server", "repo", "check"]),
+            usage("usage", &["server", "repo", "check", "extra"]),
+        ],
+    ),
+    case(
+        "server repo update",
+        &[
+            hook("repo-world", server_repo),
+            setup("fetch", &["server", "repo", "check"]),
+            read(
+                "plan",
+                &[
+                    "server",
+                    "repo",
+                    "update",
+                    "gamma",
+                    "--dry-run",
+                    "--wait",
+                    "1",
+                ],
+            ),
+            apply(
+                "update",
+                &[
+                    "server",
+                    "repo",
+                    "update",
+                    "gamma",
+                    "--build",
+                    "echo built",
+                    "--no-restart",
+                ],
+            ),
+            apply(
+                "up_to_date",
+                &["server", "repo", "update", "gamma", "--no-restart"],
+            ),
+            hook("local-change", server_repo_dirty),
+            apply(
+                "dirty",
+                &["server", "repo", "update", "gamma", "--no-restart"],
+            )
+            .exit(1),
+            read(
+                "dirty_plan",
+                &[
+                    "server",
+                    "repo",
+                    "update",
+                    "gamma",
+                    "--dry-run",
+                    "--wait",
+                    "1",
+                ],
+            ),
+            apply("unknown", &["server", "repo", "update", "ghost"]).exit(1),
+            usage("usage", &["server", "repo", "update"]),
+            usage(
+                "conflicting_restart",
+                &[
+                    "server",
+                    "repo",
+                    "update",
+                    "gamma",
+                    "--restart-now",
+                    "--no-restart",
+                ],
+            ),
+        ],
+    ),
+    case(
+        "server repo undo",
+        &[
+            hook("repo-world", server_repo),
+            setup("fetch", &["server", "repo", "check"]),
+            apply("nothing", &["server", "repo", "undo", "gamma"]).exit(1),
+            setup(
+                "update",
+                &[
+                    "server",
+                    "repo",
+                    "update",
+                    "gamma",
+                    "--build",
+                    "echo built",
+                    "--no-restart",
+                ],
+            ),
+            read("preview", &["server", "repo", "undo", "gamma", "--dry-run"]),
+            apply("undo", &["server", "repo", "undo", "gamma", "--no-restart"]),
+            usage("usage", &["server", "repo", "undo"]),
         ],
     ),
     case("auth statusline", &[read("", &["auth", "statusline"])]),

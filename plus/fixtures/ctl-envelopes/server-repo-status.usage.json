@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "repo", "status", "a", "b"],
+  "envelope": {
+    "command": "server repo status",
+    "error": {
+      "code": "usage",
+      "message": "usage: server repo status [<id|name>]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

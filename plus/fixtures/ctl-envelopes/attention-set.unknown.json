@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "set", "check.nothing", "on"],
+  "envelope": {
+    "command": "attention set",
+    "error": {
+      "code": "usage",
+      "message": "unknown switch check.nothing; use notify, check.<name> or notify.<name> with one of credentials, updates, tasks, library"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

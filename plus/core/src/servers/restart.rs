@@ -799,5 +799,30 @@ pub fn restart(host: &dyn Host, args: &RestartArgs) -> Result<Restart, OpError> 
     })
 }
 
+/// The calls running on `key` in every gateway that holds it, `None` when no gateway answers.
+pub fn calls_in_flight(
+    host: &dyn Host,
+    key: &str,
+    timing: Timing,
+    wait: Duration,
+) -> Result<Option<usize>, OpError> {
+    let servers = read_servers(host)?;
+    let server =
+        find(&servers, key).ok_or_else(|| OpError::not_found(format!("no server '{key}'")))?;
+    let base = host
+        .data_dir()
+        .ok_or_else(|| OpError::failed("restart", "no data directory"))?;
+    let probe = request(&base, Kind::Probe, &server.id, &server.name)
+        .map_err(|e| OpError::failed("restart", e.to_string()))?;
+    let answers = ask(
+        &base,
+        &probe,
+        (timing.ack_wait + timing.settle).min(wait),
+        timing,
+        "no answer to the question",
+    );
+    Ok((!answers.is_empty()).then(|| answers.iter().filter_map(|o| o.in_flight).sum()))
+}
+
 #[cfg(test)]
 mod tests;

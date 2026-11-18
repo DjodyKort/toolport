@@ -1,0 +1,7 @@
+{
+  "command": "attention settings",
+  "dryRun": "none",
+  "name": "attention_settings",
+  "tier": "read",
+  "toolTier": 1
+}

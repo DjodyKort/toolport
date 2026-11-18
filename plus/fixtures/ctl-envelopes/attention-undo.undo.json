@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "undo"],
+  "envelope": {
+    "command": "attention undo",
+    "data": {
+      "id": "tasks:failed:nightly-report",
+      "undone": true
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

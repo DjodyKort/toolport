@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "key": "check.nothing",
+    "on": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "unknown switch check.nothing; use notify, check.<name> or notify.<name> with one of credentials, updates, tasks, library"
+    }
+  },
+  "text": "invalid_arguments: unknown switch check.nothing; use notify, check.<name> or notify.<name> with one of credentials, updates, tasks, library",
+  "tool": "attention_set"
+}

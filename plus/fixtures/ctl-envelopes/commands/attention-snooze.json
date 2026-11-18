@@ -1,0 +1,59 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "How long to hide the row, for example 1h, 2d or 90m (default 1d)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--for",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "When the snooze ends, as a timestamp with an offset or a date (UTC)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--until",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Report the change and write nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "attention",
+  "id": "attention snooze",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["attention", "snooze"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Hide a row for a while; it returns when the time passes or the row gets more urgent (<id>, --for, --until, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["attention_snooze"]
+}

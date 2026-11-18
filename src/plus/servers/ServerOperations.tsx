@@ -13,6 +13,7 @@ import { listAccessSets, loadLogins, serverInfo } from "./commands";
 import { FinishSetup } from "./FinishSetup";
 import { useMembershipSync, type MembershipChange } from "./membership";
 import { LoginRow } from "./LoginRow";
+import RepoRow from "./RepoRow";
 import { loginNeedsYou, loginRowOf } from "./loginModel";
 import { leftOutOfDefault } from "./model";
 import { ReachRow } from "./ReachRow";
@@ -119,6 +120,9 @@ export default function ServerOperations({
               row={login}
               onChanged={logins.reload}
             />
+          )}
+          {server.transport === "stdio" && (
+            <RepoRow key={`repo-${server.id}`} serverId={server.id} />
           )}
           <ReachRow
             server={server}

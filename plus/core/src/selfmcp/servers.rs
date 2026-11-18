@@ -101,6 +101,11 @@ pub(super) fn get(host: &dyn Host, args: &Value) -> Outcome {
     .map_err(registry_error)
 }
 
+pub(super) fn repo_status(host: &dyn Host, args: &Value) -> Outcome {
+    let repos = crate::servers::repo::repos_for(host, str_arg(args, "name"))?;
+    Ok(crate::servers::repo::status_value(&repos))
+}
+
 pub(super) fn auth(host: &dyn Host, args: &Value) -> Outcome {
     use crate::auth::LoginError;
     use toolport_plus_api::LaunchFault;

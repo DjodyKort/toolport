@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type {
+  AttentionData,
   CommandsData,
   DoctorData,
   McpDoctorData,
@@ -126,5 +127,41 @@ describe("the envelope types match the Rust goldens", () => {
         ["description", "dryRunDefault", "gate", "name", "params", "tier"].sort(),
       );
     }
+  });
+
+  it("test06_attention_rows_carry_what_the_bell_reads", () => {
+    const all = goldens().filter((g) => g.argv.join(" ") === "attention ls");
+    expect(all.length).toBeGreaterThan(1);
+    const seen = new Set<string>();
+    for (const { envelope } of all) {
+      const data = envelope.data as AttentionData;
+      expect(keys(data)).toEqual([
+        "checkedAt",
+        "checks",
+        "counts",
+        "hiddenCount",
+        "items",
+      ]);
+      expect(keys(data.counts)).toEqual(["needsYou", "worthALook"]);
+      for (const check of data.checks) expect(check.name).toBeTruthy();
+      for (const row of data.items) {
+        seen.add(row.source);
+        expect(["needs-you", "worth-a-look"]).toContain(row.urgency);
+        expect(["servers", "tasks", "library"]).toContain(row.action?.screen);
+        expect(keys(row)).toEqual(
+          [
+            "action",
+            "detail",
+            "id",
+            "source",
+            "title",
+            "urgency",
+            ...(row.since ? ["since"] : []),
+            ...(row.skip ? ["skip"] : []),
+          ].sort(),
+        );
+      }
+    }
+    expect([...seen].sort()).toEqual(["Credentials", "Library", "Tasks", "Updates"]);
   });
 });

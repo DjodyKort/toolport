@@ -592,7 +592,7 @@ pub fn parse_duration(text: &str) -> Option<i64> {
 }
 
 /// An RFC 3339 timestamp with or without seconds, or a date; without an offset the time is UTC.
-fn parse_until(text: &str) -> Option<i64> {
+pub fn parse_until(text: &str) -> Option<i64> {
     let without_seconds = || {
         let (head, tail) = (text.get(..16)?, text.get(16..)?);
         parse_ts(&format!("{head}:00{tail}"))

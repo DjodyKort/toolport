@@ -1,0 +1,7 @@
+{
+  "command": "server repo status",
+  "dryRun": "none",
+  "name": "servers_repo_status",
+  "tier": "read",
+  "toolTier": 1
+}

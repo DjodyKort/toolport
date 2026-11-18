@@ -1,0 +1,6 @@
+{
+  "title": "Attention bell",
+  "status": "built",
+  "page": "shell:footer",
+  "component": "src/plus/shell/PlusFooterBell.tsx"
+}

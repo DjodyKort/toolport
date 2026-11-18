@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "id": "library:held"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "library:held is not hidden; list the hidden rows with `toolportctl attention ls --hidden`"
+    }
+  },
+  "text": "not_found: library:held is not hidden; list the hidden rows with `toolportctl attention ls --hidden`",
+  "tool": "attention_restore"
+}

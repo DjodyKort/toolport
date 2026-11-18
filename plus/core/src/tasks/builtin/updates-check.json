@@ -1,0 +1,25 @@
+{
+  "id": "updates-check",
+  "title": "Check for updates",
+  "description": "Looks every morning for new upstream commits in your skill taps, plugin marketplaces and the skills library. It only fetches and applies nothing: new commits show up as rows in Attention, and you update from the Library screen.",
+  "enabled": false,
+  "requires": { "servers": [], "commands": ["toolportctl"] },
+  "writesSecrets": [],
+  "steps": [
+    {
+      "id": "check",
+      "title": "Look for new upstream commits",
+      "type": "exec",
+      "program": "toolportctl",
+      "args": ["attention", "check"]
+    }
+  ],
+  "triggers": {
+    "manual": true,
+    "cli": true,
+    "selfMcp": { "enabled": false, "approval": "every-run" },
+    "schedule": { "cron": "15 7 * * *", "autoRun": true },
+    "onAuthFailure": []
+  },
+  "createdFrom": { "kind": "manual" }
+}

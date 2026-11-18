@@ -2,6 +2,7 @@
 //! `seam.rs` in conduit and the binaries in `toolport-plus-bins` call it directly.
 
 mod args;
+pub mod attention;
 pub mod auth;
 pub mod compression;
 pub mod context;

@@ -1,0 +1,22 @@
+{
+  "argv": ["server", "repo", "update", "gamma", "--no-restart"],
+  "envelope": {
+    "command": "server repo update",
+    "data": {
+      "applied": false,
+      "branch": "main",
+      "build": null,
+      "from": "fab65b24170eb5d491fa9ad78d358f61054f8a4d",
+      "id": "srv-gamma",
+      "restart": null,
+      "root": "<WORLD>/gamma-work",
+      "server": "gamma",
+      "to": "fab65b24170eb5d491fa9ad78d358f61054f8a4d",
+      "undo": "toolportctl server repo undo gamma",
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

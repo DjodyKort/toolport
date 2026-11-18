@@ -1,0 +1,109 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Show the commits, the files, the build and whether a call is running, and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "The hash of the reviewed plan; the update stops when the plan has changed",
+      "escalates": false,
+      "hidden": false,
+      "name": "--plan-hash",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "The command to run in the checkout after the update (stops after 2 minutes); it is remembered for this server while its text stays the same",
+      "escalates": false,
+      "hidden": false,
+      "name": "--build",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Change the files only, even when a build command is remembered",
+      "escalates": false,
+      "hidden": false,
+      "name": "--no-build",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Restart even when a call is running; the call ends",
+      "escalates": false,
+      "hidden": false,
+      "name": "--restart-now",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Do not restart the server",
+      "escalates": false,
+      "hidden": false,
+      "name": "--no-restart",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Seconds to wait for the gateways' answers to the restart",
+      "escalates": false,
+      "hidden": false,
+      "name": "--wait",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    }
+  ],
+  "group": "server",
+  "id": "server repo update",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "server",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["server", "repo", "update"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Fast-forward a server's checkout, run the agreed build and restart it: <server> [--dry-run] [--plan-hash] [--build|--no-build] [--restart-now|--no-restart]",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

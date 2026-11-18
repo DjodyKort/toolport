@@ -1,0 +1,46 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "checks": [
+      {
+        "name": "credentials",
+        "on": true
+      },
+      {
+        "name": "updates",
+        "on": true
+      },
+      {
+        "name": "tasks",
+        "on": true
+      },
+      {
+        "name": "library",
+        "on": true
+      }
+    ],
+    "notify": {
+      "categories": [
+        {
+          "name": "credentials",
+          "on": true
+        },
+        {
+          "name": "updates",
+          "on": false
+        },
+        {
+          "name": "tasks",
+          "on": true
+        },
+        {
+          "name": "library",
+          "on": false
+        }
+      ],
+      "enabled": false
+    }
+  },
+  "tool": "attention_settings"
+}

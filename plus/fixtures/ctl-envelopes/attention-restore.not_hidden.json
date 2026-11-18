@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "restore", "library:held"],
+  "envelope": {
+    "command": "attention restore",
+    "error": {
+      "code": "not_found",
+      "message": "library:held is not hidden; list the hidden rows with `toolportctl attention ls --hidden`"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

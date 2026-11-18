@@ -187,6 +187,29 @@
             }
           },
           "waiting": false
+        },
+        {
+          "enabled": false,
+          "id": "updates-check",
+          "kind": "script",
+          "lastRun": null,
+          "nextRun": null,
+          "refreshes": [],
+          "title": "Check for updates",
+          "triggers": {
+            "cli": true,
+            "manual": true,
+            "onAuthFailure": [],
+            "schedule": {
+              "autoRun": true,
+              "cron": "15 7 * * *"
+            },
+            "selfMcp": {
+              "approval": "every-run",
+              "enabled": false
+            }
+          },
+          "waiting": false
         }
       ]
     },
