@@ -10,7 +10,7 @@ import {
   type AttentionSnapshot,
 } from "./attentionFeed";
 import { RowMenu } from "../attention/RowMenu";
-import { openView } from "./navigate";
+import { openSettingsPage, openView } from "./navigate";
 
 const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -147,7 +147,13 @@ export function PlusFooterBell() {
                 : ""}
             </span>
             <Popover.Close asChild>
-              <Button size="xs" variant="ghost" onClick={() => openView("settings")}>
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() =>
+                  openSettingsPage({ page: "toolport", section: "Attention" })
+                }
+              >
                 Manage
               </Button>
             </Popover.Close>

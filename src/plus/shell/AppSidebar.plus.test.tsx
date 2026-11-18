@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import type { View } from "@/lib/types";
+import type { SettingsSubpage } from "@/lib/settingsPages";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/AppSidebar";
 import { registerAttentionFeed } from "./attentionFeed";
@@ -128,5 +130,45 @@ describe("the sidebar with the Claude group", () => {
       await screen.findByRole("button", { name: "Needs attention, 1" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Help" })).toBeInTheDocument();
+  });
+
+  it("test05_manage_in_the_bell_lands_on_the_attention_section_of_settings_toolport", async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    function Shell() {
+      const [view, setView] = useState<View>("servers");
+      const [page, setPage] = useState<SettingsSubpage>("general");
+      return (
+        <>
+          {sidebar({
+            view,
+            settingsPage: page,
+            onSelectView: (next: View) => {
+              if (next === "settings") setPage("general");
+              setView(next);
+            },
+            onSettingsPageChange: setPage,
+          })}
+          <p data-testid="where">{`${view}/${page}`}</p>
+          {view === "settings" && page === "toolport" && (
+            <section aria-label="Attention" />
+          )}
+        </>
+      );
+    }
+    const snapshot = {
+      checkedAt: null,
+      items: [{ id: "a", urgency: "needs-you" as const, title: "x", source: "Servers" }],
+    };
+    registerAttentionFeed({ snapshot: () => snapshot, subscribe: () => () => {} });
+    render(<Shell />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Needs attention, 1" }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Manage" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("where")).toHaveTextContent("settings/toolport"),
+    );
+    await waitFor(() => expect(scrolled).toHaveBeenCalled());
   });
 });
