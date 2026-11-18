@@ -4375,8 +4375,10 @@ impl StdioCore {
                                 .to_string(),
                         ));
                     }
-                    let message =
-                        format!("timed out waiting for '{method}' response{}", clock.cap_note());
+                    let message = format!(
+                        "timed out waiting for '{method}' response{}",
+                        clock.cap_note()
+                    );
                     if crate::seam::cancels_on_deadline(method) {
                         CancelEntry {
                             stdin: Arc::clone(&self.stdin),

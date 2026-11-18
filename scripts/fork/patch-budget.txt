@@ -40,7 +40,7 @@
 # plus_ctl commands (D-060) and hands every other command on (4); seam::app_started() at the start of
 # run() starts the task scheduler thread of the desktop app, the always-on tick of D-128 (2).
 6	src-tauri/src/desktop.rs
-# downstream.rs, 38 changed lines:
+# downstream.rs, 40 changed lines:
 #   1: `is_download_launcher` asks seam::is_uv_download_launcher for the `uv` arm, so `uv run` and
 #      `uv tool run` get the launcher connect budget and the desktop's background pre-warm.
 #   21 for progress re-arm on StdioCore: `wait` takes its deadline from seam::CallClock instead of a fixed
@@ -51,10 +51,10 @@
 #   4 for the handshake switches: the legacy `initialize` declares seam::downstream_capabilities(&id) instead
 #      of `{}` (still `{}` unless the server opted in and a client declared something), and both eras hand
 #      their handshake result to seam::handshake_seen, which keeps the server's `instructions`.
-#   9 for the cancel on a deadline: when `wait` times out a tools/call, resources/read or prompts/get, it sends
+#   11 for the cancel on a deadline: when `wait` times out a tools/call, resources/read or prompts/get, it sends
 #      notifications/cancelled with the timeout text through the same CancelEntry a client cancel uses (behind
 #      seam::cancels_on_deadline, false without the plus feature).
-38	src-tauri/src/downstream.rs
+40	src-tauri/src/downstream.rs
 2	src-tauri/src/http_client.rs
 # lib.rs, 3 lines: the two fork modules, and seam is pub (was pub(crate)) so the gateway binary can call
 # seam::gateway_tick.
