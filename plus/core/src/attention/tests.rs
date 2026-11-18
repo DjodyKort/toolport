@@ -484,6 +484,7 @@ fn test14_an_unreadable_auto_sync_state_is_a_row_not_silence() {
 fn no_updates() -> UpdateInputs {
     UpdateInputs {
         servers: Vec::new(),
+        packages: Vec::new(),
         taps: Vec::new(),
         failures: Vec::new(),
         checked: 0,

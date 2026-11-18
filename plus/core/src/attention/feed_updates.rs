@@ -29,9 +29,20 @@ pub struct RepoFacts {
     pub verdict: Verdict,
 }
 
+/// A server whose arguments pin a package version, with the newest version the last lookup found.
+pub struct PackageFacts {
+    pub server: String,
+    /// `npm`, `pypi` or `docker`.
+    pub registry: &'static str,
+    pub package: String,
+    pub pinned: String,
+    pub latest: Option<String>,
+}
+
 pub struct UpdateInputs {
     pub taps: Vec<TapFacts>,
     pub servers: Vec<RepoFacts>,
+    pub packages: Vec<PackageFacts>,
     /// Sources the last network pass could not reach, with the reason.
     pub failures: Vec<(String, String)>,
     /// How many sources the last pass looked at; a pass that reached none says nothing is wrong.
@@ -148,6 +159,32 @@ fn repo_row(repo: &RepoFacts) -> Option<Item> {
     })
 }
 
+fn package_row(package: &PackageFacts) -> Option<Item> {
+    let latest = package.latest.as_deref()?;
+    if !crate::servers::package::version::newer(latest, &package.pinned) {
+        return None;
+    }
+    Some(Item {
+        id: format!(
+            "updates:package:{}:{}>{}",
+            package.server, package.pinned, latest
+        ),
+        urgency: Urgency::WorthALook,
+        title: format!(
+            "{}: {} {latest} is out, pinned to {}",
+            package.server, package.package, package.pinned
+        ),
+        detail: format!(
+            "The server's arguments pin {} on {}. Nothing changes until you edit them to {latest}.",
+            package.pinned, package.registry
+        ),
+        source: SOURCE,
+        since: None,
+        action: Some(Action::open("Open Servers", Screen::Servers)),
+        skip: Some(format!("Skip {latest}")),
+    })
+}
+
 fn unreachable(inputs: &UpdateInputs) -> Option<Item> {
     let (_, first) = inputs.failures.first()?;
     let all = inputs.failures.len() >= inputs.checked.max(1);
@@ -190,6 +227,7 @@ pub fn items(inputs: &UpdateInputs) -> Vec<Item> {
         .filter(|tap| tap.behind > 0 && tap.upstream_head.is_some())
         .map(tap_row)
         .chain(inputs.servers.iter().filter_map(repo_row))
+        .chain(inputs.packages.iter().filter_map(package_row))
         .chain(super::feed_repo_heads::items(
             &inputs.peers,
             &inputs.unpublished,

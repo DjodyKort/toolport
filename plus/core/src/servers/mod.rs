@@ -5,6 +5,7 @@
 
 pub mod env;
 pub mod mode;
+pub mod package;
 pub mod repo;
 pub mod restart;
 

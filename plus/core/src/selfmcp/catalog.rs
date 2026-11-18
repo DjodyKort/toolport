@@ -231,7 +231,7 @@ pub const TOOLS: &[ToolDef] = &[
         "attention_check",
         2,
         None,
-        "Fetch the skill taps, plugin marketplaces and the library to see new upstream commits; the one check that uses the network. Applies nothing",
+        "Fetch the skill taps, plugin marketplaces, the library and the git checkouts of servers to see new upstream commits, and ask npm, PyPI and Docker Hub for newer releases of the packages servers pin; the one check that uses the network. Applies nothing",
         [],
         attention::check
     ),

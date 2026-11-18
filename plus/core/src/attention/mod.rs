@@ -264,3 +264,6 @@ mod tests_updates;
 
 #[cfg(test)]
 mod tests_notify;
+
+#[cfg(test)]
+mod tests_packages;

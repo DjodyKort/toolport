@@ -6,10 +6,11 @@ use std::path::Path;
 
 use serde_json::{json, Value};
 
-use super::feed_updates::{RepoFacts, TapFacts, UpdateInputs};
+use super::feed_updates::{PackageFacts, RepoFacts, TapFacts, UpdateInputs};
 use super::store::{SourceCheck, Store};
 use crate::egress;
 use crate::library::remote;
+use crate::servers::package::{self, Target};
 use crate::skills::taps::{load_taps, tap_dir, taps_root};
 use crate::tasks::cron::rfc3339;
 
@@ -96,6 +97,7 @@ pub fn inputs(base: &Path, store: &Store) -> UpdateInputs {
     UpdateInputs {
         taps: tap_facts(base),
         servers: Vec::new(),
+        packages: Vec::new(),
         failures: store
             .updates
             .sources
@@ -106,6 +108,24 @@ pub fn inputs(base: &Path, store: &Store) -> UpdateInputs {
         peers: Vec::new(),
         unpublished: Vec::new(),
     }
+}
+
+/// The pinned packages and what the last lookup found for each; a package with no answer yet has
+/// no `latest` and gets no row.
+pub fn package_facts(pins: &[package::Pinned], store: &Store) -> Vec<PackageFacts> {
+    pins.iter()
+        .map(|pin| PackageFacts {
+            server: pin.server_name.clone(),
+            registry: pin.target.kind.word(),
+            package: pin.target.name.clone(),
+            pinned: pin.version.clone(),
+            latest: store
+                .updates
+                .sources
+                .get(&pin.target.source())
+                .and_then(|check| check.latest.clone()),
+        })
+        .collect()
 }
 
 pub struct Outcome {
@@ -152,6 +172,33 @@ impl Report {
     }
 }
 
+fn lookup_into(
+    store: &mut Store,
+    now: i64,
+    targets: &[Target],
+    lookup: &dyn Fn(&Target) -> Result<Option<String>, String>,
+) -> Vec<(String, Option<String>)> {
+    targets
+        .iter()
+        .map(|target| {
+            let (latest, error) = match lookup(target) {
+                Ok(latest) => (latest, None),
+                Err(error) => (None, Some(error)),
+            };
+            let source = target.source();
+            store.updates.sources.insert(
+                source.clone(),
+                SourceCheck {
+                    at: now,
+                    error: error.clone(),
+                    latest,
+                },
+            );
+            (source, error)
+        })
+        .collect()
+}
+
 /// Fetches `targets` with `fetch` and records when and how each went, leaving every other
 /// source in the store as it is. Returns each source with its error, if any.
 pub fn record_fetches(
@@ -181,6 +228,7 @@ fn fetch_into(
                 SourceCheck {
                     at: now,
                     error: error.clone(),
+                    latest: None,
                 },
             );
             (source.clone(), error)
@@ -195,16 +243,19 @@ pub fn check(
     now: i64,
     fetch: &dyn Fn(&Path) -> Result<(), String>,
 ) -> Result<Report, String> {
-    check_with(base, now, fetch, &[], &|_| Ok(()))
+    check_with(base, now, fetch, &[], &|_| Ok(()), &[], &|_| Ok(None))
 }
 
-/// [`check`] that also fetches the checkouts local servers run from, each with `fetch_server`.
+/// [`check`] that also fetches the checkouts local servers run from, each with `fetch_server`,
+/// and asks `lookup` for the newest version of every package a server pins.
 pub fn check_with(
     base: &Path,
     now: i64,
     fetch: &dyn Fn(&Path) -> Result<(), String>,
     servers: &[(String, std::path::PathBuf)],
     fetch_server: &dyn Fn(&Path) -> Result<(), String>,
+    packages: &[Target],
+    lookup: &dyn Fn(&Target) -> Result<Option<String>, String>,
 ) -> Result<Report, String> {
     let mut store = Store::read(base)?;
     if !store.settings.check_on("updates") {
@@ -226,6 +277,7 @@ pub fn check_with(
     let sources: Vec<Outcome> = fetch_into(&mut store, now, &targets, fetch)
         .into_iter()
         .chain(fetch_into(&mut store, now, servers, fetch_server))
+        .chain(lookup_into(&mut store, now, packages, lookup))
         .map(|(source, error)| Outcome { source, error })
         .collect();
     let names: Vec<String> = sources.iter().map(|s| s.source.clone()).collect();

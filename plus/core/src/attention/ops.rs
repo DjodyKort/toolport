@@ -166,12 +166,17 @@ pub fn check(host: &dyn Host) -> Result<updates::Report, OpError> {
         .filter(|repo| repo.state.remote.is_some())
         .map(|repo| (repo.source(), repo.state.root))
         .collect();
+    let packages = crate::servers::package::targets(&crate::servers::package::pins(
+        &crate::servers::read_servers(host)?,
+    ));
     updates::check_with(
         &base,
         host.now_unix(),
         &updates::fetch,
         &servers,
         &crate::servers::repo::fetch_tracked,
+        &packages,
+        &|target| crate::servers::package::lookup::latest(host, target),
     )
     .map_err(|e| OpError::failed("attention_check", e))
 }

@@ -261,6 +261,7 @@ fn test34_an_unreachable_remote_is_recorded_and_all_sources_failing_reads_as_off
 fn test35_some_sources_failing_names_how_many_instead_of_offline() {
     let inputs = UpdateInputs {
         servers: Vec::new(),
+        packages: Vec::new(),
         taps: Vec::new(),
         failures: vec![("tap:a".into(), "network unreachable".into())],
         checked: 3,
@@ -447,6 +448,7 @@ fn test44_entries_nobody_returns_for_thirty_days_and_old_notifications_are_dropp
 fn test45_a_tap_row_needs_the_remote_commit_the_fetch_saw() {
     let inputs = UpdateInputs {
         servers: Vec::new(),
+        packages: Vec::new(),
         taps: vec![TapFacts {
             name: "a".into(),
             marketplace: false,

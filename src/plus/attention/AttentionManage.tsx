@@ -43,7 +43,7 @@ const CHECK_INFO: Record<
   updates: {
     title: "Updates",
     watches:
-      "New commits of your skill taps, plugin marketplaces and the library. The only check that uses the network.",
+      "New commits of your skill taps, plugin marketplaces, the library and the git checkouts servers run from, and newer releases of the npm, PyPI and Docker packages servers pin. The only check that uses the network.",
     runs: "When you press Check now, or daily with the updates-check task",
   },
   access: {

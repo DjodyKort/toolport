@@ -81,6 +81,9 @@ pub struct SourceCheck {
     pub at: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// The newest version a package lookup found; checkouts and taps record none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

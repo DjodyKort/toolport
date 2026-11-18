@@ -126,6 +126,11 @@ pub fn updates(host: &dyn Host, store: Option<&Store>) -> Result<UpdateInputs, S
     let mut inputs = updates::inputs(&base, store.unwrap_or(&Store::default()));
     let repos = crate::servers::repo::repos(host).unwrap_or_default();
     inputs.servers = repos.iter().map(updates::repo_facts).collect();
+    let servers = crate::servers::read_servers(host).unwrap_or_default();
+    inputs.packages = updates::package_facts(
+        &crate::servers::package::pins(&servers),
+        store.unwrap_or(&Store::default()),
+    );
     if crate::sync::publishing(host) {
         let peers = crate::sync::peers::Peers::read(&host.data_dir().unwrap_or(base.clone()));
         inputs.peers = crate::servers::repo::peers::views(&repos, &peers);
