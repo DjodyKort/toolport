@@ -239,4 +239,23 @@ describe("the attention row of a server update", () => {
     expect(await within(dialog).findByText("Add list_projects tool")).toBeInTheDocument();
     expect(repoArgv().every((argv) => argv.includes("--dry-run"))).toBe(true);
   });
+  it("test12_a_pull_row_fetches_before_the_first_plan_and_changes_nothing", async () => {
+    const list = fixtureServers();
+    list[0].name = "alpha-api";
+    resetPlusFixture({
+      attention: { scenario: "peer-newer" },
+      servers: { servers: list, repos: { "fixture-0": BEHIND } },
+    });
+    render(
+      <>
+        <PlusFooterBell />
+        <AttentionBanner page="servers" />
+      </>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Pull" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("Add list_projects tool")).toBeInTheDocument();
+    expect(repoArgv()[0]).toContain("--fetch");
+    expect(repoArgv().every((argv) => argv.includes("--dry-run"))).toBe(true);
+  });
 });

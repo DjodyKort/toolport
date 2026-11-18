@@ -1,0 +1,6 @@
+{
+  "route": "setup",
+  "status": "built",
+  "summary": "The server checkouts this machine publishes and the ones the other machines published, with how each compares to yours (sync repos; sync_repos)",
+  "test": "src/plus/setup/SyncView.test.tsx"
+}

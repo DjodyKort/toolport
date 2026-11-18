@@ -27,6 +27,7 @@ import { toastError } from "@/lib/toast";
 import { ctlData } from "../bridge/ctl";
 import { errorText } from "../settings/useCtl";
 import type { PartsData } from "./model";
+import RepoHeads from "./RepoHeads";
 import {
   changes,
   placeOf,
@@ -52,6 +53,8 @@ const DESCRIPTION: Record<string, string> = {
     "Safety, discovery, bundles, per-folder leave-outs. Ports and paths that belong to one machine are skipped.",
   memory:
     "Off by default: two machines remember different things, and merging notes written by Claude is a judgement call. Sessions never sync.",
+  serverRepos:
+    "Which branch and commit each local server checkout is on, with its remote's address and whether it is pushed. Read only; each machine writes its own record.",
   claudeUser:
     "CLAUDE.md, rules, settings.json with secrets filtered, plugin list. Off by default: settings.json carries hooks you should read before they run on another machine.",
   secrets:
@@ -66,6 +69,7 @@ const UNIT: Record<string, string> = {
   claudeUser: "files",
   memory: "items",
   secrets: "values",
+  serverRepos: "checkouts",
 };
 
 const MIN_PASSPHRASE = 12;
@@ -882,6 +886,9 @@ export default function SyncView() {
         counts={counts}
         busy={busy}
         onToggle={(id, on) => void toggle(id, on)}
+      />
+      <RepoHeads
+        active={status.parts.some((part) => part.id === "serverRepos" && part.on)}
       />
       {!status.paused && (
         <Remote

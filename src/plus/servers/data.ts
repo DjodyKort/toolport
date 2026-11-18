@@ -227,6 +227,21 @@ export interface RepoPlan {
   undo: string;
 }
 
+export interface RepoSwitchPlan {
+  server: string;
+  id: string;
+  root: string;
+  fromBranch: string | null;
+  fromHead: string | null;
+  toBranch: string;
+  toHead: string;
+  machine: string;
+  createsBranch: boolean;
+  build: { command: string | null; remembered: boolean };
+  refusal: { code: string; message: string } | null;
+  planHash: string;
+}
+
 export interface RepoPlanData {
   plan: RepoPlan;
 }
@@ -251,4 +266,6 @@ export interface RepoDoneData {
   restart: { status: string; detail: string } | null;
   warnings: string[];
   undo: string;
+  /** Set by a branch switch: the branch it left. */
+  fromBranch?: string;
 }

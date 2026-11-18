@@ -33,12 +33,16 @@ const COVERS = [
   "sync.pull",
   "sync.push",
   "sync.undo",
+  "sync.repos",
 ] as const;
 
 const PASSPHRASE = "correct horse battery";
 
-const syncCalls = () =>
-  calls.filter((c) => c.argv[0] === "sync").map((c) => c.argv.join(" "));
+const syncCalls = (which: { repos: boolean } = { repos: false }) =>
+  calls
+    .filter((c) => c.argv[0] === "sync")
+    .map((c) => c.argv.join(" "))
+    .filter((argv) => which.repos || argv !== "sync repos");
 
 function world(sync: NonNullable<WorldOptions["sync"]> = {}) {
   resetPlusFixture({ sync });
@@ -88,7 +92,7 @@ describe("SyncView", () => {
     await user.click(await screen.findByRole("switch", { name: "Sync Memory" }));
     await waitFor(() =>
       expect(syncCalls()).toContain(
-        "sync setup --parts servers,access,tasks,settings,memory",
+        "sync setup --parts servers,access,tasks,settings,memory,serverRepos",
       ),
     );
     await waitFor(() =>
@@ -319,5 +323,28 @@ describe("SyncView", () => {
     expect(
       screen.getByRole("region", { name: "What syncs" }).closest(".\\@container"),
     ).not.toBeNull();
+  });
+  it("test19_the_repos_list_shows_this_machine_and_the_other_machines_checkouts", async () => {
+    render(<SyncView />);
+    const repos = await screen.findByRole("region", { name: "Repos" });
+    expect(
+      await within(repos).findByText(/2 commits on no remote, so Laptop cannot see them/),
+    ).toBeInTheDocument();
+    expect(within(repos).getByText(/Laptop · feature at 77aa11bb/)).toBeInTheDocument();
+    expect(within(repos).getByText("other branch")).toBeInTheDocument();
+    expect(syncCalls({ repos: true })).toContain("sync repos");
+  });
+
+  it("test20_the_repos_list_explains_itself_when_the_part_is_switched_off", async () => {
+    world({});
+    const user = userEvent.setup();
+    render(<SyncView />);
+    await screen.findByRole("region", { name: "Repos" });
+    await user.click(
+      await screen.findByRole("switch", { name: "Sync Server repositories" }),
+    );
+    expect(
+      await screen.findByText(/does not publish its server checkouts/),
+    ).toBeInTheDocument();
   });
 });

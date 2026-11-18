@@ -28,6 +28,7 @@ const PARTS = [
   ["claudeUser", "Claude Code user files", false],
   ["memory", "Memory", false],
   ["secrets", "Secrets", false],
+  ["serverRepos", "Server repositories", true],
 ] as const;
 
 /** The sync commands against one remote: a server that changed on the other machine, rows both
@@ -155,6 +156,43 @@ export function createSyncWorld(options: SyncWorldOptions = {}) {
       const flag = (name: string) => key[key.indexOf(name) + 1];
       const all = (name: string) =>
         key.flatMap((arg, index) => (arg === name ? [key[index + 1]] : []));
+      if (verb === "repos") {
+        return {
+          ok: true,
+          data: {
+            publishing: config.parts.has("serverRepos"),
+            machine: "This Mac",
+            mine: [
+              {
+                server: "alpha-api",
+                remote: "git@example.invalid:me/alpha-api.git",
+                branch: "main",
+                head: "4f2a1c3aa11",
+                pushed: false,
+                unpublished: 2,
+              },
+            ],
+            others: [
+              {
+                machine: "Laptop",
+                madeAt: new Date(Date.now() - 2 * 60 * MINUTE).toISOString(),
+                heads: [
+                  {
+                    server: "alpha-api",
+                    remote: "git@example.invalid:me/alpha-api.git",
+                    branch: "feature",
+                    head: "77aa11bb22",
+                    pushed: true,
+                    relation: "newer",
+                    sameBranch: false,
+                  },
+                ],
+              },
+            ],
+            seenAt: null,
+          },
+        };
+      }
       if (verb === "status") {
         if (options.statusError) return fail("failed", options.statusError);
         return { ok: true, data: status() };

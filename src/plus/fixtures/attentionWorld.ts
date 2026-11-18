@@ -11,7 +11,13 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 
 export type AttentionScenario =
-  "busy" | "clear" | "unchecked" | "updates" | "server-update";
+  | "busy"
+  | "clear"
+  | "unchecked"
+  | "updates"
+  | "server-update"
+  | "peer-branch"
+  | "peer-newer";
 
 export interface AttentionWorldOptions {
   /** Without a scenario `attention ls` fails the way a build without toolportctl does, so the bell
@@ -104,6 +110,54 @@ function serverUpdate(now: number): AttentionRow[] {
   ];
 }
 
+function peerBranch(now: number): AttentionRow[] {
+  return [
+    {
+      id: "updates:peer:alpha-api:laptop:4f2a1c3a>77aa11bb",
+      urgency: "worth-a-look",
+      title: "alpha-api: laptop is on feature at 77aa11bb, you are on main",
+      detail:
+        "Switch branch checks feature out here when the work tree is clean. Nothing changes until you review it.",
+      source: "Updates",
+      since: iso(now - HOUR),
+      action: {
+        label: "Switch branch",
+        screen: "servers",
+        command: ["toolportctl", "server", "repo", "switch", "alpha-api", "--dry-run"],
+      },
+      skip: { label: "77aa11bb" },
+    },
+  ];
+}
+
+function peerNewer(now: number): AttentionRow[] {
+  return [
+    {
+      id: "updates:peer:alpha-api:laptop:4f2a1c3a>9be07d2b",
+      urgency: "worth-a-look",
+      title: "alpha-api: laptop is on main at 9be07d2b, you are on main at 4f2a1c3a",
+      detail:
+        "2 commits ahead of this machine. Pull fetches and only fast-forwards after you review it.",
+      source: "Updates",
+      since: iso(now - HOUR),
+      action: {
+        label: "Pull",
+        screen: "servers",
+        command: [
+          "toolportctl",
+          "server",
+          "repo",
+          "update",
+          "alpha-api",
+          "--fetch",
+          "--dry-run",
+        ],
+      },
+      skip: { label: "9be07d2b" },
+    },
+  ];
+}
+
 const CHECKS: AttentionCheckName[] = ["credentials", "updates", "tasks", "library"];
 const NOTIFIES_BY_DEFAULT: AttentionCheckName[] = ["credentials", "tasks"];
 
@@ -136,6 +190,8 @@ export function createAttentionWorld(options: AttentionWorldOptions = {}) {
   function rows(now: number): AttentionRow[] {
     if (options.scenario === "clear") return [];
     if (options.scenario === "server-update") return [...busy(now), ...serverUpdate(now)];
+    if (options.scenario === "peer-newer") return [...busy(now), ...peerNewer(now)];
+    if (options.scenario === "peer-branch") return [...busy(now), ...peerBranch(now)];
     return options.scenario === "updates" ? [...busy(now), ...updates(now)] : busy(now);
   }
 

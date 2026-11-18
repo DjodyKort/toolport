@@ -10,6 +10,7 @@ import type {
   RepoCheckData,
   RepoDoneData,
   RepoPlanData,
+  RepoSwitchPlan,
   RepoStatusData,
   RestartData,
   SecretGetData,
@@ -194,7 +195,7 @@ function buildArgs(choice: RepoBuildChoice | undefined): string[] {
 }
 
 /** The plan of an update; nothing changes. `--wait` bounds the question to the gateways. */
-export const repoPlan = (key: string, build?: RepoBuildChoice) =>
+export const repoPlan = (key: string, build?: RepoBuildChoice, fetch = false) =>
   ctlData<RepoPlanData>([
     "server",
     "repo",
@@ -203,8 +204,26 @@ export const repoPlan = (key: string, build?: RepoBuildChoice) =>
     "--dry-run",
     "--wait",
     "4",
+    ...(fetch ? ["--fetch"] : []),
     ...buildArgs(build),
   ]);
+
+/** The plan of switching to the branch another machine is on; it fetches first. */
+export const switchPlan = (key: string) =>
+  ctlData<{ plan: RepoSwitchPlan }>([
+    "server",
+    "repo",
+    "switch",
+    key,
+    "--dry-run",
+    "--fetch",
+  ]);
+
+export const switchApply = (key: string, planHash: string) =>
+  repoDone(["server", "repo", "switch", key, "--plan-hash", planHash]);
+
+export const switchBack = (key: string) =>
+  repoDone(["server", "repo", "switch", key, "--undo"]);
 
 /** A build that failed exits 1 but still says what moved; a refusal carries only its reason and
  * throws with the message. */

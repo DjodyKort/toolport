@@ -11,17 +11,31 @@ import { RowMenu } from "./RowMenu";
 type Page = "servers" | "tasks" | "library";
 
 const RepoUpdateDialog = lazy(() => import("../servers/RepoUpdateDialog"));
+const RepoSwitchDialog = lazy(() => import("../servers/RepoSwitchDialog"));
 
-/** The server a "Review update" row is about: its command is the plan of `server repo update`,
- * which only reads, so the button opens the plan instead of running it. */
-function reviewedServer(command: string[]): string | null {
-  const [, group, sub, verb, server] = command;
-  return group === "server" && sub === "repo" && verb === "update"
-    ? (server ?? null)
-    : null;
+interface Reviewed {
+  server: string;
+  verb: "update" | "switch";
+  fetch: boolean;
 }
 
-function ReviewUpdate({ item, server }: { item: AttentionItem; server: string }) {
+/** The server a "Review update", "Pull" or "Switch branch" row is about: its command is the plan
+ * of `server repo update|switch`, which only reads, so the button opens the plan instead of
+ * running it. */
+function reviewedServer(command: string[]): Reviewed | null {
+  const [, group, sub, verb, server] = command;
+  if (group !== "server" || sub !== "repo" || !server) return null;
+  if (verb === "update") return { server, verb, fetch: command.includes("--fetch") };
+  return verb === "switch" ? { server, verb, fetch: false } : null;
+}
+
+function ReviewUpdate({
+  item,
+  reviewed: { server, verb, fetch },
+}: {
+  item: AttentionItem;
+  reviewed: Reviewed;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -30,12 +44,22 @@ function ReviewUpdate({ item, server }: { item: AttentionItem; server: string })
       </Button>
       {open && (
         <Suspense fallback={null}>
-          <RepoUpdateDialog
-            serverName={server}
-            open={open}
-            onOpenChange={setOpen}
-            onChanged={refreshAttention}
-          />
+          {verb === "switch" ? (
+            <RepoSwitchDialog
+              serverName={server}
+              open={open}
+              onOpenChange={setOpen}
+              onChanged={refreshAttention}
+            />
+          ) : (
+            <RepoUpdateDialog
+              serverName={server}
+              open={open}
+              onOpenChange={setOpen}
+              onChanged={refreshAttention}
+              fetch={fetch}
+            />
+          )}
         </Suspense>
       )}
     </>
@@ -46,8 +70,8 @@ function Fix({ item }: { item: AttentionItem }) {
   const [busy, setBusy] = useState(false);
   const command = item.action?.command;
   if (!command || !item.action) return null;
-  const server = reviewedServer(command);
-  if (server) return <ReviewUpdate item={item} server={server} />;
+  const reviewed = reviewedServer(command);
+  if (reviewed) return <ReviewUpdate item={item} reviewed={reviewed} />;
   return (
     <Button
       size="sm"
