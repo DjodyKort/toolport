@@ -35,6 +35,28 @@
       "required": false,
       "sensitive": false,
       "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Comma list of rules whose Library folder may be replaced or removed although Toolport did not write it or it was edited since; write \\, for a comma inside a name",
+      "escalates": false,
+      "hidden": false,
+      "name": "--force",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Comma list of rules whose Library folder stays as it is; write \\, for a comma inside a name",
+      "escalates": false,
+      "hidden": false,
+      "name": "--skip",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
     }
   ],
   "group": "library",
@@ -58,7 +80,7 @@
     "flag": null,
     "mode": "none"
   },
-  "summary": "Apply a plan: generate the slice plugin of the chosen items and switch it on (<source>, --plan-hash <hash>, --no-fetch, --switch)",
+  "summary": "Apply a plan: generate the slice plugin of the chosen items, switch it on and install or remove the chosen rules in the Library (<source>, --plan-hash <hash>, --no-fetch, --switch, --force, --skip)",
   "surface": "screen",
   "tier": "write",
   "tools": []

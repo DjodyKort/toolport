@@ -1,0 +1,36 @@
+{
+  "argv": ["library", "select", "undo", "picks"],
+  "envelope": {
+    "command": "library select undo",
+    "data": {
+      "changes": [],
+      "conflicts": [],
+      "cwd": null,
+      "dryRun": false,
+      "id": "picks",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "Run /reload-plugins in running Claude Code sessions, or restart them, to load the change",
+            "op": "note"
+          }
+        ],
+        "summary": "Restore the selection of picks from before the last apply",
+        "undo": "toolportctl library select plan picks",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [],
+        "undo": "toolportctl library select plan picks"
+      },
+      "scope": "user",
+      "source": "picks"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -4,7 +4,7 @@
     "command": "library select apply",
     "error": {
       "code": "usage",
-      "message": "--plan-hash <hash> is required\nusage: library select apply <source> --plan-hash <hash> [--no-fetch] [--switch]"
+      "message": "--plan-hash <hash> is required\nusage: library select apply <source> --plan-hash <hash> [--no-fetch] [--switch] [--force <rule>[,<rule>]] [--skip <rule>[,<rule>]]"
     },
     "ok": false,
     "schemaVersion": 1

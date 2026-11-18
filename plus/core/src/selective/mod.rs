@@ -14,6 +14,7 @@ pub mod lines;
 pub mod ops;
 pub mod plan;
 pub mod policy;
+pub mod rules;
 pub mod slice;
 pub mod store;
 
@@ -21,6 +22,8 @@ pub mod store;
 mod tests;
 #[cfg(all(test, unix))]
 mod tests_history;
+#[cfg(all(test, unix))]
+mod tests_rules;
 
 pub use ops::Env;
 

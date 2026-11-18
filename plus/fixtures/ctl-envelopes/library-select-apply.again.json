@@ -51,6 +51,7 @@
         "pinned": "78b20008ec7b986019384f2adc6d00b1fa08c506"
       },
       "result": null,
+      "rules": [],
       "scope": "user",
       "slice": "picks-selected@toolport-selections",
       "source": "picks",

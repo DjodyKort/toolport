@@ -1,4 +1,4 @@
-use super::ops::{self, Env, Options, SetArgs};
+use super::ops::{self, Choices, Env, Options, SetArgs};
 use super::store::{self, Kind, Selections, State};
 use super::{check, discover};
 use crate::plugins::claude::ClaudeRunner;
@@ -14,15 +14,15 @@ use std::time::Duration;
 use tempfile::TempDir;
 use toolport_plus_api::memory::MemoryHost;
 
-const TAP: &str = "example-tap";
+pub(super) const TAP: &str = "example-tap";
 const FORMAT_HOOK: &str = "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/format.sh";
 
-fn put(path: &Path, text: &str) {
+pub(super) fn put(path: &Path, text: &str) {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(path, text).unwrap();
 }
 
-fn skill(root: &Path, name: &str, body: &str) {
+pub(super) fn skill(root: &Path, name: &str, body: &str) {
     put(
         &root.join(format!("skills/{name}/SKILL.md")),
         &format!("---\nname: {name}\ndescription: A skill\n---\n{body}\n"),
@@ -61,9 +61,9 @@ fn tree(root: &Path) {
     );
 }
 
-struct FakeGit {
+pub(super) struct FakeGit {
     upstream: PathBuf,
-    sha: RefCell<String>,
+    pub(super) sha: RefCell<String>,
     offline: RefCell<bool>,
 }
 
@@ -92,9 +92,9 @@ impl GitRunner for FakeGit {
     }
 }
 
-struct FakeClaude {
+pub(super) struct FakeClaude {
     present: bool,
-    fail: Mutex<Option<String>>,
+    pub(super) fail: Mutex<Option<String>>,
     calls: Mutex<Vec<String>>,
 }
 
@@ -116,17 +116,18 @@ impl ClaudeRunner for FakeClaude {
     }
 }
 
-struct Fx {
-    _dir: TempDir,
-    plugins: PluginEnv,
-    host: MemoryHost,
-    git: FakeGit,
-    claude: FakeClaude,
-    upstream: PathBuf,
+pub(super) struct Fx {
+    pub(super) _dir: TempDir,
+    pub(super) plugins: PluginEnv,
+    pub(super) host: MemoryHost,
+    pub(super) git: FakeGit,
+    pub(super) claude: FakeClaude,
+    pub(super) upstream: PathBuf,
+    pub(super) library: PathBuf,
 }
 
 impl Fx {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
         let base = std::fs::canonicalize(dir.path()).unwrap();
         let claude_home = base.join("home/.claude");
@@ -164,32 +165,34 @@ impl Fx {
                 data_dir,
             },
             upstream,
+            library: base.join("library"),
             _dir: dir,
         }
     }
 
-    fn env(&self) -> Env<'_> {
+    pub(super) fn env(&self) -> Env<'_> {
         Env {
             plugins: &self.plugins,
             git: &self.git,
             claude: &self.claude,
             store: &self.host,
             managed: None,
+            library: Some(self.library.clone()),
         }
     }
 
-    fn base(&self) -> PathBuf {
+    pub(super) fn base(&self) -> PathBuf {
         super::base_dir(&self.plugins.data_dir)
     }
 
-    fn settings(&self) -> Value {
+    pub(super) fn settings(&self) -> Value {
         std::fs::read_to_string(self.plugins.user_settings())
             .ok()
             .and_then(|t| serde_json::from_str(&t).ok())
             .unwrap_or(Value::Null)
     }
 
-    fn set(&self, on: &[&str], tick: &[&str], off: &[&str]) -> Result<Value, String> {
+    pub(super) fn set(&self, on: &[&str], tick: &[&str], off: &[&str]) -> Result<Value, String> {
         let strings = |v: &[&str]| v.iter().map(|s| s.to_string()).collect();
         let args = SetArgs {
             on: strings(on),
@@ -199,7 +202,7 @@ impl Fx {
         ops::set(&self.env(), TAP, &args, false).map_err(|e| e.message)
     }
 
-    fn plan(&self) -> Value {
+    pub(super) fn plan(&self) -> Value {
         ops::plan(
             &self.env(),
             TAP,
@@ -212,7 +215,7 @@ impl Fx {
         .unwrap()
     }
 
-    fn apply(&self) -> Result<Value, String> {
+    pub(super) fn apply(&self) -> Result<Value, String> {
         let hash = self.plan()["planHash"].as_str().unwrap().to_string();
         ops::apply(
             &self.env(),
@@ -223,30 +226,47 @@ impl Fx {
                 switch: false,
                 ..Default::default()
             },
+            &Choices::default(),
         )
         .map_err(|e| e.message)
     }
 
-    fn slice(&self) -> PathBuf {
+    pub(super) fn apply_with(&self, choices: &Choices) -> Result<Value, String> {
+        let hash = self.plan()["planHash"].as_str().unwrap().to_string();
+        ops::apply(
+            &self.env(),
+            TAP,
+            &hash,
+            Options {
+                fetch: true,
+                switch: false,
+                ..Default::default()
+            },
+            choices,
+        )
+        .map_err(|e| e.message)
+    }
+
+    pub(super) fn slice(&self) -> PathBuf {
         super::slice::slice_dir(&self.base(), "example-tap-selected")
     }
 
-    fn entry(&self) -> Value {
+    pub(super) fn entry(&self) -> Value {
         super::slice::entries_of(&self.base()).remove(0)
     }
 
-    fn selection(&self) -> Selections {
+    pub(super) fn selection(&self) -> Selections {
         store::load(&self.base()).unwrap()
     }
 
-    fn state_of(&self, kind: Kind, id: &str) -> State {
+    pub(super) fn state_of(&self, kind: Kind, id: &str) -> State {
         self.selection().sources[TAP].item(kind, id).unwrap().state
     }
 }
 
 const FORMAT_ID: &str = "PostToolUse:Write|Edit";
 
-fn chosen(fx: &Fx) {
+pub(super) fn chosen(fx: &Fx) {
     fx.set(
         &["code-review", "agent:reviewer", "deploy", "style"],
         &[FORMAT_ID],
@@ -331,6 +351,7 @@ fn test05_a_plan_writes_nothing_and_apply_refuses_another_hash() {
             switch: false,
             ..Default::default()
         },
+        &Choices::default(),
     )
     .unwrap_err();
     assert!(
@@ -377,33 +398,19 @@ fn test06_apply_generates_a_manifestless_slice_that_lists_exactly_the_chosen_ite
 }
 
 #[test]
-fn test07_rules_that_are_on_stay_out_of_the_slice_and_are_named_in_the_plan() {
+fn test07_rules_that_are_on_stay_out_of_the_slice_and_are_planned_into_the_library() {
     let fx = Fx::new();
     fx.set(&["code-review", "style"], &[], &[]).unwrap();
     let plan = fx.plan();
     assert_eq!(plan["diffs"]["rules"][0]["id"], "style");
-    let text = plan["plan"]["steps"].to_string();
+    assert_eq!(plan["rules"][0]["action"], "install");
+    assert_eq!(plan["rules"][0]["path"], "rules/style");
+    let steps = plan["plan"]["steps"].to_string();
     assert!(
-        text.contains("link it through the Library with `toolportctl skills install @example/example-tap/style`"),
-        "{text}"
+        steps.contains("rule:style is installed into the Library as rules/style"),
+        "{steps}"
     );
-    assert!(plan["plan"]["steps"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|step| step["op"] == "link"));
-}
-
-#[test]
-fn test28_a_tap_without_a_github_name_gets_the_generic_library_hint() {
-    assert_eq!(
-        super::ops::library_install("https://example.org/x.git", "style"),
-        "`toolportctl skills install` for the rule style"
-    );
-    assert_eq!(
-        super::ops::library_install("a/b/c", "style"),
-        "`toolportctl skills install` for the rule style"
-    );
+    assert!(!fx.library.exists());
 }
 
 #[test]
@@ -667,7 +674,14 @@ fn test20_a_plugin_installed_whole_gets_an_offer_and_switch_turns_it_off() {
     };
     let plain = ops::plan(&fx.env(), source, opts).unwrap();
     assert_eq!(plain["offer"]["kind"], "switch-to-chosen-items");
-    ops::apply(&fx.env(), source, plain["planHash"].as_str().unwrap(), opts).unwrap();
+    ops::apply(
+        &fx.env(),
+        source,
+        plain["planHash"].as_str().unwrap(),
+        opts,
+        &Choices::default(),
+    )
+    .unwrap();
     assert_eq!(fx.settings()["enabledPlugins"]["core@acme"], true);
     let switch = Options {
         fetch: true,
@@ -683,6 +697,7 @@ fn test20_a_plugin_installed_whole_gets_an_offer_and_switch_turns_it_off() {
         source,
         plan["planHash"].as_str().unwrap(),
         switch,
+        &Choices::default(),
     )
     .unwrap();
     assert_eq!(fx.settings()["enabledPlugins"]["core@acme"], false);

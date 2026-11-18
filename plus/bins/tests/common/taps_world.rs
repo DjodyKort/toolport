@@ -94,3 +94,26 @@ pub fn both(world: &World) {
     tap_src(world);
     plugin_src(world);
 }
+
+/// A Library repository in the working folder of the test run, holding one rule of its own.
+pub fn library(world: &World) {
+    put(
+        &world.home,
+        &[(
+            "rules/mine/SKILL.md",
+            "---\nname: mine\ndescription: A synthetic rule\nactivation: always\n---\nMine\n",
+        )],
+    );
+}
+
+/// The Library of [`library`] plus a rule called `style` that Toolport did not write.
+pub fn library_with_style(world: &World) {
+    library(world);
+    put(
+        &world.home,
+        &[(
+            "rules/style/SKILL.md",
+            "---\nname: style\ndescription: Not from the tap\nactivation: always\n---\nMine too\n",
+        )],
+    );
+}

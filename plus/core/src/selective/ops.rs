@@ -6,6 +6,7 @@ use super::discover::{self, Discovery, Found};
 use super::lines;
 use super::plan::{self, Computed, Diffs, Row};
 use super::policy;
+use super::rules::{self, Action};
 use super::slice::{self, MARKETPLACE};
 use super::store::{self, Kind, Selections, SourceSel, State};
 use crate::context::fsx;
@@ -37,6 +38,8 @@ pub struct Env<'a> {
     pub claude: &'a dyn ClaudeRunner,
     pub store: &'a dyn SettingsStore,
     pub managed: Option<PathBuf>,
+    /// The Library repository chosen rules are written into.
+    pub library: Option<PathBuf>,
 }
 
 impl Env<'_> {
@@ -54,6 +57,16 @@ pub struct Options {
     /// Download the whole history of the source to tell whether the pinned commit is still in it.
     /// Off unless the person asked for that check: a large repository costs real time and data.
     pub deepen: bool,
+}
+
+/// What the caller decided for the rules whose Library folder is in the way.
+#[derive(Clone, Debug, Default)]
+pub struct Choices {
+    /// Rules whose Library folder may be replaced or removed although Toolport did not write it
+    /// or it was edited since.
+    pub force: Vec<String>,
+    /// Rules whose Library folder stays as it is.
+    pub skip: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -633,24 +646,7 @@ fn ids(rows: &[Row]) -> String {
         + if rows.len() > 8 { ", ..." } else { "" }
 }
 
-/// `skills install` takes the GitHub form `@owner/repo/<name>`; a tap added by another URL has none.
-pub(super) fn library_install(repo: &str, name: &str) -> String {
-    let github = repo.split_once('/').is_some_and(|(owner, project)| {
-        [owner, project].iter().all(|part| {
-            !part.is_empty()
-                && part
-                    .chars()
-                    .all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))
-        })
-    });
-    if github {
-        format!("`toolportctl skills install @{repo}/{name}`")
-    } else {
-        format!("`toolportctl skills install` for the rule {name}")
-    }
-}
-
-fn steps_of(diffs: &Diffs, slice_id: &str, repo: &str) -> Vec<Step> {
+fn steps_of(diffs: &Diffs, slice_id: &str, rules: &[rules::Row]) -> Vec<Step> {
     let mut steps = Vec::new();
     for row in &diffs.added {
         steps.push(step(
@@ -701,18 +697,41 @@ fn steps_of(diffs: &Diffs, slice_id: &str, repo: &str) -> Vec<Step> {
             ids(&diffs.fresh)
         )));
     }
-    for row in &diffs.rules {
-        steps.push(step(
-            "link",
-            format!(
-                "rule:{id} is an instruction file, not part of the generated plugin; link it \
-                 through the Library with {}",
-                library_install(repo, &row.id),
-                id = row.id
-            ),
-        ));
+    for row in rules {
+        steps.push(rule_step(row));
     }
     steps
+}
+
+fn rule_step(row: &rules::Row) -> Step {
+    let (id, path) = (&row.id, &row.path);
+    if let Some(conflict) = &row.conflict {
+        return step(
+            "conflict",
+            format!(
+                "rule:{id}: {}; choose --force {id} or --skip {id} when applying",
+                conflict.reason
+            ),
+        );
+    }
+    match row.action {
+        Action::Install => step(
+            "link",
+            format!("rule:{id} is installed into the Library as {path}"),
+        ),
+        Action::Update => step(
+            "link",
+            format!("rule:{id} changed upstream; {path} in the Library is replaced"),
+        ),
+        Action::Remove => step(
+            "unlink",
+            format!("rule:{id} is off now; {path} is removed from the Library"),
+        ),
+        Action::Forget => step(
+            "unlink",
+            format!("rule:{id} is off now; {path} is already gone from the Library"),
+        ),
+    }
 }
 
 struct Built {
@@ -720,6 +739,7 @@ struct Built {
     hash: String,
     edits: Vec<Edit>,
     settings: Settings,
+    rules: Vec<rules::Row>,
 }
 
 fn build_plan(env: &Env, src: &Src, prepared: &Prepared, opts: Options) -> Result<Built, OpError> {
@@ -735,7 +755,8 @@ fn build_plan(env: &Env, src: &Src, prepared: &Prepared, opts: Options) -> Resul
         opts.switch,
     );
     let slice_id = slice::plugin_id(&next.slice);
-    let mut steps = steps_of(diffs, &slice_id, &src.tap.repo);
+    let rule_rows = rules::plan(env.library.as_deref(), &next.items, &next.linked);
+    let mut steps = steps_of(diffs, &slice_id, &rule_rows);
     steps.extend(edit_steps(&settings, &edits));
     steps.push(note(RESTART.to_string()));
     let mut warnings = prepared.discovery.warnings.clone();
@@ -767,13 +788,13 @@ fn build_plan(env: &Env, src: &Src, prepared: &Prepared, opts: Options) -> Resul
     {
         warnings.push("ticked hooks run commands in every session once the plan is applied".into());
     }
-    let rules = policy::read(env, &slice::market_root(&env.base()));
-    if let Some(who) = rules.blocked {
+    let access = policy::read(env, &slice::market_root(&env.base()));
+    if let Some(who) = access.blocked {
         warnings.push(format!(
             "{who} blocks the marketplace {MARKETPLACE}; Claude Code will not load the chosen items"
         ));
     }
-    if let Some(who) = rules.hooks_off.filter(|_| {
+    if let Some(who) = access.hooks_off.filter(|_| {
         next.items
             .iter()
             .any(|i| i.kind == Kind::Hook && i.state.wanted())
@@ -797,12 +818,13 @@ fn build_plan(env: &Env, src: &Src, prepared: &Prepared, opts: Options) -> Resul
         warnings,
         undo,
     };
-    let hash = plan_hash(&src.key, prepared, &edits);
+    let hash = plan_hash(&src.key, prepared, &edits, &rule_rows);
     let waiting = diffs.touches_slice()
         || !diffs.retick.is_empty()
         || !diffs.fresh.is_empty()
         || !diffs.gone.is_empty()
         || !edits.is_empty()
+        || !rule_rows.is_empty()
         || prepared.prev.as_ref().and_then(|p| p.pinned.as_deref()) != Some(&prepared.latest.head);
     let data = json!({
         "id": src.key,
@@ -812,7 +834,8 @@ fn build_plan(env: &Env, src: &Src, prepared: &Prepared, opts: Options) -> Resul
         "plan": plan,
         "result": null,
         "changes": edits.iter().map(|e| e.change(&settings.path)).collect::<Vec<_>>(),
-        "conflicts": [],
+        "conflicts": rule_rows.iter().filter(|r| r.conflict.is_some()).collect::<Vec<_>>(),
+        "rules": rule_rows,
         "source": src.key,
         "slice": slice_id,
         "planHash": hash,
@@ -829,7 +852,7 @@ fn build_plan(env: &Env, src: &Src, prepared: &Prepared, opts: Options) -> Resul
         "diffs": diffs,
         "lines": changed_lines_of(env, src, prepared),
         "hooks": hook_commands_of(prepared),
-        "policy": rules.to_json(),
+        "policy": access.to_json(),
         "offer": offer(env, src),
     });
     Ok(Built {
@@ -837,6 +860,7 @@ fn build_plan(env: &Env, src: &Src, prepared: &Prepared, opts: Options) -> Resul
         hash,
         edits,
         settings,
+        rules: rule_rows,
     })
 }
 
@@ -909,8 +933,8 @@ fn summary_line(next: &SourceSel) -> String {
     format!("{on} of {} item(s) on", next.items.len())
 }
 
-fn plan_hash(key: &str, prepared: &Prepared, edits: &[Edit]) -> String {
-    let body = json!({
+fn plan_hash(key: &str, prepared: &Prepared, edits: &[Edit], rule_rows: &[rules::Row]) -> String {
+    let mut body = json!({
         "source": key,
         "from": prepared.prev.as_ref().and_then(|p| p.pinned.clone()),
         "to": prepared.latest.head,
@@ -918,6 +942,9 @@ fn plan_hash(key: &str, prepared: &Prepared, edits: &[Edit]) -> String {
         "next": prepared.computed.next,
         "edits": edits.iter().map(|e| json!([e.key, e.entry, e.action])).collect::<Vec<_>>(),
     });
+    if !rule_rows.is_empty() {
+        body["rules"] = json!(rule_rows);
+    }
     lock_hash(body.to_string())
 }
 
@@ -948,6 +975,7 @@ pub fn summary(env: &Env, source: &str, online: bool, deepen: bool) -> Result<Va
         prepared.prev.as_ref().and_then(|p| p.pinned.as_deref()) != Some(&prepared.latest.head);
     let waiting = moved
         && (!d.changed.is_empty()
+            || built.rules.iter().any(|r| r.action == Action::Update)
             || !d.retick.is_empty()
             || !d.fresh.is_empty()
             || !d.gone.is_empty());
@@ -980,6 +1008,8 @@ struct Journal {
     files: bool,
     had_slice: bool,
     settings: Vec<Undone>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    library: Option<rules::Journal>,
 }
 
 fn undo_dir(base: &Path, key: &str) -> PathBuf {
@@ -1047,6 +1077,13 @@ fn restore_files(
     store::save(base, selections)
 }
 
+fn restore_library(journal: &Journal, dir: &Path) -> Result<(), OpError> {
+    match &journal.library {
+        Some(library) => rules::restore(library, dir).map_err(io),
+        None => Ok(()),
+    }
+}
+
 fn restore_settings(env: &Env, journal: &Journal) -> Result<(), OpError> {
     let settings = Settings::load(env.store, env.plugins)?;
     let edits: Vec<Edit> = journal
@@ -1075,7 +1112,13 @@ fn changed_lines(edits: &[Edit], settings: &Settings) -> Vec<String> {
 
 /// Applies the plan whose hash is `plan_hash`. The plan is rebuilt first; when the source or the
 /// settings moved since it was made the hashes differ and nothing is written.
-pub fn apply(env: &Env, source: &str, plan_hash: &str, opts: Options) -> Result<Value, OpError> {
+pub fn apply(
+    env: &Env,
+    source: &str,
+    plan_hash: &str,
+    opts: Options,
+    choices: &Choices,
+) -> Result<Value, OpError> {
     let src = resolve(env, source)?;
     let base = env.base();
     let prepared = prepare(env, &src, opts.fetch, false)?;
@@ -1088,6 +1131,8 @@ pub fn apply(env: &Env, source: &str, plan_hash: &str, opts: Options) -> Result<
         ))
         .with_details(json!({"planHash": built.hash})));
     }
+    let steps = rules::decide(&built.rules, &choices.force, &choices.skip)
+        .map_err(|why| OpError::conflict(format!("{why}; nothing was changed")))?;
     let Prepared {
         mut selections,
         prev,
@@ -1096,7 +1141,7 @@ pub fn apply(env: &Env, source: &str, plan_hash: &str, opts: Options) -> Result<
         ..
     } = prepared;
     let Computed {
-        next,
+        mut next,
         diffs,
         refresh,
     } = computed;
@@ -1110,15 +1155,40 @@ pub fn apply(env: &Env, source: &str, plan_hash: &str, opts: Options) -> Result<
         files: regenerate,
         had_slice: false,
         settings: Vec::new(),
+        library: None,
     };
     let mut warnings: Vec<String> = Vec::new();
+    let mut changed_rules: Vec<String> = Vec::new();
+    let staging = base.join("tmp").join(format!("{}.new", next.slice));
     if regenerate {
-        let staging = base.join("tmp").join(format!("{}.new", next.slice));
         let _ = std::fs::remove_dir_all(&staging);
         if let Err(why) = slice::build(&staging, &next, &latest.root, &old_slice, &refresh) {
             let _ = std::fs::remove_dir_all(&staging);
             return Err(OpError::conflict(format!("{why}; nothing was changed")));
         }
+    }
+    if let Some(library) = env.library.as_deref().filter(|_| !steps.is_empty()) {
+        match rules::apply(library, &src.tap.name, &steps, &latest.root, &journal_dir) {
+            Ok(done) => {
+                for (id, entry) in done.linked {
+                    match entry {
+                        Some(entry) => next.linked.insert(id, entry),
+                        None => next.linked.remove(&id),
+                    };
+                }
+                changed_rules = done.changed;
+                if !done.journal.rules.is_empty() || done.journal.origins.is_some() {
+                    journal.library = Some(done.journal);
+                }
+            }
+            Err(why) => {
+                let _ = std::fs::remove_dir_all(&staging);
+                let _ = std::fs::remove_dir_all(&journal_dir);
+                return Err(OpError::conflict(format!("{why}; nothing was changed")));
+            }
+        }
+    }
+    if regenerate {
         std::fs::create_dir_all(&journal_dir).map_err(io)?;
         if old_slice.exists() {
             std::fs::rename(&old_slice, journal_dir.join("slice")).map_err(io)?;
@@ -1140,6 +1210,7 @@ pub fn apply(env: &Env, source: &str, plan_hash: &str, opts: Options) -> Result<
             Err(error) => {
                 let mut restored = backup;
                 restore_files(&base, &src.key, &journal, &mut restored)?;
+                restore_library(&journal, &journal_dir)?;
                 let _ = std::fs::remove_dir_all(&journal_dir);
                 return Err(error);
             }
@@ -1166,6 +1237,7 @@ pub fn apply(env: &Env, source: &str, plan_hash: &str, opts: Options) -> Result<
     if let Err(error) = write_edits(env.store, &built.settings, &built.edits) {
         let mut restored = backup_without(&selections, &journal, &src.key);
         restore_files(&base, &src.key, &journal, &mut restored)?;
+        restore_library(&journal, &journal_dir)?;
         let _ = std::fs::remove_dir_all(&journal_dir);
         return Err(error);
     }
@@ -1174,7 +1246,10 @@ pub fn apply(env: &Env, source: &str, plan_hash: &str, opts: Options) -> Result<
     data["waiting"] = json!(false);
     data["result"] = json!(ResultV1 {
         applied: true,
-        changed: changed_lines(&built.edits, &built.settings),
+        changed: changed_rules
+            .into_iter()
+            .chain(changed_lines(&built.edits, &built.settings))
+            .collect(),
         undo: format!("toolportctl library select undo {}", src.key),
         backups: Vec::new(),
     });
@@ -1200,8 +1275,18 @@ pub fn undo(env: &Env, source: &str) -> Result<Value, OpError> {
     let text = std::fs::read_to_string(dir.join(JOURNAL))
         .map_err(|_| OpError::not_found(format!("nothing to undo for {}", src.key)))?;
     let journal: Journal = serde_json::from_str(&text).map_err(io)?;
+    if let Some(library) = &journal.library {
+        let edited = rules::edited_since(library);
+        if !edited.is_empty() {
+            return Err(OpError::conflict(format!(
+                "{} changed in the Library since the apply, so undo would overwrite that: put                  them back or move them away and undo again; nothing was changed",
+                edited.join(", ")
+            )));
+        }
+    }
     let mut selections = store::load(&base)?;
     restore_files(&base, &src.key, &journal, &mut selections)?;
+    restore_library(&journal, &dir)?;
     restore_settings(env, &journal)?;
     let _ = std::fs::remove_dir_all(&dir);
     let settings = Settings::load(env.store, env.plugins)?;

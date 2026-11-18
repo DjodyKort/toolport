@@ -9,7 +9,7 @@ use super::skills::enter_paths;
 use super::skills_repo::{operand, spec};
 use crate::selective::check::Request;
 use crate::selective::handlers;
-use crate::selective::ops::{Options, SetArgs};
+use crate::selective::ops::{Choices, Options, SetArgs};
 use serde_json::Value;
 use toolport_plus_api::Host;
 
@@ -17,8 +17,8 @@ const LS_USAGE: &str = "usage: library select ls [<source>]";
 const SET_USAGE: &str =
     "usage: library select set <source> [--on a,b] [--off c] [--tick-hook h] [--dry-run]";
 const PLAN_USAGE: &str = "usage: library select plan <source> [--no-fetch] [--switch] [--deepen]";
-const APPLY_USAGE: &str =
-    "usage: library select apply <source> --plan-hash <hash> [--no-fetch] [--switch]";
+const APPLY_USAGE: &str = "usage: library select apply <source> --plan-hash <hash> [--no-fetch] \
+     [--switch] [--force <rule>[,<rule>]] [--skip <rule>[,<rule>]]";
 const UNDO_USAGE: &str = "usage: library select undo <source>";
 const CHECK_USAGE: &str = "usage: library select check [<source>] [--no-fetch] [--deepen]";
 
@@ -41,6 +41,8 @@ pub(super) const APPLY: Spec = spec(
         value("--plan-hash").alias(&["--plan"]),
         switch("--no-fetch"),
         switch("--switch"),
+        value("--force"),
+        value("--skip"),
     ],
     APPLY_USAGE,
 );
@@ -198,7 +200,11 @@ pub fn apply(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let hash = flags
         .one("--plan-hash")
         .ok_or_else(|| CtlError::usage(format!("--plan-hash <hash> is required\n{APPLY_USAGE}")))?;
-    let data = handlers::apply(host, source, hash, options(&flags))?;
+    let choices = Choices {
+        force: csv(flags.all("--force")),
+        skip: csv(flags.all("--skip")),
+    };
+    let data = handlers::apply(host, source, hash, options(&flags), &choices)?;
     let human = plan_text(&data);
     Ok(Output::new(data, human))
 }

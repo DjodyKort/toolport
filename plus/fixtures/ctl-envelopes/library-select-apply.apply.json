@@ -124,6 +124,7 @@
         ],
         "undo": "toolportctl library select undo picks"
       },
+      "rules": [],
       "scope": "user",
       "slice": "picks-selected@toolport-selections",
       "source": "picks",

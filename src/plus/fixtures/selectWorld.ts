@@ -8,6 +8,7 @@ import type {
   SelectItem,
   SelectLsData,
   SelectPlanData,
+  RuleRow,
 } from "../library/selectData";
 
 export type SelectScenario =
@@ -22,7 +23,8 @@ export type SelectScenario =
   | "everything"
   | "rewritten"
   | "rewritten-seen"
-  | "comma";
+  | "comma"
+  | "rule-conflict";
 
 export const SELECT_SOURCE = "acme-skills";
 const WHOLE = "acme-skills@acme-skills";
@@ -97,8 +99,15 @@ export function createSelectWorld(scenario: SelectScenario | undefined) {
   let moved = scene === "update" || scene === "gone-only" || rewrittenScene;
   let historyState: SelectHistory["state"] =
     scene === "rewritten-seen" ? "rewritten" : "unchecked";
-  let journal: { items: SelectItem[]; pinned: string | null; recorded: boolean } | null =
-    null;
+  let linked = new Set<string>();
+  let foreign = new Set<string>(scene === "rule-conflict" ? ["style"] : []);
+  let journal: {
+    items: SelectItem[];
+    pinned: string | null;
+    recorded: boolean;
+    linked: Set<string>;
+    foreign: Set<string>;
+  } | null = null;
   let whole = scene === "whole";
   if (scene === "update" || scene === "gone-only") {
     items.push(item("skill", "legacy-lint", "on"));
@@ -157,11 +166,35 @@ export function createSelectWorld(scenario: SelectScenario | undefined) {
     return rows;
   };
 
+  const ruleRows = (): RuleRow[] => [
+    ...items
+      .filter((i) => i.kind === "rule" && i.state === "on" && !linked.has(i.id))
+      .map((i): RuleRow => {
+        const row: RuleRow = {
+          id: i.id,
+          name: i.id,
+          action: "install",
+          path: `rules/${i.id}`,
+        };
+        if (foreign.has(i.id)) {
+          row.conflict = {
+            code: "foreign",
+            reason: `rules/${i.id} already exists in the Library and Toolport did not write it`,
+            choices: ["force", "skip"],
+          };
+        }
+        return row;
+      }),
+    ...[...linked]
+      .filter((id) => !items.some((i) => i.kind === "rule" && i.id === id && wanted(i)))
+      .map((id): RuleRow => ({ id, name: id, action: "remove", path: `rules/${id}` })),
+  ];
+
   function planData(switchWhole: boolean): SelectPlanData {
     const up = upstream();
     const added = items.filter((i) => wanted(i) && !i.inSlice && i.kind !== "rule");
     const dropped = items.filter((i) => !wanted(i) && i.inSlice);
-    const rules = items.filter((i) => i.kind === "rule" && i.state === "on");
+    const rules = ruleRows();
     const diffs = {
       added: added.map((i) => ({ kind: i.kind, id: i.id })),
       dropped: dropped.map((i) => ({ kind: i.kind, id: i.id })),
@@ -169,7 +202,9 @@ export function createSelectWorld(scenario: SelectScenario | undefined) {
       retick: up.retick,
       fresh: up.fresh,
       gone: up.gone,
-      rules: rules.map((i) => ({ kind: i.kind, id: i.id })),
+      rules: items
+        .filter((i) => i.kind === "rule" && i.state === "on")
+        .map((i) => ({ kind: i.kind, id: i.id })),
     };
     const warnings: string[] = [];
     const offline = scene === "offline";
@@ -191,10 +226,22 @@ export function createSelectWorld(scenario: SelectScenario | undefined) {
         op: "drop",
         detail: `${r.kind}:${r.id} leaves ${SLICE}`,
       })),
-      ...diffs.rules.map((r) => ({
-        op: "link",
-        detail: `rule:${r.id} is an instruction file, not part of the generated plugin; link it through the Library with \`toolportctl skills install @acme/skills/${r.id}\``,
-      })),
+      ...rules.map((r) =>
+        r.conflict
+          ? {
+              op: "conflict",
+              detail: `rule:${r.id}: ${r.conflict.reason}; choose --force ${r.id} or --skip ${r.id} when applying`,
+            }
+          : r.action === "install"
+            ? {
+                op: "link",
+                detail: `rule:${r.id} is installed into the Library as ${r.path}`,
+              }
+            : {
+                op: "unlink",
+                detail: `rule:${r.id} is off now; ${r.path} is removed from the Library`,
+              },
+      ),
       { op: "merge", detail: `enable ${SLICE}` },
       ...(switchWhole && whole ? [{ op: "merge", detail: `disable ${WHOLE}` }] : []),
       {
@@ -207,15 +254,21 @@ export function createSelectWorld(scenario: SelectScenario | undefined) {
     return {
       source: SELECT_SOURCE,
       slice: SLICE,
-      planHash: hash(JSON.stringify([diffs, latest, switchWhole && whole])),
+      planHash: hash(JSON.stringify([diffs, latest, switchWhole && whole, rules])),
       waiting:
-        diffs.added.length + diffs.dropped.length + up.changed.length + up.retick.length >
+        diffs.added.length +
+          diffs.dropped.length +
+          up.changed.length +
+          up.retick.length +
+          rules.length >
           0 || moved,
       dryRun: true,
       ref: { pinned, latest },
       checked: !offline,
       fetchError: offline ? "could not resolve host" : null,
       history: history(),
+      rules,
+      conflicts: rules.filter((r) => r.conflict),
       diffs,
       lines: up.changed.length
         ? { "skill:code-review": { added: 12, removed: 3, files: 1 } }
@@ -364,7 +417,37 @@ export function createSelectWorld(scenario: SelectScenario | undefined) {
         { planHash: plan.planHash },
       );
     }
-    journal = { items: structuredClone(items), pinned, recorded };
+    const rules = ruleRows();
+    const force = values(argv, "--force").flatMap((v) => v.split(","));
+    const skip = values(argv, "--skip").flatMap((v) => v.split(","));
+    const open = rules.filter(
+      (r) => r.conflict && !force.includes(r.id) && !skip.includes(r.id),
+    );
+    if (open.length > 0) {
+      return fail(
+        "conflict",
+        `${open.length} rule(s) need a choice before apply: ${open.map((r) => `rule:${r.id}`).join(", ")}; nothing was changed`,
+      );
+    }
+    journal = {
+      items: structuredClone(items),
+      pinned,
+      recorded,
+      linked: new Set(linked),
+      foreign: new Set(foreign),
+    };
+    const written: string[] = [];
+    for (const row of rules) {
+      if (skip.includes(row.id)) continue;
+      if (row.action === "install") {
+        linked.add(row.id);
+        foreign.delete(row.id);
+        written.push(`${row.path} written`);
+      } else {
+        linked.delete(row.id);
+        written.push(`${row.path} removed`);
+      }
+    }
     const up = upstream();
     for (const row of up.changed) {
       const found = items.find((i) => key(i) === key(row));
@@ -394,7 +477,7 @@ export function createSelectWorld(scenario: SelectScenario | undefined) {
       ...plan,
       dryRun: false,
       waiting: false,
-      result: { applied: true, changed: [`enabledPlugins.${SLICE}`] },
+      result: { applied: true, changed: [...written, `enabledPlugins.${SLICE}`] },
     });
   }
 
@@ -403,6 +486,8 @@ export function createSelectWorld(scenario: SelectScenario | undefined) {
     items = journal.items;
     pinned = journal.pinned;
     recorded = journal.recorded;
+    linked = journal.linked;
+    foreign = journal.foreign;
     journal = null;
     return ok({
       source: SELECT_SOURCE,

@@ -1,5 +1,5 @@
 use super::check::{self, Request};
-use super::ops::{self, Env, Options, SetArgs};
+use super::ops::{self, Choices, Env, Options, SetArgs};
 use super::store::{self, SourceSel};
 use crate::plugins::claude::ClaudeRunner;
 use crate::plugins::Env as PluginEnv;
@@ -138,6 +138,7 @@ impl World {
             claude: &NoClaude,
             store: &self.host,
             managed: None,
+            library: None,
         }
     }
 
@@ -366,6 +367,7 @@ fn test49_apply_never_deepens_even_after_a_rewritten_finding() {
             fetch: true,
             ..Options::default()
         },
+        &Choices::default(),
     );
     assert_eq!(world.git.deepens.get(), before);
 }

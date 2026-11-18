@@ -26,6 +26,20 @@ pub fn read_origins(repo: &Path) -> BTreeMap<String, String> {
 pub fn record_origin(repo: &Path, skill: &str, source: &str) -> Result<(), String> {
     let mut origins = read_origins(repo);
     origins.insert(skill.to_string(), source.to_string());
+    write_origins(repo, &origins)
+}
+
+/// Drops the entry only while it still names `source`.
+pub fn forget_origin(repo: &Path, skill: &str, source: &str) -> Result<(), String> {
+    let mut origins = read_origins(repo);
+    if origins.get(skill).map(String::as_str) != Some(source) {
+        return Ok(());
+    }
+    origins.remove(skill);
+    write_origins(repo, &origins)
+}
+
+fn write_origins(repo: &Path, origins: &BTreeMap<String, String>) -> Result<(), String> {
     let doc = J::Obj(
         origins
             .iter()
