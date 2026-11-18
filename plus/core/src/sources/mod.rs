@@ -83,12 +83,18 @@ impl Places {
         if let Some(dir) = var(ENV_CLIENTS_ROOT) {
             places.clients_root = roots.expand_user(&dir);
         }
-        places.managed_settings = match std::env::var_os(ENV_MANAGED_SETTINGS) {
-            Some(path) if path.is_empty() => None,
-            Some(path) => Some(PathBuf::from(path)),
-            None => Some(managed_dir().join("managed-settings.json")),
-        };
+        places.managed_settings = managed_settings_path();
         places
+    }
+}
+
+/// The administrator's `managed-settings.json`, or `None` when the environment switches the
+/// lookup off.
+pub fn managed_settings_path() -> Option<PathBuf> {
+    match std::env::var_os(ENV_MANAGED_SETTINGS) {
+        Some(path) if path.is_empty() => None,
+        Some(path) => Some(PathBuf::from(path)),
+        None => Some(managed_dir().join("managed-settings.json")),
     }
 }
 

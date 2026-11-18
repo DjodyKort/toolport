@@ -53,6 +53,10 @@
       "new": 6,
       "offer": null,
       "on": 0,
+      "policy": {
+        "blocked": null,
+        "hooksOff": null
+      },
       "recorded": false,
       "ref": null,
       "removed": 0,

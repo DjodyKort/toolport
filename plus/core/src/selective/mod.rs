@@ -10,8 +10,10 @@
 pub mod check;
 pub mod discover;
 pub mod handlers;
+pub mod lines;
 pub mod ops;
 pub mod plan;
+pub mod policy;
 pub mod slice;
 pub mod store;
 

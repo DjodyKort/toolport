@@ -174,6 +174,7 @@ impl Fx {
             git: &self.git,
             claude: &self.claude,
             store: &self.host,
+            managed: None,
         }
     }
 
@@ -716,4 +717,103 @@ fn test23_two_sources_cannot_share_one_generated_plugin_name() {
     store::save(&fx.base(), &selections).unwrap();
     let error = ops::plan(&fx.env(), TAP, Options::default()).unwrap_err();
     assert!(error.message.contains("already uses"), "{}", error.message);
+}
+
+#[test]
+fn test24_the_plan_counts_the_lines_that_changed_in_an_item_that_is_on() {
+    let fx = Fx::new();
+    chosen(&fx);
+    skill(
+        &fx.upstream,
+        "code-review",
+        "Review a diff.\nNow check the tests too.\nAnd the docs.",
+    );
+    *fx.git.sha.borrow_mut() = "bbbbbbb2".into();
+    let plan = fx.plan();
+    let lines = &plan["lines"]["skill:code-review"];
+    assert_eq!(lines["added"], 2);
+    assert_eq!(lines["removed"], 0);
+    assert_eq!(lines["files"], 1);
+    assert!(plan["lines"].get("skill:tdd-workflow").is_none());
+}
+
+#[test]
+fn test25_disable_all_hooks_in_the_user_settings_is_reported_and_warned_about() {
+    let fx = Fx::new();
+    chosen(&fx);
+    assert!(fx.plan()["policy"]["hooksOff"].is_null());
+    put(
+        &fx.plugins.user_settings(),
+        &json!({"disableAllHooks": true, "enabledPlugins": fx.settings()["enabledPlugins"],
+            "extraKnownMarketplaces": fx.settings()["extraKnownMarketplaces"]})
+        .to_string(),
+    );
+    let plan = fx.plan();
+    assert_eq!(plan["policy"]["hooksOff"], "your Claude Code settings");
+    assert!(plan["plan"]["warnings"]
+        .to_string()
+        .contains("hooks are switched off by your Claude Code settings"));
+    let listed = ops::ls(&fx.env(), Some(TAP)).unwrap();
+    assert_eq!(listed["policy"]["hooksOff"], "your Claude Code settings");
+}
+
+#[test]
+fn test26_a_managed_allowlist_that_omits_the_marketplace_blocks_the_source() {
+    let fx = Fx::new();
+    let managed = fx.plugins.claude_home.join("managed-settings.json");
+    let root = super::slice::market_root(&fx.base());
+    let read = |doc: Value| {
+        put(&managed, &doc.to_string());
+        let mut env = fx.env();
+        env.managed = Some(managed.clone());
+        super::policy::read(&env, &root)
+    };
+    assert_eq!(read(json!({})).blocked, None);
+    assert_eq!(
+        read(json!({"strictKnownMarketplaces": [{"source": "github", "repo": "a/b"}]})).blocked,
+        Some("the managed policy")
+    );
+    let ours = json!({"source": "directory", "path": root.to_string_lossy()});
+    assert_eq!(
+        read(json!({"strictKnownMarketplaces": [ours.clone()]})).blocked,
+        None
+    );
+    assert_eq!(
+        read(json!({"blockedMarketplaces": [ours]})).blocked,
+        Some("the managed policy")
+    );
+    let by_pattern = json!({"source": "pathPattern", "pathPattern": "selective/marketplace$"});
+    assert_eq!(
+        read(json!({"strictKnownMarketplaces": [by_pattern]})).blocked,
+        None
+    );
+    assert_eq!(
+        read(json!({"disableAllHooks": true})).hooks_off,
+        Some("the managed policy")
+    );
+}
+
+#[test]
+fn test27_the_plan_carries_the_commands_of_hooks_that_changed_or_arrived() {
+    let fx = Fx::new();
+    chosen(&fx);
+    put(
+        &fx.upstream.join("hooks/hooks.json"),
+        &json!({"hooks": {"PostToolUse": [{"matcher": "Write|Edit", "hooks": [
+            {"type": "command", "command": format!("{FORMAT_HOOK} --all")}
+        ]}], "PreToolUse": [{"matcher": "Bash", "hooks": [
+            {"type": "command", "command": "echo checked"},
+            {"type": "command", "command": "echo audited"}
+        ]}]}})
+        .to_string(),
+    );
+    *fx.git.sha.borrow_mut() = "bbbbbbb2".into();
+    let hooks = &fx.plan()["hooks"];
+    assert_eq!(hooks["hook:PostToolUse:Write|Edit"]["was"], FORMAT_HOOK);
+    assert_eq!(
+        hooks["hook:PostToolUse:Write|Edit"]["command"],
+        format!("{FORMAT_HOOK} --all")
+    );
+    assert_eq!(hooks["hook:PreToolUse:Bash#2"]["command"], "echo audited");
+    assert!(hooks["hook:PreToolUse:Bash#2"]["was"].is_null());
 }

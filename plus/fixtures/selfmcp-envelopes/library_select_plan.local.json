@@ -45,7 +45,16 @@
     },
     "dryRun": true,
     "fetchError": null,
+    "hooks": {
+      "hook:PostToolUse:Write|Edit": {
+        "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/format.sh",
+        "event": "PostToolUse",
+        "matcher": "Write|Edit",
+        "was": null
+      }
+    },
     "id": "picks",
+    "lines": {},
     "offer": null,
     "plan": {
       "effects": {},
@@ -64,6 +73,10 @@
       "warnings": []
     },
     "planHash": "sha256:ecebef4aa8c9d21b",
+    "policy": {
+      "blocked": null,
+      "hooksOff": null
+    },
     "ref": {
       "latest": "78b20008ec7b986019384f2adc6d00b1fa08c506",
       "pinned": null

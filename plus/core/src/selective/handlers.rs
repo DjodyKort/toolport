@@ -20,6 +20,7 @@ fn with_env<T>(
         git: &SystemGit,
         claude: &SystemClaude::from_env(),
         store: host,
+        managed: crate::sources::managed_settings_path(),
     })
 }
 

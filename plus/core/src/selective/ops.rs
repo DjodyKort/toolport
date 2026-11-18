@@ -3,7 +3,9 @@
 //! and it takes the hash of a plan the caller has seen.
 
 use super::discover::{self, Discovery, Found};
+use super::lines;
 use super::plan::{self, Computed, Diffs, Row};
+use super::policy;
 use super::slice::{self, MARKETPLACE};
 use super::store::{self, Kind, Selections, SourceSel, State};
 use crate::context::fsx;
@@ -34,6 +36,7 @@ pub struct Env<'a> {
     pub git: &'a dyn GitRunner,
     pub claude: &'a dyn ClaudeRunner,
     pub store: &'a dyn SettingsStore,
+    pub managed: Option<PathBuf>,
 }
 
 impl Env<'_> {
@@ -337,6 +340,7 @@ pub fn ls(env: &Env, source: Option<&str>) -> Result<Value, OpError> {
         "removed": count(&sel.items, State::Removed),
         "items": sel.items.iter().map(item_json).collect::<Vec<_>>(),
         "offer": offer(env, &src),
+        "policy": policy::read(env, &slice::market_root(&env.base())).to_json(),
         "warnings": found.warnings,
     }))
 }
@@ -665,6 +669,21 @@ fn build_plan(env: &Env, src: &Src, prepared: &Prepared, opts: Options) -> Resul
     {
         warnings.push("ticked hooks run commands in every session once the plan is applied".into());
     }
+    let rules = policy::read(env, &slice::market_root(&env.base()));
+    if let Some(who) = rules.blocked {
+        warnings.push(format!(
+            "{who} blocks the marketplace {MARKETPLACE}; Claude Code will not load the chosen items"
+        ));
+    }
+    if let Some(who) = rules.hooks_off.filter(|_| {
+        next.items
+            .iter()
+            .any(|i| i.kind == Kind::Hook && i.state.wanted())
+    }) {
+        warnings.push(format!(
+            "hooks are switched off by {who}; ticked hooks will not run"
+        ));
+    }
     if opts.switch && !whole_enabled(env, src) {
         warnings.push("--switch has nothing to switch: the whole plugin is not switched on".into());
     }
@@ -707,6 +726,9 @@ fn build_plan(env: &Env, src: &Src, prepared: &Prepared, opts: Options) -> Resul
         "checked": prepared.latest.checked,
         "fetchError": prepared.latest.error,
         "diffs": diffs,
+        "lines": changed_lines_of(env, src, prepared),
+        "hooks": hook_commands_of(prepared),
+        "policy": rules.to_json(),
         "offer": offer(env, src),
     });
     Ok(Built {
@@ -715,6 +737,62 @@ fn build_plan(env: &Env, src: &Src, prepared: &Prepared, opts: Options) -> Resul
         edits,
         settings,
     })
+}
+
+fn changed_lines_of(env: &Env, src: &Src, prepared: &Prepared) -> Value {
+    let pinned = slice::slice_dir(&env.base(), &src.slice());
+    let mut out = serde_json::Map::new();
+    for row in &prepared.computed.diffs.changed {
+        let path = |sel: Option<&SourceSel>| {
+            sel.and_then(|s| s.item(row.kind, &row.id))
+                .and_then(|i| i.path.clone())
+        };
+        let (Some(old), Some(new)) = (
+            path(prepared.prev.as_ref()),
+            path(Some(&prepared.computed.next)),
+        ) else {
+            continue;
+        };
+        let counted = lines::between(&pinned.join(old), &prepared.latest.root.join(new));
+        out.insert(format!("{}:{}", row.kind.as_str(), row.id), json!(counted));
+    }
+    Value::Object(out)
+}
+
+/// The commands behind the hooks that changed or arrived, which the rows of the plan only name.
+fn hook_commands_of(prepared: &Prepared) -> Value {
+    let command = |spec: &Value| spec["handler"]["command"].clone();
+    let mut out = serde_json::Map::new();
+    let diffs = &prepared.computed.diffs;
+    for row in diffs.retick.iter().chain(&diffs.fresh) {
+        if row.kind != Kind::Hook {
+            continue;
+        }
+        let Some(item) = prepared.computed.next.item(row.kind, &row.id) else {
+            continue;
+        };
+        let now = item
+            .pending
+            .as_ref()
+            .map(|p| &p.spec)
+            .or(item.spec.as_ref());
+        let was = prepared
+            .prev
+            .as_ref()
+            .and_then(|p| p.item(row.kind, &row.id))
+            .and_then(|i| i.spec.as_ref());
+        let Some(now) = now else { continue };
+        out.insert(
+            format!("hook:{}", row.id),
+            json!({
+                "event": now["event"],
+                "matcher": now.get("matcher").cloned().unwrap_or(Value::Null),
+                "command": command(now),
+                "was": was.map(command),
+            }),
+        );
+    }
+    Value::Object(out)
 }
 
 fn short(sha: &str) -> &str {

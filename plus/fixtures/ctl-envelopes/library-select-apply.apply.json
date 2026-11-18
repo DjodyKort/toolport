@@ -51,7 +51,9 @@
       },
       "dryRun": false,
       "fetchError": null,
+      "hooks": {},
       "id": "picks",
+      "lines": {},
       "offer": null,
       "plan": {
         "effects": {},
@@ -100,6 +102,10 @@
         ]
       },
       "planHash": "sha256:1ec014b1a33f82fe",
+      "policy": {
+        "blocked": null,
+        "hooksOff": null
+      },
       "ref": {
         "latest": "78b20008ec7b986019384f2adc6d00b1fa08c506",
         "pinned": null

@@ -160,6 +160,28 @@ impl Layers {
             .next_back()
     }
 
+    /// The layer whose file sets `key` to a boolean last (managed over local over project over
+    /// user), with that value.
+    pub fn flag(&self, key: &str) -> Option<(bool, Scope)> {
+        self.files
+            .iter()
+            .filter_map(|f| Some((f.get(key)?.as_bool()?, f.scope)))
+            .max_by_key(|(_, scope)| match scope {
+                Scope::User => 0,
+                Scope::Project => 1,
+                Scope::Local => 2,
+                Scope::Managed => 3,
+            })
+    }
+
+    /// The managed file's value for `key`.
+    pub fn managed(&self, key: &str) -> Option<&Value> {
+        self.files
+            .iter()
+            .filter(|f| f.scope == Scope::Managed)
+            .find_map(|f| f.get(key))
+    }
+
     pub fn enabled(&self, id: &str) -> Enabled {
         let user = self.last_bool(Scope::User, "settings.json", id);
         let project = self.last_bool(Scope::Project, "settings.json", id);
