@@ -831,6 +831,12 @@ pub fn run_with(
             err,
         );
     }
+    if crate::direct::launcher::is_run(&parsed.positional) {
+        if let Some(dir) = &parsed.data_dir {
+            host.use_data_dir(std::path::Path::new(dir));
+        }
+        return crate::direct::launcher::main(host, &parsed.positional);
+    }
     let name = parsed.positional.join(" ");
     let Some((command, rest)) = find_command(&parsed.positional) else {
         return emit_usage(

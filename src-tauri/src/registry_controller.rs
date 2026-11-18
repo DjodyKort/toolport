@@ -2013,7 +2013,7 @@ pub fn preview_client_setup(client_id: &str) -> Result<ClientSetupReview, String
     let items = client
         .servers
         .iter()
-        .filter(|s| !clients::detected_is_gateway(s))
+        .filter(|s| !clients::detected_is_gateway(s) && !crate::seam::is_direct(&client, s))
         .map(|s| {
             let definition = clients::import_definition(&client, &s.name)?;
             let prepared = crate::import_credentials::Import::prepare(

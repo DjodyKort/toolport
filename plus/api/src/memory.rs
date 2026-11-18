@@ -1322,6 +1322,9 @@ impl crate::clients::ClientsHost for MemoryHost {
     fn launcher_env(&self) -> BTreeMap<String, String> {
         self.clients.launcher_env()
     }
+    fn prepare_launch(&self, server_id: &str) -> Result<crate::clients::LaunchCommand, String> {
+        self.clients.prepare_launch(server_id)
+    }
 }
 
 impl crate::tasks::TaskHost for MemoryHost {

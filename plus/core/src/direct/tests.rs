@@ -364,3 +364,58 @@ fn test18_keep_clients_leaves_the_entry_and_its_record_and_shows_an_orphan() {
     assert_eq!(entry_names(&host), vec!["alpha"]);
     assert_eq!(assess(&host, None).unwrap()[0].state, State::Orphan);
 }
+
+fn set_gateway(host: &MemoryHost, installed: bool) {
+    host.clients.clients.borrow_mut()[0].gateway_installed = installed;
+}
+
+fn vanish_entry(host: &MemoryHost) {
+    host.clients.clients.borrow_mut()[0].entries.clear();
+}
+
+#[test]
+fn test19_an_entry_written_beside_the_gateway_is_an_orphan_once_a_disconnect_took_it_away() {
+    let host = host_with(vec![stdio("srv-a", "alpha")]);
+    set_gateway(&host, true);
+    add(&host, &args("alpha")).unwrap();
+    vanish_entry(&host);
+    set_gateway(&host, false);
+    let rows = assess(&host, None).unwrap();
+    assert_eq!(rows[0].state, State::Orphan);
+    let done = remove(&host, &args("alpha")).unwrap();
+    assert_eq!(done["action"], "forgotten");
+    assert!(host.plus_data().unwrap().direct_entries.is_none());
+}
+
+#[test]
+fn test20_a_vanished_entry_is_missing_while_the_gateway_is_still_there_or_never_was() {
+    let host = host_with(vec![stdio("srv-a", "alpha")]);
+    set_gateway(&host, true);
+    add(&host, &args("alpha")).unwrap();
+    vanish_entry(&host);
+    assert_eq!(assess(&host, None).unwrap()[0].state, State::Missing);
+
+    let other = host_with(vec![stdio("srv-a", "alpha")]);
+    add(&other, &args("alpha")).unwrap();
+    vanish_entry(&other);
+    assert_eq!(assess(&other, None).unwrap()[0].state, State::Missing);
+}
+
+#[test]
+fn test21_adding_again_after_a_reconnect_keeps_the_record_unchanged() {
+    let host = host_with(vec![stdio("srv-a", "alpha")]);
+    add(&host, &args("alpha")).unwrap();
+    set_gateway(&host, true);
+    let done = add(&host, &args("alpha")).unwrap();
+    assert_eq!(done["action"], "unchanged");
+    assert_eq!(host.clients.writes.borrow().len(), 1);
+}
+
+#[test]
+fn test22_only_recorded_entries_are_hidden_from_move_into_gateway() {
+    let host = host_with(vec![stdio("srv-a", "alpha")]);
+    add(&host, &args("alpha")).unwrap();
+    assert!(is_recorded(&host, "claude-code", "alpha"));
+    assert!(!is_recorded(&host, "claude-code", "native"));
+    assert!(!is_recorded(&host, "cursor", "alpha"));
+}

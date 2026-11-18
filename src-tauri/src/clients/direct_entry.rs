@@ -449,4 +449,94 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&path).unwrap(), before);
         drop(fixture);
     }
+
+    #[test]
+    fn test09_a_disconnect_after_the_gateway_connect_takes_the_launcher_entry_with_it() {
+        let fixture = Fixture::new("direct-disconnect");
+        let path = client_config_path("claude-code").unwrap();
+        write(&path, &json!({"mcpServers": {"native": {"command": "n"}}}));
+        super::super::install_gateway("claude-code", None).unwrap();
+        set_entry("claude-code", "alpha", Some(&launcher("alpha")), None).unwrap();
+        super::super::uninstall_gateway("claude-code").unwrap();
+        let after = read(&path);
+        assert!(after["mcpServers"].get("alpha").is_none(), "{after}");
+        assert_eq!(after["mcpServers"]["native"], json!({"command": "n"}));
+        drop(fixture);
+    }
+
+    #[cfg(feature = "plus")]
+    #[test]
+    fn test10_a_disconnect_leaves_the_recorded_entry_as_an_orphan_that_can_be_forgotten() {
+        use crate::plus_adapter::HostAdapter;
+        use toolport_plus::direct::{self, Args, State};
+
+        let fixture = Fixture::new("direct-orphan");
+        std::fs::write(fixture.data.dir.join("bin").join("toolportctl"), "").unwrap();
+        crate::registry::update(|registry| {
+            registry.servers.push(
+                serde_json::from_value(json!({
+                    "id": "srv-alpha", "name": "alpha", "transport": "stdio",
+                    "command": "run-it", "enabled": true,
+                }))
+                .unwrap(),
+            );
+            Ok(())
+        })
+        .unwrap();
+        let path = client_config_path("claude-code").unwrap();
+        write(&path, &json!({"mcpServers": {"native": {"command": "n"}}}));
+        super::super::install_gateway("claude-code", None).unwrap();
+        let args = Args {
+            server: "alpha",
+            client: "claude-code",
+            ..Default::default()
+        };
+        direct::add(&HostAdapter, &args).unwrap();
+        let state = || direct::assess(&HostAdapter, None).unwrap()[0].state;
+        assert_eq!(state(), State::Ok);
+
+        super::super::uninstall_gateway("claude-code").unwrap();
+        assert!(read(&path)["mcpServers"].get("alpha").is_none());
+        assert_eq!(state(), State::Orphan);
+
+        let done = direct::remove(&HostAdapter, &args).unwrap();
+        assert_eq!(done["action"], "forgotten");
+        assert!(direct::assess(&HostAdapter, None).unwrap().is_empty());
+        drop(fixture);
+    }
+
+    #[cfg(feature = "plus")]
+    #[test]
+    fn test11_move_into_gateway_offers_the_clients_own_entries_and_not_the_recorded_launcher() {
+        use crate::plus_adapter::HostAdapter;
+        use toolport_plus::direct::{self, Args};
+
+        let fixture = Fixture::new("direct-move-into-gateway");
+        std::fs::write(fixture.data.dir.join("bin").join("toolportctl"), "").unwrap();
+        crate::registry::update(|registry| {
+            registry.servers.push(
+                serde_json::from_value(json!({
+                    "id": "srv-alpha", "name": "alpha", "transport": "stdio",
+                    "command": "run-it", "enabled": true,
+                }))
+                .unwrap(),
+            );
+            Ok(())
+        })
+        .unwrap();
+        let path = client_config_path("claude-code").unwrap();
+        write(&path, &json!({"mcpServers": {"native": {"command": "n"}}}));
+        let args = Args {
+            server: "alpha",
+            client: "claude-code",
+            ..Default::default()
+        };
+        direct::add(&HostAdapter, &args).unwrap();
+        assert!(read(&path)["mcpServers"].get("alpha").is_some());
+
+        let review = crate::registry_controller::preview_client_setup("claude-code").unwrap();
+        let names: Vec<&str> = review.items.iter().map(|item| item.name.as_str()).collect();
+        assert_eq!(names, ["native"]);
+        drop(fixture);
+    }
 }

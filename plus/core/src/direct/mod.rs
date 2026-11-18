@@ -13,6 +13,8 @@ use crate::context::hash::sha256_hex;
 use crate::context::plan::{Diff, Effects, PlanV1, ResultV1, Step};
 use crate::op::OpError;
 
+pub mod launcher;
+
 pub const TRADEOFF: &str = "A direct entry bypasses the Toolport gateway: its tools are not \
      covered by access sets, approvals or lazy discovery, and every client with a direct entry \
      starts its own process of the server instead of sharing one.";
@@ -187,7 +189,13 @@ fn state_of(
         }
     }
     let Some(existing) = client.and_then(|c| c.entries.iter().find(|e| e.name == entry)) else {
-        return State::Missing;
+        let disconnected =
+            record.gateway_connected == Some(true) && client.is_some_and(|c| !c.gateway_installed);
+        return if disconnected {
+            State::Orphan
+        } else {
+            State::Missing
+        };
     };
     if !matches_record(existing, record) {
         return State::Customized;
@@ -315,7 +323,7 @@ fn is_remote(server: &ServerRecord) -> bool {
         )
 }
 
-fn refuse(host: &dyn Host, server: &ServerRecord, client: &ClientInfo) -> Result<(), OpError> {
+fn refuse(server: &ServerRecord) -> Result<(), OpError> {
     if server.name.trim().is_empty() {
         return Err(OpError::failed(
             "refused",
@@ -341,28 +349,10 @@ fn refuse(host: &dyn Host, server: &ServerRecord, client: &ClientInfo) -> Result
         }
         return Ok(());
     }
-    if server.text("command").is_none()
-        || !server
-            .text("transport")
-            .unwrap_or("stdio")
-            .eq_ignore_ascii_case("stdio")
-    {
-        return Err(refused(
-            server,
-            "it is a remote server and only the gateway can reach it",
-        ));
+    match launcher::refusal(server) {
+        Some(reason) => Err(refused(server, &reason)),
+        None => Ok(()),
     }
-    if server
-        .text("cwd")
-        .is_some_and(|cwd| cwd.contains("${ROOT}"))
-    {
-        return Err(refused(
-            server,
-            "its working directory follows the client's project root (${ROOT}), which only the gateway knows",
-        ));
-    }
-    let _ = (host, client);
-    Ok(())
 }
 
 fn wanted(
@@ -661,14 +651,24 @@ pub fn add(host: &dyn Host, args: &Args) -> Result<Value, OpError> {
             client.name
         )));
     }
-    refuse(host, &server, &client)?;
+    refuse(&server)?;
     let entry = server.name.trim().to_string();
     let (spec, mut record) = wanted(host, &server, &entry)?;
     record.path = Some(client.config_path.clone());
+    record.gateway_connected = Some(client.gateway_installed);
     let recorded = records(host)?
         .into_iter()
         .find(|(c, e, _)| *c == client.id && *e == entry)
         .map(|(_, _, record)| record);
+    if let Some(old) = &recorded {
+        let same_but_flag = DirectEntry {
+            gateway_connected: old.gateway_connected,
+            ..record.clone()
+        };
+        if same_but_flag == *old {
+            record = same_but_flag;
+        }
+    }
     let existing = client.entries.iter().find(|e| e.name == entry);
     let action = plan_add_action(
         &entry,
@@ -1056,6 +1056,10 @@ pub fn check(host: &dyn Host, client: Option<&str>) -> Result<(Vec<Row>, bool), 
     let rows = list(host, client)?;
     let healthy = rows.iter().all(|row| row.state == State::Ok);
     Ok((rows, healthy))
+}
+
+pub fn is_recorded(host: &dyn Host, client: &str, entry: &str) -> bool {
+    records(host).is_ok_and(|all| all.iter().any(|(c, e, _)| c == client && e == entry))
 }
 
 pub fn recorded_by_client(host: &dyn Host) -> Result<BTreeMap<String, Vec<String>>, OpError> {

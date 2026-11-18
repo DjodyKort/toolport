@@ -23,7 +23,7 @@ pub mod view;
 pub use auth::{AuthAccess, AuthChild, ConsentSink, LaunchError, LaunchFault};
 pub use clients::{
     ClientEntryInfo, ClientInfo, ClientWriteError, ClientsHost, EntrySpec, EntryWrite,
-    MemoryClients,
+    LaunchCommand, MemoryClients,
 };
 pub use context::ContextHost;
 pub use fork_data::{

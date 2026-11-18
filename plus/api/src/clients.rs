@@ -91,6 +91,28 @@ pub struct EntryWrite {
     pub extra: Map<String, Value>,
 }
 
+/// A stdio server's launch line as the gateway would run it, secrets resolved from the vault.
+/// `env` is the complete environment of the child process.
+#[derive(Clone, Default, PartialEq, Eq)]
+pub struct LaunchCommand {
+    pub program: String,
+    pub args: Vec<String>,
+    pub env: Vec<(String, String)>,
+    pub cwd: Option<String>,
+}
+
+impl std::fmt::Debug for LaunchCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let keys: Vec<&str> = self.env.iter().map(|(key, _)| key.as_str()).collect();
+        f.debug_struct("LaunchCommand")
+            .field("program", &self.program)
+            .field("args", &self.args)
+            .field("env_keys", &keys)
+            .field("cwd", &self.cwd)
+            .finish()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ClientWriteError {
     /// The file differs from the revision the plan saw.
@@ -131,6 +153,11 @@ pub trait ClientsHost {
 
     /// Non-secret variables a launcher entry carries so it finds the same data directory.
     fn launcher_env(&self) -> BTreeMap<String, String>;
+
+    /// The command a stdio server runs with, built the way the gateway builds it: the same
+    /// screening of command, arguments and environment, secrets read from the vault now. An error
+    /// is the message to show; it holds no secret value.
+    fn prepare_launch(&self, server_id: &str) -> Result<LaunchCommand, String>;
 }
 
 /// Clients in memory, for tests of the logic above the writer.
@@ -140,6 +167,7 @@ pub struct MemoryClients {
     pub launcher: Option<String>,
     pub env: BTreeMap<String, String>,
     pub writes: RefCell<Vec<(String, String, Option<EntrySpec>)>>,
+    pub launches: BTreeMap<String, Result<LaunchCommand, String>>,
 }
 
 impl MemoryClients {
@@ -240,6 +268,13 @@ impl ClientsHost for MemoryClients {
 
     fn launcher_env(&self) -> BTreeMap<String, String> {
         self.env.clone()
+    }
+
+    fn prepare_launch(&self, server_id: &str) -> Result<LaunchCommand, String> {
+        self.launches
+            .get(server_id)
+            .cloned()
+            .unwrap_or_else(|| Err(format!("no launch line for '{server_id}'")))
     }
 }
 

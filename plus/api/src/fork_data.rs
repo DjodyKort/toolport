@@ -180,6 +180,15 @@ pub struct DirectEntry {
     /// The client config file the entry was written to; a client whose file moved reads as relocated.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
+    /// Whether the client had Toolport's gateway entry when this was written. A record written
+    /// beside the gateway whose entry has vanished after the gateway was removed reads as orphan:
+    /// upstream's disconnect restores the file as it was before the connect.
+    #[serde(
+        default,
+        rename = "gatewayConnected",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub gateway_connected: Option<bool>,
     #[serde(flatten)]
     pub extra: Map<String, Value>,
 }

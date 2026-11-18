@@ -72,7 +72,9 @@
 2	src-tauri/src/oauth_controller.rs
 # registry_controller.rs, 2 lines: `catalog_server` becomes pub(crate), so the adapter adds a catalog entry
 # inside the fork's registry transaction (name check and add under one lock) instead of copying its body.
-2	src-tauri/src/registry_controller.rs
+# +2 lines (S11): `preview_client_setup` skips the entries Toolport recorded as direct entries
+# (seam::is_direct), so "Move into gateway" never offers the launcher entry and imports it as a server.
+4	src-tauri/src/registry_controller.rs
 # router.rs, 4 lines: `#[cfg(feature = "plus")] #[path = "plus_router.rs"] mod plus_ext;` declares a child
 # module that reaches the private slots: holds_server, calls in flight (the one confirmation before a
 # restart) and the restart itself (a fresh connection swapped in under the lifecycle lock). Upstream
