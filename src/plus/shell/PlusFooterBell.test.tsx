@@ -150,7 +150,10 @@ describe("attention.bell rows with an action", () => {
     render(<PlusFooterBell />);
     await userEvent.click(screen.getByRole("button", { name: /Needs attention/ }));
     const list = screen.getByRole("region", { name: "Needs you" });
-    expect(within(list).queryByRole("button")).not.toBeInTheDocument();
+    const names = within(list)
+      .getAllByRole("button")
+      .map((button) => button.getAttribute("aria-label"));
+    expect(names.every((name) => name?.startsWith("Actions for"))).toBe(true);
   });
 
   it("test09_an_area_that_could_not_be_read_is_named_instead_of_an_all_clear", async () => {

@@ -9,6 +9,7 @@ import {
   type AttentionItem,
   type AttentionSnapshot,
 } from "./attentionFeed";
+import { RowMenu } from "../attention/RowMenu";
 import { openView } from "./navigate";
 
 const FOCUS_RING =
@@ -21,7 +22,7 @@ function Row({ item }: { item: AttentionItem }) {
         aria-hidden="true"
         className={`mt-1.5 size-1.5 shrink-0 rounded-full ${item.urgency === "needs-you" ? "bg-destructive" : "bg-warning"}`}
       />
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-medium break-words">{item.title}</p>
         {item.detail && (
           <p className="text-meta break-words text-muted-foreground">{item.detail}</p>
@@ -43,6 +44,7 @@ function Row({ item }: { item: AttentionItem }) {
           </Popover.Close>
         )}
       </div>
+      <RowMenu item={item} />
     </li>
   );
 }
@@ -137,6 +139,19 @@ export function PlusFooterBell() {
               Not checked: {unchecked}. The list may be incomplete.
             </p>
           )}
+          <div className="flex items-center justify-between gap-2 border-t px-3.5 py-2 text-xs text-muted-foreground">
+            <span>
+              {snapshot.checkedAt !== null && `Checked ${ageLabel(snapshot.checkedAt)}`}
+              {snapshot.hiddenCount
+                ? `${snapshot.checkedAt !== null ? " · " : ""}${snapshot.hiddenCount} hidden`
+                : ""}
+            </span>
+            <Popover.Close asChild>
+              <Button size="xs" variant="ghost" onClick={() => openView("settings")}>
+                Manage
+              </Button>
+            </Popover.Close>
+          </div>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

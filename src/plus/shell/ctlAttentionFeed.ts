@@ -1,5 +1,6 @@
 import { ctlData } from "../bridge/ctl";
-import type { AttentionData } from "../bridge/data";
+import { ATTENTION_REFRESH_EVENT } from "../attention/attentionCtl";
+import type { AttentionData, AttentionRow } from "../bridge/data";
 import {
   registerAttentionFeed,
   type AttentionFeed,
@@ -16,9 +17,8 @@ function time(text: string | undefined): number | undefined {
   return Number.isNaN(at) ? undefined : at;
 }
 
-/** The snapshot the bell draws, from the `data` of `toolportctl attention ls`. */
-export function toSnapshot(data: AttentionData): AttentionSnapshot {
-  const items: AttentionItem[] = data.items.map((row) => ({
+export function toItem(row: AttentionRow): AttentionItem {
+  return {
     id: row.id,
     urgency: row.urgency,
     title: row.title,
@@ -29,11 +29,18 @@ export function toSnapshot(data: AttentionData): AttentionSnapshot {
       label: row.action.label,
       view: VIEWS[row.action.screen],
     },
-  }));
+    skip: row.skip,
+  };
+}
+
+/** The snapshot the bell draws, from the `data` of `toolportctl attention ls`. */
+export function toSnapshot(data: AttentionData): AttentionSnapshot {
+  const items = data.items.map(toItem);
   const unchecked = data.checks.filter((c) => !c.ok).map((c) => c.name);
   return {
     items,
     checkedAt: time(data.checkedAt) ?? null,
+    hiddenCount: data.hiddenCount ?? 0,
     ...(unchecked.length > 0 && { unchecked }),
   };
 }
@@ -68,14 +75,17 @@ export function startAttentionFeed(pollMs = ATTENTION_POLL_MS): () => void {
   const onVisible = () => {
     if (document.visibilityState === "visible") void refresh();
   };
+  const onRefresh = () => void refresh();
 
   void refresh();
   const timer = setInterval(onVisible, pollMs);
   document.addEventListener("visibilitychange", onVisible);
+  window.addEventListener(ATTENTION_REFRESH_EVENT, onRefresh);
   return () => {
     stopped = true;
     clearInterval(timer);
     document.removeEventListener("visibilitychange", onVisible);
+    window.removeEventListener(ATTENTION_REFRESH_EVENT, onRefresh);
     unregister?.();
   };
 }

@@ -225,6 +225,42 @@ export interface AttentionData {
   items: AttentionRow[];
   /** Rows a snooze, skip or dismissal keeps out of `items`. */
   hiddenCount?: number;
+  /** Only with `--hidden`. */
+  hidden?: AttentionHiddenRow[];
+}
+
+export interface AttentionHiddenRow extends AttentionRow {
+  hidden: {
+    kind: "snooze" | "skip" | "dismiss";
+    at: string;
+    /** When a snooze ends. */
+    until?: string;
+  };
+}
+
+export type AttentionCheckName = "credentials" | "updates" | "tasks" | "library";
+
+/** `attention settings`: which checks run and which categories may notify. */
+export interface AttentionSettings {
+  checks: Array<{ name: AttentionCheckName; on: boolean }>;
+  notify: {
+    enabled: boolean;
+    categories: Array<{ name: AttentionCheckName; on: boolean }>;
+  };
+}
+
+/** `attention check`: what the network pass looked at. */
+export interface AttentionCheckReport {
+  checkedAt: string;
+  off: boolean;
+  sources: Array<{ source: string; ok: boolean; error?: string }>;
+}
+
+/** What hiding a row answers, so the toast can say what happened. */
+export interface AttentionHideResult {
+  id: string;
+  title: string;
+  hidden: { kind: "snooze" | "skip" | "dismiss"; until?: string; state: string };
 }
 
 export interface AttentionRow {

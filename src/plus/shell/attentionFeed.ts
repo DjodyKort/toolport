@@ -14,6 +14,8 @@ export interface AttentionItem {
   since?: number;
   /** The one button of the row: it opens the page that owns the condition. */
   action?: AttentionAction;
+  /** Set when the row can be skipped: the label names what is skipped ("1.5.0"). */
+  skip?: { label: string };
 }
 
 export interface AttentionAction {
@@ -26,6 +28,8 @@ export interface AttentionSnapshot {
   checkedAt: number | null;
   /** Areas that could not be read; while any exists the list is not an all-clear. */
   unchecked?: string[];
+  /** Rows a snooze, skip or dismissal keeps out of the list. */
+  hiddenCount?: number;
 }
 
 /** Where the footer bell gets its rows. Slice S9 supplies the real feed; until a feed is
