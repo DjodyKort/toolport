@@ -1,9 +1,10 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use super::store::Hide;
 use crate::tasks::cron::rfc3339;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Urgency {
     NeedsYou,
@@ -55,9 +56,16 @@ pub struct Item {
     /// Epoch seconds; `None` when the store behind the row keeps no time for it.
     pub since: Option<i64>,
     pub action: Option<Action>,
+    /// What skipping this row says it skips; only a row whose id carries the state it describes
+    /// (a version, a commit range) can be skipped, because the skip ends when that state changes.
+    pub skip: Option<String>,
 }
 
 impl Item {
+    pub fn skippable(&self) -> bool {
+        self.skip.is_some()
+    }
+
     pub fn to_json(&self) -> Value {
         let mut value = json!({
             "id": self.id,
@@ -72,6 +80,9 @@ impl Item {
         if let Some(action) = &self.action {
             value["action"] = json!(action);
         }
+        if let Some(label) = &self.skip {
+            value["skip"] = json!({ "label": label });
+        }
         value
     }
 }
@@ -82,6 +93,10 @@ impl Item {
 pub struct Check {
     pub name: &'static str,
     pub error: Option<String>,
+    /// When a check that asks the network last did; `None` for checks that only read local state.
+    pub checked_at: Option<i64>,
+    /// Switched off by the person: it raises nothing and counts as fresh.
+    pub off: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -89,6 +104,22 @@ pub struct Snapshot {
     pub checked_at: i64,
     pub checks: Vec<Check>,
     pub items: Vec<Item>,
+    /// Rows a snooze, skip or dismissal keeps out of `items`, with what hides them.
+    pub hidden: Vec<Hidden>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Hidden {
+    pub item: Item,
+    pub hide: Hide,
+}
+
+impl Hidden {
+    pub fn to_json(&self) -> Value {
+        let mut value = self.item.to_json();
+        value["hidden"] = self.hide.to_json();
+        value
+    }
 }
 
 impl Snapshot {
@@ -104,9 +135,18 @@ impl Snapshot {
         let checks: Vec<Value> = self
             .checks
             .iter()
-            .map(|check| match &check.error {
-                Some(error) => json!({"name": check.name, "ok": false, "error": error}),
-                None => json!({"name": check.name, "ok": true}),
+            .map(|check| {
+                let mut value = match &check.error {
+                    Some(error) => json!({"name": check.name, "ok": false, "error": error}),
+                    None => json!({"name": check.name, "ok": true}),
+                };
+                if check.off {
+                    value["off"] = json!(true);
+                }
+                if let Some(at) = check.checked_at {
+                    value["checkedAt"] = json!(rfc3339(at));
+                }
+                value
             })
             .collect();
         json!({
@@ -117,6 +157,7 @@ impl Snapshot {
             },
             "checks": checks,
             "items": self.items.iter().map(Item::to_json).collect::<Vec<_>>(),
+            "hiddenCount": self.hidden.len(),
         })
     }
 }

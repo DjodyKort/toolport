@@ -1,0 +1,21 @@
+{
+  "argv": ["attention", "snooze", "tasks:failed:nightly-report", "--dry-run"],
+  "envelope": {
+    "command": "attention snooze",
+    "data": {
+      "dryRun": true,
+      "hidden": {
+        "at": "<TIME>",
+        "kind": "snooze",
+        "state": "snoozed",
+        "until": "<TIME>"
+      },
+      "id": "tasks:failed:nightly-report",
+      "title": "Task Nightly report failed",
+      "undo": ["toolportctl", "attention", "undo"]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

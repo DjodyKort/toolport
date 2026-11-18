@@ -1,0 +1,7 @@
+{
+  "command": "attention restore",
+  "dryRun": "none",
+  "name": "attention_restore",
+  "tier": "write",
+  "toolTier": 2
+}

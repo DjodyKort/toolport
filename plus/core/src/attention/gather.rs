@@ -3,6 +3,9 @@ use toolport_plus_api::{Host, ServerRecord};
 use super::feed_credentials::{CredentialInputs, ServerFacts};
 use super::feed_library::LibraryInputs;
 use super::feed_tasks::{TaskFacts, TaskInputs};
+use super::feed_updates::UpdateInputs;
+use super::store::Store;
+use super::updates;
 use crate::auth::{self, AuthStore};
 use crate::library::remote;
 use crate::skills::auto;
@@ -96,4 +99,23 @@ pub fn library(host: &dyn Host) -> Result<LibraryInputs, String> {
         auto: auto::read(&base).map_err(|e| e.message),
         repo: remote::locate().ok().map(|repo| remote::local_state(&repo)),
     })
+}
+
+pub fn store(host: &dyn Host) -> Result<Store, String> {
+    let base = host
+        .data_dir()
+        .ok_or_else(|| "the data directory could not be resolved".to_string())?;
+    Store::read(&base)
+}
+
+pub fn updates(host: &dyn Host, store: Option<&Store>) -> Result<UpdateInputs, String> {
+    let base = host
+        .data_dir()
+        .ok_or_else(|| "the data directory could not be resolved".to_string())?;
+    let base = crate::skills::repo::resolve_path(&base);
+    let _paths = crate::fsx::enter(crate::fsx::Paths {
+        home: None,
+        data_dir: Some(base.clone()),
+    });
+    Ok(updates::inputs(&base, store.unwrap_or(&Store::default())))
 }

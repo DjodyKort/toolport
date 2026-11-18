@@ -10,6 +10,10 @@
           "ok": true
         },
         {
+          "name": "updates",
+          "ok": true
+        },
+        {
           "name": "tasks",
           "ok": true
         },
@@ -22,6 +26,7 @@
         "needsYou": 0,
         "worthALook": 0
       },
+      "hiddenCount": 0,
       "items": []
     },
     "ok": true,

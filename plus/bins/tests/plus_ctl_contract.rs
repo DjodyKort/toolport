@@ -18,7 +18,7 @@ use toolport_plus::ctl::{registry, rows, Smoke, Tier, COMMANDS, SCHEMA_VERSION};
 use toolport_plus::selfmcp::TOOLS;
 
 mod common;
-use common::attention_world::{attention_home, attention_quiet};
+use common::attention_world::{attention_home, attention_quiet, attention_updates};
 use common::compression::{
     edit_wrapped_hook, fake_proxy, fixture_hooks, lose_hooks, measure_world, rtk_home,
     silent_hooks, transcripts,
@@ -223,6 +223,138 @@ const CASES: &[Case] = &[
             hook("busy-world", attention_home),
             read("busy", &["attention", "ls"]),
             usage("usage", &["attention", "ls", "extra"]),
+        ],
+    ),
+    case(
+        "attention snooze",
+        &[
+            hook("busy-world", attention_home),
+            apply(
+                "hour",
+                &["attention", "snooze", "library:held", "--for", "1h"],
+            ),
+            read(
+                "preview",
+                &[
+                    "attention",
+                    "snooze",
+                    "tasks:failed:nightly-report",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "too_long",
+                &["attention", "snooze", "library:held", "--for", "8d"],
+            )
+            .exit(2),
+            apply("unknown_row", &["attention", "snooze", "no-such-row"]).exit(1),
+            usage("usage", &["attention", "snooze"]),
+        ],
+    ),
+    case(
+        "attention skip",
+        &[
+            hook("updates-world", attention_updates),
+            setup("fetch", &["attention", "check"]),
+            read("listed", &["attention", "ls"]),
+            read(
+                "preview",
+                &[
+                    "attention",
+                    "skip",
+                    "updates:tap:team-skills:3c5d9d8e>60abf5fe",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "skip",
+                &[
+                    "attention",
+                    "skip",
+                    "updates:tap:team-skills:3c5d9d8e>60abf5fe",
+                ],
+            ),
+            read("hidden", &["attention", "ls", "--hidden"]),
+            apply(
+                "without_a_version",
+                &["attention", "skip", "tasks:failed:nightly-report"],
+            )
+            .exit(2),
+            apply("needs_you", &["attention", "skip", "library:held"]).exit(2),
+        ],
+    ),
+    case(
+        "attention dismiss",
+        &[
+            hook("busy-world", attention_home),
+            read(
+                "preview",
+                &[
+                    "attention",
+                    "dismiss",
+                    "tasks:failed:nightly-report",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "dismiss",
+                &["attention", "dismiss", "tasks:failed:nightly-report"],
+            ),
+            read("hidden", &["attention", "ls", "--hidden"]),
+            apply("needs_you", &["attention", "dismiss", "library:held"]).exit(2),
+        ],
+    ),
+    case(
+        "attention restore",
+        &[
+            hook("busy-world", attention_home),
+            apply("not_hidden", &["attention", "restore", "library:held"]).exit(1),
+            setup(
+                "dismiss",
+                &["attention", "dismiss", "tasks:failed:nightly-report"],
+            ),
+            apply(
+                "restore",
+                &["attention", "restore", "tasks:failed:nightly-report"],
+            ),
+        ],
+    ),
+    case(
+        "attention undo",
+        &[
+            hook("busy-world", attention_home),
+            apply("nothing", &["attention", "undo"]).exit(1),
+            setup(
+                "dismiss",
+                &["attention", "dismiss", "tasks:failed:nightly-report"],
+            ),
+            apply("undo", &["attention", "undo"]),
+        ],
+    ),
+    case(
+        "attention check",
+        &[
+            hook("busy-world", attention_home),
+            apply("no_sources", &["attention", "check"]),
+            hook("updates-world", attention_updates),
+            apply("one_tap", &["attention", "check"]),
+        ],
+    ),
+    case(
+        "attention settings",
+        &[
+            hook("busy-world", attention_home),
+            read("defaults", &["attention", "settings"]),
+        ],
+    ),
+    case(
+        "attention set",
+        &[
+            hook("busy-world", attention_home),
+            apply("check_off", &["attention", "set", "check.updates", "off"]),
+            apply("notify_on", &["attention", "set", "notify", "on"]),
+            apply("unknown", &["attention", "set", "check.nothing", "on"]).exit(2),
+            usage("usage", &["attention", "set", "notify"]),
         ],
     ),
     case(

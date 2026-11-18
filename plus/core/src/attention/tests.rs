@@ -7,6 +7,8 @@ use toolport_plus_api::{MemoryHost, MemoryRegistry, MemorySecrets, ServerRecord}
 use super::feed_credentials::{self, CredentialInputs, ServerFacts};
 use super::feed_library::{self, LibraryInputs};
 use super::feed_tasks::{self, TaskFacts, TaskInputs};
+use super::feed_updates::UpdateInputs;
+use super::store::Store;
 use super::{compute, order, Inputs, Item, Screen, Urgency};
 use crate::auth::{AuthKind, AuthRow};
 use crate::library::remote::LocalState;
@@ -451,6 +453,8 @@ fn test13_a_diverged_library_needs_you_and_a_behind_one_is_worth_a_look() {
         repo: Some(LocalState {
             ahead,
             behind,
+            head: Some("aaaaaaaa11112222".into()),
+            upstream_head: Some("bbbbbbbb33334444".into()),
             ..LocalState::default()
         }),
     };
@@ -462,7 +466,7 @@ fn test13_a_diverged_library_needs_you_and_a_behind_one_is_worth_a_look() {
     let items = feed_library::items(&repo(0, 3));
     assert_eq!(
         (items[0].id.as_str(), items[0].urgency),
-        ("library:behind", Urgency::WorthALook)
+        ("library:behind:aaaaaaaa>bbbbbbbb", Urgency::WorthALook)
     );
     assert!(feed_library::items(&repo(2, 0)).is_empty());
 }
@@ -476,6 +480,14 @@ fn test14_an_unreadable_auto_sync_state_is_a_row_not_silence() {
     assert_eq!(feed_library::items(&inputs)[0].id, "library:auto-state");
 }
 
+fn no_updates() -> UpdateInputs {
+    UpdateInputs {
+        taps: Vec::new(),
+        failures: Vec::new(),
+        checked: 0,
+    }
+}
+
 fn item(id: &str, urgency: Urgency, since: Option<i64>) -> Item {
     Item {
         id: id.into(),
@@ -483,6 +495,7 @@ fn item(id: &str, urgency: Urgency, since: Option<i64>) -> Item {
         title: id.into(),
         detail: String::new(),
         source: "Tasks",
+        skip: None,
         since,
         action: None,
     }
@@ -515,6 +528,8 @@ fn test16_one_row_per_id_and_the_more_urgent_duplicate_wins() {
 fn test17_a_feed_that_cannot_be_read_is_named_and_the_others_still_answer() {
     let inputs = Inputs {
         now: NOW,
+        store: Ok(Store::default()),
+        updates: Ok(no_updates()),
         credentials: Ok(credentials(
             vec![server("alpha", true, &["API_KEY"])],
             Vec::new(),
@@ -530,7 +545,7 @@ fn test17_a_feed_that_cannot_be_read_is_named_and_the_others_still_answer() {
     assert!(!snapshot.all_checked());
     let json = snapshot.to_json();
     assert_eq!(
-        json["checks"][1],
+        json["checks"][2],
         json!({"name": "tasks", "ok": false, "error": "the data directory could not be resolved"})
     );
     assert_eq!(json["counts"], json!({"needsYou": 1, "worthALook": 0}));

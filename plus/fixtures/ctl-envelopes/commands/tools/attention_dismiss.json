@@ -1,0 +1,7 @@
+{
+  "command": "attention dismiss",
+  "dryRun": "param",
+  "name": "attention_dismiss",
+  "tier": "write",
+  "toolTier": 2
+}

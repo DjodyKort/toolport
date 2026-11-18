@@ -53,6 +53,7 @@ pub fn items(inputs: &CredentialInputs) -> Vec<Item> {
             title: "The secrets vault cannot be read".into(),
             detail: one_line(error),
             source: SOURCE,
+            skip: None,
             since: None,
             action: Some(Action::open("Open Servers", Screen::Servers)),
         });
@@ -70,6 +71,7 @@ pub fn items(inputs: &CredentialInputs) -> Vec<Item> {
                 list(&server.missing_secrets)
             ),
             source: SOURCE,
+            skip: None,
             since: None,
             action: Some(Action::run(
                 "Set secret",
@@ -150,6 +152,7 @@ pub fn items(inputs: &CredentialInputs) -> Vec<Item> {
             title,
             detail,
             source: SOURCE,
+            skip: None,
             since: Some(row.since),
             action: Some(action),
         });

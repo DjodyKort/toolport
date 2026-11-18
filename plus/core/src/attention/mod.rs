@@ -2,37 +2,49 @@
 //! stores each area keeps (login status, the vault, task runs, the library's sync state). Nothing
 //! is stored here, so a row is gone as soon as its cause is.
 //!
-//! One feed per area: [`feed_credentials`] (missing secrets, logins, the vault), [`feed_tasks`]
-//! and [`feed_library`]. A feed is a pure function over plain inputs that [`gather`] reads through
-//! the host; a feed that cannot be read is reported next to the rows instead of showing nothing.
+//! One feed per area: [`feed_credentials`] (missing secrets, logins, the vault), [`feed_tasks`],
+//! [`feed_library`] and [`feed_updates`]. A feed is a pure function over plain inputs that
+//! [`gather`] reads through the host; a feed that cannot be read is reported next to the rows
+//! instead of showing nothing. What the person snoozed, skipped or switched off lives in [`store`].
 
 pub mod feed_credentials;
 pub mod feed_library;
 pub mod feed_tasks;
+pub mod feed_updates;
 mod gather;
 mod model;
+pub mod ops;
+pub mod store;
+pub mod updates;
 
 use std::cmp::Reverse;
 use std::collections::BTreeSet;
 
 use toolport_plus_api::Host;
 
-pub use model::{Action, Check, Item, Screen, Snapshot, Urgency};
+pub use model::{Action, Check, Hidden, Item, Screen, Snapshot, Urgency};
 
 use feed_credentials::CredentialInputs;
 use feed_library::LibraryInputs;
 use feed_tasks::TaskInputs;
+use feed_updates::UpdateInputs;
+use store::Store;
 
 pub struct Inputs {
     pub now: i64,
+    pub store: Result<Store, String>,
+    pub updates: Result<UpdateInputs, String>,
     pub credentials: Result<CredentialInputs, String>,
     pub tasks: Result<TaskInputs, String>,
     pub library: Result<LibraryInputs, String>,
 }
 
 pub fn read(host: &dyn Host) -> Inputs {
+    let store = gather::store(host);
     Inputs {
         now: host.now_unix(),
+        updates: gather::updates(host, store.as_ref().ok()),
+        store,
         credentials: gather::credentials(host),
         tasks: gather::tasks(host),
         library: gather::library(host),
@@ -51,39 +63,138 @@ pub fn order(mut items: Vec<Item>) -> Vec<Item> {
 }
 
 pub fn compute(inputs: &Inputs) -> Snapshot {
-    let mut items = Vec::new();
+    let default = Store::default();
+    let store = inputs.store.as_ref().unwrap_or(&default);
+    let mut found = Vec::new();
     let mut checks = Vec::new();
-    let mut check = |name: &'static str, found: Result<Vec<Item>, &String>| match found {
-        Ok(found) => {
-            items.extend(found);
-            checks.push(Check { name, error: None });
+    let mut check = |name: &'static str,
+                     on: bool,
+                     checked_at: Option<i64>,
+                     rows: Result<Vec<Item>, &String>| {
+        if !on {
+            checks.push(Check {
+                name,
+                error: None,
+                checked_at,
+                off: true,
+            });
+            return;
         }
-        Err(error) => checks.push(Check {
-            name,
-            error: Some(error.clone()),
-        }),
+        match rows {
+            Ok(rows) => {
+                found.extend(rows);
+                checks.push(Check {
+                    name,
+                    error: None,
+                    checked_at,
+                    off: false,
+                });
+            }
+            Err(error) => checks.push(Check {
+                name,
+                error: Some(error.clone()),
+                checked_at,
+                off: false,
+            }),
+        }
     };
+    let on = |name: &str| store.settings.check_on(name);
     check(
         "credentials",
+        on("credentials"),
+        None,
         inputs.credentials.as_ref().map(feed_credentials::items),
     );
     check(
+        "updates",
+        on("updates"),
+        store.updates.checked_at,
+        inputs.updates.as_ref().map(feed_updates::items),
+    );
+    check(
         "tasks",
+        on("tasks"),
+        None,
         inputs
             .tasks
             .as_ref()
             .map(|tasks| feed_tasks::items(tasks, inputs.now)),
     );
-    check("library", inputs.library.as_ref().map(feed_library::items));
+    check(
+        "library",
+        on("library"),
+        None,
+        inputs.library.as_ref().map(feed_library::items),
+    );
+    if let Err(error) = &inputs.store {
+        checks.push(Check {
+            name: "hidden",
+            error: Some(error.clone()),
+            checked_at: None,
+            off: false,
+        });
+    }
+    let (mut items, mut hidden) = (Vec::new(), Vec::new());
+    for item in order(found) {
+        match store.hiding(&item, inputs.now) {
+            Some(hide) => hidden.push(Hidden {
+                hide: hide.clone(),
+                item,
+            }),
+            None => items.push(item),
+        }
+    }
     Snapshot {
         checked_at: inputs.now,
         checks,
-        items: order(items),
+        items,
+        hidden,
     }
 }
 
 pub fn snapshot(host: &dyn Host) -> Snapshot {
     compute(&read(host))
+}
+
+pub fn human_hidden(snapshot: &Snapshot) -> String {
+    if snapshot.hidden.is_empty() {
+        return "Nothing is hidden.\n".into();
+    }
+    let mut out = format!("Hidden ({})\n", snapshot.hidden.len());
+    for hidden in &snapshot.hidden {
+        let until = hidden
+            .hide
+            .until
+            .map(|at| format!(" until {}", crate::tasks::cron::rfc3339(at)))
+            .unwrap_or_default();
+        out.push_str(&format!(
+            "  {}  [{}] {}{until}\n    restore: toolportctl attention restore {}\n",
+            hidden.item.title,
+            hidden.item.source,
+            hidden.hide.kind.word(),
+            hidden.item.id
+        ));
+    }
+    out
+}
+
+pub fn human_settings(settings: &serde_json::Value) -> String {
+    let word = |on: &serde_json::Value| if on == true { "on" } else { "off" };
+    let mut out = format!("Notifications: {}\n", word(&settings["notify"]["enabled"]));
+    for (heading, rows) in [
+        ("Checks", &settings["checks"]),
+        ("Notify for", &settings["notify"]["categories"]),
+    ] {
+        out.push_str(&format!("{heading}:\n"));
+        for row in rows.as_array().into_iter().flatten() {
+            out.push_str(&format!(
+                "  {}  {}\n",
+                row["name"].as_str().unwrap_or(""),
+                word(&row["on"])
+            ));
+        }
+    }
+    out
 }
 
 pub fn human(snapshot: &Snapshot) -> String {
@@ -127,3 +238,6 @@ pub fn human(snapshot: &Snapshot) -> String {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod tests_updates;

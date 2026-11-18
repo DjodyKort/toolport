@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "key": "notify"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "missing required argument: on"
+    }
+  },
+  "text": "invalid_arguments: missing required argument: on",
+  "tool": "attention_set"
+}

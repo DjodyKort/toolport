@@ -1,0 +1,5 @@
+{
+  "route": "attention",
+  "action": "attention.settings",
+  "surface": "screen"
+}

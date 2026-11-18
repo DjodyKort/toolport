@@ -473,6 +473,23 @@ pub(super) const ROWS: &[Row] = &[
     row("skills ls", R).spec(&[&skills::LS_SOURCE]),
     row("skills lint", R).spec(&[&skills::LINT]),
     row("attention ls", R).spec(&[&attention::LS]),
+    row("attention snooze", W)
+        .dry()
+        .spec(&[&attention::SNOOZE])
+        .skip("writes the hidden list in the data dir; golden step"),
+    row("attention skip", W)
+        .dry()
+        .spec(&[&attention::HIDE])
+        .skip("writes the hidden list in the data dir; golden step"),
+    row("attention dismiss", W)
+        .dry()
+        .spec(&[&attention::HIDE])
+        .skip("writes the hidden list in the data dir; golden step"),
+    row("attention restore", W).skip("writes the hidden list in the data dir; golden step"),
+    row("attention undo", W).skip("writes the hidden list in the data dir; golden step"),
+    row("attention check", W).skip("fetches from remotes; golden step uses a local remote"),
+    row("attention settings", R),
+    row("attention set", W).skip("writes the switches in the data dir; golden step"),
     row("sources ls", R).spec(&[&sources::LS]),
     row("sources root ls", R).spec(&[&sources::ROOT_LS]),
     row("sources root add", W)
@@ -917,6 +934,14 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_lint", R, "skills lint"),
     maps("skills_files", R, "skills files"),
     maps("attention_list", R, "attention ls"),
+    maps("attention_snooze", W, "attention snooze").param(),
+    maps("attention_skip", W, "attention skip").param(),
+    maps("attention_dismiss", W, "attention dismiss").param(),
+    maps("attention_restore", W, "attention restore"),
+    maps("attention_undo", W, "attention undo"),
+    maps("attention_check", W, "attention check"),
+    maps("attention_settings", R, "attention settings"),
+    maps("attention_set", W, "attention set"),
     maps("sources_ls", R, "sources ls"),
     maps("skills_fix", W, "skills fix").on(),
     maps("skills_status", R, "skills status"),

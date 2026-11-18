@@ -1,0 +1,5 @@
+{
+  "route": "attention",
+  "status": "planned",
+  "summary": "Snooze, skip, dismiss, restore and undo on a row, with an Undo toast and the hidden list in Settings > Toolport+ > Attention (attention snooze, skip, dismiss, restore, undo; attention_snooze, attention_skip, attention_dismiss, attention_restore, attention_undo)"
+}

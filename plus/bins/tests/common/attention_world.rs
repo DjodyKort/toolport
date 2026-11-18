@@ -8,6 +8,7 @@
 use serde_json::json;
 use toolport_plus::tasks::cron::rfc3339;
 
+use super::library_world::git;
 use super::tasks_world::tasks_home;
 use super::world::{read_json, write_json, World};
 
@@ -60,4 +61,37 @@ pub fn attention_quiet(world: &World) {
     let mut value = read_json(&registry);
     value["servers"][0]["env"] = json!([{"key": "API_KEY", "value": "plain", "secret": false}]);
     write_json(&registry, &value);
+}
+
+/// The busy world plus a skill tap whose upstream has one commit the clone has not fetched: the
+/// row appears once `attention check` has fetched. Commits carry fixed dates, so their ids are
+/// the same on every run.
+pub fn attention_updates(world: &World) {
+    attention_home(world);
+    let upstream = world.base.join("tap-upstream");
+    std::fs::create_dir_all(&upstream).unwrap();
+    git(&upstream, &world.home, &["init", "-q", "-b", "main"]);
+    std::fs::write(upstream.join("README.md"), "one").unwrap();
+    git(&upstream, &world.home, &["add", "."]);
+    git(&upstream, &world.home, &["commit", "-q", "-m", "one"]);
+    let url = format!("file://{}", upstream.display());
+    let clone = world.data.join("taps/team-skills");
+    git(
+        &world.base,
+        &world.home,
+        &[
+            "clone",
+            "-q",
+            "--depth",
+            "1",
+            &url,
+            &clone.to_string_lossy(),
+        ],
+    );
+    write_json(
+        &world.data.join("taps.json"),
+        &json!({"team-skills": {"repo": url, "url": url}}),
+    );
+    std::fs::write(upstream.join("README.md"), "two").unwrap();
+    git(&upstream, &world.home, &["commit", "-q", "-am", "two"]);
 }

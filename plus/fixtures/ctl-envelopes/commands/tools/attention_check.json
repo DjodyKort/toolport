@@ -1,0 +1,7 @@
+{
+  "command": "attention check",
+  "dryRun": "none",
+  "name": "attention_check",
+  "tier": "write",
+  "toolTier": 2
+}

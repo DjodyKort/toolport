@@ -466,8 +466,48 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["attention", "ls"],
-        "List what needs you now: missing secrets, expired sign-ins, tasks waiting or failing, library changes held back",
+        "List what needs you now: missing secrets, expired sign-ins, tasks waiting or failing, library changes held back, updates upstream (--hidden, --level)",
         attention::ls,
+    ),
+    cmd(
+        &["attention", "snooze"],
+        "Hide a row for a while; it returns when the time passes or the row gets more urgent (<id>, --for, --until, --dry-run)",
+        attention::snooze,
+    ),
+    cmd(
+        &["attention", "skip"],
+        "Skip the version or commit range an update row is about; it returns with the next one (<id>, --dry-run)",
+        attention::skip,
+    ),
+    cmd(
+        &["attention", "dismiss"],
+        "Hide a worth-a-look row that carries no version until restored (<id>, --dry-run)",
+        attention::dismiss,
+    ),
+    cmd(
+        &["attention", "restore"],
+        "Show a hidden row again (<id>)",
+        attention::restore,
+    ),
+    cmd(
+        &["attention", "undo"],
+        "Undo the last snooze, skip, dismissal or restore",
+        attention::undo,
+    ),
+    cmd(
+        &["attention", "check"],
+        "Fetch the taps, marketplaces and the library to see new upstream commits; applies nothing",
+        attention::check,
+    ),
+    cmd(
+        &["attention", "settings"],
+        "Show which checks are on and which rows may notify",
+        attention::settings,
+    ),
+    cmd(
+        &["attention", "set"],
+        "Switch a check or a notification on or off (<notify|check.name|notify.name> <on|off>)",
+        attention::set,
     ),
     cmd(
         &["sources", "ls"],

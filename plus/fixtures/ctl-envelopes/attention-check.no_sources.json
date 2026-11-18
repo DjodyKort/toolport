@@ -1,0 +1,14 @@
+{
+  "argv": ["attention", "check"],
+  "envelope": {
+    "command": "attention check",
+    "data": {
+      "checkedAt": "<TIME>",
+      "off": false,
+      "sources": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

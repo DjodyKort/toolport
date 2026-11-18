@@ -18,6 +18,11 @@ fn open() -> Action {
     Action::open("Open Library", Screen::Library)
 }
 
+pub(super) fn short(sha: Option<&str>) -> String {
+    sha.map_or("unknown", |sha| &sha[..sha.len().min(8)])
+        .to_string()
+}
+
 fn plural(count: usize, one: &str, many: &str) -> String {
     if count == 1 {
         format!("1 {one}")
@@ -35,6 +40,7 @@ pub fn items(inputs: &LibraryInputs) -> Vec<Item> {
             title: "The library's auto-sync state cannot be read".into(),
             detail: one_line(error),
             source: SOURCE,
+            skip: None,
             since: None,
             action: Some(open()),
         }),
@@ -55,6 +61,7 @@ pub fn items(inputs: &LibraryInputs) -> Vec<Item> {
                             first.skill, first.client, first.reason
                         ),
                         source: SOURCE,
+                        skip: None,
                         since,
                         action: Some(Action::open("Review", Screen::Library)),
                     });
@@ -66,6 +73,7 @@ pub fn items(inputs: &LibraryInputs) -> Vec<Item> {
                         title: "The last auto-sync failed".into(),
                         detail: one_line(error),
                         source: SOURCE,
+                        skip: None,
                         since,
                         action: Some(open()),
                     });
@@ -85,12 +93,17 @@ pub fn items(inputs: &LibraryInputs) -> Vec<Item> {
                     repo.behind
                 ),
                 source: SOURCE,
+                skip: None,
                 since: None,
                 action: Some(open()),
             });
         } else if repo.behind > 0 {
+            let (from, to) = (
+                short(repo.head.as_deref()),
+                short(repo.upstream_head.as_deref()),
+            );
             out.push(Item {
-                id: "library:behind".into(),
+                id: format!("library:behind:{from}>{to}"),
                 urgency: Urgency::WorthALook,
                 title: format!(
                     "The library is {} behind its remote",
@@ -100,6 +113,7 @@ pub fn items(inputs: &LibraryInputs) -> Vec<Item> {
                 source: SOURCE,
                 since: None,
                 action: Some(Action::open("Review", Screen::Library)),
+                skip: Some(format!("Skip {to}")),
             });
         }
     }

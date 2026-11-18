@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "skip", "tasks:failed:nightly-report"],
+  "envelope": {
+    "command": "attention skip",
+    "error": {
+      "code": "usage",
+      "message": "tasks:failed:nightly-report carries no version or commit range to skip; snooze it or dismiss it"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

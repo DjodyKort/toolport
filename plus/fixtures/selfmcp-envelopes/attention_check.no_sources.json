@@ -1,0 +1,10 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "checkedAt": "<TIME>",
+    "off": false,
+    "sources": []
+  },
+  "tool": "attention_check"
+}

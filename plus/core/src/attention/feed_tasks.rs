@@ -63,6 +63,7 @@ fn waiting(task: &TaskFacts, run: &Run) -> Item {
         title: format!("Task {} is waiting for you", task.title),
         detail,
         source: SOURCE,
+        skip: None,
         since,
         action: Some(Action::run(
             "Continue",
@@ -117,6 +118,7 @@ fn failed(task: &TaskFacts, streak: &[&Run], now: i64) -> Option<Item> {
         },
         detail: reason,
         source: SOURCE,
+        skip: None,
         since: Some(at),
         action: Some(Action::run(
             "Run again",
@@ -151,6 +153,7 @@ fn missed(task: &TaskFacts, runs: &[&Run], records: &[&MissedRecord], now: i64) 
             record.first_due, record.last_due
         ),
         source: SOURCE,
+        skip: None,
         since: Some(at),
         action: Some(Action::run(
             "Run now",
@@ -188,6 +191,7 @@ fn raised(record: &AttentionRecord, now: i64) -> Item {
         title: record.title.clone(),
         detail: record.detail.clone(),
         source: SOURCE,
+        skip: None,
         since: parse_rfc3339(&record.since).map(|at| at.min(now)),
         action: Some(Action {
             label: label.to_string(),

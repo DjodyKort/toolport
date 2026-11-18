@@ -1,0 +1,20 @@
+{
+  "arguments": {
+    "for": "1h",
+    "id": "library:held"
+  },
+  "isError": false,
+  "result": {
+    "dryRun": false,
+    "hidden": {
+      "at": "<TIME>",
+      "kind": "snooze",
+      "state": "snoozed",
+      "until": "<TIME>"
+    },
+    "id": "library:held",
+    "title": "1 change waits for you in the library",
+    "undo": ["toolportctl", "attention", "undo"]
+  },
+  "tool": "attention_snooze"
+}

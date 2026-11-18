@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "id": "no-such-row"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no row no-such-row; list the ids with `toolportctl attention ls`"
+    }
+  },
+  "text": "not_found: no row no-such-row; list the ids with `toolportctl attention ls`",
+  "tool": "attention_snooze"
+}

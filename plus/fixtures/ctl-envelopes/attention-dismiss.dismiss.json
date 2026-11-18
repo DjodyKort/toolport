@@ -1,0 +1,20 @@
+{
+  "argv": ["attention", "dismiss", "tasks:failed:nightly-report"],
+  "envelope": {
+    "command": "attention dismiss",
+    "data": {
+      "dryRun": false,
+      "hidden": {
+        "at": "<TIME>",
+        "kind": "dismiss",
+        "state": "dismissed"
+      },
+      "id": "tasks:failed:nightly-report",
+      "title": "Task Nightly report failed",
+      "undo": ["toolportctl", "attention", "undo"]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

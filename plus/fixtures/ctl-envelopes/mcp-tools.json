@@ -113,12 +113,154 @@
           "tier": 1
         },
         {
-          "description": "List what needs the person right now, computed fresh: missing secrets, sign-ins that need renewing, the secrets vault, tasks waiting for you or failing, and library changes held back. Rows are ordered needs-you first, newest first, each with a source and an action; checks lists any area that could not be read. Read only",
+          "description": "List what needs the person right now, computed fresh: missing secrets, sign-ins that need renewing, the secrets vault, tasks waiting for you or failing, library changes held back and updates upstream. Rows are ordered needs-you first, newest first, each with a source and an action; checks lists any area that could not be read or is switched off. Pass hidden to add the rows a snooze, skip or dismissal keeps out. Read only",
           "dryRunDefault": false,
           "gate": "none",
           "name": "attention_list",
+          "params": [
+            {
+              "description": "Also list the hidden rows with what hides them",
+              "name": "hidden",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Hide a row for a while; it returns by itself when the time passes or the row gets more urgent. A row that needs the person can be snoozed for at most 7 days. Default one day. Pass dry_run to see the change without making it",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "attention_snooze",
+          "params": [
+            {
+              "description": "The row id from attention_list",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "How long: 1h, 2d, 90m",
+              "name": "for",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "When it ends, as a timestamp with an offset",
+              "name": "until",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Skip the exact version or commit range a worth-a-look update row is about; the row returns when a newer one appears. Not for rows that need the person",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "attention_skip",
+          "params": [
+            {
+              "description": "The row id from attention_list",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Hide a worth-a-look row that carries no version until restored. Not for rows that need the person",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "attention_dismiss",
+          "params": [
+            {
+              "description": "The row id from attention_list",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Show a hidden row again at once",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "attention_restore",
+          "params": [
+            {
+              "description": "The row id from attention_list",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Undo the last snooze, skip, dismissal or restore",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "attention_undo",
+          "params": [],
+          "tier": 2
+        },
+        {
+          "description": "Fetch the skill taps, plugin marketplaces and the library to see new upstream commits; the one check that uses the network. Applies nothing",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "attention_check",
+          "params": [],
+          "tier": 2
+        },
+        {
+          "description": "Read which checks are on and which rows may notify. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "attention_settings",
           "params": [],
           "tier": 1
+        },
+        {
+          "description": "Switch a check or a notification on or off: key is notify, check.<name> or notify.<name> with name credentials, updates, tasks or library",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "attention_set",
+          "params": [
+            {
+              "description": "notify, check.<name> or notify.<name>",
+              "name": "key",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "true to switch on",
+              "name": "on",
+              "required": true,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
         },
         {
           "description": "List where skills, commands, agents, rules and CLAUDE.md files come from: repos, clients, the org sync, the library, taps and loose files",
