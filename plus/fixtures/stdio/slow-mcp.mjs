@@ -6,7 +6,8 @@ import { clearTimeout, setTimeout } from "node:timers";
 const logPath = process.env.SLOWMCP_LOG;
 const serial = process.env.SLOWMCP_MODE === "serial";
 const ignoreCancel = process.env.SLOWMCP_CANCEL === "ignore";
-const tasksOn = process.env.SLOWMCP_TASKS === "1";
+const tasksAtTasksRevision = process.env.SLOWMCP_TASKS === "2025-11-25";
+const tasksOn = process.env.SLOWMCP_TASKS === "1" || tasksAtTasksRevision;
 const taskPageSize = Number(process.env.SLOWMCP_TASK_PAGE ?? 100);
 const jobListingBudget = Number(process.env.SLOWMCP_JOB_BUDGET ?? 0);
 
@@ -340,10 +341,12 @@ const call = (id, params) => {
 
 const handle = (message) => {
   switch (message.method) {
-    case "initialize":
+    case "initialize": {
+      const asked = message.params?.protocolVersion;
+      const declares = tasksOn && (!tasksAtTasksRevision || asked === "2025-11-25");
       return reply(message.id, {
-        protocolVersion: "2025-06-18",
-        capabilities: tasksOn
+        protocolVersion: asked === "2025-11-25" ? asked : "2025-06-18",
+        capabilities: declares
           ? {
               tools: {},
               tasks: { list: {}, cancel: {}, requests: { tools: { call: {} } } },
@@ -351,6 +354,7 @@ const handle = (message) => {
           : { tools: {} },
         serverInfo: { name: "slow-mcp", version: "0" },
       });
+    }
     case "tools/list":
       return reply(message.id, { tools });
     case "tasks/get":
@@ -393,6 +397,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
     dir: "in",
     id: message.id,
     method: message.method,
+    version: message.params?.protocolVersion,
     tool: message.params?.name,
     token: message.params?._meta?.progressToken,
     requestId: message.params?.requestId,

@@ -377,6 +377,17 @@ pub fn downstream_capabilities(server_id: &str) -> serde_json::Value {
     }
 }
 
+/// The revision the gateway offers in its `initialize` to a server (`http`: over HTTP).
+pub fn offered_protocol_version(http: bool) -> &'static str {
+    #[cfg(feature = "plus")]
+    return toolport_plus::mcp_tasks::offered_version(http, crate::downstream::PROTOCOL_VERSION);
+    #[cfg(not(feature = "plus"))]
+    {
+        let _ = http;
+        crate::downstream::PROTOCOL_VERSION
+    }
+}
+
 /// A server answered `initialize` or `server/discover` with `result`.
 pub fn handshake_seen(server_id: &str, result: &serde_json::Value) {
     #[cfg(feature = "plus")]
@@ -388,8 +399,8 @@ pub fn handshake_seen(server_id: &str, result: &serde_json::Value) {
     let _ = (server_id, result);
 }
 
-/// Adds `capabilities.tasks` to the `initialize` result of a client that declared tasks, when a
-/// server in its scope takes task-augmented `tools/call`s.
+/// Negotiates the tasks revision with a client that declared tasks, and adds `capabilities.tasks` to
+/// its `initialize` result when a server in its scope takes task-augmented `tools/call`s.
 pub fn tasks_capability(
     result: &mut serde_json::Value,
     req: &serde_json::Value,

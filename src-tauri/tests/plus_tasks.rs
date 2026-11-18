@@ -17,6 +17,7 @@ mod tasks {
         serial: false,
         ignore_cancel: false,
         tasks: true,
+        tasks_only_at_2025_11_25: false,
         task_page: 0,
         job_budget_s: 0,
     };
@@ -726,5 +727,116 @@ mod tasks {
         let result = request(&mut client, "tasks/result", &id);
         assert!(result["result"]["content"].is_array(), "{result}");
         assert!(broker.requests().is_empty());
+    }
+
+    const LEGACY_TODAY: &str = "2025-06-18";
+    const TASKS_REVISION: &str = "2025-11-25";
+
+    fn handshake(case: &Case, version: &str, capabilities: Value) -> Value {
+        let mut client = case.client();
+        client.initialize();
+        client.tool_of(SERVER_ID, "slow_job");
+        client.initialize_at(version, capabilities)
+    }
+
+    #[test]
+    fn test19_the_tasks_revision_is_negotiated_only_for_a_client_that_asks_for_it_and_declared_tasks(
+    ) {
+        let _guard = case_lock();
+        let case = Case::new("negotiation", TASKS, timeouts());
+        let tasks = json!({ "tasks": {} });
+
+        let both = handshake(&case, TASKS_REVISION, tasks.clone());
+        assert_eq!(both["protocolVersion"], TASKS_REVISION);
+        assert!(both["capabilities"].get("tasks").is_some(), "{both}");
+
+        let newer = handshake(&case, "2099-01-01", tasks.clone());
+        assert_eq!(newer["protocolVersion"], TASKS_REVISION, "{newer}");
+        assert!(newer["capabilities"].get("tasks").is_some(), "{newer}");
+
+        let older = handshake(&case, LEGACY_TODAY, tasks.clone());
+        assert_eq!(older["protocolVersion"], LEGACY_TODAY, "{older}");
+        assert!(older["capabilities"].get("tasks").is_none(), "{older}");
+
+        let unknown = handshake(&case, "1999-01-01", tasks);
+        assert_eq!(unknown["protocolVersion"], LEGACY_TODAY, "{unknown}");
+        assert!(unknown["capabilities"].get("tasks").is_none(), "{unknown}");
+    }
+
+    #[test]
+    fn test20_a_client_without_tasks_is_negotiated_exactly_as_before() {
+        let _guard = case_lock();
+        let case = Case::new("negotiation-plain", TASKS, timeouts());
+        for (asked, answered) in [
+            (TASKS_REVISION, TASKS_REVISION),
+            ("2026-07-28", "2026-07-28"),
+            ("2099-01-01", LEGACY_TODAY),
+            (LEGACY_TODAY, LEGACY_TODAY),
+            ("2024-11-05", "2024-11-05"),
+            ("1999-01-01", LEGACY_TODAY),
+        ] {
+            let reply = handshake(&case, asked, json!({}));
+            assert_eq!(reply["protocolVersion"], answered, "asked for {asked}");
+            assert!(reply["capabilities"].get("tasks").is_none(), "{reply}");
+        }
+    }
+
+    #[test]
+    fn test21_a_client_that_declared_tasks_at_an_older_revision_cannot_create_a_task() {
+        let _guard = case_lock();
+        let case = Case::new("negotiation-old", TASKS, timeouts());
+        let mut client = case.client();
+        client.initialize();
+        let job = client.tool_of(SERVER_ID, "slow_job");
+        let reply = client.initialize_at(LEGACY_TODAY, json!({ "tasks": {} }));
+        assert!(reply["capabilities"].get("tasks").is_none(), "{reply}");
+        let plain = with_task(&mut client, 10, &job, json!({ "seconds": 0 }));
+        assert_eq!(plain["content"][0]["text"], "slept 0 s", "{plain}");
+        assert!(
+            case.received_calls("slow_job")
+                .iter()
+                .all(|call| call["task"].is_null()),
+            "no task parameter reaches the server"
+        );
+    }
+
+    #[test]
+    fn test22_a_stdio_server_is_offered_the_tasks_revision_and_may_answer_lower() {
+        let _guard = case_lock();
+        let case = Case::pair_with("offer", Behaviour::default(), timeouts(), TASKS, timeouts());
+        let mut client = case.client();
+        client.initialize();
+        client.tool_of(SERVER_ID, "echo");
+        client.tool_of(PEER_ID, "slow_job");
+        for log in [&case.log, &case.peer_log] {
+            let offered: Vec<Value> = Case::entries_of(log)
+                .into_iter()
+                .filter(|entry| entry["dir"] == "in" && entry["method"] == "initialize")
+                .map(|entry| entry["version"].clone())
+                .collect();
+            assert_eq!(offered, vec![json!(TASKS_REVISION)], "{}", log.display());
+        }
+    }
+
+    #[test]
+    fn test23_a_server_that_declares_tasks_only_at_the_tasks_revision_gets_them_relayed() {
+        let _guard = case_lock();
+        let gated = Behaviour {
+            tasks_only_at_2025_11_25: true,
+            ..TASKS
+        };
+        let case = Case::new("gated", gated, timeouts());
+        let mut client = tasking_client(&case, SERVER_ID);
+        let job = client.tool_of(SERVER_ID, "slow_job");
+        let id = task_id(&with_task(&mut client, 10, &job, json!({ "seconds": 0 })));
+        let result = client.request("tasks/result", json!({ "taskId": id }));
+        assert_eq!(
+            result["result"]["content"][0]["text"], "job task-1 done after 0 s",
+            "{result}"
+        );
+        assert_eq!(
+            case.received_calls("slow_job")[0]["task"],
+            json!({ "ttl": 60000 })
+        );
     }
 }

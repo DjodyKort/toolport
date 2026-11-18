@@ -52,7 +52,7 @@
 # plus_ctl commands (D-060) and hands every other command on (4); seam::app_started() at the start of
 # run() starts the task scheduler thread of the desktop app, the always-on tick of D-128 (2).
 6	src-tauri/src/desktop.rs
-# downstream.rs, 42 changed lines:
+# downstream.rs, 44 changed lines:
 #   1: `is_download_launcher` asks seam::is_uv_download_launcher for the `uv` arm, so `uv run` and
 #      `uv tool run` get the launcher connect budget and the desktop's background pre-warm.
 #   21 for progress re-arm on StdioCore: `wait` takes its deadline from seam::CallClock instead of a fixed
@@ -72,7 +72,11 @@
 #   2 for the MCP Tasks relay: the `tools/call` params go through seam::with_task, which adds the client's
 #      `task` to the one call it belongs to. (`route_line` also hands seam::progress_seen the server id, on a
 #      line counted above, so a notifications/tasks/status reaches the client that created the task.)
-44	src-tauri/src/downstream.rs
+#   2 for the revision of the legacy `initialize`: seam::offered_protocol_version(transport.supports_request_headers())
+#      offers a stdio server 2025-11-25 (it answers with the lower revision it speaks) and an HTTP server
+#      2025-06-18 as before, because a server may declare `tasks` only to a client that offers 2025-11-25 and the
+#      HTTP transport's MCP-Protocol-Version header keeps naming PROTOCOL_VERSION. Era::Legacy already records the answer.
+46	src-tauri/src/downstream.rs
 2	src-tauri/src/http_client.rs
 # lib.rs, 3 lines: the two fork modules, and seam is pub (was pub(crate)) so the gateway binary can call
 # seam::gateway_tick.

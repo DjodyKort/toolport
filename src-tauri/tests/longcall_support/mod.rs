@@ -40,6 +40,8 @@ pub struct Behaviour {
     pub ignore_cancel: bool,
     /// Declare MCP tasks and take task-augmented `tools/call`s.
     pub tasks: bool,
+    /// With `tasks`: declare them only to a gateway that offers 2025-11-25 in its `initialize`.
+    pub tasks_only_at_2025_11_25: bool,
     /// Tasks per `tasks/list` page; 0 keeps the fake's default.
     pub task_page: u32,
     /// Seconds of `_meta["odh.dev/budget"]` on the listing of `odoo_job_wait`; 0 lists none.
@@ -228,7 +230,12 @@ fn server_entry(id: &str, log: &Path, behaviour: Behaviour, timeouts: Timeouts) 
         env.push(("SLOWMCP_CANCEL", "ignore".to_string()));
     }
     if behaviour.tasks {
-        env.push(("SLOWMCP_TASKS", "1".to_string()));
+        let mode = if behaviour.tasks_only_at_2025_11_25 {
+            "2025-11-25"
+        } else {
+            "1"
+        };
+        env.push(("SLOWMCP_TASKS", mode.to_string()));
     }
     if behaviour.task_page > 0 {
         env.push(("SLOWMCP_TASK_PAGE", behaviour.task_page.to_string()));
@@ -529,12 +536,23 @@ impl Client {
         self.initialize_with(json!({}));
     }
 
-    /// Initializes declaring `capabilities`; returns the `initialize` result.
+    /// Initializes declaring `capabilities`, asking for 2025-11-25 when they include tasks;
+    /// returns the `initialize` result.
     pub fn initialize_with(&mut self, capabilities: Value) -> Value {
+        let version = if capabilities.get("tasks").is_some() {
+            "2025-11-25"
+        } else {
+            "2024-11-05"
+        };
+        self.initialize_at(version, capabilities)
+    }
+
+    /// Initializes asking for revision `version`; returns the `initialize` result.
+    pub fn initialize_at(&mut self, version: &str, capabilities: Value) -> Value {
         let reply = self.request(
             "initialize",
             json!({
-                "protocolVersion": "2024-11-05",
+                "protocolVersion": version,
                 "capabilities": capabilities,
                 "clientInfo": { "name": "longcall", "version": "1" }
             }),

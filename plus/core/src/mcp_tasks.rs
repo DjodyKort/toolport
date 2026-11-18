@@ -20,6 +20,9 @@ use serde_json::{json, Map, Value};
 pub const RELATED_TASK_KEY: &str = "io.modelcontextprotocol/related-task";
 pub const UNKNOWN_TASK: &str = "Toolport: task no longer available";
 
+/// The revision that introduced tasks; clients and servers speak them only at this one.
+pub const TASKS_VERSION: &str = "2025-11-25";
+
 const ID_PREFIX: &str = "tpt.";
 const MAX_REMEMBERED: usize = 4096;
 const UNTIMED_RETENTION: Duration = Duration::from_secs(24 * 60 * 60);
@@ -87,6 +90,7 @@ struct Entry {
 struct State {
     servers: HashMap<String, bool>,
     connections: HashMap<String, u64>,
+    versions: HashMap<String, String>,
     connected: u64,
     told: bool,
     remembered: HashMap<String, Entry>,
@@ -160,6 +164,12 @@ pub fn server_connected(server_id: &str, result: &Value) {
     state.connected += 1;
     let connection = state.connected;
     state.connections.insert(server_id.to_string(), connection);
+    match result.get("protocolVersion").and_then(Value::as_str) {
+        Some(version) => state
+            .versions
+            .insert(server_id.to_string(), version.to_string()),
+        None => state.versions.remove(server_id),
+    };
     if creates {
         state.servers.insert(server_id.to_string(), lists);
     } else {
@@ -174,12 +184,50 @@ fn capable(state: &State, in_scope: &dyn Fn(&str) -> bool) -> bool {
     state.servers.keys().any(|server| in_scope(server))
 }
 
-/// Adds `capabilities.tasks` to the `initialize` result of a client that declared tasks, when a
-/// server in its scope takes task-augmented calls. Every other client is answered as before.
+/// The revision the server answered its `initialize` with, as its last connection negotiated it.
+pub fn negotiated_version(server_id: &str) -> Option<String> {
+    state().versions.get(server_id).cloned()
+}
+
+/// The revision the gateway offers a server in its `initialize`: the tasks revision to a stdio
+/// server, which answers with the lower one it speaks, and `default` to an HTTP server, whose
+/// `MCP-Protocol-Version` header keeps naming `default`.
+pub fn offered_version(http: bool, default: &'static str) -> &'static str {
+    if http {
+        default
+    } else {
+        TASKS_VERSION
+    }
+}
+
+fn is_newer_revision(requested: &str) -> bool {
+    let dated = requested.len() == 10
+        && requested.bytes().enumerate().all(|(at, byte)| {
+            matches!(at, 4 | 7) == (byte == b'-') && (byte == b'-' || byte.is_ascii_digit())
+        });
+    dated && requested > TASKS_VERSION
+}
+
+/// Answers the `initialize` of a client that declared tasks at the tasks revision, or newer: that
+/// revision is negotiated, and `capabilities.tasks` is added when a server in the client's scope
+/// takes task-augmented calls. Every other client is answered as before.
 pub fn advertise(result: &mut Value, request: &Value, in_scope: &dyn Fn(&str) -> bool) {
-    let declared = declares_tasks(request.get("params").and_then(|p| p.get("capabilities")));
+    let params = request.get("params");
+    if !declares_tasks(params.and_then(|params| params.get("capabilities"))) {
+        return;
+    }
+    let requested = params
+        .and_then(|params| params.get("protocolVersion"))
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if is_newer_revision(requested) {
+        result["protocolVersion"] = json!(TASKS_VERSION);
+    }
+    if result.get("protocolVersion").and_then(Value::as_str) != Some(TASKS_VERSION) {
+        return;
+    }
     let mut state = state();
-    if !declared || !capable(&state, in_scope) {
+    if !capable(&state, in_scope) {
         return;
     }
     state.told = true;
@@ -591,6 +639,7 @@ pub(crate) fn reset() {
     let mut state = state();
     state.servers.clear();
     state.connections.clear();
+    state.versions.clear();
     state.connected = 0;
     state.told = false;
     state.remembered.clear();
@@ -619,7 +668,15 @@ mod tests {
     }
 
     fn told_client() -> Value {
-        json!({ "params": { "capabilities": { "tasks": {} } } })
+        client_asking(TASKS_VERSION)
+    }
+
+    fn client_asking(version: &str) -> Value {
+        json!({ "params": { "protocolVersion": version, "capabilities": { "tasks": {} } } })
+    }
+
+    fn answer(version: &str) -> Value {
+        json!({ "protocolVersion": version, "capabilities": { "tools": {} } })
     }
 
     fn all(_: &str) -> bool {
@@ -691,7 +748,7 @@ mod tests {
     fn test02_capability_is_advertised_only_to_a_client_that_declared_tasks_and_with_a_capable_server(
     ) {
         let _held = guard();
-        let mut result = json!({ "capabilities": { "tools": {} } });
+        let mut result = answer(TASKS_VERSION);
         advertise(&mut result, &told_client(), &all);
         assert!(
             result["capabilities"].get("tasks").is_none(),
@@ -699,9 +756,13 @@ mod tests {
         );
 
         capable_server("alpha", true);
-        let mut old = json!({ "capabilities": { "tools": {} } });
-        advertise(&mut old, &json!({ "params": { "capabilities": {} } }), &all);
-        assert_eq!(old, json!({ "capabilities": { "tools": {} } }));
+        let mut old = answer(TASKS_VERSION);
+        advertise(
+            &mut old,
+            &json!({ "params": { "protocolVersion": TASKS_VERSION, "capabilities": {} } }),
+            &all,
+        );
+        assert_eq!(old, answer(TASKS_VERSION));
         assert!(!enabled(), "nobody was told");
 
         advertise(&mut result, &told_client(), &all);
@@ -718,9 +779,70 @@ mod tests {
     fn test03_a_server_outside_the_clients_scope_does_not_make_the_gateway_advertise_tasks() {
         let _held = guard();
         capable_server("alpha", true);
-        let mut result = json!({ "capabilities": {} });
+        let mut result = answer(TASKS_VERSION);
         advertise(&mut result, &told_client(), &|server| server == "beta");
         assert!(result["capabilities"].get("tasks").is_none());
+    }
+
+    #[test]
+    fn test19_the_tasks_revision_is_negotiated_only_for_a_client_that_declared_tasks() {
+        let _held = guard();
+        capable_server("alpha", true);
+        let mut at_tasks = answer("2025-06-18");
+        advertise(&mut at_tasks, &client_asking("2025-06-18"), &all);
+        assert_eq!(
+            at_tasks,
+            answer("2025-06-18"),
+            "an older revision gets no tasks"
+        );
+        assert!(!enabled());
+
+        for newer in ["2025-11-26", "2026-07-28", "2099-01-01"] {
+            let mut result = answer(newer);
+            advertise(&mut result, &client_asking(newer), &all);
+            assert_eq!(result["protocolVersion"], TASKS_VERSION, "{newer}");
+            assert!(result["capabilities"].get("tasks").is_some(), "{newer}");
+        }
+
+        for odd in [
+            "",
+            "newest",
+            "2026-7-28",
+            "20261-1-28",
+            "2026/07/28",
+            "zzzzzzzzzz",
+        ] {
+            let mut result = answer("2025-06-18");
+            advertise(&mut result, &client_asking(odd), &all);
+            assert_eq!(result, answer("2025-06-18"), "{odd:?} is not a revision");
+        }
+
+        let mut plain = answer("2026-07-28");
+        advertise(
+            &mut plain,
+            &json!({ "params": { "protocolVersion": "2026-07-28", "capabilities": {} } }),
+            &all,
+        );
+        assert_eq!(plain, answer("2026-07-28"), "without tasks nothing changes");
+    }
+
+    #[test]
+    fn test20_the_revision_a_server_negotiated_is_recorded_per_connection() {
+        let _held = guard();
+        server_connected("alpha", &answer("2025-11-25"));
+        server_connected("beta", &answer("2025-06-18"));
+        server_connected("gamma", &json!({ "capabilities": {} }));
+        assert_eq!(negotiated_version("alpha").as_deref(), Some("2025-11-25"));
+        assert_eq!(negotiated_version("beta").as_deref(), Some("2025-06-18"));
+        assert_eq!(negotiated_version("gamma"), None);
+        server_connected("alpha", &answer("2025-06-18"));
+        assert_eq!(negotiated_version("alpha").as_deref(), Some("2025-06-18"));
+    }
+
+    #[test]
+    fn test21_stdio_servers_are_offered_the_tasks_revision_and_http_servers_keep_theirs() {
+        assert_eq!(offered_version(false, "2025-06-18"), TASKS_VERSION);
+        assert_eq!(offered_version(true, "2025-06-18"), "2025-06-18");
     }
 
     #[test]

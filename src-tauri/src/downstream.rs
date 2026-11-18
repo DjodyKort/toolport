@@ -8765,7 +8765,7 @@ impl DownstreamServer {
         let initialize_result = transport.request(
             "initialize",
             json!({
-                "protocolVersion": PROTOCOL_VERSION,
+                "protocolVersion": crate::seam::offered_protocol_version(transport.supports_request_headers()),
                 "capabilities": crate::seam::downstream_capabilities(&id),
                 "clientInfo": { "name": "toolport-gateway", "version": env!("CARGO_PKG_VERSION") }
             }),
