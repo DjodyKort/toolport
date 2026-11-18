@@ -8,6 +8,7 @@ const serial = process.env.SLOWMCP_MODE === "serial";
 const ignoreCancel = process.env.SLOWMCP_CANCEL === "ignore";
 const tasksOn = process.env.SLOWMCP_TASKS === "1";
 const taskPageSize = Number(process.env.SLOWMCP_TASK_PAGE ?? 100);
+const jobListingBudget = Number(process.env.SLOWMCP_JOB_BUDGET ?? 0);
 
 const record = (entry) => {
   if (logPath)
@@ -59,8 +60,36 @@ tools.push({
   },
 });
 
+tools.push(
+  {
+    name: "odoo_job_wait",
+    description: "Waits for a job that ends after job_s seconds, up to timeout_s",
+    inputSchema: {
+      type: "object",
+      properties: {
+        timeout_s: { type: "number" },
+        job_s: { type: "number" },
+        progress_every_ms: { type: "number" },
+      },
+    },
+    ...(jobListingBudget ? { _meta: { "odh.dev/budget": jobListingBudget } } : {}),
+  },
+  {
+    name: "odoo_status",
+    description: "Answers at once",
+    inputSchema: { type: "object", properties: {} },
+  },
+);
+
 if (tasksOn) {
   tools.push(
+    {
+      name: "reset_job",
+      description: "A destructive job that can run as a task",
+      inputSchema: { type: "object", properties: { seconds } },
+      annotations: { destructiveHint: true },
+      execution: { taskSupport: "optional" },
+    },
     {
       name: "slow_job",
       description: "A job that can run as a task",
@@ -207,7 +236,7 @@ const taskMethod = (message) => {
 const inFlight = new Map();
 let queue = Promise.resolve();
 
-const sleepCall = (id, params) =>
+const sleepCall = (id, params, outcome) =>
   new Promise((resolve) => {
     const args = params.arguments ?? {};
     const token =
@@ -239,8 +268,29 @@ const sleepCall = (id, params) =>
       };
       ticker = setTimeout(tick, args.progress_every_ms);
     }
-    finish = setTimeout(() => done(text(`slept ${args.seconds ?? 0} s`)), total);
+    finish = setTimeout(
+      () => done(text(outcome ?? `slept ${args.seconds ?? 0} s`)),
+      total,
+    );
   });
+
+const jobWaitCall = (id, params) => {
+  const args = params.arguments ?? {};
+  const job = args.job_s ?? 0;
+  const limit = args.timeout_s ?? job;
+  const finished = job <= limit;
+  return sleepCall(
+    id,
+    {
+      ...params,
+      arguments: {
+        seconds: Math.min(job, limit),
+        progress_every_ms: args.progress_every_ms ?? 500,
+      },
+    },
+    finished ? `job finished after ${job} s` : `job still running after ${limit} s`,
+  );
+};
 
 const emitCall = (id, params) =>
   new Promise((resolve) => {
@@ -270,11 +320,17 @@ const call = (id, params) => {
     case "sleep":
     case "budgeted_sleep":
       return sleepCall(id, params);
+    case "odoo_job_wait":
+      return jobWaitCall(id, params);
     case "echo":
       reply(id, text(params.arguments?.text ?? "echo"));
       return Promise.resolve();
+    case "odoo_status":
+      reply(id, text("odoo is up"));
+      return Promise.resolve();
     case "slow_job":
     case "task_only":
+    case "reset_job":
       return sleepCall(id, params);
     default:
       send({ jsonrpc: "2.0", id, error: { code: -32602, message: "unknown tool" } });
@@ -310,7 +366,7 @@ const handle = (message) => {
       if (
         tasksOn &&
         message.params.task &&
-        ["slow_job", "task_only"].includes(message.params.name)
+        ["slow_job", "task_only", "reset_job"].includes(message.params.name)
       )
         return createTask(message.id, message.params);
       const run = () => call(message.id, message.params);

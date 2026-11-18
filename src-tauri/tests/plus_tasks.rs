@@ -18,6 +18,7 @@ mod tasks {
         ignore_cancel: false,
         tasks: true,
         task_page: 0,
+        job_budget_s: 0,
     };
     const RELATED: &str = "io.modelcontextprotocol/related-task";
 

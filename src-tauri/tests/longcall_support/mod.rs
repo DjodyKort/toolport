@@ -5,12 +5,14 @@
 
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Write};
+use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{mpsc, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use conduit_lib::approval;
 use conduit_lib::registry::{self, EnvVar, Profile, Registry, ServerEntry};
 use serde_json::{json, Value};
 
@@ -40,6 +42,8 @@ pub struct Behaviour {
     pub tasks: bool,
     /// Tasks per `tasks/list` page; 0 keeps the fake's default.
     pub task_page: u32,
+    /// Seconds of `_meta["odh.dev/budget"]` on the listing of `odoo_job_wait`; 0 lists none.
+    pub job_budget_s: u32,
 }
 
 /// The per-server timeouts the registry carries, in milliseconds.
@@ -159,6 +163,35 @@ impl Case {
             .status();
     }
 
+    /// Rows of the data dir's audit log, in order.
+    pub fn audit(&self) -> Vec<Value> {
+        std::fs::read_to_string(self.dir.join("audit.jsonl"))
+            .unwrap_or_default()
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect()
+    }
+
+    /// Rewrites the registry the daemon reads; the daemon takes the change up on its own.
+    pub fn edit_registry(&self, edit: impl FnOnce(&mut Value)) {
+        let path = self.dir.join("registry.json");
+        let mut registry: Value =
+            serde_json::from_slice(&std::fs::read(&path).expect("read registry")).expect("parse");
+        edit(&mut registry);
+        registry::atomic_write(
+            &path,
+            &serde_json::to_string_pretty(&registry).expect("serialize registry"),
+        )
+        .expect("save registry");
+    }
+
+    /// An approval broker in the data dir that answers its requests with `decisions` in turn
+    /// (`approved`, `denied`, ...), the last one for every request after that, and keeps the
+    /// requests it saw.
+    pub fn broker(&self, decisions: &'static [&'static str]) -> Broker {
+        Broker::start(&self.dir, decisions)
+    }
+
     pub fn answered(&self, id: &Value) -> bool {
         self.entries()
             .iter()
@@ -199,6 +232,9 @@ fn server_entry(id: &str, log: &Path, behaviour: Behaviour, timeouts: Timeouts) 
     }
     if behaviour.task_page > 0 {
         env.push(("SLOWMCP_TASK_PAGE", behaviour.task_page.to_string()));
+    }
+    if behaviour.job_budget_s > 0 {
+        env.push(("SLOWMCP_JOB_BUDGET", behaviour.job_budget_s.to_string()));
     }
     let mut unknown_fields = serde_json::Map::new();
     if let Some(ms) = timeouts.max_request_ms {
@@ -285,6 +321,92 @@ fn kill_daemons(dir: &Path) {
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .status();
+        }
+    }
+}
+
+/// A stand-in for the app's approval service.
+pub struct Broker {
+    stop: Arc<AtomicBool>,
+    seen: Arc<Mutex<Vec<approval::ApprovalRequest>>>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Broker {
+    fn start(dir: &Path, decisions: &'static [&'static str]) -> Self {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("approval listener");
+        listener.set_nonblocking(true).expect("nonblocking");
+        let token = "longcall-approval-token".to_string();
+        let descriptor = approval::EndpointDescriptor {
+            endpoint: listener.local_addr().unwrap().to_string(),
+            unix_endpoint: None,
+            token: token.clone(),
+        };
+        std::fs::write(
+            dir.join(approval::ENDPOINT_FILE),
+            serde_json::to_vec(&descriptor).unwrap(),
+        )
+        .expect("approval descriptor");
+        let stop = Arc::new(AtomicBool::new(false));
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let (stopping, seeing) = (stop.clone(), seen.clone());
+        let thread = std::thread::spawn(move || {
+            while !stopping.load(Ordering::Relaxed) {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        stream.set_nonblocking(false).expect("blocking socket");
+                        stream
+                            .set_read_timeout(Some(Duration::from_secs(10)))
+                            .unwrap();
+                        let mut reader = BufReader::new(stream.try_clone().unwrap());
+                        let mut line = String::new();
+                        reader.read_line(&mut line).expect("challenge");
+                        let challenge: approval::BrokerChallenge =
+                            serde_json::from_str(&line).expect("valid challenge");
+                        let proof = approval::BrokerProof {
+                            toolport_approval_proof: approval::challenge_proof(
+                                &token,
+                                &challenge.toolport_approval_challenge,
+                            ),
+                        };
+                        writeln!(stream, "{}", serde_json::to_string(&proof).unwrap())
+                            .expect("proof");
+                        line.clear();
+                        reader.read_line(&mut line).expect("approval request");
+                        let request: approval::ApprovalRequest =
+                            serde_json::from_str(&line).expect("valid approval request");
+                        let decision = {
+                            let mut seen = seeing.lock().unwrap();
+                            seen.push(request);
+                            decisions[(seen.len() - 1).min(decisions.len() - 1)]
+                        };
+                        writeln!(stream, "\"{decision}\"").expect("decision");
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(error) => panic!("approval accept failed: {error}"),
+                }
+            }
+        });
+        Self {
+            stop,
+            seen,
+            thread: Some(thread),
+        }
+    }
+
+    /// The approval requests received so far.
+    pub fn requests(&self) -> Vec<approval::ApprovalRequest> {
+        self.seen.lock().unwrap().clone()
+    }
+}
+
+impl Drop for Broker {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
         }
     }
 }
