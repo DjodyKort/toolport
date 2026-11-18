@@ -7,7 +7,7 @@ export const PLUS_VIEWS = ["library", "context", "tasks"] as const;
 export type PlusView = (typeof PLUS_VIEWS)[number];
 
 /** Upstream pages the fork adds rows to; the parity manifest names them as `view:<id>` too. */
-export const PLUS_EXTENDED_VIEWS = ["servers"] as const;
+export const PLUS_EXTENDED_VIEWS = ["servers", "clients"] as const;
 
 export const CLAUDE_GROUP_LABEL = msg("Claude");
 

@@ -119,6 +119,10 @@
 # AppSidebar.tsx, 6 changed lines: the Claude group under upstream's nav (1), the footer bell (1), the Puzzle icon
 # of the new Settings page in the position-based icon array (2), and the imports (2).
 6	src/components/AppSidebar.tsx
+# ClientDetail.tsx, 2 lines (S11): the import and one render of PlusClientDirect, the Direct entries panel, between
+# the connectors card and the Import section. The panel is lazy and fork-owned (src/plus/clients); the client
+# detail lives in ClientDetail.tsx, not in ClientsView.tsx, which only lists the clients.
+2	src/components/ClientDetail.tsx
 # SettingsView.tsx, 2 lines (S2): the Compare access sets table (src/plus/servers/AccessCompare.tsx) at the end of
 # the Access page, as the one place that already lists the access sets.
 2	src/components/SettingsView.tsx

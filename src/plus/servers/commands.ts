@@ -93,7 +93,7 @@ export function restartServer(
 
 export interface UninstallOptions {
   keepSecrets: boolean;
-  /** The flag is passed on; it takes effect when direct client entries exist (slice S11). */
+  /** Leaves the direct client entries of the server in the clients' files. */
   keepClients: boolean;
 }
 

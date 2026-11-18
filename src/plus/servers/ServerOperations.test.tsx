@@ -158,11 +158,13 @@ describe("Operations list", () => {
     expect(toast.success).toHaveBeenCalledWith("Removed alpha-api and 1 vault entry");
   });
 
-  it("test06_servers_remove_keeps_the_vault_and_shows_the_s11_note_for_client_entries", async () => {
+  it("test06_servers_remove_keeps_the_vault_and_says_keep_client_entries_leaves_orphans", async () => {
     setup();
     await userEvent.click(await screen.findByRole("button", { name: "Remove…" }));
     const dialog = await screen.findByRole("dialog", { name: "Remove alpha-api?" });
-    expect(within(dialog).getByText("Takes effect in S11.")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/show as orphans until you remove them/),
+    ).toBeInTheDocument();
     await userEvent.click(
       within(dialog).getByRole("checkbox", { name: /Also remove its vault entries/ }),
     );
@@ -170,6 +172,9 @@ describe("Operations list", () => {
       within(dialog).getByRole("checkbox", { name: /Keep client entries/ }),
     );
     expect(await within(dialog).findByText("No vault entries")).toBeInTheDocument();
+    expect(
+      await within(dialog).findByText(/Direct entries stay in the clients' files/),
+    ).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: "Remove server" }));
     await waitFor(() => expect(host.closeServer).toHaveBeenCalled());
     expect(ranArgv()).toContainEqual([

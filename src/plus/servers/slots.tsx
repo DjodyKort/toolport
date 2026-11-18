@@ -1,6 +1,6 @@
-import { lazy, Suspense, type ReactNode } from "react";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { lazy } from "react";
 import type { ProbeResult, Registry, ServerEntry } from "@/lib/types";
+import { Guard } from "../Guard";
 import type { PlusHost } from "./ServerOperations";
 
 export type { PlusHost } from "./ServerOperations";
@@ -11,21 +11,6 @@ const ServersListEnd = lazy(() =>
 );
 const ServerOperations = lazy(() => import("./ServerOperations"));
 const AccessCompare = lazy(() => import("./AccessCompare"));
-
-/** A fork row never takes the upstream page down with it: a crash in it leaves a quiet line. */
-function Guard({ name, children }: { name: string; children: ReactNode }) {
-  return (
-    <ErrorBoundary
-      fallback={(error) => (
-        <p className="text-meta text-muted-foreground" role="alert">
-          {name} could not be drawn: {error.message}
-        </p>
-      )}
-    >
-      <Suspense fallback={null}>{children}</Suspense>
-    </ErrorBoundary>
-  );
-}
 
 /** The seams App.tsx and SettingsView.tsx call, one line each. The Servers screen of the fork
  * (slice S2) is drawn by what these mount. */

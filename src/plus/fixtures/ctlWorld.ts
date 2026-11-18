@@ -2,6 +2,7 @@ import { commandsGolden } from "./commandsGolden";
 import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
 import { createCompressionWorld, type CompressionWorldOptions } from "./compressionWorld";
 import { createContextWorld, type ContextWorldOptions } from "./contextWorld";
+import { createDirectWorld, type DirectWorldOptions } from "./directWorld";
 import { createLibraryWorld, type LibraryWorldOptions } from "./libraryWorld";
 import { createServerWorld, type ServerWorldOptions } from "./serverWorld";
 import { createTaskWorld, type TaskWorldOptions } from "./taskWorld";
@@ -51,6 +52,8 @@ export interface WorldOptions {
   compression?: CompressionWorldOptions;
   /** The Library screen's library, plan, remote, taps and sources. */
   library?: LibraryWorldOptions;
+  /** The clients that can hold a direct entry and the entries they hold. */
+  direct?: DirectWorldOptions;
 }
 
 /** A small in-memory toolportctl: enough state for install, uninstall and doctor to answer the way
@@ -62,6 +65,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
   const contextWorld = createContextWorld(options.context);
   const compressionWorld = createCompressionWorld(options.compression);
   const libraryWorld = createLibraryWorld(options.library);
+  const directWorld = createDirectWorld(options.direct ?? {}, () => serverWorld.servers);
   const defaultAccess = accessSets[0] ?? null;
   const doctorMode = options.doctor ?? "ok";
   let state: SelfMcpState = options.self ?? "missing";
@@ -288,6 +292,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
     servers: serverWorld,
     tasks: taskWorld,
     library: libraryWorld,
+    direct: directWorld,
     run(argv: string[], stdin?: string): CtlReply {
       const key = argv.filter((a) => a !== "--json");
       const [first, second] = key;
@@ -300,6 +305,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "task") return taskWorld.run(key.slice(1), stdin);
       if (first === "context" || first === "plugins") return contextWorld.run(key);
       if (first === "compression") return compressionWorld.run(key);
+      if (first === "client" && second === "direct") return directWorld.run(key);
       if (["skills", "library", "sources", "agents", "styles"].includes(first ?? ""))
         return libraryWorld.run(key);
       if (first === "mcp") {
