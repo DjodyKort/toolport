@@ -1,0 +1,7 @@
+{
+  "command": "sync status",
+  "dryRun": "none",
+  "name": "sync_status",
+  "tier": "read",
+  "toolTier": 1
+}

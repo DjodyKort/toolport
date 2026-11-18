@@ -20,7 +20,7 @@ use crate::setup::{crypto, inspect, parts as setup_parts, Ctx, PartId};
 use crate::skills::git::GitRunner;
 use crate::tasks::cron::rfc3339;
 
-pub const TASK_ID: &str = "sync-pull";
+pub const TASK_ID: &str = crate::tasks::builtin::SYNC_PULL;
 const UPSTREAM_REASON: &str = "handled by upstream Sync: one writer per part";
 
 fn failed(why: impl std::fmt::Display) -> OpError {
@@ -149,10 +149,10 @@ fn machines_json(ctx: &Ctx<'_>, state: &State) -> Vec<Value> {
     let mut machines: Vec<Value> = state
         .machines
         .iter()
-        .map(|(name, at)| json!({"name": name, "at": at, "thisMachine": *name == this}))
+        .map(|(name, at)| json!({"machine": name, "at": at, "thisMachine": *name == this}))
         .collect();
     if !state.machines.contains_key(&this) {
-        machines.push(json!({"name": this, "at": null, "thisMachine": true}));
+        machines.push(json!({"machine": this, "at": null, "thisMachine": true}));
     }
     let _ = ctx;
     machines
@@ -402,6 +402,8 @@ pub fn push(ctx: &Ctx<'_>, opts: &PushOptions, git: &dyn GitRunner) -> Result<Va
         let mut data = export::run(ctx, &export_opts, None)?;
         data["skipped"] = json!(skipped);
         data["wouldReplace"] = json!(remote);
+        data["file"] = json!(FILE_NAME);
+        data["name"] = json!(FILE_NAME);
         return Ok(data);
     }
     let pass = passphrase_of(ctx, false)?;
@@ -438,6 +440,7 @@ pub fn push(ctx: &Ctx<'_>, opts: &PushOptions, git: &dyn GitRunner) -> Result<Va
     data["revision"] = json!(revision);
     data["skipped"] = json!(skipped);
     data["file"] = json!(FILE_NAME);
+    data["result"] = json!({"undo": "put the previous version back from the remote's history"});
     if let Some(map) = data.as_object_mut() {
         map.remove("tree");
     }
@@ -449,8 +452,11 @@ pub struct PullOptions {
     pub take: BTreeSet<String>,
     pub apply: bool,
     pub plan: Option<String>,
-    /// A scheduled check: plans only, and skips quietly while the keyring is locked.
+    /// A scheduled check: plans only, skips quietly while the keyring is locked and does
+    /// nothing when the remote is as this machine last saw it.
     pub unattended: bool,
+    /// Plans without ever asking the person to unlock the keychain.
+    pub no_prompt: bool,
 }
 
 fn skipped_run(ctx: &Ctx<'_>, reason: &str) -> Value {
@@ -484,20 +490,21 @@ fn advance(baseline: &mut BTreeMap<String, String>, data: &Value, taken: &BTreeS
 /// `apply` and the plan hash it is applied the way a restore is, and the baseline moves for the
 /// rows that were settled.
 pub fn pull(ctx: &Ctx<'_>, opts: &PullOptions, git: &dyn GitRunner) -> Result<Value, OpError> {
-    if opts.unattended && opts.apply {
+    if (opts.unattended || opts.no_prompt) && opts.apply {
         return Err(OpError::usage("an unattended pull only plans"));
     }
+    let quiet = opts.unattended || opts.no_prompt;
     let cfg = require_config(ctx)?;
     if !cfg.enabled {
         return Ok(skipped_run(ctx, "sync is switched off"));
     }
-    if opts.unattended && ctx.host.keyring_locked() {
+    if quiet && ctx.host.keyring_locked() {
         return Ok(skipped_run(ctx, "the keyring is locked: sync is paused"));
     }
     let mut state = config::read_state(ctx)?;
-    let pass = match passphrase_of(ctx, opts.unattended) {
+    let pass = match passphrase_of(ctx, quiet) {
         Ok(pass) => pass,
-        Err(e) if opts.unattended => return Ok(skipped_run(ctx, &e.message)),
+        Err(e) if quiet => return Ok(skipped_run(ctx, &e.message)),
         Err(e) => return Err(e),
     };
     let (parts, skipped) = effective_parts(ctx, &cfg)?;

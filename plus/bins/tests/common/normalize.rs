@@ -28,6 +28,9 @@ pub const MASKED_KEYS: &[&str] = &[
     "fileSize",
     "totalSize",
     "machine",
+    "revision",
+    "remoteSeen",
+    "hash",
 ];
 
 /// A masked value keeps its JSON type, so the TS shape of the field stays honest.

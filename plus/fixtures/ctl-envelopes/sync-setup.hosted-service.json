@@ -1,0 +1,13 @@
+{
+  "argv": ["sync", "setup", "--git", "https://teams.toolport.app/x.git"],
+  "envelope": {
+    "command": "sync setup",
+    "error": {
+      "code": "egress",
+      "message": "egress to toolport.app is disabled in this build"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

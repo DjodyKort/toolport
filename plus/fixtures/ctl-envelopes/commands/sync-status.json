@@ -1,0 +1,25 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "sync",
+  "id": "sync status",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["sync", "status"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Where the setup file is kept, which parts sync, when it last ran, the rows that wait for you and whether sync is paused while the keyring is locked",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["sync_status"]
+}

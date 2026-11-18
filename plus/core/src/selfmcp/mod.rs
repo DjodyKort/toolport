@@ -15,6 +15,7 @@ mod servers;
 mod setup;
 mod skills;
 mod sources;
+mod sync;
 mod tasks;
 
 pub use catalog::{find_resource, find_tool, Gate, ToolDef, RESOURCES, TOOLS};

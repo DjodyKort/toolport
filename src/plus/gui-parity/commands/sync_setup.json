@@ -1,0 +1,5 @@
+{
+  "route": "setup",
+  "action": "sync.setup",
+  "surface": "screen"
+}

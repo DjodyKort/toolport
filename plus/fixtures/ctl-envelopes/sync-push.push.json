@@ -1,0 +1,88 @@
+{
+  "argv": ["sync", "push"],
+  "envelope": {
+    "command": "sync push",
+    "data": {
+      "dryRun": false,
+      "file": "toolport-sync.tpsync",
+      "fileSize": 0,
+      "madeAt": "<TIME>",
+      "name": "push.tpsync",
+      "notIncluded": [
+        "your code and anything uncommitted, stashed or unpushed",
+        "server sign-in sessions (you sign in again)",
+        "Claude Code login, SSH keys and git credentials",
+        "files in .gitignore such as .env",
+        "past conversations (sessions), unless you tick them",
+        "secret values, unless you tick Secrets"
+      ],
+      "parts": [
+        {
+          "count": 2,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "servers",
+          "info": {
+            "secretValues": 0
+          },
+          "label": "Servers",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 1,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "access",
+          "info": {
+            "accessSets": 1,
+            "clients": 0
+          },
+          "label": "Clients and access sets",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 0,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "tasks",
+          "info": {},
+          "label": "Tasks",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 9,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "settings",
+          "info": {
+            "bundles": 0,
+            "compression": false,
+            "registry": 9,
+            "sourceRoots": 0
+          },
+          "label": "Toolport settings",
+          "notes": [],
+          "sealed": false
+        }
+      ],
+      "pushed": true,
+      "result": {
+        "undo": "put the previous version back from the remote's history"
+      },
+      "revision": "<masked>",
+      "sealedFile": true,
+      "skipped": [],
+      "verified": true
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

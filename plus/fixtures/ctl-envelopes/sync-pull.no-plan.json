@@ -1,0 +1,13 @@
+{
+  "argv": ["sync", "pull", "--apply"],
+  "envelope": {
+    "command": "sync pull",
+    "error": {
+      "code": "usage",
+      "message": "apply needs the plan hash of a dry run: --plan <hash>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,5 @@
+{
+  "route": "setup",
+  "status": "planned",
+  "summary": "Where the sealed setup file is kept, which parts sync, when it last ran and what waits for you (sync status; sync_status)"
+}

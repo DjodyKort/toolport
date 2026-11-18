@@ -499,9 +499,8 @@ pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Va
     if !opts.seal_file {
         record_last(ctx, &target, &manifest, bytes);
     }
-    Ok(json!({
+    let mut data = json!({
         "dryRun": false,
-        "sealedFile": opts.seal_file,
         "file": target.to_string_lossy(),
         "name": target.file_name().map(|n| n.to_string_lossy().into_owned()),
         "fileSize": bytes,
@@ -511,7 +510,11 @@ pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Va
         "verified": true,
         "notIncluded": not_included(&opts.parts),
         "result": {"undo": "delete the file"},
-    }))
+    });
+    if opts.seal_file {
+        data["sealedFile"] = json!(true);
+    }
+    Ok(data)
 }
 
 /// Seals the finished zip as a whole and opens the result once more before it is kept.

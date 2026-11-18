@@ -1,0 +1,136 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "A private git repository to keep the sealed file in; the hosted service of upstream Toolport is refused",
+      "escalates": false,
+      "hidden": false,
+      "name": "--git",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "The branch of the repository (default main)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--branch",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "A folder to keep the sealed file in, such as a synced directory",
+      "escalates": false,
+      "hidden": false,
+      "name": "--folder",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Which parts sync: servers, access, tasks, settings, claudeUser, memory, secrets (default servers, access, tasks, settings)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--parts",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Read the passphrase (at least 12 characters, no recovery) as one line from stdin and keep it in the keychain",
+      "escalates": false,
+      "hidden": false,
+      "name": "--passphrase-stdin",
+      "repeatable": false,
+      "required": false,
+      "sensitive": true,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Remove the passphrase from this machine's keychain",
+      "escalates": false,
+      "hidden": false,
+      "name": "--forget-passphrase",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Switch sync on",
+      "escalates": false,
+      "hidden": false,
+      "name": "--enable",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Switch sync off",
+      "escalates": false,
+      "hidden": false,
+      "name": "--disable",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "on or off: the shipped task sync-pull that checks the remote every 30 minutes and only plans",
+      "escalates": false,
+      "hidden": false,
+      "name": "--schedule",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the resulting settings and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "sync",
+  "id": "sync setup",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": ["stdin"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["sync", "setup"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Choose where the sealed setup file is kept (a private git repository or a folder), which parts sync, and store the passphrase in the keychain; the passphrase comes on stdin (--git, --branch, --folder, --parts, --passphrase-stdin, --forget-passphrase, --enable, --disable, --schedule, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

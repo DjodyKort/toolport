@@ -164,6 +164,29 @@
             }
           },
           "waiting": false
+        },
+        {
+          "enabled": false,
+          "id": "sync-pull",
+          "kind": "script",
+          "lastRun": null,
+          "nextRun": null,
+          "refreshes": [],
+          "title": "Check the sync remote",
+          "triggers": {
+            "cli": true,
+            "manual": true,
+            "onAuthFailure": [],
+            "schedule": {
+              "autoRun": true,
+              "cron": "*/30 * * * *"
+            },
+            "selfMcp": {
+              "approval": "every-run",
+              "enabled": false
+            }
+          },
+          "waiting": false
         }
       ]
     },

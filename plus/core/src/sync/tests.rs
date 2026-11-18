@@ -64,7 +64,7 @@ fn apply(world: &World, take: &[&str]) -> Value {
             take: take.iter().map(|t| t.to_string()).collect(),
             apply: true,
             plan: Some(plan["plan"].as_str().unwrap().to_string()),
-            unattended: false,
+            ..Default::default()
         },
         &SystemGit,
     )

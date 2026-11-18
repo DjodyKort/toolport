@@ -1,0 +1,89 @@
+{
+  "argv": ["sync", "status"],
+  "envelope": {
+    "command": "sync status",
+    "data": {
+      "configured": false,
+      "enabled": false,
+      "keyringLocked": false,
+      "lastCheck": null,
+      "lastSync": null,
+      "machines": [
+        {
+          "at": null,
+          "machine": "<masked>",
+          "thisMachine": true
+        }
+      ],
+      "parts": [
+        {
+          "default": true,
+          "handledBy": null,
+          "id": "servers",
+          "label": "Servers",
+          "on": false
+        },
+        {
+          "default": true,
+          "handledBy": null,
+          "id": "access",
+          "label": "Clients and access sets",
+          "on": false
+        },
+        {
+          "default": true,
+          "handledBy": null,
+          "id": "tasks",
+          "label": "Tasks",
+          "on": false
+        },
+        {
+          "default": true,
+          "handledBy": null,
+          "id": "settings",
+          "label": "Toolport settings",
+          "on": false
+        },
+        {
+          "default": false,
+          "handledBy": null,
+          "id": "claudeUser",
+          "label": "Claude Code user files",
+          "on": false
+        },
+        {
+          "default": false,
+          "handledBy": null,
+          "id": "memory",
+          "label": "Memory",
+          "on": false
+        },
+        {
+          "default": false,
+          "handledBy": null,
+          "id": "secrets",
+          "label": "Secrets",
+          "on": false
+        }
+      ],
+      "passphrase": "missing",
+      "paused": false,
+      "pending": [],
+      "remoteSeen": null,
+      "schedule": {
+        "cron": "*/30 * * * *",
+        "enabled": false,
+        "present": true,
+        "task": "sync-pull"
+      },
+      "transport": null,
+      "undoable": null,
+      "upstream": {
+        "active": false
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
