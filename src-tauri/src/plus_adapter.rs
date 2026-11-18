@@ -538,8 +538,14 @@ impl toolport_plus_api::SettingsStore for HostAdapter {
         crate::clients::read_settings_json(path)
     }
 
-    fn write_hooks(&self, path: &Path, original: Option<&str>, root: &Value) -> Result<(), String> {
-        crate::clients::write_settings_json(path, original, root)
+    fn write_key(
+        &self,
+        path: &Path,
+        original: Option<&str>,
+        root: &Value,
+        key: &str,
+    ) -> Result<(), String> {
+        crate::clients::write_settings_key(path, original, root, key)
     }
 }
 

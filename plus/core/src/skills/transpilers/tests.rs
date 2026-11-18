@@ -199,9 +199,9 @@ impl SettingsStore for Conflicting {
         self.0.read_settings(path)
     }
 
-    fn write_hooks(&self, path: &Path, _: Option<&str>, _: &Value) -> Result<(), String> {
+    fn write_key(&self, path: &Path, _: Option<&str>, _: &Value, key: &str) -> Result<(), String> {
         Err(format!(
-            "Client config conflict at {}: 'hooks' changed. Config unchanged.",
+            "Client config conflict at {}: '{key}' changed. Config unchanged.",
             path.display()
         ))
     }
