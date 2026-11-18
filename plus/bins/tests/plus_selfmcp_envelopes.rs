@@ -754,6 +754,87 @@ const CASES: &[Case] = &[
             ),
         ],
     ),
+    prepared(
+        "client_direct_ls",
+        claude_code_home,
+        &[
+            read("empty", "client_direct_ls", "{}"),
+            setup(
+                "client_direct_add",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false,"confirm":true}"#,
+            ),
+            read("entries", "client_direct_ls", r#"{"client":"claude-code"}"#),
+        ],
+    ),
+    prepared(
+        "client_direct_check",
+        claude_code_home,
+        &[
+            setup(
+                "client_direct_add",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false,"confirm":true}"#,
+            ),
+            read("in_sync", "client_direct_check", "{}"),
+        ],
+    ),
+    prepared(
+        "client_direct_add",
+        claude_code_home,
+        &[
+            read(
+                "plan",
+                "client_direct_add",
+                r#"{"name":"alpha","client":"claude-code"}"#,
+            ),
+            refused(
+                "refused",
+                "client_direct_add",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "client_direct_add",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "unsupported",
+                "backend_error",
+                "client_direct_add",
+                r#"{"name":"alpha","client":"goose"}"#,
+            ),
+            fails(
+                "missing",
+                "not_found",
+                "client_direct_add",
+                r#"{"name":"nope","client":"claude-code"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "client_direct_rm",
+        claude_code_home,
+        &[
+            setup(
+                "client_direct_add",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false,"confirm":true}"#,
+            ),
+            read(
+                "plan",
+                "client_direct_rm",
+                r#"{"name":"alpha","client":"claude-code"}"#,
+            ),
+            refused(
+                "refused",
+                "client_direct_rm",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "client_direct_rm",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
     case(
         "servers_uninstall",
         &[
@@ -1609,6 +1690,14 @@ fn arguments(world: &World, case: &Case, call: &Call) -> Value {
         .replace("{base}", &world.base.to_string_lossy());
     serde_json::from_str(&expanded)
         .unwrap_or_else(|e| panic!("{} {}: arguments are not JSON: {e}", case.tool, call.label))
+}
+
+fn claude_code_home(world: &World) {
+    std::fs::write(
+        world.home.join(".claude.json"),
+        r#"{"theme": "dark", "mcpServers": {"legacy-lint": {"command": "lint", "args": []}}}"#,
+    )
+    .unwrap();
 }
 
 fn sources_home(world: &World) {

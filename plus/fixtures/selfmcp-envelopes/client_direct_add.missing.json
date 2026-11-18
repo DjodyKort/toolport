@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "client": "claude-code",
+    "name": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "Server 'nope' not found"
+    }
+  },
+  "text": "not_found: Server 'nope' not found",
+  "tool": "client_direct_add"
+}
