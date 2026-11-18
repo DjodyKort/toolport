@@ -335,6 +335,7 @@ describe("Library > Sources > Choose items", () => {
     await userEvent.click(screen.getByRole("button", { name: "Apply 1 change" }));
     const plan = await screen.findByRole("region", { name: "Update plan" });
     expect(plan).toHaveTextContent("Link them through the Library");
+    expect(plan).toHaveTextContent("toolportctl skills install @acme/skills/style");
   });
 
   it("test20_rows_wrap_on_a_phone_width_so_actions_stay_inside_the_row", async () => {

@@ -388,7 +388,16 @@ export default function SelectPlan({
       {d.rules.length > 0 && (
         <Banner tone="info">
           {plural(d.rules.length, "rule")} on ({d.rules.map((r) => r.id).join(", ")}):
-          rules are not part of the generated plugin. Link them through the Library.
+          rules are not part of the generated plugin. Link them through the Library:
+          <ul className="mt-1 list-disc pl-5">
+            {plan.plan.steps
+              .filter((step) => step.op === "link")
+              .map((step) => (
+                <li key={step.detail} className="break-words">
+                  {step.detail.replace(/^rule:/, "")}
+                </li>
+              ))}
+          </ul>
         </Banner>
       )}
 

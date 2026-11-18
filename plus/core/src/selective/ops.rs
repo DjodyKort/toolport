@@ -633,7 +633,24 @@ fn ids(rows: &[Row]) -> String {
         + if rows.len() > 8 { ", ..." } else { "" }
 }
 
-fn steps_of(diffs: &Diffs, slice_id: &str) -> Vec<Step> {
+/// `skills install` takes the GitHub form `@owner/repo/<name>`; a tap added by another URL has none.
+pub(super) fn library_install(repo: &str, name: &str) -> String {
+    let github = repo.split_once('/').is_some_and(|(owner, project)| {
+        [owner, project].iter().all(|part| {
+            !part.is_empty()
+                && part
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))
+        })
+    });
+    if github {
+        format!("`toolportctl skills install @{repo}/{name}`")
+    } else {
+        format!("`toolportctl skills install` for the rule {name}")
+    }
+}
+
+fn steps_of(diffs: &Diffs, slice_id: &str, repo: &str) -> Vec<Step> {
     let mut steps = Vec::new();
     for row in &diffs.added {
         steps.push(step(
@@ -684,12 +701,16 @@ fn steps_of(diffs: &Diffs, slice_id: &str) -> Vec<Step> {
             ids(&diffs.fresh)
         )));
     }
-    if !diffs.rules.is_empty() {
-        steps.push(note(format!(
-            "rules are instruction files and are not part of the generated plugin; link them \
-             through the Library: {}",
-            ids(&diffs.rules)
-        )));
+    for row in &diffs.rules {
+        steps.push(step(
+            "link",
+            format!(
+                "rule:{id} is an instruction file, not part of the generated plugin; link it \
+                 through the Library with {}",
+                library_install(repo, &row.id),
+                id = row.id
+            ),
+        ));
     }
     steps
 }
@@ -714,7 +735,7 @@ fn build_plan(env: &Env, src: &Src, prepared: &Prepared, opts: Options) -> Resul
         opts.switch,
     );
     let slice_id = slice::plugin_id(&next.slice);
-    let mut steps = steps_of(diffs, &slice_id);
+    let mut steps = steps_of(diffs, &slice_id, &src.tap.repo);
     steps.extend(edit_steps(&settings, &edits));
     steps.push(note(RESTART.to_string()));
     let mut warnings = prepared.discovery.warnings.clone();

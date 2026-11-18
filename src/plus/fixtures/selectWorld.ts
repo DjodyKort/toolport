@@ -191,6 +191,10 @@ export function createSelectWorld(scenario: SelectScenario | undefined) {
         op: "drop",
         detail: `${r.kind}:${r.id} leaves ${SLICE}`,
       })),
+      ...diffs.rules.map((r) => ({
+        op: "link",
+        detail: `rule:${r.id} is an instruction file, not part of the generated plugin; link it through the Library with \`toolportctl skills install @acme/skills/${r.id}\``,
+      })),
       { op: "merge", detail: `enable ${SLICE}` },
       ...(switchWhole && whole ? [{ op: "merge", detail: `disable ${WHOLE}` }] : []),
       {

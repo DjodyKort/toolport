@@ -383,7 +383,27 @@ fn test07_rules_that_are_on_stay_out_of_the_slice_and_are_named_in_the_plan() {
     let plan = fx.plan();
     assert_eq!(plan["diffs"]["rules"][0]["id"], "style");
     let text = plan["plan"]["steps"].to_string();
-    assert!(text.contains("link them through the Library"), "{text}");
+    assert!(
+        text.contains("link it through the Library with `toolportctl skills install @example/example-tap/style`"),
+        "{text}"
+    );
+    assert!(plan["plan"]["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|step| step["op"] == "link"));
+}
+
+#[test]
+fn test28_a_tap_without_a_github_name_gets_the_generic_library_hint() {
+    assert_eq!(
+        super::ops::library_install("https://example.org/x.git", "style"),
+        "`toolportctl skills install` for the rule style"
+    );
+    assert_eq!(
+        super::ops::library_install("a/b/c", "style"),
+        "`toolportctl skills install` for the rule style"
+    );
 }
 
 #[test]
