@@ -737,7 +737,9 @@ mod longcall {
         );
         assert!(
             elapsed_ms(sent, second_at) >= 1350,
-            "it ran after the first"
+            "it ran after the first: {} ms, {:?}",
+            elapsed_ms(sent, second_at),
+            case.entries()
         );
         let calls = case.received_calls("sleep");
         assert_eq!(calls.len(), 2);
