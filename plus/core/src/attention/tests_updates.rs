@@ -260,6 +260,8 @@ fn test35_some_sources_failing_names_how_many_instead_of_offline() {
         taps: Vec::new(),
         failures: vec![("tap:a".into(), "network unreachable".into())],
         checked: 3,
+        peers: Vec::new(),
+        unpublished: Vec::new(),
     };
     let items = feed_updates::items(&inputs);
     assert_eq!(
@@ -450,6 +452,8 @@ fn test45_a_tap_row_needs_the_remote_commit_the_fetch_saw() {
         }],
         failures: Vec::new(),
         checked: 1,
+        peers: Vec::new(),
+        unpublished: Vec::new(),
     };
     assert!(feed_updates::items(&inputs).is_empty());
 }

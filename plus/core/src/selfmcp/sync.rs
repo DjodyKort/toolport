@@ -35,3 +35,7 @@ pub(super) fn plan(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
         crate::sync::pull(ctx, &opts, &SystemGit)
     })
 }
+
+pub(super) fn repos(host: &dyn Host, _args: &Value) -> Result<Value, ToolError> {
+    with_ctx(host, |_| crate::sync::repos::view(host))
+}

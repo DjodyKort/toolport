@@ -9,6 +9,7 @@ pub mod export;
 pub mod inspect;
 pub mod mem;
 pub mod parts;
+pub mod repo_heads;
 pub mod repos;
 pub mod restore;
 pub mod scan;
@@ -42,9 +43,10 @@ pub enum PartId {
     Memory,
     History,
     Secrets,
+    ServerRepos,
 }
 
-pub const ALL_PARTS: [PartId; 10] = [
+pub const ALL_PARTS: [PartId; 11] = [
     PartId::Repos,
     PartId::Servers,
     PartId::Access,
@@ -55,6 +57,7 @@ pub const ALL_PARTS: [PartId; 10] = [
     PartId::Memory,
     PartId::History,
     PartId::Secrets,
+    PartId::ServerRepos,
 ];
 
 impl PartId {
@@ -70,6 +73,7 @@ impl PartId {
             PartId::Memory => "memory",
             PartId::History => "history",
             PartId::Secrets => "secrets",
+            PartId::ServerRepos => "serverRepos",
         }
     }
 
@@ -85,11 +89,23 @@ impl PartId {
             PartId::Memory => "Memory",
             PartId::History => "Sessions",
             PartId::Secrets => "Secrets",
+            PartId::ServerRepos => "Server repositories",
         }
     }
 
     pub fn parse(text: &str) -> Option<Self> {
+        let text = if text == "server-repos" {
+            "serverRepos"
+        } else {
+            text
+        };
         ALL_PARTS.into_iter().find(|p| p.id() == text)
+    }
+
+    /// Travels only through sync: it describes this machine's checkouts for the others and has
+    /// nothing to restore, so no export lists or includes it.
+    pub const fn sync_only(self) -> bool {
+        matches!(self, PartId::ServerRepos)
     }
 
     /// Sealed parts: the passphrase decides whether anyone can read them.
@@ -99,7 +115,7 @@ impl PartId {
 
     /// What `--parts all` includes: everything that is readable. Sessions and secrets are asked for.
     pub const fn in_all(self) -> bool {
-        !self.sealed()
+        !self.sealed() && !self.sync_only()
     }
 }
 
@@ -119,7 +135,12 @@ pub fn parse_parts(text: &str) -> Result<BTreeSet<PartId>, String> {
         parts.insert(PartId::parse(word).ok_or_else(|| {
             format!(
                 "unknown part {word:?}: use all or any of {}",
-                ALL_PARTS.map(PartId::id).join(", ")
+                ALL_PARTS
+                    .into_iter()
+                    .filter(|p| !p.sync_only())
+                    .map(PartId::id)
+                    .collect::<Vec<_>>()
+                    .join(", ")
             )
         })?);
     }

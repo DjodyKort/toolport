@@ -9,12 +9,14 @@ use toolport_plus_api::Host;
 
 use super::flags::{switch, value, Flags, Spec};
 use super::output::{CtlError, Output};
+use crate::servers::repo::switch;
 use crate::servers::repo::update::{self, RestartChoice, UpdateArgs};
 use crate::servers::repo::{self, fetch_tracked};
 
 const STATUS_USAGE: &str = "usage: server repo status [<id|name>]";
 const CHECK_USAGE: &str = "usage: server repo check";
 const UPDATE_USAGE: &str = "usage: server repo update <id|name> [--dry-run] [--plan-hash <hash>] [--build <command>|--no-build] [--restart-now|--no-restart] [--wait <seconds>]";
+const SWITCH_USAGE: &str = "usage: server repo switch <id|name> [--machine <name>] [--fetch] [--dry-run] [--plan-hash <hash>] [--build <command>|--no-build] [--restart-now|--no-restart] [--wait <seconds>] | --undo [--dry-run]";
 const UNDO_USAGE: &str = "usage: server repo undo <id|name> [--dry-run] [--no-build] [--restart-now|--no-restart] [--wait <seconds>]";
 
 pub(super) const STATUS: Spec = Spec::PLAIN;
@@ -22,6 +24,22 @@ pub(super) const CHECK: Spec = Spec::NONE;
 pub(super) const UPDATE: Spec = Spec {
     flags: &[
         switch("--dry-run"),
+        value("--plan-hash"),
+        value("--build"),
+        switch("--no-build"),
+        switch("--restart-now"),
+        switch("--no-restart"),
+        value("--wait"),
+        switch("--fetch"),
+    ],
+    ..Spec::PLAIN
+};
+pub(super) const SWITCH: Spec = Spec {
+    flags: &[
+        switch("--dry-run"),
+        switch("--undo"),
+        switch("--fetch"),
+        value("--machine"),
         value("--plan-hash"),
         value("--build"),
         switch("--no-build"),
@@ -61,6 +79,8 @@ fn args_of(flags: &Flags, key: &str, usage: &str) -> Result<UpdateArgs, CtlError
     };
     args.build = flags.one("--build").map(String::from);
     args.plan_hash = flags.one("--plan-hash").map(String::from);
+    args.fetch = flags.on("--fetch");
+    args.machine = flags.one("--machine").map(String::from);
     if let Some(seconds) = flags.number::<u64>("--wait")? {
         args.restart_wait = Duration::from_secs(seconds);
     }
@@ -115,6 +135,32 @@ pub fn undo(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     }
     let done = update::undo(host, &args)?;
     let mut output = Output::new(done.to_value(), done.human("Moved back"));
+    output.failed = done.failed();
+    Ok(output)
+}
+
+pub fn switch_branch(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let flags = SWITCH.parse(rest)?;
+    let key = flags.single(SWITCH_USAGE)?;
+    let args = args_of(&flags, key, SWITCH_USAGE)?;
+    if flags.on("--undo") {
+        if args.dry_run {
+            let plan = switch::back_plan(host, key)?;
+            return Ok(Output::new(json!({"plan": plan.to_value()}), plan.human()));
+        }
+        let done = switch::back(host, &args)?;
+        let mut output = Output::new(done.to_value(), done.human("Switched back"));
+        output.failed = done.failed();
+        return Ok(output);
+    }
+    if args.dry_run {
+        let plan = switch::plan(host, &args)?;
+        return Ok(Output::new(json!({"plan": plan.to_value()}), plan.human()));
+    }
+    let (done, from_branch) = switch::apply(host, &args)?;
+    let mut value = done.to_value();
+    value["fromBranch"] = json!(from_branch);
+    let mut output = Output::new(value, done.human("Switched"));
     output.failed = done.failed();
     Ok(output)
 }

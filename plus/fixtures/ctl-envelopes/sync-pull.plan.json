@@ -38,6 +38,14 @@
           "label": "Toolport settings",
           "sealed": false,
           "standing": "ok"
+        },
+        {
+          "count": 0,
+          "fileSize": 0,
+          "id": "serverRepos",
+          "label": "Server repositories",
+          "sealed": false,
+          "standing": "ok"
         }
       ],
       "locked": false,

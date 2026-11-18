@@ -68,11 +68,24 @@
           "label": "Toolport settings",
           "notes": [],
           "sealed": false
+        },
+        {
+          "count": 0,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "serverRepos",
+          "info": {
+            "machines": 1
+          },
+          "label": "Server repositories",
+          "notes": [],
+          "sealed": false
         }
       ],
       "plan": {
         "steps": [],
-        "summary": "4 parts, about <N> bytes"
+        "summary": "5 parts, about <N> bytes"
       },
       "skipped": [],
       "totalSize": 0,
@@ -112,6 +125,14 @@
           "kind": "file",
           "name": "settings.json",
           "part": "settings",
+          "sealed": false
+        },
+        {
+          "count": 0,
+          "fileSize": 0,
+          "kind": "dir",
+          "name": "server-repos/",
+          "part": "serverRepos",
           "sealed": false
         }
       ],

@@ -1,0 +1,25 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "sync",
+  "id": "sync repos",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["sync", "repos"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "The server checkouts this machine publishes and the ones the other machines published, with how each compares to yours",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["sync_repos"]
+}

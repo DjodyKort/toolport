@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "repo", "switch"],
+  "envelope": {
+    "command": "server repo switch",
+    "error": {
+      "code": "usage",
+      "message": "usage: server repo switch <id|name> [--machine <name>] [--fetch] [--dry-run] [--plan-hash <hash>] [--build <command>|--no-build] [--restart-now|--no-restart] [--wait <seconds>] | --undo [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

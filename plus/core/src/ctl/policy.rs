@@ -360,6 +360,11 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&server_repo::UPDATE])
         .args(&[req("server")])
         .skip("moves a checkout, runs a build and restarts; its --dry-run is a golden step"),
+    row("server repo switch", W)
+        .dry()
+        .spec(&[&server_repo::SWITCH])
+        .args(&[req("server")])
+        .skip("switches a checkout's branch, runs a build and restarts; its --dry-run is a golden step"),
     row("server repo undo", W)
         .dry()
         .spec(&[&server_repo::UNDO])
@@ -841,6 +846,7 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&sync::PULL])
         .skip("plans against the transport and applies like a restore; covered by the sync unit tests"),
     row("sync plan", R).spec(&[&sync::PLAN]),
+    row("sync repos", R).spec(&[&sync::REPOS]),
     row("sync undo", W)
         .dry()
         .spec(&[&sync::UNDO])
@@ -1064,6 +1070,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("setup_restore", W, "setup restore").on(),
     maps("sync_status", R, "sync status"),
     maps("sync_plan", R, "sync plan"),
+    maps("sync_repos", R, "sync repos"),
     maps("tasks_list", R, "task ls"),
     maps("tasks_get", R, "task show"),
     maps("tasks_history", R, "task history"),

@@ -23,7 +23,7 @@ use crate::skills::gitexec::{git_stdout, run_command};
 use crate::skills::taps::redact;
 
 pub const BUILD_TIMEOUT: Duration = Duration::from_secs(120);
-const GIT_TIMEOUT: Duration = Duration::from_secs(30);
+pub(super) const GIT_TIMEOUT: Duration = Duration::from_secs(30);
 const LIST_LIMIT: usize = 50;
 const FILE_LIMIT: usize = 200;
 const OUTPUT_LINES: usize = 20;
@@ -55,6 +55,10 @@ pub struct UpdateArgs {
     pub timing: Timing,
     pub restart_wait: Duration,
     pub build_timeout: Duration,
+    /// Fetch the tracked remote first, so the plan sees what was pushed since the last check.
+    pub fetch: bool,
+    /// For a branch switch: the machine whose branch to switch to.
+    pub machine: Option<String>,
 }
 
 impl UpdateArgs {
@@ -69,6 +73,8 @@ impl UpdateArgs {
             timing: Timing::default(),
             restart_wait: restart::DEFAULT_WAIT,
             build_timeout: BUILD_TIMEOUT,
+            fetch: false,
+            machine: None,
         }
     }
 }
@@ -104,16 +110,16 @@ pub struct Plan {
     pub hash: String,
 }
 
-fn text(value: &Option<String>) -> &str {
+pub(super) fn text(value: &Option<String>) -> &str {
     value.as_deref().unwrap_or("")
 }
 
-fn base_of(host: &dyn Host) -> Result<std::path::PathBuf, OpError> {
+pub(super) fn base_of(host: &dyn Host) -> Result<std::path::PathBuf, OpError> {
     host.data_dir()
         .ok_or_else(|| OpError::failed("no_data_dir", "the data directory could not be resolved"))
 }
 
-fn store_error(error: String) -> OpError {
+pub(super) fn store_error(error: String) -> OpError {
     OpError::failed("server_repo_store", error)
 }
 
@@ -216,7 +222,7 @@ fn hash_of(server_id: &str, state: &RepoState, build: &BuildPlan) -> String {
     ))
 }
 
-fn build_plan(args: &UpdateArgs, store: &RepoStore, server_id: &str) -> BuildPlan {
+pub(super) fn build_plan(args: &UpdateArgs, store: &RepoStore, server_id: &str) -> BuildPlan {
     let remembered = store.remembered(server_id);
     let command = if args.no_build {
         None
@@ -237,6 +243,9 @@ fn build_plan(args: &UpdateArgs, store: &RepoStore, server_id: &str) -> BuildPla
 pub fn plan(host: &dyn Host, args: &UpdateArgs, ask_gateways: bool) -> Result<Plan, OpError> {
     let servers = read_servers(host)?;
     let (server, root) = locate(&servers, &args.key)?;
+    if args.fetch {
+        super::fetch_tracked(&root).map_err(|e| OpError::failed("fetch_failed", e))?;
+    }
     let store = RepoStore::read(&base_of(host)?).map_err(store_error)?;
     let state = state::read(&root);
     let refusal = refusal_of(&state);
@@ -274,7 +283,7 @@ pub fn plan(host: &dyn Host, args: &UpdateArgs, ask_gateways: bool) -> Result<Pl
     })
 }
 
-fn short(id: &str) -> String {
+pub(super) fn short(id: &str) -> String {
     RepoState::short(Some(id))
 }
 
@@ -491,7 +500,7 @@ impl Done {
     }
 }
 
-fn restart_after(
+pub(super) fn restart_after(
     host: &dyn Host,
     args: &UpdateArgs,
     server_id: &str,

@@ -486,6 +486,8 @@ fn no_updates() -> UpdateInputs {
         taps: Vec::new(),
         failures: Vec::new(),
         checked: 0,
+        peers: Vec::new(),
+        unpublished: Vec::new(),
     }
 }
 

@@ -38,6 +38,8 @@ pub struct Options {
     pub dry_run: bool,
     /// The whole file, manifest included, is sealed with the passphrase (the sync form).
     pub seal_file: bool,
+    /// The records other machines published, carried into the file unchanged (`serverRepos`).
+    pub peer_records: Vec<(String, Value)>,
 }
 
 impl Default for Options {
@@ -55,6 +57,7 @@ impl Default for Options {
             peek: None,
             dry_run: false,
             seal_file: false,
+            peer_records: Vec::new(),
         }
     }
 }
@@ -159,6 +162,7 @@ fn build_all(
             }
             PartId::History => parts::history_part(&b, passphrase),
             PartId::Secrets => parts::secrets_part(&b, passphrase, &flagged, declared),
+            PartId::ServerRepos => parts::server_repos_part(&b),
         };
         parts.push(part);
     }
@@ -177,6 +181,7 @@ fn manifest_key(id: PartId) -> (&'static str, &'static str) {
         PartId::Memory => ("dir", "memory/"),
         PartId::History => ("file", "history.enc"),
         PartId::Secrets => ("file", "secrets.enc"),
+        PartId::ServerRepos => ("dir", "server-repos/"),
     }
 }
 
@@ -197,7 +202,17 @@ fn manifest_row(part: &Part) -> Result<Value, OpError> {
     Ok(row)
 }
 
+#[cfg(test)]
+thread_local! {
+    pub(crate) static TEST_MACHINE: std::cell::RefCell<Option<String>> =
+        const { std::cell::RefCell::new(None) };
+}
+
 pub fn machine_name() -> String {
+    #[cfg(test)]
+    if let Some(name) = TEST_MACHINE.with(|m| m.borrow().clone()) {
+        return name;
+    }
     let named = ["HOSTNAME", "COMPUTERNAME"]
         .iter()
         .find_map(|v| std::env::var(v).ok().filter(|s| !s.is_empty()));
@@ -258,7 +273,7 @@ pub fn last_export(ctx: &Ctx<'_>) -> Option<Value> {
 pub fn list(ctx: &Ctx<'_>, roots: &[PathBuf]) -> Result<Value, OpError> {
     let mut opts = Options {
         roots: roots.to_vec(),
-        parts: ALL_PARTS.into_iter().collect(),
+        parts: ALL_PARTS.into_iter().filter(|p| !p.sync_only()).collect(),
         library_zip: true,
         ..Options::default()
     };

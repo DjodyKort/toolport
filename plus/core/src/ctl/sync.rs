@@ -65,6 +65,8 @@ pub(super) const PLAN: Spec = Spec {
     ..NONE
 };
 
+pub(super) const REPOS: Spec = NONE;
+
 pub(super) const UNDO: Spec = Spec {
     flags: &[switch("--dry-run")],
     ..NONE
@@ -251,6 +253,14 @@ pub fn pull(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
             no_prompt: false,
         },
     )
+}
+
+pub fn repos(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    REPOS.parse(rest)?;
+    let _paths = enter_paths(host, None);
+    let data = crate::sync::repos::view(host)?;
+    let human = crate::sync::repos::human(&data);
+    Ok(Output::new(data, human))
 }
 
 pub fn plan(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {

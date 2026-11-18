@@ -70,6 +70,19 @@
           "label": "Toolport settings",
           "notes": [],
           "sealed": false
+        },
+        {
+          "count": 0,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "serverRepos",
+          "info": {
+            "machines": 1
+          },
+          "label": "Server repositories",
+          "notes": [],
+          "sealed": false
         }
       ],
       "pushed": true,

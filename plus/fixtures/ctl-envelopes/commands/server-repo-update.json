@@ -79,6 +79,17 @@
       "required": false,
       "sensitive": false,
       "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "Fetch the tracked remote first, so the plan sees what was pushed since the last check",
+      "escalates": false,
+      "hidden": false,
+      "name": "--fetch",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
     }
   ],
   "group": "server",

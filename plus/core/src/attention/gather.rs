@@ -118,8 +118,23 @@ pub fn updates(host: &dyn Host, store: Option<&Store>) -> Result<UpdateInputs, S
         data_dir: Some(base.clone()),
     });
     let mut inputs = updates::inputs(&base, store.unwrap_or(&Store::default()));
-    inputs.servers = crate::servers::repo::repos(host)
-        .map(|repos| repos.iter().map(updates::repo_facts).collect())
-        .unwrap_or_default();
+    let repos = crate::servers::repo::repos(host).unwrap_or_default();
+    inputs.servers = repos.iter().map(updates::repo_facts).collect();
+    if crate::sync::publishing(host) {
+        let peers = crate::sync::peers::Peers::read(&host.data_dir().unwrap_or(base.clone()));
+        inputs.peers = crate::servers::repo::peers::views(&repos, &peers);
+        inputs.unpublished = repos
+            .iter()
+            .filter_map(|repo| {
+                let commits = crate::servers::repo::peers::unpublished(repo);
+                Some(super::feed_repo_heads::Unpublished {
+                    server: repo.first_name().to_string(),
+                    head: repo.state.head.clone()?,
+                    commits,
+                })
+                .filter(|u| u.commits > 0)
+            })
+            .collect();
+    }
     Ok(inputs)
 }

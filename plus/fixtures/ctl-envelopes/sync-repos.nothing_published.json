@@ -1,0 +1,25 @@
+{
+  "argv": ["sync", "repos"],
+  "envelope": {
+    "command": "sync repos",
+    "data": {
+      "machine": "<masked>",
+      "mine": [
+        {
+          "branch": "main",
+          "head": "<masked>",
+          "pushed": true,
+          "remote": "<WORLD>/gamma-remote.git",
+          "server": "gamma",
+          "unpublished": 0
+        }
+      ],
+      "others": [],
+      "publishing": false,
+      "seenAt": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

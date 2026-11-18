@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "repo", "switch", "gamma", "--machine", "ghost"],
+  "envelope": {
+    "command": "server repo switch",
+    "error": {
+      "code": "not_found",
+      "message": "no other machine has published another branch of gamma"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -19,7 +19,7 @@ pub const DEFAULT_BRANCH: &str = "main";
 
 /// Parts a sync can carry. Repositories (per-machine paths), the skills library (its own remote)
 /// and sessions never travel.
-pub const SYNC_PARTS: [PartId; 7] = [
+pub const SYNC_PARTS: [PartId; 8] = [
     PartId::Servers,
     PartId::Access,
     PartId::Tasks,
@@ -27,13 +27,15 @@ pub const SYNC_PARTS: [PartId; 7] = [
     PartId::ClaudeUser,
     PartId::Memory,
     PartId::Secrets,
+    PartId::ServerRepos,
 ];
 
-pub const DEFAULT_PARTS: [PartId; 4] = [
+pub const DEFAULT_PARTS: [PartId; 5] = [
     PartId::Servers,
     PartId::Access,
     PartId::Tasks,
     PartId::Settings,
+    PartId::ServerRepos,
 ];
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -131,6 +133,15 @@ fn state_path(ctx: &Ctx<'_>) -> PathBuf {
 
 fn failed(why: impl std::fmt::Display) -> OpError {
     OpError::failed("sync", why.to_string())
+}
+
+/// Whether the sync that is set up here carries the server checkouts to the other machines.
+pub fn publishes_repos(data_dir: &std::path::Path) -> bool {
+    let path = data_dir.join("plus").join("sync").join("config.json");
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<Config>(&text).ok())
+        .is_some_and(|cfg| cfg.enabled && cfg.parts().contains(&PartId::ServerRepos))
 }
 
 pub fn read_config(ctx: &Ctx<'_>) -> Result<Option<Config>, OpError> {
