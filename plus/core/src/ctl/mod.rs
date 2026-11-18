@@ -368,6 +368,16 @@ pub const COMMANDS: &[Command] = &[
         skills_taps::tap_update,
     ),
     cmd(
+        &["skills", "tap", "link"],
+        "Link a plugin marketplace tap to Claude Code at user scope (<name>, --plugin <plugin>, --dry-run)",
+        skills_taps::tap_link,
+    ),
+    cmd(
+        &["skills", "tap", "unlink"],
+        "Unlink a tap from Claude Code: remove its marketplace declaration and switch its plugins off (<name>, --dry-run)",
+        skills_taps::tap_unlink,
+    ),
+    cmd(
         &["skills", "search"],
         "Search the taps for skills by name, description or tags (<query>)",
         skills_taps::search,

@@ -521,6 +521,16 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&skills_taps::TAP_UPDATE])
         .args(&[opt("name")])
         .skip("pulls the clones; its --dry-run is a golden step"),
+    row("skills tap link", W)
+        .dry()
+        .spec(&[&skills_taps::TAP_LINK])
+        .args(&[req("name")])
+        .skip("writes the Claude Code settings; its --dry-run is a golden step"),
+    row("skills tap unlink", W)
+        .dry()
+        .spec(&[&skills_taps::TAP_UNLINK])
+        .args(&[req("name")])
+        .skip("writes the Claude Code settings; its --dry-run is a golden step"),
     row("skills search", R)
         .spec(&[&skills_taps::SEARCH])
         .args(&[some("query")])
@@ -934,6 +944,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_tap_add", W, "skills tap add").on(),
     maps("skills_tap_remove", W, "skills tap remove").on(),
     maps("skills_tap_update", W, "skills tap update").on(),
+    maps("skills_tap_link", W, "skills tap link").on(),
+    maps("skills_tap_unlink", W, "skills tap unlink").on(),
     maps("skills_install", W, "skills install").on(),
     maps("agents_list", R, "agents ls"),
     own("agents_get", R),

@@ -1,5 +1,5 @@
-//! `plus.skills.{tapAdd,tapList,tapRemove,tapUpdate,search,install}`: the tap commands over
-//! `tap_ops`. Arguments use snake_case keys, results camelCase. The typed `*_value` functions are
+//! `plus.skills.{tapAdd,tapList,tapRemove,tapUpdate,tapLink,tapUnlink,search,install}`: the tap
+//! commands over `tap_ops` and `plugins::link`. Arguments use snake_case keys, results camelCase. The typed `*_value` functions are
 //! what the selfmcp tools call; the `*_handler` ones adapt them to the `plus_invoke` table.
 //! `install` takes `repo_path` literally (default: the working directory), as mcpm's `--path`.
 
@@ -9,9 +9,12 @@ use super::tap_ops::{
     self, Env, InstallOptions, InstallReport, Kind, Planned, TapError, UpdateRow,
 };
 use super::taps::redact;
-use crate::args::{flag, str_nonempty};
+use crate::args::{flag, nonempty_strings, str_nonempty};
+use crate::op::{ErrorKind, OpError};
+use crate::plugins::{self, link, marketplace};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
+use toolport_plus_api::Host;
 
 type Outcome = Result<Value, TapError>;
 
@@ -77,29 +80,77 @@ pub fn tap_add_value(args: &Value) -> Outcome {
     }))
 }
 
-pub fn tap_list_value(_args: &Value) -> Outcome {
+fn tap_failure(error: OpError) -> TapError {
+    let kind = match error.kind {
+        ErrorKind::Usage => Kind::Invalid,
+        ErrorKind::NotFound => Kind::NotFound,
+        ErrorKind::Conflict => Kind::Conflict,
+        _ => Kind::Backend,
+    };
+    TapError {
+        kind,
+        message: error.message,
+    }
+}
+
+fn plugin_env() -> Result<plugins::Env, TapError> {
+    plugins::Env::host().ok_or_else(|| TapError {
+        kind: Kind::Backend,
+        message: "home directory could not be resolved".into(),
+    })
+}
+
+fn refuse_while_linked(host: &dyn Host, name: &str) -> Result<(), TapError> {
+    let Some(env) = plugins::Env::host() else {
+        return Ok(());
+    };
+    if link::linked_taps(host, &env, &[name.to_string()]).is_empty() {
+        return Ok(());
+    }
+    Err(TapError {
+        kind: Kind::Conflict,
+        message: format!(
+            "Tap '{name}' is linked to Claude Code; run `toolportctl skills tap unlink {name}` first"
+        ),
+    })
+}
+
+pub fn tap_list_value(host: &dyn Host, _args: &Value) -> Outcome {
     let dir = config_dir()?;
     let rows = with_env(|env| Ok(tap_ops::list(env)))?;
+    let plugin_env = rows
+        .iter()
+        .any(|r| r.cloned && marketplace::is_marketplace(&r.path))
+        .then(plugins::Env::host)
+        .flatten();
     Ok(json!({
         "tapsRoot": display(&super::taps::taps_root(&dir)),
         "taps": rows
             .iter()
             .map(|r| {
-                json!({
+                let mut row = json!({
                     "name": r.tap.name,
                     "repo": r.tap.repo,
                     "url": redact(&r.tap.url),
                     "path": display(&r.path),
                     "cloned": r.cloned,
-                })
+                });
+                if let Some(shown) = plugin_env
+                    .as_ref()
+                    .and_then(|env| link::describe(host, env, &r.tap.name))
+                {
+                    row["marketplace"] = shown;
+                }
+                row
             })
             .collect::<Vec<_>>(),
     }))
 }
 
-pub fn tap_remove_value(args: &Value) -> Outcome {
+pub fn tap_remove_value(host: &dyn Host, args: &Value) -> Outcome {
     let dry_run = flag(args, "dry_run");
     let name = required(args, "name")?;
+    refuse_while_linked(host, name)?;
     let report = with_env(|env| tap_ops::remove(env, name, dry_run))?;
     Ok(json!({
         "name": report.name,
@@ -114,14 +165,61 @@ fn update_row(row: &UpdateRow) -> Value {
     json!({"name": row.name, "ok": row.ok, "head": row.head, "error": row.error})
 }
 
-pub fn tap_update_value(args: &Value) -> Outcome {
+/// Pulls the taps; for the ones linked to Claude Code, also updates the linked plugins whose
+/// clone moved on, since Claude Code runs a copy cached per version.
+pub fn tap_update_value(host: &dyn Host, args: &Value) -> Outcome {
     let dry_run = flag(args, "dry_run");
     let rows = with_env(|env| tap_ops::update(env, str_nonempty(args, "name"), dry_run))?;
-    Ok(json!({
+    let pulled: Vec<String> = rows
+        .iter()
+        .filter(|r| r.ok)
+        .map(|r| r.name.clone())
+        .collect();
+    let refreshed = plugins::Env::host()
+        .map(|env| {
+            link::refresh(
+                host,
+                &env,
+                &plugins::SystemClaude::from_env(),
+                &pulled,
+                dry_run,
+            )
+        })
+        .unwrap_or_default();
+    let mut out = json!({
         "results": rows.iter().map(update_row).collect::<Vec<_>>(),
         "failed": rows.iter().filter(|r| !r.ok).count(),
         "dryRun": dry_run,
-    }))
+    });
+    if !refreshed.is_empty() {
+        out["restartRequired"] = json!(refreshed.iter().any(|r| r["outcome"] == "updated"));
+        out["plugins"] = json!(refreshed);
+    }
+    Ok(out)
+}
+
+pub fn tap_link_value(host: &dyn Host, args: &Value) -> Outcome {
+    let only = nonempty_strings(args, "plugins").unwrap_or_default();
+    link::link(
+        host,
+        &plugin_env()?,
+        &plugins::SystemClaude::from_env(),
+        required(args, "name")?,
+        &only,
+        flag(args, "dry_run"),
+    )
+    .map_err(tap_failure)
+}
+
+pub fn tap_unlink_value(host: &dyn Host, args: &Value) -> Outcome {
+    link::unlink(
+        host,
+        &plugin_env()?,
+        &plugins::SystemClaude::from_env(),
+        required(args, "name")?,
+        flag(args, "dry_run"),
+    )
+    .map_err(tap_failure)
 }
 
 pub fn search_value(args: &Value) -> Outcome {
@@ -223,16 +321,24 @@ pub fn tap_add_handler(args: Value) -> Result<Value, String> {
     finish(tap_add_value(&args))
 }
 
-pub fn tap_list_handler(args: Value) -> Result<Value, String> {
-    finish(tap_list_value(&args))
+pub fn tap_list_handler(host: &dyn Host, args: Value) -> Result<Value, String> {
+    finish(tap_list_value(host, &args))
 }
 
-pub fn tap_remove_handler(args: Value) -> Result<Value, String> {
-    finish(tap_remove_value(&args))
+pub fn tap_remove_handler(host: &dyn Host, args: Value) -> Result<Value, String> {
+    finish(tap_remove_value(host, &args))
 }
 
-pub fn tap_update_handler(args: Value) -> Result<Value, String> {
-    finish(tap_update_value(&args))
+pub fn tap_update_handler(host: &dyn Host, args: Value) -> Result<Value, String> {
+    finish(tap_update_value(host, &args))
+}
+
+pub fn tap_link_handler(host: &dyn Host, args: Value) -> Result<Value, String> {
+    finish(tap_link_value(host, &args))
+}
+
+pub fn tap_unlink_handler(host: &dyn Host, args: Value) -> Result<Value, String> {
+    finish(tap_unlink_value(host, &args))
 }
 
 pub fn search_handler(args: Value) -> Result<Value, String> {

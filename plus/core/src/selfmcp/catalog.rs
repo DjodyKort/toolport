@@ -368,9 +368,29 @@ pub const TOOLS: &[ToolDef] = &[
         "skills_tap_update",
         2,
         None,
-        "Pull one tap or all of them; dry_run is on by default",
+        "Pull one tap or all of them and update the plugins linked to Claude Code; dry_run is on by default",
         [p("name", Ty::Str, false, "Limit to one tap"), DRY_ON],
         skills::tap_update
+    ),
+    tool!(
+        "skills_tap_link",
+        2,
+        None,
+        "Link a plugin marketplace tap to Claude Code at user scope: declare its clone and switch its plugins on; dry_run is on by default",
+        [
+            p("name", Ty::Str, true, "Tap name"),
+            p("plugins", Ty::StrList, false, "Plugins to link, default all of the marketplace"),
+            DRY_ON
+        ],
+        skills::tap_link
+    ),
+    tool!(
+        "skills_tap_unlink",
+        2,
+        None,
+        "Unlink a tap from Claude Code: remove its marketplace declaration and switch its plugins off; dry_run is on by default",
+        [p("name", Ty::Str, true, "Tap name"), DRY_ON],
+        skills::tap_unlink
     ),
     tool!(
         "skills_install",
