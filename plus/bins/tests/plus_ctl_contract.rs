@@ -258,7 +258,14 @@ const CASES: &[Case] = &[
             read("today", &["spend", "summary", "--range", "today"]).env(SPEND_CLOCK),
             read(
                 "month-project",
-                &["spend", "summary", "--range", "30d", "--project", "/work/alpha"],
+                &[
+                    "spend",
+                    "summary",
+                    "--range",
+                    "30d",
+                    "--project",
+                    "/work/alpha",
+                ],
             )
             .env(SPEND_CLOCK),
             usage("bad-range", &["spend", "summary", "--range", "year"]).env(SPEND_CLOCK),
@@ -271,7 +278,14 @@ const CASES: &[Case] = &[
             read("month", &["spend", "export-csv", "--range", "30d"]).env(SPEND_CLOCK),
             apply(
                 "saved",
-                &["spend", "export-csv", "--range", "30d", "--out", "{base}/spend.csv"],
+                &[
+                    "spend",
+                    "export-csv",
+                    "--range",
+                    "30d",
+                    "--out",
+                    "{base}/spend.csv",
+                ],
             )
             .env(SPEND_CLOCK),
             usage("bad-range", &["spend", "export-csv", "--range", "year"]).env(SPEND_CLOCK),
@@ -296,7 +310,13 @@ const CASES: &[Case] = &[
             read("port", &["spend", "setup", "plan", "--port", "4999"]).env(SPEND_CLOCK),
             read(
                 "overwrite",
-                &["spend", "setup", "plan", "--overwrite", "OTEL_METRICS_EXPORTER"],
+                &[
+                    "spend",
+                    "setup",
+                    "plan",
+                    "--overwrite",
+                    "OTEL_METRICS_EXPORTER",
+                ],
             )
             .env(SPEND_CLOCK),
             usage("low-port", &["spend", "setup", "plan", "--port", "80"]).env(SPEND_CLOCK),
@@ -310,7 +330,13 @@ const CASES: &[Case] = &[
             apply("conflict", &["spend", "setup", "apply"]).env(SPEND_CLOCK),
             apply(
                 "overwrite",
-                &["spend", "setup", "apply", "--overwrite", "OTEL_METRICS_EXPORTER"],
+                &[
+                    "spend",
+                    "setup",
+                    "apply",
+                    "--overwrite",
+                    "OTEL_METRICS_EXPORTER",
+                ],
             )
             .env(SPEND_CLOCK),
             read("again", &["spend", "setup", "apply", "--dry-run"]).env(SPEND_CLOCK),
@@ -323,7 +349,15 @@ const CASES: &[Case] = &[
             read("nothing-to-undo", &["spend", "setup", "undo", "--dry-run"]).env(SPEND_CLOCK),
             setup(
                 "turn-on",
-                &["spend", "setup", "apply", "--overwrite", "all", "--port", "4999"],
+                &[
+                    "spend",
+                    "setup",
+                    "apply",
+                    "--overwrite",
+                    "all",
+                    "--port",
+                    "4999",
+                ],
             )
             .env(SPEND_CLOCK),
             read("dry-run", &["spend", "setup", "undo", "--dry-run"]).env(SPEND_CLOCK),

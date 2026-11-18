@@ -24,8 +24,9 @@ pub struct TranscriptSession {
 
 type CacheKey = (u64, SystemTime);
 
-static CACHE: Mutex<Option<HashMap<PathBuf, (CacheKey, Option<TranscriptSession>)>>> =
-    Mutex::new(None);
+type Cache = HashMap<PathBuf, (CacheKey, Option<TranscriptSession>)>;
+
+static CACHE: Mutex<Option<Cache>> = Mutex::new(None);
 
 pub fn roots_under(home: &Path, config_dir: Option<&Path>) -> Vec<PathBuf> {
     let mut roots = Vec::new();

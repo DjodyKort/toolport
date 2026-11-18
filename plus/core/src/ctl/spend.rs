@@ -167,7 +167,7 @@ fn plan_text(plan: &Value) -> String {
         plan["endpoint"].as_str().unwrap_or("")
     )];
     for profile in plan["profiles"].as_array().into_iter().flatten() {
-        human.push(format!("{}", profile["profile"].as_str().unwrap_or("")));
+        human.push(profile["profile"].as_str().unwrap_or("").to_string());
         for e in profile["entries"].as_array().into_iter().flatten() {
             human.push(format!(
                 "  {:<30} {}",

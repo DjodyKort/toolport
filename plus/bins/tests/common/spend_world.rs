@@ -41,9 +41,11 @@ pub fn build(world: &World) {
     put(dir.join("events.jsonl"), lines(&events));
     put(
         dir.join("daily.jsonl"),
-        lines(&[json!({"day": "2026-11-01", "project": "/work/alpha", "model": "claude-sonnet-4",
+        lines(&[
+            json!({"day": "2026-11-01", "project": "/work/alpha", "model": "claude-sonnet-4",
                        "input": 5000, "output": 900, "cacheRead": 40000, "cacheCreation": 2000,
-                       "cost": 0.9, "costEstimated": 0.0, "requests": 12, "sessions": ["s-gone"]})]),
+                       "cost": 0.9, "costEstimated": 0.0, "requests": 12, "sessions": ["s-gone"]}),
+        ]),
     );
     let transcript = json!({"type": "assistant", "sessionId": "t-1", "cwd": "/work/beta",
         "timestamp": "2027-01-15T05:00:00Z",
@@ -56,8 +58,10 @@ pub fn build(world: &World) {
     );
     put(
         world.data.join("savings-v4.jsonl"),
-        lines(&[json!({"v": 4, "kind": "catalog_exposure", "ts": NOW_MS - HOUR, "sessionId": "s-a",
-                       "fullTokens": 5000, "exposedTokens": 800, "tokenizer": "cl100k_base"})]),
+        lines(&[
+            json!({"v": 4, "kind": "catalog_exposure", "ts": NOW_MS - HOUR, "sessionId": "s-a",
+                       "fullTokens": 5000, "exposedTokens": 800, "tokenizer": "cl100k_base"}),
+        ]),
     );
 }
 

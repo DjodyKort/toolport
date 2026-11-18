@@ -109,7 +109,7 @@ fn nanos_to_ms(value: Option<&Value>) -> Option<i64> {
         .as_str()
         .and_then(|s| s.parse::<u128>().ok())
         .or_else(|| value.as_u64().map(u128::from))?;
-    (nanos > 0).then(|| (nanos / 1_000_000) as i64)
+    (nanos > 0).then_some((nanos / 1_000_000) as i64)
 }
 
 fn metric_suffix(name: &str) -> &str {

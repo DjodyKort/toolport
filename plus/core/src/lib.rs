@@ -26,8 +26,8 @@ pub mod resource_links;
 pub mod selfmcp;
 pub mod servers;
 pub mod skills;
-pub mod spend;
 pub mod sources;
+pub mod spend;
 pub mod status;
 pub mod tasks;
 #[cfg(test)]
