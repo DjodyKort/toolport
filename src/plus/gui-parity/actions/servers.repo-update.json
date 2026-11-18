@@ -1,5 +1,6 @@
 {
   "route": "servers",
-  "status": "planned",
-  "summary": "Review and install the new commits of a server's checkout: the plan with commits, files, the remembered build command and calls in flight, then a fast-forward with a restart and an Undo (server repo update|undo)"
+  "status": "built",
+  "summary": "Review and install the new commits of a server's checkout: the plan with commits, files, the remembered build command and calls in flight, then a fast-forward with a restart and an Undo (server repo update|undo)",
+  "test": "src/plus/servers/RepoRow.test.tsx"
 }

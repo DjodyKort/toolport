@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { CircleAlert, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusCard } from "@/components/ui/status-card";
@@ -10,10 +10,44 @@ import { RowMenu } from "./RowMenu";
 
 type Page = "servers" | "tasks" | "library";
 
+const RepoUpdateDialog = lazy(() => import("../servers/RepoUpdateDialog"));
+
+/** The server a "Review update" row is about: its command is the plan of `server repo update`,
+ * which only reads, so the button opens the plan instead of running it. */
+function reviewedServer(command: string[]): string | null {
+  const [, group, sub, verb, server] = command;
+  return group === "server" && sub === "repo" && verb === "update"
+    ? (server ?? null)
+    : null;
+}
+
+function ReviewUpdate({ item, server }: { item: AttentionItem; server: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button size="sm" onClick={() => setOpen(true)}>
+        {item.action?.label ?? "Review update"}
+      </Button>
+      {open && (
+        <Suspense fallback={null}>
+          <RepoUpdateDialog
+            serverName={server}
+            open={open}
+            onOpenChange={setOpen}
+            onChanged={refreshAttention}
+          />
+        </Suspense>
+      )}
+    </>
+  );
+}
+
 function Fix({ item }: { item: AttentionItem }) {
   const [busy, setBusy] = useState(false);
   const command = item.action?.command;
   if (!command || !item.action) return null;
+  const server = reviewedServer(command);
+  if (server) return <ReviewUpdate item={item} server={server} />;
   return (
     <Button
       size="sm"

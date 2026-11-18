@@ -10,7 +10,8 @@ import type { CtlReply } from "./ctlWorld";
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 
-export type AttentionScenario = "busy" | "clear" | "unchecked" | "updates";
+export type AttentionScenario =
+  "busy" | "clear" | "unchecked" | "updates" | "server-update";
 
 export interface AttentionWorldOptions {
   /** Without a scenario `attention ls` fails the way a build without toolportctl does, so the bell
@@ -83,6 +84,26 @@ function updates(now: number): AttentionRow[] {
   ];
 }
 
+function serverUpdate(now: number): AttentionRow[] {
+  return [
+    {
+      id: "updates:server:alpha-api:4f2a1c3a>9be07d2b",
+      urgency: "worth-a-look",
+      title: "alpha-api: 2 new commits on main",
+      detail:
+        "Nothing is applied until you review the update; it only fast-forwards main to origin/main.",
+      source: "Updates",
+      since: iso(now - HOUR),
+      action: {
+        label: "Review update",
+        screen: "servers",
+        command: ["toolportctl", "server", "repo", "update", "alpha-api", "--dry-run"],
+      },
+      skip: { label: "9be07d2b" },
+    },
+  ];
+}
+
 const CHECKS: AttentionCheckName[] = ["credentials", "updates", "tasks", "library"];
 const NOTIFIES_BY_DEFAULT: AttentionCheckName[] = ["credentials", "tasks"];
 
@@ -114,6 +135,7 @@ export function createAttentionWorld(options: AttentionWorldOptions = {}) {
 
   function rows(now: number): AttentionRow[] {
     if (options.scenario === "clear") return [];
+    if (options.scenario === "server-update") return [...busy(now), ...serverUpdate(now)];
     return options.scenario === "updates" ? [...busy(now), ...updates(now)] : busy(now);
   }
 

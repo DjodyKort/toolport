@@ -1,5 +1,6 @@
 {
   "route": "servers",
-  "status": "planned",
-  "summary": "The Repo row of a server that runs from a git checkout: branch, commits behind and ahead, local changes, last checked, and Check now (server repo status|check, servers_repo_status)"
+  "status": "built",
+  "summary": "The Repo row of a server that runs from a git checkout: branch, commits behind and ahead, local changes, last checked, and Check now (server repo status|check, servers_repo_status)",
+  "test": "src/plus/servers/RepoRow.test.tsx"
 }
