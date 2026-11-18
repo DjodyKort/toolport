@@ -6,6 +6,8 @@ import { clearTimeout, setTimeout } from "node:timers";
 const logPath = process.env.SLOWMCP_LOG;
 const serial = process.env.SLOWMCP_MODE === "serial";
 const ignoreCancel = process.env.SLOWMCP_CANCEL === "ignore";
+const tasksOn = process.env.SLOWMCP_TASKS === "1";
+const taskPageSize = Number(process.env.SLOWMCP_TASK_PAGE ?? 100);
 
 const record = (entry) => {
   if (logPath)
@@ -56,6 +58,151 @@ tools.push({
     properties: { token: {}, every_ms: { type: "number" }, count: { type: "number" } },
   },
 });
+
+if (tasksOn) {
+  tools.push(
+    {
+      name: "slow_job",
+      description: "A job that can run as a task",
+      inputSchema: {
+        type: "object",
+        properties: {
+          seconds,
+          fail: { type: "boolean" },
+          progress_every_ms: { type: "number" },
+        },
+      },
+      execution: { taskSupport: "optional" },
+    },
+    {
+      name: "task_only",
+      description: "Only runs as a task",
+      inputSchema: { type: "object", properties: { seconds } },
+      execution: { taskSupport: "required" },
+    },
+  );
+}
+
+const RELATED_TASK = "io.modelcontextprotocol/related-task";
+const tasks = new Map();
+let taskSeq = 0;
+const rpcError = (id, code, message) =>
+  send({ jsonrpc: "2.0", id, error: { code, message } });
+const terminal = (task) => ["completed", "failed", "cancelled"].includes(task.status);
+const taskView = (entry) => entry.task;
+
+const settle = (entry, status, outcome, statusMessage) => {
+  if (terminal(entry.task)) return;
+  clearTimeout(entry.timer);
+  entry.task = {
+    ...entry.task,
+    status,
+    statusMessage,
+    lastUpdatedAt: new Date().toISOString(),
+  };
+  entry.outcome = outcome;
+  send({ jsonrpc: "2.0", method: "notifications/tasks/status", params: entry.task });
+  for (const waiter of entry.waiters.splice(0)) answerResult(waiter, entry);
+};
+
+const answerResult = (waiterId, entry) => {
+  inFlight.delete(String(waiterId));
+  if (entry.outcome.error) {
+    send({
+      jsonrpc: "2.0",
+      id: waiterId,
+      error: {
+        ...entry.outcome.error,
+        data: { _meta: { [RELATED_TASK]: { taskId: entry.task.taskId } } },
+      },
+    });
+    return;
+  }
+  reply(waiterId, {
+    ...entry.outcome.result,
+    _meta: { [RELATED_TASK]: { taskId: entry.task.taskId } },
+  });
+};
+
+const createTask = (id, params) => {
+  const args = params.arguments ?? {};
+  taskSeq += 1;
+  const now = new Date().toISOString();
+  const entry = {
+    task: {
+      taskId: `task-${taskSeq}`,
+      status: "working",
+      statusMessage: "started",
+      createdAt: now,
+      lastUpdatedAt: now,
+      ttl: params.task.ttl ?? 60000,
+      pollInterval: 100,
+    },
+    waiters: [],
+    outcome: null,
+  };
+  tasks.set(entry.task.taskId, entry);
+  const total = Math.round((args.seconds ?? 0) * 1000);
+  entry.timer = setTimeout(() => {
+    if (args.fail)
+      settle(entry, "failed", { error: { code: -32603, message: "job failed" } });
+    else
+      settle(entry, "completed", {
+        result: text(`job ${entry.task.taskId} done after ${args.seconds ?? 0} s`),
+      });
+  }, total);
+  const token = params._meta?.progressToken;
+  if (token !== undefined && args.progress_every_ms) {
+    const tick = () => {
+      if (terminal(entry.task)) return;
+      send({
+        jsonrpc: "2.0",
+        method: "notifications/progress",
+        params: {
+          progressToken: token,
+          progress: Date.now(),
+          _meta: { [RELATED_TASK]: { taskId: entry.task.taskId } },
+        },
+      });
+      setTimeout(tick, args.progress_every_ms);
+    };
+    setTimeout(tick, args.progress_every_ms);
+  }
+  reply(id, { task: taskView(entry) });
+};
+
+const taskMethod = (message) => {
+  const { id, method, params } = message;
+  if (method === "tasks/list") {
+    const all = [...tasks.values()].map(taskView);
+    const start = params?.cursor === undefined ? 0 : Number(params.cursor);
+    const page = all.slice(start, start + taskPageSize);
+    const next =
+      start + taskPageSize < all.length ? String(start + taskPageSize) : undefined;
+    return reply(id, { tasks: page, ...(next ? { nextCursor: next } : {}) });
+  }
+  const entry = tasks.get(params?.taskId);
+  if (!entry) return rpcError(id, -32602, "Failed to retrieve task: not found");
+  if (method === "tasks/get") return reply(id, taskView(entry));
+  if (method === "tasks/cancel") {
+    if (terminal(entry.task))
+      return rpcError(
+        id,
+        -32602,
+        `Cannot cancel task: already in terminal status '${entry.task.status}'`,
+      );
+    settle(entry, "cancelled", { error: { code: -32603, message: "task cancelled" } });
+    return reply(id, taskView(entry));
+  }
+  if (terminal(entry.task)) return answerResult(id, entry);
+  entry.waiters.push(id);
+  inFlight.set(String(id), {
+    abort: () => {
+      entry.waiters = entry.waiters.filter((waiter) => waiter !== id);
+      inFlight.delete(String(id));
+    },
+  });
+};
 
 const inFlight = new Map();
 let queue = Promise.resolve();
@@ -126,6 +273,9 @@ const call = (id, params) => {
     case "echo":
       reply(id, text(params.arguments?.text ?? "echo"));
       return Promise.resolve();
+    case "slow_job":
+    case "task_only":
+      return sleepCall(id, params);
     default:
       send({ jsonrpc: "2.0", id, error: { code: -32602, message: "unknown tool" } });
       return Promise.resolve();
@@ -137,12 +287,32 @@ const handle = (message) => {
     case "initialize":
       return reply(message.id, {
         protocolVersion: "2025-06-18",
-        capabilities: { tools: {} },
+        capabilities: tasksOn
+          ? {
+              tools: {},
+              tasks: { list: {}, cancel: {}, requests: { tools: { call: {} } } },
+            }
+          : { tools: {} },
         serverInfo: { name: "slow-mcp", version: "0" },
       });
     case "tools/list":
       return reply(message.id, { tools });
+    case "tasks/get":
+    case "tasks/result":
+    case "tasks/cancel":
+    case "tasks/list":
+      if (tasksOn) return taskMethod(message);
+      return rpcError(message.id, -32601, "method not found");
     case "tools/call": {
+      const required = tasksOn && message.params.name === "task_only";
+      if (required && !message.params.task)
+        return rpcError(message.id, -32601, "Task augmentation required for tools/call");
+      if (
+        tasksOn &&
+        message.params.task &&
+        ["slow_job", "task_only"].includes(message.params.name)
+      )
+        return createTask(message.id, message.params);
       const run = () => call(message.id, message.params);
       if (serial) {
         queue = queue.then(run);
@@ -159,6 +329,8 @@ const handle = (message) => {
   }
 };
 
+record({ dir: "start", pid: process.pid });
+
 readline.createInterface({ input: process.stdin }).on("line", (line) => {
   const message = JSON.parse(line);
   record({
@@ -169,6 +341,9 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
     token: message.params?._meta?.progressToken,
     requestId: message.params?.requestId,
     reason: message.params?.reason,
+    task: message.params?.task,
+    taskId: message.params?.taskId,
+    cursor: message.params?.cursor,
   });
   if (message.method === "notifications/cancelled") {
     if (!ignoreCancel) inFlight.get(String(message.params?.requestId))?.abort();

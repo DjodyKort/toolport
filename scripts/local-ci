@@ -118,6 +118,9 @@ step_seam_tests() {
     --no-default-features --features search-static,test-support,plus -- seam:: plus_adapter:: router::plus_ext:: || return 1
   # Long-running calls through the real gateway binary against the fake slow server (needs node).
   app_cargo test --locked --manifest-path "$APP_MANIFEST" --test plus_longcall \
+    --no-default-features --features search-static,test-support,plus -- --test-threads=1 || return 1
+  # MCP Tasks relayed through the real gateway binary against the fake server's task mode.
+  app_cargo test --locked --manifest-path "$APP_MANIFEST" --test plus_tasks \
     --no-default-features --features search-static,test-support,plus -- --test-threads=1
 }
 

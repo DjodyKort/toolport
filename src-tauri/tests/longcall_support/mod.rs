@@ -36,6 +36,10 @@ pub struct Behaviour {
     pub serial: bool,
     /// Keep working on a cancelled call and answer it late.
     pub ignore_cancel: bool,
+    /// Declare MCP tasks and take task-augmented `tools/call`s.
+    pub tasks: bool,
+    /// Tasks per `tasks/list` page; 0 keeps the fake's default.
+    pub task_page: u32,
 }
 
 /// The per-server timeouts the registry carries, in milliseconds.
@@ -64,10 +68,26 @@ impl Case {
 
     /// Two fake servers, `slow` and `other`, each with its own timeouts and log.
     pub fn pair(tag: &str, behaviour: Behaviour, timeouts: Timeouts, peer: Timeouts) -> Self {
-        Self::build(tag, behaviour, timeouts, Some(peer))
+        Self::build(tag, behaviour, timeouts, Some((behaviour, peer)))
     }
 
-    fn build(tag: &str, behaviour: Behaviour, timeouts: Timeouts, peer: Option<Timeouts>) -> Self {
+    /// [`Case::pair`] whose second server behaves differently from the first.
+    pub fn pair_with(
+        tag: &str,
+        behaviour: Behaviour,
+        timeouts: Timeouts,
+        peer_behaviour: Behaviour,
+        peer: Timeouts,
+    ) -> Self {
+        Self::build(tag, behaviour, timeouts, Some((peer_behaviour, peer)))
+    }
+
+    fn build(
+        tag: &str,
+        behaviour: Behaviour,
+        timeouts: Timeouts,
+        peer: Option<(Behaviour, Timeouts)>,
+    ) -> Self {
         let dir = std::env::temp_dir().join(format!(
             "toolport-longcall-{tag}-{}-{}",
             std::process::id(),
@@ -78,8 +98,8 @@ impl Case {
         let log = dir.join("slow-mcp.jsonl");
         let peer_log = dir.join("slow-mcp-other.jsonl");
         let mut servers = vec![server_entry(SERVER_ID, &log, behaviour, timeouts)];
-        if let Some(peer) = peer {
-            servers.push(server_entry(PEER_ID, &peer_log, behaviour, peer));
+        if let Some((peer_behaviour, peer)) = peer {
+            servers.push(server_entry(PEER_ID, &peer_log, peer_behaviour, peer));
         }
         write_registry(&dir, servers);
         Self { dir, log, peer_log }
@@ -123,6 +143,22 @@ impl Case {
             .collect()
     }
 
+    /// Kills the fake server process of the log `log` (its latest start).
+    pub fn kill_server(&self, log: &Path) {
+        let pid = Self::entries_of(log)
+            .iter()
+            .rev()
+            .find(|entry| entry["dir"] == "start")
+            .and_then(|entry| entry["pid"].as_u64())
+            .expect("the fake server logged its start");
+        let _ = Command::new("kill")
+            .arg("-9")
+            .arg(pid.to_string())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+
     pub fn answered(&self, id: &Value) -> bool {
         self.entries()
             .iter()
@@ -157,6 +193,12 @@ fn server_entry(id: &str, log: &Path, behaviour: Behaviour, timeouts: Timeouts) 
     }
     if behaviour.ignore_cancel {
         env.push(("SLOWMCP_CANCEL", "ignore".to_string()));
+    }
+    if behaviour.tasks {
+        env.push(("SLOWMCP_TASKS", "1".to_string()));
+    }
+    if behaviour.task_page > 0 {
+        env.push(("SLOWMCP_TASK_PAGE", behaviour.task_page.to_string()));
     }
     let mut unknown_fields = serde_json::Map::new();
     if let Some(ms) = timeouts.max_request_ms {
@@ -362,16 +404,29 @@ impl Client {
     }
 
     pub fn initialize(&mut self) {
+        self.initialize_with(json!({}));
+    }
+
+    /// Initializes declaring `capabilities`; returns the `initialize` result.
+    pub fn initialize_with(&mut self, capabilities: Value) -> Value {
         let reply = self.request(
             "initialize",
             json!({
                 "protocolVersion": "2024-11-05",
-                "capabilities": {},
+                "capabilities": capabilities,
                 "clientInfo": { "name": "longcall", "version": "1" }
             }),
         );
         assert!(reply.get("result").is_some(), "initialize failed: {reply}");
         self.send(json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }));
+        reply["result"].clone()
+    }
+
+    /// Sends any request without waiting.
+    pub fn start_request(&mut self, id: i64, method: &str, params: Value) -> Instant {
+        let sent = Instant::now();
+        self.send(json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }));
+        sent
     }
 
     /// The gateway's name for a tool of the fake server, once its catalog is published.
