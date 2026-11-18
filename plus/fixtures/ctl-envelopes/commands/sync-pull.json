@@ -16,6 +16,17 @@
     },
     {
       "aliases": [],
+      "effect": "With --apply: settle a conflict row as this machine's version, which goes out with the next push (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--keep",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
       "effect": "Apply the plan; without it the command only plans and writes nothing",
       "escalates": false,
       "hidden": false,

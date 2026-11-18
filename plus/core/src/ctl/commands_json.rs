@@ -169,6 +169,7 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("sync push", m("--dry-run", Bool, "Report what would be pushed and push nothing")),
     ("sync push", m("--keep-mine", Bool, "Push although the last pull left rows both machines changed: this machine's version replaces the other's on the remote")),
     ("sync pull", m("--take", Str, "Take the other machine's copy of a conflict row instead of keeping yours (repeatable)").repeats()),
+    ("sync pull", m("--keep", Str, "With --apply: settle a conflict row as this machine's version, which goes out with the next push (repeatable)").repeats()),
     ("sync pull", m("--apply", Bool, "Apply the plan; without it the command only plans and writes nothing")),
     ("sync pull", m("--plan", Str, "The plan hash printed by the dry run; apply refuses when this machine or the remote changed since")),
     ("sync pull", m("--unattended", Bool, "A scheduled check: plans only and skips while the keyring is locked")),

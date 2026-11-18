@@ -536,3 +536,31 @@ fn test15_a_server_changed_on_both_machines_stays_until_it_is_taken_from_the_oth
     engine::undo(&b.ctx(), false).unwrap();
     assert_eq!(command_of(&b, "alpha"), "alpha-mcp-b");
 }
+
+#[test]
+fn test16_keeping_this_machine_settles_a_conflict_row_and_lets_the_push_through() {
+    let (a, b, shared) = two_machines();
+    join_folder(&a, &shared, &SERVERS_ONLY);
+    join_folder(&b, &shared, &SERVERS_ONLY);
+    push(&a);
+    apply(&b, &[]);
+    set_command(&a, "alpha", "alpha-mcp-a");
+    set_command(&b, "alpha", "alpha-mcp-b");
+    push(&a);
+    let plan = pull(&b, &[]);
+    engine::pull(
+        &b.ctx(),
+        &PullOptions {
+            keep: ["server:alpha".to_string()].into(),
+            apply: true,
+            plan: Some(plan["plan"].as_str().unwrap().to_string()),
+            ..Default::default()
+        },
+        &SystemGit,
+    )
+    .unwrap();
+    assert!(config::read_state(&b.ctx()).unwrap().pending.is_empty());
+    assert_eq!(command_of(&b, "alpha"), "alpha-mcp-b");
+    assert_eq!(row(&pull(&b, &[]), "server:alpha")["state"], "mine");
+    assert_eq!(push(&b)["pushed"], true);
+}

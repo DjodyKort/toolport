@@ -52,6 +52,7 @@ pub(super) const PUSH: Spec = Spec {
 pub(super) const PULL: Spec = Spec {
     flags: &[
         greedy("--take").needs("a row id"),
+        greedy("--keep").needs("a row id"),
         switch("--apply"),
         value("--plan").needs("the plan hash of the dry run"),
         switch("--unattended"),
@@ -243,6 +244,7 @@ pub fn pull(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
         host,
         &PullOptions {
             take: flags.all("--take").into_iter().collect(),
+            keep: flags.all("--keep").into_iter().collect(),
             apply: flags.on("--apply"),
             plan: flags.one("--plan").map(String::from),
             unattended: flags.on("--unattended"),

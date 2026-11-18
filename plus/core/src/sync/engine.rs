@@ -450,6 +450,9 @@ pub fn push(ctx: &Ctx<'_>, opts: &PushOptions, git: &dyn GitRunner) -> Result<Va
 #[derive(Clone, Debug, Default)]
 pub struct PullOptions {
     pub take: BTreeSet<String>,
+    /// Conflict rows settled as this machine's version: the baseline moves to the other
+    /// machine's, so the row counts as changed only here and goes out with the next push.
+    pub keep: BTreeSet<String>,
     pub apply: bool,
     pub plan: Option<String>,
     /// A scheduled check: plans only, skips quietly while the keyring is locked and does
@@ -463,7 +466,12 @@ fn skipped_run(ctx: &Ctx<'_>, reason: &str) -> Value {
     json!({"skipped": true, "reason": reason, "at": now_text(ctx), "applied": false})
 }
 
-fn advance(baseline: &mut BTreeMap<String, String>, data: &Value, taken: &BTreeSet<String>) {
+fn advance(
+    baseline: &mut BTreeMap<String, String>,
+    data: &Value,
+    taken: &BTreeSet<String>,
+    kept: &BTreeSet<String>,
+) {
     let steps = data["steps"].as_array().cloned().unwrap_or_default();
     let ok = |id: &str| steps.iter().any(|s| s["id"] == id && s["ok"] == true);
     let servers_ok = steps
@@ -477,7 +485,7 @@ fn advance(baseline: &mut BTreeMap<String, String>, data: &Value, taken: &BTreeS
             restore::STATE_HERE => true,
             restore::STATE_ADD if row["part"] == "servers" => servers_ok,
             restore::STATE_ADD | restore::STATE_INCOMING => ok(id),
-            restore::STATE_CONFLICT => taken.contains(id) && ok(id),
+            restore::STATE_CONFLICT => (taken.contains(id) && ok(id)) || kept.contains(id),
             _ => false,
         };
         if settled {
@@ -565,7 +573,7 @@ pub fn pull(ctx: &Ctx<'_>, opts: &PullOptions, git: &dyn GitRunner) -> Result<Va
         return Ok(data);
     }
     let before = state.baseline.clone();
-    advance(&mut state.baseline, &data, &opts.take);
+    advance(&mut state.baseline, &data, &opts.take, &opts.keep);
     state.pending = data["rows"]
         .as_array()
         .into_iter()
@@ -573,12 +581,13 @@ pub fn pull(ctx: &Ctx<'_>, opts: &PullOptions, git: &dyn GitRunner) -> Result<Va
         .filter(|r| r["state"] == restore::STATE_CONFLICT)
         .filter_map(|r| r["id"].as_str().map(String::from))
         .filter(|id| {
-            !(opts.take.contains(id)
-                && data["steps"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .any(|s| s["id"] == id.as_str() && s["ok"] == true))
+            !opts.keep.contains(id)
+                && !(opts.take.contains(id)
+                    && data["steps"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .any(|s| s["id"] == id.as_str() && s["ok"] == true))
         })
         .collect();
     state.last_apply = Some(LastApply {
