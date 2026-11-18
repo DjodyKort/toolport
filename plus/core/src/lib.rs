@@ -24,6 +24,7 @@ mod randutil;
 mod redact;
 pub mod resource_links;
 pub mod selfmcp;
+pub mod serial;
 pub mod servers;
 pub mod skills;
 pub mod sources;

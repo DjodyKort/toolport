@@ -48,6 +48,15 @@ const tools = [
   },
 ];
 
+tools.push({
+  name: "emit_progress",
+  description: "Reports progress under any token, then answers",
+  inputSchema: {
+    type: "object",
+    properties: { token: {}, every_ms: { type: "number" }, count: { type: "number" } },
+  },
+});
+
 const inFlight = new Map();
 let queue = Promise.resolve();
 
@@ -86,8 +95,31 @@ const sleepCall = (id, params) =>
     finish = setTimeout(() => done(text(`slept ${args.seconds ?? 0} s`)), total);
   });
 
+const emitCall = (id, params) =>
+  new Promise((resolve) => {
+    const args = params.arguments ?? {};
+    let sent = 0;
+    const tick = () => {
+      if (sent >= (args.count ?? 1)) {
+        reply(id, text(`emitted ${sent}`));
+        resolve();
+        return;
+      }
+      sent += 1;
+      send({
+        jsonrpc: "2.0",
+        method: "notifications/progress",
+        params: { progressToken: args.token, progress: sent, message: "working" },
+      });
+      setTimeout(tick, args.every_ms ?? 100);
+    };
+    tick();
+  });
+
 const call = (id, params) => {
   switch (params.name) {
+    case "emit_progress":
+      return emitCall(id, params);
     case "sleep":
     case "budgeted_sleep":
       return sleepCall(id, params);

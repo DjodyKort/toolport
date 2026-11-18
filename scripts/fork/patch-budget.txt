@@ -32,15 +32,16 @@
 #   closures). It touches the surface the client is sent only; the Full baseline the savings row compares
 #   with stays whole. The gateway tests of the mode are included from plus_gateway.rs (2 lines in the test
 #   module).
-#   execute_call, after prepare_progress: seam::long_call (4 changed lines) gives a stdio tools/call without a
-#   client progressToken one the gateway minted, and the call the window of its tool budget; the logic is
-#   toolport_plus::progress.
-42	src-tauri/src/bin/toolport-gateway.rs
+#   execute_call, after prepare_progress: seam::long_call (5 changed lines) gives a stdio tools/call without a
+#   client progressToken one the gateway minted, and the call the window of its tool budget, and holds the
+#   call of a server set to `serial` until it is its turn (it takes the call's cancel context, so a call its
+#   client cancelled while it queued stops waiting); the logic is toolport_plus::progress and ::serial.
+43	src-tauri/src/bin/toolport-gateway.rs
 # desktop.rs, 6 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
 # plus_ctl commands (D-060) and hands every other command on (4); seam::app_started() at the start of
 # run() starts the task scheduler thread of the desktop app, the always-on tick of D-128 (2).
 6	src-tauri/src/desktop.rs
-# downstream.rs, 40 changed lines:
+# downstream.rs, 42 changed lines:
 #   1: `is_download_launcher` asks seam::is_uv_download_launcher for the `uv` arm, so `uv run` and
 #      `uv tool run` get the launcher connect budget and the desktop's background pre-warm.
 #   21 for progress re-arm on StdioCore: `wait` takes its deadline from seam::CallClock instead of a fixed
@@ -54,7 +55,10 @@
 #   11 for the cancel on a deadline: when `wait` times out a tools/call, resources/read or prompts/get, it sends
 #      notifications/cancelled with the timeout text through the same CancelEntry a client cancel uses (behind
 #      seam::cancels_on_deadline, false without the plus feature).
-40	src-tauri/src/downstream.rs
+#   2 for the connection a progress notification belongs to: `wait` and `route_line` hand seam::CallClock and
+#      seam::progress_seen the address of the StdioCore, so only the server a call was sent to can extend its
+#      deadline (a server that reports progress under another server's token extends nothing).
+42	src-tauri/src/downstream.rs
 2	src-tauri/src/http_client.rs
 # lib.rs, 3 lines: the two fork modules, and seam is pub (was pub(crate)) so the gateway binary can call
 # seam::gateway_tick.

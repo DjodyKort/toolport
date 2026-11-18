@@ -46,7 +46,7 @@ fn calls_in_flight(slot: &ServerSlot) -> usize {
         .inner
         .try_lock()
         .map_or(0, |server| server.suspended_calls());
-    running + suspended
+    running + suspended + crate::seam::serial_waiting(&slot.id)
 }
 
 fn restart_slot(slot: &Arc<ServerSlot>) -> (bool, String) {

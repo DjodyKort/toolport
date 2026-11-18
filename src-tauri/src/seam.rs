@@ -185,6 +185,7 @@ impl CallClock {
         window: std::time::Duration,
         params: &serde_json::Value,
         server_id: Option<&String>,
+        connection: usize,
     ) -> Self {
         #[cfg(feature = "plus")]
         {
@@ -194,13 +195,13 @@ impl CallClock {
                 .and_then(toolport_plus::progress::leased_window)
                 .unwrap_or(window);
             return Self {
-                clock: toolport_plus::progress::Clock::start(window, token),
+                clock: toolport_plus::progress::Clock::start(window, token, connection),
                 server_id: server_id.cloned(),
             };
         }
         #[cfg(not(feature = "plus"))]
         {
-            let _ = (params, server_id);
+            let _ = (params, server_id, connection);
             Self {
                 deadline: std::time::Instant::now() + window,
             }
@@ -248,15 +249,19 @@ impl CallClock {
 }
 
 /// What keeps one `tools/call` alive: the `_meta` to relay in place of the client's (`None`: as
-/// it is) and a lease that holds the call's window until the call ends.
+/// it is), a lease that holds the call's window until the call ends and, for a server set to
+/// `serial`, the turn that lets this call be sent.
 pub struct LongCall {
     pub meta: Option<serde_json::Value>,
     #[cfg(feature = "plus")]
     _lease: Option<toolport_plus::progress::WindowLease>,
+    #[cfg(feature = "plus")]
+    _turn: Option<toolport_plus::serial::Turn>,
 }
 
 /// Prepares a `tools/call` of the tool listed as `name` in `catalog`, which is `tool` of
-/// `server_id`.
+/// `server_id`. A server set to `serial` holds the call here until it is the call's turn; a
+/// call whose client cancelled meanwhile returns at once and is refused further on.
 pub fn long_call(
     reg: &crate::registry::Registry,
     server_id: &str,
@@ -264,6 +269,7 @@ pub fn long_call(
     catalog: &dyn crate::tool_definitions::ToolCatalog,
     name: &str,
     meta: Option<&serde_json::Value>,
+    cancel: Option<&crate::downstream::CancelContext>,
 ) -> LongCall {
     #[cfg(feature = "plus")]
     {
@@ -271,8 +277,19 @@ pub fn long_call(
             return LongCall {
                 meta: None,
                 _lease: None,
+                _turn: None,
             };
         };
+        let turn = server
+            .unknown_fields
+            .get("serial")
+            .and_then(serde_json::Value::as_bool)
+            .filter(|serial| *serial)
+            .map(|_| {
+                toolport_plus::serial::enter(server_id, || {
+                    cancel.is_some_and(crate::downstream::CancelContext::is_cancelled)
+                })
+            });
         let settings = toolport_plus::progress::CallSettings {
             stdio: server.transport == "stdio",
             max_request_timeout_ms: server
@@ -286,12 +303,24 @@ pub fn long_call(
         LongCall {
             meta: prepared.meta,
             _lease: prepared.lease,
+            _turn: turn,
         }
     }
     #[cfg(not(feature = "plus"))]
     {
-        let _ = (reg, server_id, tool, catalog, name, meta);
+        let _ = (reg, server_id, tool, catalog, name, meta, cancel);
         LongCall { meta: None }
+    }
+}
+
+/// Calls to the server that wait for their turn and have not been sent.
+pub fn serial_waiting(server_id: &str) -> usize {
+    #[cfg(feature = "plus")]
+    return toolport_plus::serial::waiting(server_id);
+    #[cfg(not(feature = "plus"))]
+    {
+        let _ = server_id;
+        0
     }
 }
 
@@ -314,11 +343,11 @@ fn max_request_timeout_ms(server_id: Option<String>) -> Option<u64> {
 }
 
 /// A server sent a notification on a stdio connection.
-pub fn progress_seen(notification: &serde_json::Value) {
+pub fn progress_seen(notification: &serde_json::Value, connection: usize) {
     #[cfg(feature = "plus")]
-    toolport_plus::progress::note(notification);
+    toolport_plus::progress::note(notification, connection);
     #[cfg(not(feature = "plus"))]
-    let _ = notification;
+    let _ = (notification, connection);
 }
 
 /// What the legacy `initialize` to a server declares as client capabilities: `{}`, unless the

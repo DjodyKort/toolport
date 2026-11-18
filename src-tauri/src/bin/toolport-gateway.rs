@@ -5959,7 +5959,8 @@ fn execute_call(
         server_id,
     );
     let relay = relay_owned.as_ref().or(client_meta);
-    let long_call = conduit_lib::seam::long_call(reg, server_id, tool, cached, name, relay);
+    let long_call =
+        conduit_lib::seam::long_call(reg, server_id, tool, cached, name, relay, cancel.as_ref());
     let client_meta = long_call.meta.as_ref().or(relay);
 
     // Resolve pseudonyms LAST, immediately before the call leaves the machine, so

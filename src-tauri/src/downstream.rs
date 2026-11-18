@@ -4272,7 +4272,9 @@ impl StdioCore {
         cancel_guard: Option<CancelGuard>,
         forwarded: Arc<AtomicBool>,
     ) -> Result<Value, TransportError> {
-        let mut clock = crate::seam::CallClock::start(timeout, params, self.server_id.get());
+        let connection = self as *const Self as usize;
+        let mut clock =
+            crate::seam::CallClock::start(timeout, params, self.server_id.get(), connection);
         loop {
             let remaining = clock.next_wait();
             match rx.recv_timeout(remaining) {
@@ -4759,7 +4761,7 @@ impl StdioCore {
         }
         // Notifications were already handled by the stdout drain.
         if value.get("method").is_some() {
-            crate::seam::progress_seen(&value);
+            crate::seam::progress_seen(&value, self as *const Self as usize);
             return;
         }
         let Some(key) = value.get("id").and_then(id_key) else {

@@ -251,6 +251,7 @@ mod longcall {
                 request_ms: Some(WINDOW_MS),
                 max_request_ms: Some(1500),
                 tool_budgets: &[("sleep", 600.0)],
+                ..Default::default()
             },
         );
         let mut client = started_client(&case);
@@ -697,6 +698,162 @@ mod longcall {
                 .as_str()
                 .is_some_and(|token| token.starts_with("tpx-")),
             "the server is told a minted token"
+        );
+    }
+
+    fn serial_timeouts() -> Timeouts {
+        Timeouts {
+            request_ms: Some(WINDOW_MS),
+            serial: true,
+            ..Default::default()
+        }
+    }
+
+    fn answered_at(case: &Case, call: &Value) -> u64 {
+        case.entries()
+            .iter()
+            .find(|entry| entry["dir"] == "out" && entry["id"] == call["id"])
+            .and_then(|entry| entry["t"].as_u64())
+            .unwrap_or_else(|| panic!("the server never answered {call}"))
+    }
+
+    #[cfg(feature = "plus")]
+    #[test]
+    fn test20_longcall_a_serial_server_gets_one_call_at_a_time_and_the_queue_does_not_run_down_the_deadline(
+    ) {
+        let _guard = case_lock();
+        let case = Case::new("gate", Behaviour::default(), serial_timeouts());
+        let mut client = started_client(&case);
+        let sleep = client.tool_named("sleep");
+        let sent = client.start_call(10, &sleep, json!({ "seconds": 0.7 }), None);
+        client.start_call(11, &sleep, json!({ "seconds": 0.7 }), None);
+        let (_, first) = client.response(&json!(10), ANSWER_WITHIN);
+        let (second_at, second) = client.response(&json!(11), ANSWER_WITHIN);
+        assert_eq!(text_of(&first["result"]), "slept 0.7 s", "{first}");
+        assert_eq!(
+            text_of(&second["result"]),
+            "slept 0.7 s",
+            "the second call outlived the 1 s window in total but not after it was sent: {second}"
+        );
+        assert!(
+            elapsed_ms(sent, second_at) >= 1350,
+            "it ran after the first"
+        );
+        let calls = case.received_calls("sleep");
+        assert_eq!(calls.len(), 2);
+        assert!(
+            calls[1]["t"].as_u64().unwrap() >= answered_at(&case, &calls[0]),
+            "the second call was sent only after the first was answered: {:?}",
+            case.entries()
+        );
+    }
+
+    #[cfg(feature = "plus")]
+    #[test]
+    fn test21_longcall_a_call_cancelled_while_it_queues_is_never_sent_and_the_one_behind_it_runs() {
+        let _guard = case_lock();
+        let case = Case::new("gate-cancel", Behaviour::default(), serial_timeouts());
+        let mut client = started_client(&case);
+        let sleep = client.tool_named("sleep");
+        let echo = client.tool_named("echo");
+        client.start_call(10, &sleep, json!({ "seconds": 0.8 }), None);
+        assert!(
+            wait_until(
+                || !case.received_calls("sleep").is_empty(),
+                Duration::from_secs(10)
+            ),
+            "the first sleep reached the server"
+        );
+        client.start_call(11, &sleep, json!({ "seconds": 5 }), None);
+        client.start_call(12, &echo, json!({ "text": "behind" }), None);
+        std::thread::sleep(Duration::from_millis(250));
+        client.cancel(11, "no longer needed");
+        let (_, echo_reply) = client.response(&json!(12), ANSWER_WITHIN);
+        assert_eq!(text_of(&echo_reply["result"]), "behind", "{echo_reply}");
+        let sleeps = case.received_calls("sleep");
+        assert_eq!(
+            sleeps.len(),
+            1,
+            "the cancelled call never reached the server"
+        );
+        assert!(
+            case.received("notifications/cancelled").is_empty(),
+            "a call that was never sent needs no cancel: {:?}",
+            case.entries()
+        );
+        let echoes = case.received_calls("echo");
+        assert!(
+            echoes[0]["t"].as_u64().unwrap() >= answered_at(&case, &sleeps[0]),
+            "the echo waited for the running call"
+        );
+    }
+
+    #[cfg(feature = "plus")]
+    #[test]
+    fn test22_longcall_through_toolport_call_tool_a_serial_server_queues_the_calls_too() {
+        let _guard = case_lock();
+        let case = Case::new("gate-lazy", Behaviour::default(), serial_timeouts());
+        let mut client = warmed_lazy_client(&case);
+        client.start_meta_call(10, "slow__sleep", json!({ "seconds": 0.7 }), None);
+        client.start_meta_call(11, "slow__sleep", json!({ "seconds": 0.7 }), None);
+        let (_, first) = client.response(&json!(10), ANSWER_WITHIN);
+        let (_, second) = client.response(&json!(11), ANSWER_WITHIN);
+        assert_eq!(text_of(&first["result"]), "slept 0.7 s", "{first}");
+        assert_eq!(text_of(&second["result"]), "slept 0.7 s", "{second}");
+        let calls = case.received_calls("sleep");
+        assert!(
+            calls[1]["t"].as_u64().unwrap() >= answered_at(&case, &calls[0]),
+            "{:?}",
+            case.entries()
+        );
+    }
+
+    #[cfg(feature = "plus")]
+    #[test]
+    fn test23_longcall_progress_another_server_reports_for_a_calls_token_does_not_extend_it() {
+        let _guard = case_lock();
+        let case = Case::pair(
+            "cross",
+            Behaviour::default(),
+            timeouts(Some(8000)),
+            Timeouts {
+                request_ms: Some(10_000),
+                ..Default::default()
+            },
+        );
+        let mut client = started_client(&case);
+        let sleep = client.tool_of(SERVER_ID, "sleep");
+        let emit = client.tool_of(PEER_ID, "emit_progress");
+        let sent = client.start_call(10, &sleep, json!({ "seconds": 4 }), None);
+        assert!(
+            wait_until(
+                || !case.received_calls("sleep").is_empty(),
+                Duration::from_secs(10)
+            ),
+            "the sleep reached its server"
+        );
+        let token = case.received_calls("sleep")[0]["token"].clone();
+        assert!(token.is_string(), "the call carries a token: {token}");
+        client.start_call(
+            11,
+            &emit,
+            json!({ "token": token, "every_ms": 200, "count": 20 }),
+            None,
+        );
+        let (at, reply) = client.response(&json!(10), ANSWER_WITHIN);
+        assert!(timed_out(&reply), "{reply}");
+        let waited = elapsed_ms(sent, at);
+        assert!(
+            (WINDOW_MS - 100..WINDOW_MS + 1500).contains(&waited),
+            "cut at its own window although another server reported progress for its token: {waited} ms"
+        );
+        let reported = Case::entries_of(&case.peer_log)
+            .iter()
+            .filter(|entry| entry["dir"] == "out" && entry["method"] == "notifications/progress")
+            .count();
+        assert!(
+            reported >= 3,
+            "the other server did report progress: {reported}"
         );
     }
 }

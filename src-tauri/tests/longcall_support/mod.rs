@@ -16,6 +16,7 @@ use serde_json::{json, Value};
 
 pub const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 pub const SERVER_ID: &str = "slow";
+pub const PEER_ID: &str = "other";
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 
@@ -44,16 +45,29 @@ pub struct Timeouts {
     pub max_request_ms: Option<u64>,
     /// `toolBudgets` of the server: seconds per tool name.
     pub tool_budgets: &'static [(&'static str, f64)],
+    /// The gateway sends this server one call at a time (`serial`).
+    pub serial: bool,
 }
 
 /// A scratch data directory; killing the daemons the case started is part of dropping it.
 pub struct Case {
     pub dir: PathBuf,
     pub log: PathBuf,
+    /// The log of the second server of a pair.
+    pub peer_log: PathBuf,
 }
 
 impl Case {
     pub fn new(tag: &str, behaviour: Behaviour, timeouts: Timeouts) -> Self {
+        Self::build(tag, behaviour, timeouts, None)
+    }
+
+    /// Two fake servers, `slow` and `other`, each with its own timeouts and log.
+    pub fn pair(tag: &str, behaviour: Behaviour, timeouts: Timeouts, peer: Timeouts) -> Self {
+        Self::build(tag, behaviour, timeouts, Some(peer))
+    }
+
+    fn build(tag: &str, behaviour: Behaviour, timeouts: Timeouts, peer: Option<Timeouts>) -> Self {
         let dir = std::env::temp_dir().join(format!(
             "toolport-longcall-{tag}-{}-{}",
             std::process::id(),
@@ -62,8 +76,13 @@ impl Case {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("create scratch data dir");
         let log = dir.join("slow-mcp.jsonl");
-        write_registry(&dir, &log, behaviour, timeouts);
-        Self { dir, log }
+        let peer_log = dir.join("slow-mcp-other.jsonl");
+        let mut servers = vec![server_entry(SERVER_ID, &log, behaviour, timeouts)];
+        if let Some(peer) = peer {
+            servers.push(server_entry(PEER_ID, &peer_log, behaviour, peer));
+        }
+        write_registry(&dir, servers);
+        Self { dir, log, peer_log }
     }
 
     /// A client that sees the whole catalog and calls tools by name.
@@ -79,7 +98,11 @@ impl Case {
 
     /// Everything the fake server recorded, in order. `t` is wall-clock milliseconds.
     pub fn entries(&self) -> Vec<Value> {
-        std::fs::read_to_string(&self.log)
+        Self::entries_of(&self.log)
+    }
+
+    pub fn entries_of(log: &Path) -> Vec<Value> {
+        std::fs::read_to_string(log)
             .unwrap_or_default()
             .lines()
             .filter_map(|line| serde_json::from_str(line).ok())
@@ -123,7 +146,7 @@ fn node() -> PathBuf {
         .expect("node on PATH runs the fake slow MCP server")
 }
 
-fn server_entry(log: &Path, behaviour: Behaviour, timeouts: Timeouts) -> ServerEntry {
+fn server_entry(id: &str, log: &Path, behaviour: Behaviour, timeouts: Timeouts) -> ServerEntry {
     let script = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../plus/fixtures/stdio/slow-mcp.mjs"
@@ -147,11 +170,14 @@ fn server_entry(log: &Path, behaviour: Behaviour, timeouts: Timeouts) -> ServerE
             .collect();
         unknown_fields.insert("toolBudgets".to_string(), Value::Object(budgets));
     }
+    if timeouts.serial {
+        unknown_fields.insert("serial".to_string(), json!(true));
+    }
     ServerEntry {
         enabled: true,
         inherit_env: false,
-        id: SERVER_ID.to_string(),
-        name: "Slow".to_string(),
+        id: id.to_string(),
+        name: format!("{}{}", id[..1].to_uppercase(), &id[1..]),
         transport: "stdio".to_string(),
         command: Some(node().display().to_string()),
         args: vec![script.to_string()],
@@ -177,17 +203,18 @@ fn server_entry(log: &Path, behaviour: Behaviour, timeouts: Timeouts) -> ServerE
     }
 }
 
-fn write_registry(dir: &Path, log: &Path, behaviour: Behaviour, timeouts: Timeouts) {
+fn write_registry(dir: &Path, servers: Vec<ServerEntry>) {
     let mut registry_value = Registry::default();
     registry_value.set_lazy_discovery(false);
-    registry_value.servers = vec![server_entry(log, behaviour, timeouts)];
+    let ids: Vec<String> = servers.iter().map(|server| server.id.clone()).collect();
+    registry_value.servers = servers;
     if let Some(active) = registry_value.active_profile_id.clone() {
         if let Some(profile) = registry_value
             .profiles
             .iter_mut()
             .find(|profile: &&mut Profile| profile.id == active)
         {
-            profile.enabled_server_ids = vec![SERVER_ID.to_string()];
+            profile.enabled_server_ids = ids;
         }
     }
     registry::save_to(&dir.join("registry.json"), &registry_value).expect("write registry");
@@ -350,6 +377,27 @@ impl Client {
     /// The gateway's name for a tool of the fake server, once its catalog is published.
     pub fn tool_named(&mut self, tool: &str) -> String {
         Self::tool(self, tool).0
+    }
+
+    /// The gateway's name for a tool of the fake server `server`.
+    pub fn tool_of(&mut self, server: &str, tool: &str) -> String {
+        let deadline = Instant::now() + RESPONSE_TIMEOUT;
+        let name = format!("{server}__{tool}");
+        loop {
+            let reply = self.request("tools/list", json!({}));
+            let listed = reply["result"]["tools"].as_array().into_iter().flatten();
+            if listed
+                .into_iter()
+                .any(|listed| listed["name"] == name.as_str())
+            {
+                return name;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "no tool {name} published: {reply}"
+            );
+            std::thread::sleep(Duration::from_millis(100));
+        }
     }
 
     /// The gateway's name and listing of a tool of the fake server.

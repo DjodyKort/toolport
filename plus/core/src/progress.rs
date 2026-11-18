@@ -1,8 +1,10 @@
 //! The deadline of one stdio call that a server keeps alive by reporting progress.
 //!
 //! A `notifications/progress` for the call's own `progressToken` moves the deadline to the
-//! progress time plus the call's window, never past an absolute cap. Time the gateway spends
-//! waiting for a client to answer a server's request is charged to neither.
+//! progress time plus the call's window, never past an absolute cap. Only the server the call
+//! was sent to can extend it: a token that another server's connection reports means nothing.
+//! Time the gateway spends waiting for a client to answer a server's request is charged to
+//! neither.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -25,7 +27,15 @@ pub fn cap_from(max_request_timeout_ms: Option<u64>) -> Duration {
     })
 }
 
-/// The ledger key of a progress token.
+/// Names the connection to one server process; progress counts only on the connection the call
+/// was sent on.
+pub type Producer = usize;
+
+fn ledger_key(producer: Producer, token: &str) -> String {
+    format!("{producer}/{token}")
+}
+
+/// The key of a progress token in a lease or a call's window.
 pub fn token_key(token: &Value) -> String {
     token.to_string()
 }
@@ -217,18 +227,18 @@ fn with_ledger<R>(use_ledger: impl FnOnce(&mut HashMap<String, Watched>) -> R) -
 
 /// A server reported progress under `notification`'s token. Only tokens a running call watches
 /// are kept; any other progress costs one lookup.
-pub fn note(notification: &Value) {
-    note_at(notification, Instant::now());
+pub fn note(notification: &Value, producer: Producer) {
+    note_at(notification, Instant::now(), producer);
 }
 
-fn note_at(notification: &Value, at: Instant) {
+fn note_at(notification: &Value, at: Instant, producer: Producer) {
     let Some(token) = notification
         .get("params")
         .and_then(|params| params.get("progressToken"))
     else {
         return;
     };
-    let key = token_key(token);
+    let key = ledger_key(producer, &token_key(token));
     with_ledger(|ledger| {
         if let Some(watched) = ledger.get_mut(&key) {
             watched.last = Some(at);
@@ -283,8 +293,9 @@ pub struct Clock {
 }
 
 impl Clock {
-    /// `window` is how long the call waits for its response, and for the next progress.
-    pub fn start(window: Duration, token: Option<String>) -> Self {
+    /// `window` is how long the call waits for its response, and for the next progress; `producer`
+    /// is the connection the call is sent on.
+    pub fn start(window: Duration, token: Option<String>, producer: Producer) -> Self {
         let started = Instant::now();
         Self {
             started,
@@ -293,7 +304,7 @@ impl Clock {
             hard: None,
             rearmed: false,
             seen: None,
-            watch: token.map(Watch::new),
+            watch: token.map(|token| Watch::new(ledger_key(producer, &token))),
         }
     }
 
@@ -358,7 +369,7 @@ mod tests {
 
     #[test]
     fn test01_a_call_without_a_token_keeps_its_fixed_deadline() {
-        let mut clock = Clock::start(Duration::from_millis(500), None);
+        let mut clock = Clock::start(Duration::from_millis(500), None, 1);
         let wait = clock.next_wait(|| unreachable!("no progress, no cap lookup"));
         assert!(wait > Duration::from_millis(400) && wait <= Duration::from_millis(500));
         assert!(!clock.expired());
@@ -369,10 +380,14 @@ mod tests {
 
     #[test]
     fn test02_progress_for_the_calls_token_moves_the_deadline_to_progress_plus_window() {
-        let mut clock = Clock::start(Duration::from_millis(400), Some(token_key(&json!("t-02"))));
+        let mut clock = Clock::start(
+            Duration::from_millis(400),
+            Some(token_key(&json!("t-02"))),
+            1,
+        );
         let first = clock.deadline;
         let at = after(&clock, Duration::from_millis(300));
-        note_at(&progress("t-02"), at);
+        note_at(&progress("t-02"), at, 1);
         clock.next_wait(|| Duration::from_secs(60));
         assert_eq!(clock.deadline, at + Duration::from_millis(400));
         assert!(clock.deadline > first);
@@ -381,20 +396,60 @@ mod tests {
 
     #[test]
     fn test03_progress_under_another_token_does_not_extend_the_call() {
-        let mut clock = Clock::start(Duration::from_millis(400), Some(token_key(&json!("t-03"))));
+        let mut clock = Clock::start(
+            Duration::from_millis(400),
+            Some(token_key(&json!("t-03"))),
+            1,
+        );
         let first = clock.deadline;
         note_at(
             &progress("t-03-other"),
             after(&clock, Duration::from_millis(300)),
+            1,
         );
         clock.next_wait(|| unreachable!("another call's progress"));
         assert_eq!(clock.deadline, first);
     }
 
     #[test]
+    fn test18_progress_for_the_calls_token_from_another_connection_does_not_extend_it() {
+        let mut clock = Clock::start(
+            Duration::from_millis(400),
+            Some(token_key(&json!("t-18"))),
+            1,
+        );
+        let first = clock.deadline;
+        note_at(
+            &progress("t-18"),
+            after(&clock, Duration::from_millis(300)),
+            2,
+        );
+        clock.next_wait(|| unreachable!("another connection's progress"));
+        assert_eq!(clock.deadline, first);
+        note_at(
+            &progress("t-18"),
+            after(&clock, Duration::from_millis(300)),
+            1,
+        );
+        clock.next_wait(|| Duration::from_secs(60));
+        assert!(
+            clock.deadline > first,
+            "the connection the call is on still extends it"
+        );
+    }
+
+    #[test]
     fn test04_the_cap_ends_a_call_that_keeps_reporting_progress_and_says_so() {
-        let mut clock = Clock::start(Duration::from_millis(400), Some(token_key(&json!("t-04"))));
-        note_at(&progress("t-04"), after(&clock, Duration::from_millis(900)));
+        let mut clock = Clock::start(
+            Duration::from_millis(400),
+            Some(token_key(&json!("t-04"))),
+            1,
+        );
+        note_at(
+            &progress("t-04"),
+            after(&clock, Duration::from_millis(900)),
+            1,
+        );
         clock.next_wait(|| Duration::from_millis(1000));
         assert_eq!(clock.deadline, clock.started + Duration::from_millis(1000));
         assert!(clock.cap_note().unwrap().contains("maxRequestTimeoutMs"));
@@ -402,8 +457,16 @@ mod tests {
 
     #[test]
     fn test05_a_cap_below_the_window_never_shortens_the_call() {
-        let mut clock = Clock::start(Duration::from_millis(400), Some(token_key(&json!("t-05"))));
-        note_at(&progress("t-05"), after(&clock, Duration::from_millis(100)));
+        let mut clock = Clock::start(
+            Duration::from_millis(400),
+            Some(token_key(&json!("t-05"))),
+            1,
+        );
+        note_at(
+            &progress("t-05"),
+            after(&clock, Duration::from_millis(100)),
+            1,
+        );
         clock.next_wait(|| Duration::from_millis(10));
         assert_eq!(clock.deadline, clock.started + Duration::from_millis(400));
         assert_eq!(clock.cap_note(), None);
@@ -411,8 +474,16 @@ mod tests {
 
     #[test]
     fn test06_time_spent_waiting_for_the_client_is_charged_to_neither_deadline_nor_cap() {
-        let mut clock = Clock::start(Duration::from_millis(400), Some(token_key(&json!("t-06"))));
-        note_at(&progress("t-06"), after(&clock, Duration::from_millis(100)));
+        let mut clock = Clock::start(
+            Duration::from_millis(400),
+            Some(token_key(&json!("t-06"))),
+            1,
+        );
+        note_at(
+            &progress("t-06"),
+            after(&clock, Duration::from_millis(100)),
+            1,
+        );
         clock.next_wait(|| Duration::from_secs(10));
         let (deadline, hard) = (clock.deadline, clock.hard.unwrap());
         clock.charge_back(Duration::from_secs(3));
@@ -422,11 +493,15 @@ mod tests {
 
     #[test]
     fn test07_the_ledger_forgets_a_token_when_its_call_ends() {
-        let clock = Clock::start(Duration::from_millis(400), Some(token_key(&json!("t-07"))));
-        note_at(&progress("t-07"), Instant::now());
-        assert!(latest("\"t-07\"").is_some());
+        let clock = Clock::start(
+            Duration::from_millis(400),
+            Some(token_key(&json!("t-07"))),
+            1,
+        );
+        note_at(&progress("t-07"), Instant::now(), 1);
+        assert!(latest(&ledger_key(1, "\"t-07\"")).is_some());
         drop(clock);
-        assert!(latest("\"t-07\"").is_none());
+        assert!(latest(&ledger_key(1, "\"t-07\"")).is_none());
     }
 
     #[test]
@@ -462,10 +537,10 @@ mod tests {
 
     #[test]
     fn test10_a_progress_extended_call_outlives_ten_minutes_without_waiting_for_them() {
-        let mut clock = Clock::start(Duration::from_secs(30), Some(token_key(&json!("t-10"))));
+        let mut clock = Clock::start(Duration::from_secs(30), Some(token_key(&json!("t-10"))), 1);
         for minute in 1..=12u64 {
             let at = after(&clock, Duration::from_secs(minute * 60 - 5));
-            note_at(&progress("t-10"), at);
+            note_at(&progress("t-10"), at, 1);
             clock.next_wait(|| Duration::from_secs(3600));
             assert_eq!(
                 clock.deadline,
