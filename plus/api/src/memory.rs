@@ -12,7 +12,9 @@ use std::sync::Arc;
 
 use serde_json::{Map, Value};
 
-use crate::fork_data::{plus_ops, AuthProbe, DirectEntry, McpmSource, RegistryPlus, SelfMcpRecord};
+use crate::fork_data::{
+    budget_number, plus_ops, AuthProbe, DirectEntry, McpmSource, RegistryPlus, SelfMcpRecord,
+};
 use crate::{
     AccessSetInfo, AuthAccess, AuthChild, CallsInFlight, CatalogAccess, CatalogEntryRecord,
     ConsentSink, ContextHost, EnvEntry, GatewayRouter, HostEnv, HttpAccess, HttpError, HttpRequest,
@@ -578,7 +580,7 @@ impl RegistryAccess for MemoryRegistry {
                 .tool_budgets
                 .get_or_insert_with(Default::default);
             match seconds {
-                Some(seconds) => budgets.insert(tool.to_string(), seconds),
+                Some(seconds) => budgets.insert(tool.to_string(), budget_number(seconds)?),
                 None => budgets.remove(tool),
             };
             if budgets.is_empty() {

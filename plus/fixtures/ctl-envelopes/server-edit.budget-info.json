@@ -42,7 +42,7 @@
       "requestTimeoutMs": null,
       "source": "manual",
       "toolBudgets": {
-        "job_wait": 600.0
+        "job_wait": 600
       },
       "transport": "stdio",
       "url": null

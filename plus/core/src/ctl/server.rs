@@ -366,13 +366,13 @@ pub fn edit(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
         (
             "toolBudgets",
             patch.tool_budgets.iter().any(|(tool, seconds)| {
-                *seconds
-                    != server
-                        .fork
-                        .tool_budgets
-                        .as_ref()
-                        .and_then(|b| b.get(tool))
-                        .copied()
+                let stored = server
+                    .fork
+                    .tool_budgets
+                    .as_ref()
+                    .and_then(|budgets| budgets.get(tool))
+                    .and_then(serde_json::Number::as_f64);
+                *seconds != stored
             }),
         ),
     ]

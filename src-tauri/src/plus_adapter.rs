@@ -4,12 +4,12 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 use toolport_plus_api::{
-    convert, plus_ops, AccessSetInfo, AuthProbe, CallsInFlight, CatalogAccess, CatalogEntryRecord,
-    ContextHost, DirectEntry, EnvEntry, ForkServerFields, GatewayRouter, HostEnv, HttpAccess,
-    HttpBody, HttpError, HttpRequest, HttpResponse, McpmSource, ProcessOutcome, ProcessSpec,
-    RegistryAccess, RegistryPlus, RegistryTx, RegistryView, RestartOutcome, RunApproval,
-    RunDecision, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules, ServerSpec, TaskHost,
-    TrustInputs, VaultAccess,
+    convert, fork_data::budget_number, plus_ops, AccessSetInfo, AuthProbe, CallsInFlight,
+    CatalogAccess, CatalogEntryRecord, ContextHost, DirectEntry, EnvEntry, ForkServerFields,
+    GatewayRouter, HostEnv, HttpAccess, HttpBody, HttpError, HttpRequest, HttpResponse, McpmSource,
+    ProcessOutcome, ProcessSpec, RegistryAccess, RegistryPlus, RegistryTx, RegistryView,
+    RestartOutcome, RunApproval, RunDecision, SecretsHost, SelfMcpRecord, ServerRecord,
+    ServerRules, ServerSpec, TaskHost, TrustInputs, VaultAccess,
 };
 
 pub struct HostAdapter;
@@ -486,7 +486,7 @@ impl RegistryAccess for HostAdapter {
         edit_server_fork_fields(server_id, |fields| {
             let budgets = fields.tool_budgets.get_or_insert_with(Default::default);
             match seconds {
-                Some(seconds) => budgets.insert(tool.to_string(), seconds),
+                Some(seconds) => budgets.insert(tool.to_string(), budget_number(seconds)?),
                 None => budgets.remove(tool),
             };
             if budgets.is_empty() {

@@ -543,7 +543,7 @@ fn test19_tool_budgets_are_set_removed_one_by_one_and_refused_outside_a_day() {
     update(&host, "srv-a", &budgets(&[("sleep", None)]), &[]).unwrap();
     let kept = stored(&host, "srv-a").fork.tool_budgets.unwrap();
     assert_eq!(kept.len(), 1);
-    assert_eq!(kept["job_wait"], 600.0);
+    assert_eq!(kept["job_wait"].as_f64(), Some(600.0));
     for refused in [0.0, -1.0, f64::NAN, 86_401.0] {
         let error = update(&host, "srv-a", &budgets(&[("x", Some(refused))]), &[]).unwrap_err();
         assert!(

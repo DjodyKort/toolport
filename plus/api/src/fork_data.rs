@@ -7,7 +7,7 @@
 //! absent key is never written back as a default.
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::{Map, Number, Value};
 use std::collections::BTreeMap;
 
 /// `plus.authProbe` on a server: which credential probe runs for it.
@@ -102,11 +102,19 @@ pub struct ForkServerFields {
     pub max_request_timeout_ms: Option<u64>,
     /// Seconds a call to a tool may run, by the tool's own name; wins over the budget in its listing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tool_budgets: Option<BTreeMap<String, f64>>,
+    pub tool_budgets: Option<BTreeMap<String, Number>>,
     /// How the gateway lists the server's tools: `auto` or `search` (see
     /// `toolport_plus::servers::mode`). Absent means `auto`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub server_mode: Option<String>,
+}
+
+/// Seconds as they are stored: a whole number stays one, so a round trip leaves it as written.
+pub fn budget_number(seconds: f64) -> Result<Number, String> {
+    if seconds.fract() == 0.0 && seconds.abs() < 1e15 {
+        return Ok(Number::from(seconds as i64));
+    }
+    Number::from_f64(seconds).ok_or_else(|| format!("{seconds} is not a number of seconds"))
 }
 
 impl ForkServerFields {
@@ -351,7 +359,7 @@ mod tests {
             forward_instructions: Some(true),
             declare_client_capabilities: Some(true),
             max_request_timeout_ms: Some(1),
-            tool_budgets: Some(BTreeMap::from([("sleep".to_string(), 1.5)])),
+            tool_budgets: Some(BTreeMap::from([("sleep".to_string(), Number::from(2))])),
             server_mode: Some("search".into()),
         };
         let Value::Object(written) = serde_json::to_value(&full).unwrap() else {
