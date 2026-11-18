@@ -41,6 +41,7 @@ interface Options {
   others?: WorldServer[];
   running?: boolean;
   restart?: RestartScript;
+  editFailure?: string;
 }
 
 function setup(options: Options = {}) {
@@ -52,6 +53,7 @@ function setup(options: Options = {}) {
       servers: all,
       sets,
       restart: options.restart ? { "srv-bravo": options.restart } : {},
+      editFailure: options.editFailure,
     },
   });
   const registry = registryOf(all, sets);
@@ -123,20 +125,22 @@ describe("servers.advanced-mode", () => {
     expect(screen.queryByText(/need you/)).not.toBeInTheDocument();
   });
 
-  it("test02_the_open_row_has_four_settings_with_a_plain_label_and_the_registry_key", async () => {
+  it("test02_the_open_row_has_six_settings_with_a_plain_label_and_the_registry_key", async () => {
     setup();
     const row = await open();
     for (const [label, key] of [
       ["Tool listing", "mode"],
       ["Let the server ask me questions", "declareClientCapabilities"],
       ["Pass the server's instructions to the model", "forwardInstructions"],
+      ["Run calls one at a time", "serial"],
       ["Longest a call may run", "maxRequestTimeoutMs"],
+      ["Time budget per tool", "toolBudgets"],
     ]) {
       const heading = row.getByRole("heading", { name: `${label} ${key}` });
       expect(within(heading).getByText(key).tagName).toBe("CODE");
     }
     expect(row.getByText(/31 tools in the list/)).toBeInTheDocument();
-    expect(row.getAllByText("When to change it")).toHaveLength(3);
+    expect(row.getAllByText("When to change it")).toHaveLength(4);
   });
 
   it("test03_a_switch_applies_at_once_and_its_toast_undoes_it", async () => {
@@ -201,7 +205,7 @@ describe("servers.advanced-mode", () => {
   it("test05_the_call_limit_is_explained_while_typing_and_saves_only_a_valid_new_value", async () => {
     setup();
     const row = await open();
-    const save = row.getByRole("button", { name: "Save" });
+    const save = row.getAllByRole("button", { name: "Save" })[0];
     expect(save).toBeDisabled();
     expect(row.getByText("Empty means the default, 1 h.")).toBeInTheDocument();
 
@@ -265,7 +269,7 @@ describe("servers.advanced-mode", () => {
     ).toBeInTheDocument();
     await userEvent.type(limitField(row), "5");
     expect(row.getByText(/so 5 min has no effect/)).toBeInTheDocument();
-    expect(row.getByRole("button", { name: "Save" })).toBeEnabled();
+    expect(row.getAllByRole("button", { name: "Save" })[0]).toBeEnabled();
   });
 
   it("test08_another_server_that_waits_longer_keeps_setting_the_bridge", async () => {
@@ -298,7 +302,7 @@ describe("servers.advanced-mode", () => {
       server: { transport: "http", command: null, url: "https://example.invalid/mcp" },
     });
     const row = await open();
-    expect(row.getByText("Local servers only")).toBeInTheDocument();
+    expect(row.getAllByText("Local servers only")[0]).toBeInTheDocument();
     expect(row.getByText(/Not used for remote servers/)).toBeInTheDocument();
     expect(row.queryByLabelText("Limit")).not.toBeInTheDocument();
     expect(
@@ -410,5 +414,216 @@ describe("a change that needs a restart", () => {
     expect(
       row.getByText(/bravo-build is off\. Your settings are saved/),
     ).toBeInTheDocument();
+  });
+});
+
+const serialSwitch = (row: ReturnType<typeof within>) =>
+  row.getByRole("switch", { name: /Run calls one at a time/ });
+const budgetsOf = (row: ReturnType<typeof within>) =>
+  within(row.getByRole("heading", { name: /Time budget per tool/ }).closest("section")!);
+const toolField = (row: ReturnType<typeof within>, at: number) =>
+  row.getAllByLabelText("Tool name")[at];
+const secondsField = (row: ReturnType<typeof within>, at: number) =>
+  row.getAllByLabelText(/^Seconds for /)[at];
+
+describe("servers.advanced-mode: serial calls", () => {
+  it("test20_the_serial_switch_applies_at_once_with_the_help_text_and_undoes", async () => {
+    setup();
+    const row = await open();
+    expect(
+      row.getByText(
+        /Run one call at a time; use only when the server cannot interleave requests\./,
+      ),
+    ).toBeInTheDocument();
+    expect(serialSwitch(row)).not.toBeChecked();
+    await userEvent.click(serialSwitch(row));
+    await waitFor(() =>
+      expect(edits()).toEqual([["server", "edit", "srv-bravo", "--serial"]]),
+    );
+    expect(lastToast()[0]).toBe("Run calls one at a time: on for bravo-build.");
+    expect(
+      await within(await rowOf()).findByText(
+        "All tools listed · no interop switches · one call at a time · calls up to 1 h",
+      ),
+    ).toBeInTheDocument();
+    expect(within(await rowOf()).getByText("1 changed")).toBeInTheDocument();
+
+    await undo();
+    await waitFor(() =>
+      expect(edits().at(-1)).toEqual(["server", "edit", "srv-bravo", "--no-serial"]),
+    );
+    expect(await within(await rowOf()).findByText("Defaults")).toBeInTheDocument();
+  });
+
+  it("test21_a_server_stored_as_serial_shows_the_switch_on", async () => {
+    setup({ server: { serial: true } });
+    const row = await open();
+    expect(serialSwitch(row)).toBeChecked();
+  });
+
+  it("test22_a_remote_server_can_be_serial_too", async () => {
+    setup({
+      server: { transport: "http", command: null, url: "https://example.test/mcp" },
+    });
+    const row = await open();
+    await userEvent.click(serialSwitch(row));
+    await waitFor(() =>
+      expect(edits()).toEqual([["server", "edit", "srv-bravo", "--serial"]]),
+    );
+  });
+});
+
+describe("servers.advanced-mode: tool budgets", () => {
+  it("test23_with_no_budget_the_list_is_empty_and_the_help_explains_the_call_limit", async () => {
+    setup();
+    const row = budgetsOf(await open());
+    expect(row.getByText("No tool has its own budget.")).toBeInTheDocument();
+    expect(
+      row.getByText(/A budget replaces the request timeout for that tool/),
+    ).toBeInTheDocument();
+    expect(
+      row.getByText(/never goes beyond the longest a call may run \(1 h\)/),
+    ).toBeInTheDocument();
+    expect(row.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("test24_adding_a_tool_and_saving_sends_one_tool_budget_flag_for_it", async () => {
+    setup();
+    const row = budgetsOf(await open());
+    await userEvent.click(row.getByRole("button", { name: "Add a tool" }));
+    await userEvent.type(toolField(row, 0), "job_wait");
+    await userEvent.type(secondsField(row, 0), "600");
+    await userEvent.click(row.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(edits()).toEqual([
+        ["server", "edit", "srv-bravo", "--tool-budget", "job_wait=600"],
+      ]),
+    );
+    expect(await row.findByText("Saved. Applies to the next call.")).toBeInTheDocument();
+    expect(
+      await within(await rowOf()).findByText(
+        "All tools listed · no interop switches · 1 tool budget · calls up to 1 h",
+      ),
+    ).toBeInTheDocument();
+    expect(toolField(row, 0)).toHaveValue("job_wait");
+  });
+
+  it("test25_stored_budgets_are_listed_and_only_changed_or_removed_ones_are_sent", async () => {
+    setup({ server: { toolBudgets: { job_wait: 600, run_export: 120 } } });
+    const row = budgetsOf(await open());
+    expect(toolField(row, 0)).toHaveValue("job_wait");
+    expect(secondsField(row, 1)).toHaveValue("120");
+    await userEvent.clear(secondsField(row, 0));
+    await userEvent.type(secondsField(row, 0), "900");
+    await userEvent.click(row.getByRole("button", { name: "Remove run_export" }));
+    expect(edits()).toEqual([]);
+    await userEvent.click(row.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(edits()).toEqual([
+        [
+          "server",
+          "edit",
+          "srv-bravo",
+          "--tool-budget",
+          "job_wait=900",
+          "--tool-budget",
+          "run_export=default",
+        ],
+      ]),
+    );
+  });
+
+  it("test26_discard_returns_to_the_stored_list_without_a_command", async () => {
+    setup({ server: { toolBudgets: { job_wait: 600 } } });
+    const row = budgetsOf(await open());
+    await userEvent.click(row.getByRole("button", { name: "Remove job_wait" }));
+    expect(row.getByText("No tool has its own budget.")).toBeInTheDocument();
+    await userEvent.click(row.getByRole("button", { name: "Discard changes" }));
+    expect(toolField(row, 0)).toHaveValue("job_wait");
+    expect(edits()).toEqual([]);
+  });
+
+  it.each([
+    ["", "60", "Give the tool's name."],
+    ["job_wait", "0", "At least 1 second."],
+    ["job_wait", "90000", "At most 86,400 seconds (24 hours)."],
+    ["job_wait", "abc", "Enter a number of seconds, for example 600."],
+    ["job=wait", "60", "A tool name cannot contain =."],
+  ])(
+    "test27_%j_with_%j_seconds_says_%j_and_cannot_be_saved",
+    async (tool, seconds, message) => {
+      setup();
+      const row = budgetsOf(await open());
+      await userEvent.click(row.getByRole("button", { name: "Add a tool" }));
+      if (tool) await userEvent.type(toolField(row, 0), tool);
+      await userEvent.type(row.getByLabelText(/^Seconds for /), seconds);
+      expect(await row.findByRole("alert")).toHaveTextContent(message);
+      expect(row.getByRole("button", { name: "Save" })).toBeDisabled();
+      expect(edits()).toEqual([]);
+    },
+  );
+
+  it("test28_the_same_tool_twice_is_refused_on_the_second_row", async () => {
+    setup({ server: { toolBudgets: { job_wait: 600 } } });
+    const row = budgetsOf(await open());
+    await userEvent.click(row.getByRole("button", { name: "Add a tool" }));
+    await userEvent.type(toolField(row, 1), "job_wait");
+    await userEvent.type(secondsField(row, 1), "300");
+    expect(await row.findByRole("alert")).toHaveTextContent(
+      "job_wait is listed twice. One budget per tool.",
+    );
+    expect(row.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("test29_a_budget_longer_than_the_call_limit_is_a_note_not_an_error", async () => {
+    setup({ server: { maxRequestTimeoutMs: 1_800_000 } });
+    const row = budgetsOf(await open());
+    await userEvent.click(row.getByRole("button", { name: "Add a tool" }));
+    await userEvent.type(toolField(row, 0), "run_export");
+    await userEvent.type(secondsField(row, 0), "7200");
+    expect(
+      await row.findByText(/2 h is longer than the call limit \(30 min\)/),
+    ).toBeInTheDocument();
+    expect(row.queryByRole("alert")).not.toBeInTheDocument();
+    expect(row.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
+  it("test30_a_row_with_no_seconds_is_left_out_of_the_save", async () => {
+    setup();
+    const row = budgetsOf(await open());
+    await userEvent.click(row.getByRole("button", { name: "Add a tool" }));
+    await userEvent.type(toolField(row, 0), "job_wait");
+    expect(row.queryByRole("alert")).not.toBeInTheDocument();
+    expect(row.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("test31_a_remote_server_has_no_budget_editor_and_says_why", async () => {
+    setup({
+      server: { transport: "http", command: null, url: "https://example.test/mcp" },
+    });
+    const row = await open();
+    expect(
+      row.getByRole("heading", { name: /Time budget per tool/ }).closest("section"),
+    ).toHaveTextContent("Local servers only");
+    expect(row.queryByRole("button", { name: "Add a tool" })).not.toBeInTheDocument();
+  });
+
+  it("test32_a_refused_save_keeps_the_draft_and_names_the_server", async () => {
+    setup({ editFailure: "the registry could not be written" });
+    const row = budgetsOf(await open());
+    await userEvent.click(row.getByRole("button", { name: "Add a tool" }));
+    await userEvent.type(toolField(row, 0), "job_wait");
+    await userEvent.type(secondsField(row, 0), "600");
+    await userEvent.click(row.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Could not save the tool budgets of bravo-build",
+        expect.objectContaining({
+          description: expect.stringContaining("the registry could not be written"),
+        }),
+      ),
+    );
+    expect(toolField(row, 0)).toHaveValue("job_wait");
+    expect(row.getByRole("button", { name: "Save" })).toBeEnabled();
   });
 });

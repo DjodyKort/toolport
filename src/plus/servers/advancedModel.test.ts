@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   bridgeWith,
+  budgetChanges,
+  budgetRows,
   changedCount,
+  checkBudgets,
   editable,
   minutesText,
   parseLimit,
@@ -54,7 +57,9 @@ const defaults: Values = {
   mode: "auto",
   declareClientCapabilities: false,
   forwardInstructions: false,
+  serial: false,
   limitMs: null,
+  toolBudgets: {},
 };
 
 describe("the call limit field", () => {
@@ -156,12 +161,14 @@ describe("the collapsed line", () => {
       mode: "search",
       declareClientCapabilities: true,
       forwardInstructions: true,
+      serial: true,
       limitMs: 5_400_000,
+      toolBudgets: { job_wait: 600, run_export: 120 },
     };
     expect(summaryLine(changed, interop, true)).toBe(
-      "Search only · 2 switches on · calls up to 1 h 30 min",
+      "Search only · 2 switches on · one call at a time · 2 tool budgets · calls up to 1 h 30 min",
     );
-    expect(changedCount(changed)).toBe(4);
+    expect(changedCount(changed)).toBe(6);
     expect(summaryLine({ ...defaults, forwardInstructions: true }, interop, false)).toBe(
       "All tools listed · 1 switch on",
     );
@@ -173,5 +180,71 @@ describe("the collapsed line", () => {
       "Its tools are listed to every client, like any other server's.",
     );
     expect(toolsLine("search", 512)).toMatch(/^Its 512 tools are left out of the list/);
+  });
+});
+
+describe("the tool budget rows", () => {
+  const row = (key: number, tool: string, seconds: string) => ({ key, tool, seconds });
+
+  it("test12_a_valid_row_is_a_budget_and_a_decimal_or_comma_is_read", () => {
+    expect(checkBudgets([row(1, " job_wait ", "600"), row(2, "b", "1,5")])).toEqual({
+      budgets: { job_wait: 600, b: 1.5 },
+      errors: {},
+    });
+  });
+
+  it("test13_empty_rows_and_rows_without_seconds_carry_no_budget_and_no_error", () => {
+    expect(checkBudgets([row(1, "", ""), row(2, "job_wait", " ")])).toEqual({
+      budgets: {},
+      errors: {},
+    });
+  });
+
+  it("test14_each_bad_row_gets_its_own_message_and_is_never_clamped", () => {
+    const { budgets, errors } = checkBudgets([
+      row(1, "", "5"),
+      row(2, "a", "0.5"),
+      row(3, "b", "86401"),
+      row(4, "c", "ten"),
+      row(5, "d=e", "5"),
+      row(6, "f", "86400"),
+    ]);
+    expect(budgets).toEqual({ f: 86_400 });
+    expect(errors).toEqual({
+      1: "Give the tool's name.",
+      2: "At least 1 second.",
+      3: "At most 86,400 seconds (24 hours).",
+      4: "Enter a number of seconds, for example 600.",
+      5: "A tool name cannot contain =.",
+    });
+  });
+
+  it("test15_a_name_used_twice_is_refused_on_every_row_after_the_first", () => {
+    const { budgets, errors } = checkBudgets([
+      row(1, "job_wait", "600"),
+      row(2, "job_wait ", "300"),
+      row(3, "job_wait", ""),
+    ]);
+    expect(budgets).toEqual({ job_wait: 600 });
+    expect(errors).toEqual({
+      2: "job_wait is listed twice. One budget per tool.",
+      3: "job_wait is listed twice. One budget per tool.",
+    });
+  });
+
+  it("test16_the_changes_name_added_changed_and_removed_tools_only", () => {
+    expect(budgetChanges({ a: 1, b: 2, c: 3 }, { a: 1, b: 20, d: 4 })).toEqual([
+      ["b", 20],
+      ["d", 4],
+      ["c", null],
+    ]);
+    expect(budgetChanges({ a: 1 }, { a: 1 })).toEqual([]);
+  });
+
+  it("test17_stored_budgets_become_rows_sorted_by_tool_name", () => {
+    expect(budgetRows({ z: 5, a: 600.5 })).toEqual([
+      { key: 0, tool: "a", seconds: "600.5" },
+      { key: 1, tool: "z", seconds: "5" },
+    ]);
   });
 });

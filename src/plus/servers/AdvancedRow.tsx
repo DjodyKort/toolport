@@ -24,87 +24,26 @@ import {
 import {
   setCallLimit,
   setInteropSwitch,
+  setSerial,
   setToolListing,
   type InteropSwitch,
 } from "./commands";
 import type { ServerInfoData } from "./data";
+import { Help, Setting } from "./AdvancedParts";
 import { OperationRow } from "./OperationRow";
 import { restart, useRestartState } from "./restartStore";
+import { ToolBudgets } from "./ToolBudgets";
 import type { Loaded } from "./useLoad";
 
 const QUESTIONS = "Let the server ask me questions";
 const INSTRUCTIONS = "Pass the server's instructions to the model";
 
+const SERIAL_LABEL = "Run calls one at a time";
+
 const SWITCH_LABEL: Record<InteropSwitch, string> = {
   declareClientCapabilities: QUESTIONS,
   forwardInstructions: INSTRUCTIONS,
 };
-
-function Key({ children }: { children: string }) {
-  return (
-    <code className="font-mono text-xs font-normal text-muted-foreground">
-      {children}
-    </code>
-  );
-}
-
-function Help({
-  fallback,
-  change,
-  takes,
-}: {
-  fallback: string;
-  change: ReactNode;
-  takes: ReactNode;
-}) {
-  return (
-    <details className="group text-meta">
-      <summary className="w-fit cursor-pointer rounded-md text-muted-foreground select-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none">
-        When to change it
-      </summary>
-      <dl className="mt-1.5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1">
-        <dt className="text-muted-foreground">Default</dt>
-        <dd>{fallback}</dd>
-        <dt className="text-muted-foreground">Change it when</dt>
-        <dd>{change}</dd>
-        <dt className="text-muted-foreground">Takes effect</dt>
-        <dd>{takes}</dd>
-      </dl>
-    </details>
-  );
-}
-
-function Setting({
-  title,
-  registryKey,
-  titleId,
-  control,
-  children,
-}: {
-  title: string;
-  registryKey: string;
-  titleId: string;
-  control?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section
-      aria-labelledby={titleId}
-      className="flex flex-col gap-1.5 border-t border-border pt-3 first:border-t-0 first:pt-0"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-        <h4
-          id={titleId}
-          className="flex flex-wrap items-baseline gap-x-2 text-sm font-semibold"
-        >
-          {title} <Key>{registryKey}</Key>
-        </h4>
-        {control}
-      </div>
-      {children}
-    </section>
-  );
-}
 
 function ToolListing({
   value,
@@ -198,6 +137,44 @@ function SwitchSetting({
     >
       {help}
       {children}
+    </Setting>
+  );
+}
+
+function SerialSwitch({
+  on,
+  busy,
+  onChange,
+}: {
+  on: boolean;
+  busy: boolean;
+  onChange: (on: boolean) => void;
+}) {
+  const id = useId();
+  return (
+    <Setting
+      title={SERIAL_LABEL}
+      registryKey="serial"
+      titleId={id}
+      control={
+        <Switch
+          aria-labelledby={id}
+          checked={on}
+          disabled={busy}
+          onCheckedChange={onChange}
+        />
+      }
+    >
+      <p className="text-meta text-muted-foreground">
+        Run one call at a time; use only when the server cannot interleave requests.
+        Further calls wait their turn in the order they came, and the wait does not count
+        against a call&apos;s time. Other servers are not slowed down.
+      </p>
+      <Help
+        fallback="Off"
+        change="The server mixes up answers, or fails, when two calls are in flight at once, for example because it has a single browser session or one database connection."
+        takes="With the next call. No restart. Reading resources and prompts is not queued."
+      />
     </Setting>
   );
 }
@@ -520,6 +497,16 @@ export function AdvancedRow({ server, enabled, health, info }: AdvancedRowProps)
     );
   }
 
+  function chooseSerial(on: boolean) {
+    void applyChange(
+      SERIAL_LABEL,
+      { serial: on },
+      () => setSerial(serverId, on),
+      () => chooseSerial(!on),
+      `${SERIAL_LABEL}: ${on ? "on" : "off"} for ${server.name}.`,
+    );
+  }
+
   let note: string | null = null;
   if (!enabled) {
     note = `${server.name} is off. Your settings are saved and are read the next time it starts.`;
@@ -637,8 +624,17 @@ export function AdvancedRow({ server, enabled, health, info }: AdvancedRowProps)
           </>
         }
       />
+      <SerialSwitch on={values.serial} busy={busy !== null} onChange={chooseSerial} />
       {local ? (
-        <CallLimit key={data.id} server={server} info={data} onSaved={info.reload} />
+        <>
+          <CallLimit key={data.id} server={server} info={data} onSaved={info.reload} />
+          <ToolBudgets
+            key={data.id}
+            serverName={server.name}
+            info={data}
+            onSaved={info.reload}
+          />
+        </>
       ) : (
         <Setting
           title="Longest a call may run"
@@ -649,6 +645,19 @@ export function AdvancedRow({ server, enabled, health, info }: AdvancedRowProps)
           <p className="text-meta text-muted-foreground">
             Not used for remote servers. A call to a remote server waits for its request
             timeout (set in Edit) and no longer, even if the server reports progress.
+          </p>
+        </Setting>
+      )}
+      {!local && (
+        <Setting
+          title="Time budget per tool"
+          registryKey="toolBudgets"
+          titleId={`${server.id}-budgets-remote`}
+          control={<Badge variant="off">Local servers only</Badge>}
+        >
+          <p className="text-meta text-muted-foreground">
+            A call to a remote server waits for its request timeout (set in Edit),
+            whatever tool it calls.
           </p>
         </Setting>
       )}

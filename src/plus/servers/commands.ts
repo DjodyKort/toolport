@@ -75,6 +75,21 @@ export const setCallLimit = (key: string, ms: number | null) =>
 
 export const loadReach = () => ctlData<ReachData>(["client", "reach"]);
 
+export const setSerial = (key: string, on: boolean) =>
+  ctlData<EditData>(["server", "edit", key, on ? "--serial" : "--no-serial"]);
+
+/** One entry per tool whose budget changes: seconds, or `null` to remove it. */
+export const setToolBudgets = (key: string, changes: Array<[string, number | null]>) =>
+  ctlData<EditData>([
+    "server",
+    "edit",
+    key,
+    ...changes.flatMap(([tool, seconds]) => [
+      "--tool-budget",
+      `${tool}=${seconds ?? "default"}`,
+    ]),
+  ]);
+
 export const listAccessSets = () => callTool<AccessSetsData>("servers_list_profiles", {});
 
 export const setMembership = (server: string, set: string, member: boolean) =>
