@@ -534,17 +534,32 @@ fn note(detail: impl Into<String>, path: Option<&str>) -> Step {
     }
 }
 
-fn outcome_value(
-    server: &ServerRecord,
-    client: &ClientInfo,
-    entry: &str,
+struct Who<'a> {
+    server: &'a ServerRecord,
+    client: &'a ClientInfo,
+    entry: &'a str,
+}
+
+struct Planned<'a> {
     action: Action,
-    dry_run: bool,
-    hash: &str,
-    plan: &PlanV1,
-    result: Option<&ResultV1>,
-    remote: Option<&str>,
-) -> Value {
+    hash: &'a str,
+    plan: &'a PlanV1,
+    remote: Option<&'a str>,
+}
+
+fn outcome_value(who: Who, planned: Planned, result: Option<&ResultV1>) -> Value {
+    let Who {
+        server,
+        client,
+        entry,
+    } = who;
+    let Planned {
+        action,
+        hash,
+        plan,
+        remote,
+    } = planned;
+    let dry_run = result.is_none();
     let mut value = json!({
         "client": client.id,
         "clientName": client.name,
@@ -750,15 +765,18 @@ pub fn add(host: &dyn Host, args: &Args) -> Result<Value, OpError> {
     let remote = record.url.clone();
     if args.dry_run {
         return Ok(outcome_value(
-            &server,
-            &client,
-            &entry,
-            action,
-            true,
-            &hash,
-            &plan,
+            Who {
+                server: &server,
+                client: &client,
+                entry: &entry,
+            },
+            Planned {
+                action,
+                hash: &hash,
+                plan: &plan,
+                remote: remote.as_deref(),
+            },
             None,
-            remote.as_deref(),
         ));
     }
     check_plan_hash(args, &hash)?;
@@ -789,15 +807,18 @@ pub fn add(host: &dyn Host, args: &Args) -> Result<Value, OpError> {
     let mut done = client.clone();
     done.config_path = path;
     Ok(outcome_value(
-        &server,
-        &done,
-        &entry,
-        action,
-        false,
-        &hash,
-        &plan,
+        Who {
+            server: &server,
+            client: &done,
+            entry: &entry,
+        },
+        Planned {
+            action,
+            hash: &hash,
+            plan: &plan,
+            remote: remote.as_deref(),
+        },
         Some(&result),
-        remote.as_deref(),
     ))
 }
 
@@ -912,7 +933,18 @@ fn remove_in(
     }));
     if args.dry_run {
         return Ok(outcome_value(
-            &shown, client, entry, action, true, &hash, &plan, None, None,
+            Who {
+                server: &shown,
+                client,
+                entry,
+            },
+            Planned {
+                action,
+                hash: &hash,
+                plan: &plan,
+                remote: None,
+            },
+            None,
         ));
     }
     check_plan_hash(args, &hash)?;
@@ -941,15 +973,18 @@ fn remove_in(
     let mut done = client.clone();
     done.config_path = path;
     Ok(outcome_value(
-        &shown,
-        &done,
-        entry,
-        action,
-        false,
-        &hash,
-        &plan,
+        Who {
+            server: &shown,
+            client: &done,
+            entry,
+        },
+        Planned {
+            action,
+            hash: &hash,
+            plan: &plan,
+            remote: None,
+        },
         Some(&result),
-        None,
     ))
 }
 
