@@ -15,9 +15,11 @@ use serde_json::{json, Value};
 use toolport_plus::selfmcp::{RESOURCES, TOOLS};
 
 mod common;
+use common::attention_world::{attention_home, attention_updates};
 use common::client::Client;
 use common::compression;
 use common::library_world::{self, library_home};
+use common::server_repo_world::server_repo;
 use common::tasks_world::{scheduler_home, tasks_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
@@ -163,6 +165,153 @@ const AIDER_REMOVE_UNCONFIRMED: &str = r#"{"client_keys":["aider"],"dry_run":fal
 const AIDER_REMOVE: &str = r#"{"client_keys":["aider"],"dry_run":false,"confirm":true}"#;
 
 const CASES: &[Case] = &[
+    prepared(
+        "attention_list",
+        attention_home,
+        &[
+            read("busy", "attention_list", "{}"),
+            setup(
+                "attention_dismiss",
+                r#"{"id":"tasks:failed:nightly-report"}"#,
+            ),
+            read("hidden", "attention_list", r#"{"hidden":true}"#),
+        ],
+    ),
+    prepared(
+        "attention_snooze",
+        attention_home,
+        &[
+            write(
+                "hour",
+                "attention_snooze",
+                r#"{"id":"library:held","for":"1h"}"#,
+            ),
+            fails(
+                "too_long",
+                "invalid_arguments",
+                "attention_snooze",
+                r#"{"id":"library:held","for":"8d"}"#,
+            ),
+            fails(
+                "unknown_row",
+                "not_found",
+                "attention_snooze",
+                r#"{"id":"no-such-row"}"#,
+            ),
+            fails("missing_id", "invalid_arguments", "attention_snooze", "{}"),
+        ],
+    ),
+    prepared(
+        "attention_skip",
+        attention_updates,
+        &[
+            setup("attention_check", "{}"),
+            fails(
+                "without_a_version",
+                "invalid_arguments",
+                "attention_skip",
+                r#"{"id":"tasks:failed:nightly-report"}"#,
+            ),
+            write(
+                "skip",
+                "attention_skip",
+                r#"{"id":"updates:tap:team-skills:3c5d9d8e>60abf5fe"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "attention_dismiss",
+        attention_home,
+        &[
+            read(
+                "preview",
+                "attention_dismiss",
+                r#"{"id":"tasks:failed:nightly-report","dry_run":true}"#,
+            ),
+            write(
+                "dismiss",
+                "attention_dismiss",
+                r#"{"id":"tasks:failed:nightly-report"}"#,
+            ),
+            fails(
+                "needs_you",
+                "invalid_arguments",
+                "attention_dismiss",
+                r#"{"id":"library:held"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "attention_restore",
+        attention_home,
+        &[
+            fails(
+                "not_hidden",
+                "not_found",
+                "attention_restore",
+                r#"{"id":"library:held"}"#,
+            ),
+            setup(
+                "attention_dismiss",
+                r#"{"id":"tasks:failed:nightly-report"}"#,
+            ),
+            write(
+                "restore",
+                "attention_restore",
+                r#"{"id":"tasks:failed:nightly-report"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "attention_undo",
+        attention_home,
+        &[
+            fails("nothing", "not_found", "attention_undo", "{}"),
+            setup(
+                "attention_dismiss",
+                r#"{"id":"tasks:failed:nightly-report"}"#,
+            ),
+            write("undo", "attention_undo", "{}"),
+        ],
+    ),
+    prepared(
+        "attention_check",
+        attention_home,
+        &[write("no_sources", "attention_check", "{}")],
+    ),
+    prepared(
+        "attention_settings",
+        attention_home,
+        &[read("defaults", "attention_settings", "{}")],
+    ),
+    prepared(
+        "attention_set",
+        attention_home,
+        &[
+            write(
+                "check_off",
+                "attention_set",
+                r#"{"key":"check.updates","on":false}"#,
+            ),
+            write(
+                "notify_on",
+                "attention_set",
+                r#"{"key":"notify","on":true}"#,
+            ),
+            fails(
+                "unknown",
+                "invalid_arguments",
+                "attention_set",
+                r#"{"key":"check.nothing","on":true}"#,
+            ),
+            fails(
+                "missing_on",
+                "invalid_arguments",
+                "attention_set",
+                r#"{"key":"notify"}"#,
+            ),
+        ],
+    ),
     prepared(
         "tasks_list",
         tasks_home,
@@ -903,6 +1052,20 @@ const CASES: &[Case] = &[
                 "refused",
                 "servers_restart",
                 r#"{"name":"alpha","dry_run":false}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "servers_repo_status",
+        server_repo,
+        &[
+            read("behind", "servers_repo_status", "{}"),
+            read("one", "servers_repo_status", r#"{"name":"gamma"}"#),
+            fails(
+                "no_checkout",
+                "not_found",
+                "servers_repo_status",
+                r#"{"name":"alpha"}"#,
             ),
         ],
     ),

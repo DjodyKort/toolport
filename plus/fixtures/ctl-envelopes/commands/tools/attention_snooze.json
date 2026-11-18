@@ -1,0 +1,7 @@
+{
+  "command": "attention snooze",
+  "dryRun": "param",
+  "name": "attention_snooze",
+  "tier": "write",
+  "toolTier": 2
+}

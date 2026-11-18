@@ -1,0 +1,20 @@
+{
+  "argv": ["attention", "skip", "updates:tap:team-skills:3c5d9d8e>60abf5fe", "--dry-run"],
+  "envelope": {
+    "command": "attention skip",
+    "data": {
+      "dryRun": true,
+      "hidden": {
+        "at": "<TIME>",
+        "kind": "skip",
+        "state": "skipped"
+      },
+      "id": "updates:tap:team-skills:3c5d9d8e>60abf5fe",
+      "title": "The skill tap team-skills has 1 new commit upstream",
+      "undo": ["toolportctl", "attention", "undo"]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

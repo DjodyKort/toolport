@@ -1,0 +1,7 @@
+{
+  "command": "attention skip",
+  "dryRun": "param",
+  "name": "attention_skip",
+  "tier": "write",
+  "toolTier": 2
+}

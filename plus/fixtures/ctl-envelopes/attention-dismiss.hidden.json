@@ -1,0 +1,93 @@
+{
+  "argv": ["attention", "ls", "--hidden"],
+  "envelope": {
+    "command": "attention ls",
+    "data": {
+      "checkedAt": "<TIME>",
+      "checks": [
+        {
+          "name": "credentials",
+          "ok": true
+        },
+        {
+          "name": "updates",
+          "ok": true
+        },
+        {
+          "name": "tasks",
+          "ok": true
+        },
+        {
+          "name": "library",
+          "ok": true
+        }
+      ],
+      "counts": {
+        "needsYou": 3,
+        "worthALook": 0
+      },
+      "hidden": [
+        {
+          "action": {
+            "command": ["toolportctl", "task", "run", "nightly-report"],
+            "label": "Run again",
+            "screen": "tasks"
+          },
+          "detail": "Step 1 of 1 (Say hello) ended with an error.",
+          "hidden": {
+            "at": "<TIME>",
+            "kind": "dismiss"
+          },
+          "id": "tasks:failed:nightly-report",
+          "since": "<masked>",
+          "source": "Tasks",
+          "title": "Task Nightly report failed",
+          "urgency": "worth-a-look"
+        }
+      ],
+      "hiddenCount": 1,
+      "items": [
+        {
+          "action": {
+            "label": "Review",
+            "screen": "library"
+          },
+          "detail": "Auto-sync held back demo for claude-code: the file differs from the library.",
+          "id": "library:held",
+          "since": "<masked>",
+          "source": "Library",
+          "title": "1 change waits for you in the library",
+          "urgency": "needs-you"
+        },
+        {
+          "action": {
+            "command": ["toolportctl", "task", "resume", "run-fixture-waiting"],
+            "label": "Continue",
+            "screen": "tasks"
+          },
+          "detail": "Stopped at step 1 of 4: Sign in.",
+          "id": "tasks:waiting:run-fixture-waiting",
+          "since": "<masked>",
+          "source": "Tasks",
+          "title": "Task Refresh the portal token is waiting for you",
+          "urgency": "needs-you"
+        },
+        {
+          "action": {
+            "command": ["toolportctl", "secret", "set", "srv-alpha", "API_KEY"],
+            "label": "Set secret",
+            "screen": "servers"
+          },
+          "detail": "API_KEY is not set, so the server cannot start.",
+          "id": "credentials:secret:srv-alpha",
+          "source": "Credentials",
+          "title": "alpha is missing a secret",
+          "urgency": "needs-you"
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

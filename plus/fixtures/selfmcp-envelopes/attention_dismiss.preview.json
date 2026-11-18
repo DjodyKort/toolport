@@ -1,0 +1,19 @@
+{
+  "arguments": {
+    "dry_run": true,
+    "id": "tasks:failed:nightly-report"
+  },
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "hidden": {
+      "at": "<TIME>",
+      "kind": "dismiss",
+      "state": "dismissed"
+    },
+    "id": "tasks:failed:nightly-report",
+    "title": "Task Nightly report failed",
+    "undo": ["toolportctl", "attention", "undo"]
+  },
+  "tool": "attention_dismiss"
+}

@@ -1,5 +1,4 @@
 import type { CtlEnvelope, CtlResult } from "../bridge/ctl";
-import { registerAttentionFeed } from "../shell/attentionFeed";
 import { setClock } from "../tasks/clock";
 import type { HooksScenario, MeasureScenario } from "./compressionWorld";
 import { FIXTURE_NOW, type TaskWorldOptions } from "./taskWorld";
@@ -59,7 +58,6 @@ export function plusFixtureAccess(
   }
 }
 
-const HOUR = 3_600_000;
 const LIBRARY_SCENARIOS = [
   "plan",
   "done",
@@ -72,41 +70,6 @@ const LIBRARY_SCENARIOS = [
 ];
 
 const LIBRARY_AUTO = ["on", "held", "failed", "paused"];
-
-/** The three rows of the attention mockup, so the footer bell can be seen in the fixture. */
-function registerFixtureBell() {
-  const now = Date.now();
-  const snapshot = {
-    checkedAt: now - 120_000,
-    items: [
-      {
-        id: "secret",
-        urgency: "needs-you" as const,
-        title: "alpha-api is missing a secret",
-        detail: "API_KEY is not set. The server cannot start without it.",
-        source: "Servers",
-        since: now - HOUR,
-      },
-      {
-        id: "task",
-        urgency: "needs-you" as const,
-        title: "Task portal-token is waiting for you",
-        detail: "It stopped at a step that only you can do.",
-        source: "Tasks",
-        since: now - 25 * 60_000,
-      },
-      {
-        id: "login",
-        urgency: "needs-you" as const,
-        title: "beta needs a new sign-in",
-        detail: "The login stopped working. Check it again, or sign in once more.",
-        source: "Servers",
-        since: now - 3 * HOUR,
-      },
-    ],
-  };
-  registerAttentionFeed({ snapshot: () => snapshot, subscribe: () => () => {} });
-}
 
 const RESTART_SCENARIOS: Record<string, RestartScript> = {
   busy: { kind: "busy" },
@@ -163,7 +126,7 @@ const HOOK_SCENARIOS = [
   "none",
 ];
 
-/** `?plus-bell` shows the footer bell with three rows. `?plus-self=missing|enabled|disabled|opted-out|not-enabled`, `?plus-doctor=warn|fail` and
+/** `?plus-bell` shows the footer bell (`attentionFromSearch`). `?plus-self=missing|enabled|disabled|opted-out|not-enabled`, `?plus-doctor=warn|fail` and
  * `?plus-bridge=down` pick the state the fixture page starts in. `?plus-restart=busy|partial|none|slow`
  * picks how a server restart answers, `?plus-measured=fresh|stale`, `?plus-measure=slow|fail` and `?plus-bundles=none` set the Context screen's world,
  * `?plus-compression=adopt|on|paused|paused-open|missing|edited|none` the hooks of its Hooks & compression tab and
@@ -207,11 +170,22 @@ export function plusFixtureFromSearch(search: string) {
     },
     tasks: tasksFromSearch(params),
     library: libraryFromSearch(params),
+    attention: attentionFromSearch(params),
   });
-  if (params.has("plus-bell")) registerFixtureBell();
 }
 
 if (typeof location !== "undefined") plusFixtureFromSearch(location.search);
+
+/** `?plus-bell` shows the footer bell with five rows, `?plus-bell=clear` with none and
+ * `?plus-bell=unchecked` with one area that could not be read; without it `attention ls` fails and
+ * the bell stays out. */
+function attentionFromSearch(params: URLSearchParams): WorldOptions["attention"] {
+  if (!params.has("plus-bell")) return {};
+  const scenario = params.get("plus-bell");
+  return {
+    scenario: scenario === "clear" || scenario === "unchecked" ? scenario : "busy",
+  };
+}
 
 /** `?plus-library=plan|done|held|blocked|behind|empty|catchup|busy` picks the state of the Library
  * screen; `plus-library-chmod`, `-drift`, `-secret` and `-dirty` add one more thing that is wrong;

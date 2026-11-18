@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "id": "tasks:failed:nightly-report"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "tasks:failed:nightly-report carries no version or commit range to skip; snooze it or dismiss it"
+    }
+  },
+  "text": "invalid_arguments: tasks:failed:nightly-report carries no version or commit range to skip; snooze it or dismiss it",
+  "tool": "attention_skip"
+}

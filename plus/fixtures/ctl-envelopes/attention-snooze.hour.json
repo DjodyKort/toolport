@@ -1,0 +1,21 @@
+{
+  "argv": ["attention", "snooze", "library:held", "--for", "1h"],
+  "envelope": {
+    "command": "attention snooze",
+    "data": {
+      "dryRun": false,
+      "hidden": {
+        "at": "<TIME>",
+        "kind": "snooze",
+        "state": "snoozed",
+        "until": "<TIME>"
+      },
+      "id": "library:held",
+      "title": "1 change waits for you in the library",
+      "undo": ["toolportctl", "attention", "undo"]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

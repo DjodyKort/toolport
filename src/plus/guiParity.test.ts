@@ -66,7 +66,9 @@ describe("gui parity routes", () => {
     expect(built.length).toBeGreaterThan(0);
     for (const [id, route] of built) {
       const [kind, name] = (route.page ?? "").split(":");
-      if (kind === "settings") {
+      if (kind === "shell") {
+        expect(["footer"], `route ${id} -> ${route.page}`).toContain(name);
+      } else if (kind === "settings") {
         expect(
           SETTINGS_PAGES.map((p) => p.id),
           `route ${id} -> ${route.page}`,

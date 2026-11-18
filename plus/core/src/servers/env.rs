@@ -120,7 +120,7 @@ fn is_jwt(word: &str) -> bool {
         && parts.iter().all(|part| is_base64url(part))
 }
 
-fn entropy(word: &str) -> f64 {
+pub(crate) fn entropy(word: &str) -> f64 {
     let mut counts = std::collections::HashMap::new();
     for byte in word.bytes() {
         *counts.entry(byte).or_insert(0usize) += 1;
@@ -137,7 +137,7 @@ fn entropy(word: &str) -> f64 {
 
 /// Hex digests and mixed-case base64 are what keys look like; an all-lowercase slug such as a
 /// model name is not, even when it is long and has digits.
-fn is_opaque_blob(word: &str) -> bool {
+pub(crate) fn is_opaque_blob(word: &str) -> bool {
     let has = |test: fn(&char) -> bool| word.chars().any(|c| test(&c));
     let hex = word.chars().all(|c| c.is_ascii_hexdigit());
     word.len() >= BLOB_MIN_LEN
@@ -150,7 +150,7 @@ fn is_opaque_blob(word: &str) -> bool {
         && entropy(word) >= BLOB_MIN_ENTROPY
 }
 
-fn credential_reason(rules: &dyn ServerRules, text: &str) -> Option<&'static str> {
+pub(crate) fn credential_reason(rules: &dyn ServerRules, text: &str) -> Option<&'static str> {
     if has_url_userinfo(text) {
         return Some("it contains a URL with user info (user:pass@host)");
     }

@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "for": "8d",
+    "id": "library:held"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "a row that needs you can be snoozed for at most 7 days"
+    }
+  },
+  "text": "invalid_arguments: a row that needs you can be snoozed for at most 7 days",
+  "tool": "attention_snooze"
+}

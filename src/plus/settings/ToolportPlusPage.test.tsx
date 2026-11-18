@@ -70,8 +70,8 @@ describe("Settings > Toolport+", () => {
       Object.entries(guiParity.actions)
         .filter(
           ([, action]) =>
-            action.route !== "setup" &&
-            guiParity.routes[action.route]?.page === "settings:toolport",
+            guiParity.routes[action.route]?.component ===
+            "src/plus/settings/ToolportPlusPage.tsx",
         )
         .map(([id]) => id)
         .filter((id) => !(COVERS as readonly string[]).includes(id)),

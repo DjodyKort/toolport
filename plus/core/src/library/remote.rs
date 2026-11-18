@@ -24,6 +24,8 @@ pub struct LocalState {
     pub branch: Option<String>,
     pub upstream: Option<String>,
     pub head: Option<String>,
+    /// The commit of `upstream` as the clone last saw it.
+    pub upstream_head: Option<String>,
     pub ahead: u64,
     pub behind: u64,
     pub uncommitted: u64,
@@ -84,9 +86,16 @@ pub fn local_state(repo: &Path) -> LocalState {
         .map_or(0, |t| {
             t.lines().filter(|l| !l.trim().is_empty()).count() as u64
         });
+    let upstream_head = upstream.as_deref().and_then(|u| {
+        nonempty(git_out(
+            repo,
+            &["rev-parse", "--verify", "-q", &format!("{u}^{{commit}}")],
+        ))
+    });
     LocalState {
         branch,
         upstream,
+        upstream_head,
         head: nonempty(git_out(repo, &["rev-parse", "--verify", "-q", "HEAD"])),
         ahead,
         behind,
@@ -169,6 +178,14 @@ pub fn probe(repo: &Path) -> Result<(), String> {
 
 pub fn fetch(repo: &Path) -> Result<(), String> {
     network(repo, &["fetch", "--quiet", "origin"])
+}
+
+/// Fetches one named remote and nothing else: no other remote, no submodule.
+pub fn fetch_remote(repo: &Path, remote: &str) -> Result<(), String> {
+    network(
+        repo,
+        &["fetch", "--quiet", "--no-recurse-submodules", "--", remote],
+    )
 }
 
 fn last_fetch(repo: &Path) -> Option<String> {

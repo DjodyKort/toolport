@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "snooze"],
+  "envelope": {
+    "command": "attention snooze",
+    "error": {
+      "code": "usage",
+      "message": "usage: toolportctl attention snooze <id> [--for 1h|--until <time>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

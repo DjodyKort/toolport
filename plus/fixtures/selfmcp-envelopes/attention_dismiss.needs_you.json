@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "id": "library:held"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "a row that needs you cannot be dismissed; snooze it"
+    }
+  },
+  "text": "invalid_arguments: a row that needs you cannot be dismissed; snooze it",
+  "tool": "attention_dismiss"
+}

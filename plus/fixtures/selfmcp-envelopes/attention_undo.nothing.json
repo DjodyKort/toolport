@@ -1,0 +1,12 @@
+{
+  "arguments": {},
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "there is nothing to undo"
+    }
+  },
+  "text": "not_found: there is nothing to undo",
+  "tool": "attention_undo"
+}

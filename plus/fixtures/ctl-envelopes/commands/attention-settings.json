@@ -1,0 +1,25 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "attention",
+  "id": "attention settings",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["attention", "settings"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Show which checks are on and which rows may notify",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["attention_settings"]
+}

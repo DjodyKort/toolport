@@ -1,0 +1,12 @@
+{
+  "arguments": {
+    "id": "tasks:failed:nightly-report"
+  },
+  "isError": false,
+  "result": {
+    "id": "tasks:failed:nightly-report",
+    "restored": true,
+    "undo": ["toolportctl", "attention", "undo"]
+  },
+  "tool": "attention_restore"
+}

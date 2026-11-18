@@ -1,0 +1,36 @@
+{
+  "argv": ["attention", "ls"],
+  "envelope": {
+    "command": "attention ls",
+    "data": {
+      "checkedAt": "<TIME>",
+      "checks": [
+        {
+          "name": "credentials",
+          "ok": true
+        },
+        {
+          "name": "updates",
+          "ok": true
+        },
+        {
+          "name": "tasks",
+          "ok": true
+        },
+        {
+          "name": "library",
+          "ok": true
+        }
+      ],
+      "counts": {
+        "needsYou": 0,
+        "worthALook": 0
+      },
+      "hiddenCount": 0,
+      "items": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

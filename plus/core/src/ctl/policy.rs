@@ -12,6 +12,7 @@
 //! the rows, so a new command is classified by adding its row and nothing else.
 
 use super::agents;
+use super::attention;
 use super::auth;
 use super::context;
 use super::flags::{switch, value, Flag, Spec};
@@ -21,6 +22,7 @@ use super::memory;
 use super::plugins;
 use super::secret;
 use super::server;
+use super::server_repo;
 use super::setup;
 use super::skills;
 use super::skills_checks;
@@ -349,6 +351,20 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&server::MODE])
         .args(&[req("server"), req("mode")])
         .skip("changes how a server is listed; plus_ctl_contract round trip in a scratch registry"),
+    row("server repo status", R).spec(&[&server_repo::STATUS]),
+    row("server repo check", W)
+        .spec(&[&server_repo::CHECK])
+        .skip("fetches from remotes; golden step uses a local remote"),
+    row("server repo update", W)
+        .dry()
+        .spec(&[&server_repo::UPDATE])
+        .args(&[req("server")])
+        .skip("moves a checkout, runs a build and restarts; its --dry-run is a golden step"),
+    row("server repo undo", W)
+        .dry()
+        .spec(&[&server_repo::UNDO])
+        .args(&[req("server")])
+        .skip("moves a checkout back; its --dry-run is a golden step"),
     row("server uninstall", D)
         .dry()
         .spec(&[&server::UNINSTALL])
@@ -514,6 +530,25 @@ pub(super) const ROWS: &[Row] = &[
     row("skills auto resume", W).skip("clears the pause flag in the data dir; golden step"),
     row("skills ls", R).spec(&[&skills::LS_SOURCE]),
     row("skills lint", R).spec(&[&skills::LINT]),
+    row("attention ls", R).spec(&[&attention::LS]),
+    row("attention snooze", W)
+        .dry()
+        .spec(&[&attention::SNOOZE])
+        .skip("writes the hidden list in the data dir; golden step"),
+    row("attention skip", W)
+        .dry()
+        .spec(&[&attention::HIDE])
+        .skip("writes the hidden list in the data dir; golden step"),
+    row("attention dismiss", W)
+        .dry()
+        .spec(&[&attention::HIDE])
+        .skip("writes the hidden list in the data dir; golden step"),
+    row("attention restore", W).skip("writes the hidden list in the data dir; golden step"),
+    row("attention undo", W).skip("writes the hidden list in the data dir; golden step"),
+    row("attention check", W).skip("fetches from remotes; golden step uses a local remote"),
+    row("attention settings", R),
+    row("attention notify", W).skip("needs the running app; golden step"),
+    row("attention set", W).skip("writes the switches in the data dir; golden step"),
     row("sources ls", R).spec(&[&sources::LS]),
     row("sources root ls", R).spec(&[&sources::ROOT_LS]),
     row("sources root add", W)
@@ -989,6 +1024,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("servers_set_mode", W, "server mode"),
     maps("servers_uninstall", D, "server uninstall"),
     maps("servers_restart", W, "server restart").on(),
+    maps("servers_repo_status", R, "server repo status"),
     maps("servers_auth", W, "auth login"),
     maps("context_bundle_ls", R, "context bundle ls"),
     maps("context_bundle_status", R, "context bundle status"),
@@ -1013,6 +1049,15 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("skills_get", R),
     maps("skills_lint", R, "skills lint"),
     maps("skills_files", R, "skills files"),
+    maps("attention_list", R, "attention ls"),
+    maps("attention_snooze", W, "attention snooze").param(),
+    maps("attention_skip", W, "attention skip").param(),
+    maps("attention_dismiss", W, "attention dismiss").param(),
+    maps("attention_restore", W, "attention restore"),
+    maps("attention_undo", W, "attention undo"),
+    maps("attention_check", W, "attention check"),
+    maps("attention_settings", R, "attention settings"),
+    maps("attention_set", W, "attention set"),
     maps("sources_ls", R, "sources ls"),
     maps("skills_fix", W, "skills fix").on(),
     maps("skills_status", R, "skills status"),

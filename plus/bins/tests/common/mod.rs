@@ -1,11 +1,13 @@
 #![allow(dead_code)]
 
+pub mod attention_world;
 pub mod client;
 pub mod compression;
 pub mod golden;
 pub mod library_world;
 pub mod normalize;
 pub mod oauth_mock;
+pub mod server_repo_world;
 pub mod setup_world;
 pub mod sources_world;
 pub mod tasks_world;

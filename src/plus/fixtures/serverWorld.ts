@@ -1,5 +1,6 @@
 import type { AuthFix, AuthRow, AuthSection, LoginState } from "../bridge/data";
 import type { CtlReply } from "./ctlWorld";
+import { createRepoWorld, type RepoSeed } from "./repoWorld";
 import type {
   AccessSetsData,
   EditData,
@@ -89,6 +90,8 @@ export interface ServerWorldOptions {
   signIn?: Record<string, SignInScript>;
   /** Every vault command fails the way a locked keychain does. */
   vaultLocked?: boolean;
+  /** Servers that run from a git checkout, by server id. */
+  repos?: Record<string, RepoSeed>;
 }
 
 const PLACEHOLDER = /^<.*>$|^(changeme|your[-_ ]?(api[-_ ]?)?key.*)$/i;
@@ -282,6 +285,7 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
   const probes = new Map<string, number>();
 
   const find = (key: string) => servers.find((s) => s.id === key || s.name === key);
+  const repoWorld = createRepoWorld(options.repos ?? {}, find);
   const setOf = (key: string) =>
     sets.find((s) => s.id === key) ??
     sets.find((s) => s.name.toLowerCase() === key.trim().toLowerCase());
@@ -711,6 +715,7 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
     },
     run(argv: string[]): CtlReply {
       const [, verb, key] = argv;
+      if (verb === "repo") return repoWorld.run(argv.slice(2));
       if (verb === "ls") {
         const data: ServerListData = {
           defaultAccess,

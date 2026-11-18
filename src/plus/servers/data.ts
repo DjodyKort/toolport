@@ -173,3 +173,87 @@ export interface LoginData {
   probe: ProbeReport | null;
   servers: AuthRow[];
 }
+
+export type RepoState =
+  "up_to_date" | "behind" | "dirty" | "diverged" | "detached" | "no_upstream" | "busy";
+
+/** One server that runs from a git checkout, as `server repo status` reports it. */
+export interface RepoRowData {
+  server: string;
+  id: string;
+  root: string;
+  branch: string | null;
+  head: string | null;
+  remote: string | null;
+  url: string | null;
+  upstream: string | null;
+  upstreamHead: string | null;
+  ahead: number;
+  behind: number;
+  dirty: number;
+  unpushed: number;
+  state: RepoState;
+  checkedAt: string | null;
+  error: string | null;
+}
+
+export interface RepoStatusData {
+  repos: RepoRowData[];
+}
+
+export interface RepoCheckData {
+  checkedAt: string;
+  repos: Array<{ server: string; ok: boolean; error?: string }>;
+}
+
+export interface RepoPlan {
+  server: string;
+  id: string;
+  root: string;
+  branch: string | null;
+  upstream: string | null;
+  from: string | null;
+  to: string | null;
+  commits: Array<{ id: string; subject: string }>;
+  commitsTotal: number;
+  files: Array<{ status: string; path: string }>;
+  filesTotal: number;
+  sharedWith: string[];
+  refusal: { code: string; message: string } | null;
+  build: {
+    command: string | null;
+    remembered: boolean;
+    blocked?: string | null;
+    timeoutSeconds: number;
+  };
+  /** `null` when no gateway answered: nothing is running that a restart could cut. */
+  inFlight: number | null;
+  planHash: string;
+  undo: string;
+}
+
+export interface RepoPlanData {
+  plan: RepoPlan;
+}
+
+export interface RepoBuildRun {
+  command: string;
+  ok: boolean;
+  exitCode: number;
+  elapsedMs: number;
+  output: string;
+}
+
+export interface RepoDoneData {
+  applied: boolean;
+  server: string;
+  id: string;
+  root: string;
+  branch: string;
+  from: string;
+  to: string;
+  build: RepoBuildRun | null;
+  restart: { status: string; detail: string } | null;
+  warnings: string[];
+  undo: string;
+}

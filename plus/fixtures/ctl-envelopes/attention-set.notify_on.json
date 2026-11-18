@@ -1,0 +1,54 @@
+{
+  "argv": ["attention", "set", "notify", "on"],
+  "envelope": {
+    "command": "attention set",
+    "data": {
+      "key": "notify",
+      "on": true,
+      "settings": {
+        "checks": [
+          {
+            "name": "credentials",
+            "on": true
+          },
+          {
+            "name": "updates",
+            "on": false
+          },
+          {
+            "name": "tasks",
+            "on": true
+          },
+          {
+            "name": "library",
+            "on": true
+          }
+        ],
+        "notify": {
+          "categories": [
+            {
+              "name": "credentials",
+              "on": true
+            },
+            {
+              "name": "updates",
+              "on": false
+            },
+            {
+              "name": "tasks",
+              "on": true
+            },
+            {
+              "name": "library",
+              "on": false
+            }
+          ],
+          "enabled": true
+        }
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

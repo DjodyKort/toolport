@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { View } from "@/lib/types";
 
 export type AttentionUrgency = "needs-you" | "worth-a-look";
 
@@ -11,11 +12,26 @@ export interface AttentionItem {
   source: string;
   /** Epoch milliseconds. */
   since?: number;
+  /** The one button of the row: it opens the page that owns the condition. */
+  action?: AttentionAction;
+  /** Set when the row can be skipped: the label names what is skipped ("1.5.0"). */
+  skip?: { label: string };
+}
+
+export interface AttentionAction {
+  label: string;
+  view: View;
+  /** The `toolportctl` argv that does the fix without opening the page. */
+  command?: string[];
 }
 
 export interface AttentionSnapshot {
   items: AttentionItem[];
   checkedAt: number | null;
+  /** Areas that could not be read; while any exists the list is not an all-clear. */
+  unchecked?: string[];
+  /** Rows a snooze, skip or dismissal keeps out of the list. */
+  hiddenCount?: number;
 }
 
 /** Where the footer bell gets its rows. Slice S9 supplies the real feed; until a feed is

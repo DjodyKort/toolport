@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "repo", "status", "alpha"],
+  "envelope": {
+    "command": "server repo status",
+    "error": {
+      "code": "not_found",
+      "message": "alpha does not run from a git checkout on this machine"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "snooze", "library:held", "--for", "8d"],
+  "envelope": {
+    "command": "attention snooze",
+    "error": {
+      "code": "usage",
+      "message": "a row that needs you can be snoozed for at most 7 days"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

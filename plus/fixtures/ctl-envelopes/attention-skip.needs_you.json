@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "skip", "library:held"],
+  "envelope": {
+    "command": "attention skip",
+    "error": {
+      "code": "usage",
+      "message": "library:held carries no version or commit range to skip; snooze it or dismiss it"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

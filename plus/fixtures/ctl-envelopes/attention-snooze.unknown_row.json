@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "snooze", "no-such-row"],
+  "envelope": {
+    "command": "attention snooze",
+    "error": {
+      "code": "not_found",
+      "message": "no row no-such-row; list the ids with `toolportctl attention ls`"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

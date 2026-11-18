@@ -208,3 +208,75 @@ export interface CommandsData {
   needs: Need[];
   tiers: Tier[];
 }
+
+/** `attention ls`: what needs the person now, from the four areas the bell reads. */
+export interface AttentionData {
+  checkedAt: string;
+  counts: { needsYou: number; worthALook: number };
+  checks: Array<{
+    name: string;
+    ok: boolean;
+    error?: string;
+    /** The person switched this check off; it raises nothing. */
+    off?: boolean;
+    /** When a check that asks the network last ran. */
+    checkedAt?: string;
+  }>;
+  items: AttentionRow[];
+  /** Rows a snooze, skip or dismissal keeps out of `items`. */
+  hiddenCount?: number;
+  /** Only with `--hidden`. */
+  hidden?: AttentionHiddenRow[];
+}
+
+export interface AttentionHiddenRow extends AttentionRow {
+  hidden: {
+    kind: "snooze" | "skip" | "dismiss";
+    at: string;
+    /** When a snooze ends. */
+    until?: string;
+  };
+}
+
+export type AttentionCheckName = "credentials" | "updates" | "tasks" | "library";
+
+/** `attention settings`: which checks run and which categories may notify. */
+export interface AttentionSettings {
+  checks: Array<{ name: AttentionCheckName; on: boolean }>;
+  notify: {
+    enabled: boolean;
+    categories: Array<{ name: AttentionCheckName; on: boolean }>;
+  };
+}
+
+/** `attention check`: what the network pass looked at. */
+export interface AttentionCheckReport {
+  checkedAt: string;
+  off: boolean;
+  sources: Array<{ source: string; ok: boolean; error?: string }>;
+}
+
+/** What hiding a row answers, so the toast can say what happened. */
+export interface AttentionHideResult {
+  id: string;
+  title: string;
+  hidden: { kind: "snooze" | "skip" | "dismiss"; until?: string; state: string };
+}
+
+export interface AttentionRow {
+  id: string;
+  urgency: "needs-you" | "worth-a-look";
+  title: string;
+  detail: string;
+  source: string;
+  /** RFC 3339; absent when the store behind the row keeps no time. */
+  since?: string;
+  action?: {
+    label: string;
+    screen: "servers" | "tasks" | "library";
+    /** The `toolportctl` argv that fixes the row without opening the screen. */
+    command?: string[];
+  };
+  /** Only a row whose id carries a version or commit range can be skipped. */
+  skip?: { label: string };
+}

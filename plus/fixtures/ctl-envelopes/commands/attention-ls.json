@@ -1,0 +1,49 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Also list the rows a snooze, skip or dismissal keeps out, with what hides them",
+      "escalates": false,
+      "hidden": false,
+      "name": "--hidden",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "choices": ["needs-you", "look", "fyi"],
+      "effect": "Only rows of this level",
+      "escalates": false,
+      "hidden": false,
+      "name": "--level",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    }
+  ],
+  "group": "attention",
+  "id": "attention ls",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["attention", "ls"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List what needs you now: missing secrets, expired sign-ins, tasks waiting or failing, library changes held back, updates upstream (--hidden, --level)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["attention_list"]
+}

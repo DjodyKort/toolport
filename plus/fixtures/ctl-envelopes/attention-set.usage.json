@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "set", "notify"],
+  "envelope": {
+    "command": "attention set",
+    "error": {
+      "code": "usage",
+      "message": "usage: toolportctl attention set <notify|check.<name>|notify.<name>> <on|off>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

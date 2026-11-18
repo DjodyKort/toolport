@@ -2,9 +2,8 @@ use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
 use super::{
-    backend, compression, content, context, library, memory, servers, setup, skills, sources,
-    tasks,
-    ToolError,
+    attention, backend, compression, content, context, library, memory, servers, setup, skills,
+    sources, tasks, ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -79,6 +78,7 @@ const CWD: Param = p("cwd", Ty::Str, true, "The folder where Claude Code starts"
 const ENTITY: Param = p("name", Ty::Str, true, "Entity or server name");
 const BODY: Param = p("new_body", Ty::Str, true, "Replacement body");
 const SKILL_NAME: Param = p("name", Ty::Str, true, "Skill or rule name");
+const ATT_ID: Param = p("id", Ty::Str, true, "The row id from attention_list");
 const REPO: Param = p("repo_path", Ty::Str, false, "Skills repository root");
 const CLIENTS: Param = p("client_keys", Ty::StrList, false, "Client keys to target");
 const COMMIT: Param = p("commit_message", Ty::Str, true, "Commit message");
@@ -160,6 +160,78 @@ pub const TOOLS: &[ToolDef] = &[
             p("names", Ty::StrList, false, "Limit to these skills")
         ],
         skills::lint
+    ),
+    tool!(
+        "attention_list",
+        1,
+        None,
+        "List what needs the person right now, computed fresh: missing secrets, sign-ins that need renewing, the secrets vault, tasks waiting for you or failing, library changes held back and updates upstream. Rows are ordered needs-you first, newest first, each with a source and an action; checks lists any area that could not be read or is switched off. Pass hidden to add the rows a snooze, skip or dismissal keeps out. Read only",
+        [p("hidden", Ty::Bool, false, "Also list the hidden rows with what hides them")],
+        attention::list
+    ),
+    tool!(
+        "attention_snooze",
+        2,
+        None,
+        "Hide a row for a while; it returns by itself when the time passes or the row gets more urgent. A row that needs the person can be snoozed for at most 7 days. Default one day. Pass dry_run to see the change without making it",
+        [ATT_ID, p("for", Ty::Str, false, "How long: 1h, 2d, 90m"), p("until", Ty::Str, false, "When it ends, as a timestamp with an offset"), p("dry_run", Ty::Bool, false, "Report without writing")],
+        attention::snooze
+    ),
+    tool!(
+        "attention_skip",
+        2,
+        None,
+        "Skip the exact version or commit range a worth-a-look update row is about; the row returns when a newer one appears. Not for rows that need the person",
+        [ATT_ID, p("dry_run", Ty::Bool, false, "Report without writing")],
+        attention::skip
+    ),
+    tool!(
+        "attention_dismiss",
+        2,
+        None,
+        "Hide a worth-a-look row that carries no version until restored. Not for rows that need the person",
+        [ATT_ID, p("dry_run", Ty::Bool, false, "Report without writing")],
+        attention::dismiss
+    ),
+    tool!(
+        "attention_restore",
+        2,
+        None,
+        "Show a hidden row again at once",
+        [ATT_ID],
+        attention::restore
+    ),
+    tool!(
+        "attention_undo",
+        2,
+        None,
+        "Undo the last snooze, skip, dismissal or restore",
+        [],
+        attention::undo
+    ),
+    tool!(
+        "attention_check",
+        2,
+        None,
+        "Fetch the skill taps, plugin marketplaces and the library to see new upstream commits; the one check that uses the network. Applies nothing",
+        [],
+        attention::check
+    ),
+    tool!(
+        "attention_settings",
+        1,
+        None,
+        "Read which checks are on and which rows may notify. Read only",
+        [],
+        attention::settings
+    ),
+    tool!(
+        "attention_set",
+        2,
+        None,
+        "Switch a check or a notification on or off: key is notify, check.<name> or notify.<name> with name credentials, updates, tasks or library",
+        [p("key", Ty::Str, true, "notify, check.<name> or notify.<name>"), p("on", Ty::Bool, true, "true to switch on")],
+        attention::set
     ),
     tool!(
         "sources_ls",
@@ -890,6 +962,19 @@ pub const TOOLS: &[ToolDef] = &[
         "Read one server entry without secret values",
         [NAME],
         servers::get
+    ),
+    tool!(
+        "servers_repo_status",
+        1,
+        None,
+        "Where the git checkout each local server runs from stands against the branch it tracks: branch, head, commits ahead and behind, local changes and the time of the last fetch. Reads git state already on disk and fetches nothing; applying an update is not offered here",
+        [p(
+            "name",
+            Ty::Str,
+            false,
+            "Server id or name; every server that runs from a checkout when omitted"
+        )],
+        servers::repo_status
     ),
     tool!(
         "servers_list_profiles",

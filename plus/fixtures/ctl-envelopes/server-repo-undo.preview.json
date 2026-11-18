@@ -1,0 +1,22 @@
+{
+  "argv": ["server", "repo", "undo", "gamma", "--dry-run"],
+  "envelope": {
+    "command": "server repo undo",
+    "data": {
+      "plan": {
+        "blocked": null,
+        "branch": "main",
+        "build": "echo built",
+        "from": "fab65b24170eb5d491fa9ad78d358f61054f8a4d",
+        "id": "srv-gamma",
+        "refusal": null,
+        "root": "<WORLD>/gamma-work",
+        "server": "gamma",
+        "to": "86846020f965369a54fc0d28358325928001cfbd"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

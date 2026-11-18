@@ -1,0 +1,7 @@
+{
+  "command": "attention undo",
+  "dryRun": "none",
+  "name": "attention_undo",
+  "tier": "write",
+  "toolTier": 2
+}

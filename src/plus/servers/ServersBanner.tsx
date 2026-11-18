@@ -8,6 +8,7 @@ import { clock } from "./format";
 import { loginFailed } from "./loginModel";
 import { restart, useFailedRestarts } from "./restartStore";
 import type { PlusHost } from "./ServerOperations";
+import { AttentionBanner } from "../attention/AttentionBanner";
 import { plural } from "../settings/model";
 import { useLoad } from "./useLoad";
 import { observeServers, useServerWatch } from "./watch";
@@ -66,7 +67,9 @@ export default function ServersBanner({ registry, host }: ServersBannerProps) {
       loginFailed(row) &&
       servers.some((s) => s.id === row.server && s.transport === "stdio"),
   );
-  if (fresh.length === 0 && failed.length === 0 && refused.length === 0) return null;
+  if (fresh.length === 0 && failed.length === 0 && refused.length === 0) {
+    return <AttentionBanner page="servers" className="-mt-3" />;
+  }
 
   async function checkAgain() {
     setChecking(true);
@@ -77,6 +80,7 @@ export default function ServersBanner({ registry, host }: ServersBannerProps) {
 
   return (
     <div className="-mt-3 flex flex-col gap-2" data-plus="servers-banner">
+      <AttentionBanner page="servers" />
       {fresh.length > 0 && (
         <StatusCard
           icon={<PackagePlus />}

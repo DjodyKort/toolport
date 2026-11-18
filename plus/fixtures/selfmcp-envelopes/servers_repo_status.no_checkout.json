@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "alpha"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "alpha does not run from a git checkout on this machine"
+    }
+  },
+  "text": "not_found: alpha does not run from a git checkout on this machine",
+  "tool": "servers_repo_status"
+}

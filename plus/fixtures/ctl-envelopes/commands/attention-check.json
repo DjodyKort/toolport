@@ -1,0 +1,25 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "attention",
+  "id": "attention check",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["attention", "check"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Fetch the taps, marketplaces and the library to see new upstream commits; applies nothing",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["attention_check"]
+}

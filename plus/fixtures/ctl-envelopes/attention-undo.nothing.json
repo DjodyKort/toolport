@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "undo"],
+  "envelope": {
+    "command": "attention undo",
+    "error": {
+      "code": "not_found",
+      "message": "there is nothing to undo"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

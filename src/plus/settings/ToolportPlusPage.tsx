@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import {
   ChevronRight,
   CircleCheck,
@@ -33,6 +33,8 @@ const LEAD_ICON: Record<LeadVariant, React.ReactNode> = {
   success: <CircleCheck />,
   info: <Info />,
 };
+
+const AttentionManage = lazy(() => import("../attention/AttentionManage"));
 
 export interface ToolportPlusPageProps {
   registry: Registry | null;
@@ -201,6 +203,13 @@ export default function ToolportPlusPage({
             </Button>
           </div>
         </div>
+      </section>
+
+      <section aria-label="Attention">
+        <SectionHeader>Attention</SectionHeader>
+        <Suspense fallback={<SkeletonRows label="Loading attention" />}>
+          <AttentionManage />
+        </Suspense>
       </section>
 
       <section aria-label="Commands">

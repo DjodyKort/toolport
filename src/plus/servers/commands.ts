@@ -7,6 +7,10 @@ import type {
   MembershipData,
   ModeData,
   ProbeData,
+  RepoCheckData,
+  RepoDoneData,
+  RepoPlanData,
+  RepoStatusData,
   RestartData,
   SecretGetData,
   ServerInfoData,
@@ -168,3 +172,66 @@ export async function revealSecret(server: string, key: string): Promise<string>
   const data = await ctlData<SecretGetData>(["secret", "get", server, key, "--reveal"]);
   return data.value ?? "";
 }
+
+export const repoStatus = (key: string) =>
+  ctlData<RepoStatusData>(["server", "repo", "status", key]);
+
+/** Fetches every checkout; a fetch that failed in one still returns the others' answers. */
+export const repoCheck = () =>
+  ctlDataOrFailure<RepoCheckData>(["server", "repo", "check"]);
+
+export interface RepoBuildChoice {
+  /** The command to run after the update; `null` leaves the files alone. */
+  command: string | null;
+  /** The command the person typed or ticked rather than the remembered one. */
+  explicit: boolean;
+}
+
+function buildArgs(choice: RepoBuildChoice | undefined): string[] {
+  if (!choice) return [];
+  if (choice.command === null) return ["--no-build"];
+  return choice.explicit ? ["--build", choice.command] : [];
+}
+
+/** The plan of an update; nothing changes. `--wait` bounds the question to the gateways. */
+export const repoPlan = (key: string, build?: RepoBuildChoice) =>
+  ctlData<RepoPlanData>([
+    "server",
+    "repo",
+    "update",
+    key,
+    "--dry-run",
+    "--wait",
+    "4",
+    ...buildArgs(build),
+  ]);
+
+/** A build that failed exits 1 but still says what moved; a refusal carries only its reason and
+ * throws with the message. */
+async function repoDone(argv: string[]): Promise<RepoDoneData> {
+  try {
+    return await ctlData<RepoDoneData>(argv);
+  } catch (error) {
+    const data = error instanceof CtlError ? (error.data as Partial<RepoDoneData>) : null;
+    if (data && typeof data.applied === "boolean") return data as RepoDoneData;
+    throw error;
+  }
+}
+
+export function repoApply(
+  key: string,
+  options: { planHash: string; build?: RepoBuildChoice; restartNow?: boolean },
+) {
+  return repoDone([
+    "server",
+    "repo",
+    "update",
+    key,
+    "--plan-hash",
+    options.planHash,
+    ...buildArgs(options.build),
+    ...(options.restartNow ? ["--restart-now"] : []),
+  ]);
+}
+
+export const repoUndo = (key: string) => repoDone(["server", "repo", "undo", key]);

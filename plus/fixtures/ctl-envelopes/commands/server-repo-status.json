@@ -1,0 +1,25 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "server",
+  "id": "server repo status",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["server", "repo", "status"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Show where the git checkout a server runs from stands against its tracked branch [<server>]",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["servers_repo_status"]
+}

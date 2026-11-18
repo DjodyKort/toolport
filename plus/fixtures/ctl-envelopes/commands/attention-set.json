@@ -1,0 +1,25 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "attention",
+  "id": "attention set",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["attention", "set"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Switch a check or a notification on or off (<notify|check.name|notify.name> <on|off>)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["attention_set"]
+}

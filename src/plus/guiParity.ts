@@ -12,7 +12,7 @@ export type GuiStatus = "planned" | "built";
 
 export interface GuiRoute {
   title: string;
-  /** Where the shell shows the route: `settings:<page id>` or `view:<id of a Claude group page>`. */
+  /** Where the shell shows the route: `settings:<page id>`, `view:<id of a Claude group page>` or `shell:footer` for the sidebar footer. */
   page?: string;
   status: GuiStatus;
   /** Repo-relative path of the component; required once the route is built. */
