@@ -412,6 +412,20 @@ describe("Context screen", () => {
     expect(ranArgv()).toContainEqual(["context", "sync", "--dry-run"]);
   });
 
+  it("test20_sync_lists_the_launch_profiles_and_direct_entries_it_rewrites", async () => {
+    setup({ regenerate: true });
+    await onThisFolder();
+    await userEvent.click(screen.getByRole("tab", { name: "Rules & launch" }));
+    expect(await screen.findByText("1 would be rewritten")).toBeVisible();
+    expect(screen.getByText(/bare · would regenerate/)).toBeVisible();
+    expect(
+      screen.getByText(/sierra-design in claude-code · would rewrite/),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/wide · left: the access set wide no longer exists/),
+    ).toBeVisible();
+  });
+
   it("test17_hooks_and_compression_reads_the_hook_state_of_the_machine", async () => {
     setup();
     await onThisFolder();

@@ -9,7 +9,15 @@
         "built": false,
         "note": "rule layers and shims are not part of this build yet"
       },
-      "dryRun": true
+      "directEntries": {
+        "rows": [],
+        "upToDate": 0
+      },
+      "dryRun": true,
+      "launchProfiles": {
+        "rows": [],
+        "upToDate": 0
+      }
     },
     "ok": true,
     "schemaVersion": 1

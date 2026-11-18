@@ -496,10 +496,29 @@ pub fn compose(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
 pub fn sync(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = SYNC.parse(rest)?;
     let data = api::sync(host, flags.on("--dry-run"))?;
-    let human = match data["bundles"].as_array() {
+    let mut human = match data["bundles"].as_array() {
         Some(rows) => format!("{} bound bundle folder(s) handled\n", rows.len()),
         None => "bundle auto-apply is off\n".to_string(),
     };
+    for (key, label) in [
+        ("launchProfiles", "launch profile"),
+        ("directEntries", "direct entry"),
+    ] {
+        for row in data[key]["rows"].as_array().into_iter().flatten() {
+            let name = row["name"]
+                .as_str()
+                .or(row["entry"].as_str())
+                .unwrap_or("?");
+            human.push_str(&format!(
+                "{label} {name}: {}{}\n",
+                row["action"].as_str().unwrap_or("?"),
+                row["reason"]
+                    .as_str()
+                    .map(|reason| format!(" ({reason})"))
+                    .unwrap_or_default()
+            ));
+        }
+    }
     Ok(Output::new(data, human))
 }
 

@@ -308,7 +308,7 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["context", "sync"],
-        "Apply the bound bundles when auto-apply is on (--dry-run); rule layers and shims are not built yet",
+        "Apply the bound bundles when auto-apply is on and rewrite launch profile files and direct entries that went out of date (--dry-run); rule layers and shims are not built yet",
         context::sync,
     ),
     cmd(

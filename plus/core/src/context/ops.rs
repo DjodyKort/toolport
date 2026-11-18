@@ -459,14 +459,18 @@ pub fn compose(host: &dyn Host, cwd: Option<&str>) -> Result<Value, OpError> {
     }))
 }
 
-/// `context sync`: the bundle part (apply the bound bundles when auto-apply is on). The layers
-/// deploy and the shell shims are not built yet and say so.
+/// `context sync`: the bundle part (apply the bound bundles when auto-apply is on) and the
+/// regeneration of launch profile files and direct entries that drifted. The layers deploy and
+/// the shell shims are not built yet and say so.
 pub fn sync(host: &dyn Host, dry_run: bool) -> Result<Value, OpError> {
     let bundles = sync_bundles(host, dry_run);
+    let regenerated = super::regenerate::run(host, dry_run);
     Ok(json!({
         "dryRun": dry_run,
         "bundles": bundles,
         "autoApply": bundles.is_some(),
+        "launchProfiles": regenerated["launchProfiles"],
+        "directEntries": regenerated["directEntries"],
         "deploy": { "built": false, "note": "rule layers and shims are not part of this build yet" },
     }))
 }

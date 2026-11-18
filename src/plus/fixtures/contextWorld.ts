@@ -21,6 +21,8 @@ export interface ContextWorldOptions {
   /** How `context measure --yes` ends: `slow` takes a while, `fail` answers with an error. */
   measure?: "ok" | "slow" | "fail";
   bundles?: boolean;
+  /** Launch profile files and direct entries `context sync` finds out of date. */
+  regenerate?: boolean;
 }
 
 interface FileRow {
@@ -797,6 +799,39 @@ export function createContextWorld(options: ContextWorldOptions = {}) {
               },
             ]
           : null,
+        launchProfiles: options.regenerate
+          ? {
+              rows: [
+                {
+                  name: "bare",
+                  state: "stale-file",
+                  action: argv.includes("--dry-run") ? "would regenerate" : "regenerated",
+                },
+                {
+                  name: "wide",
+                  state: "set-missing",
+                  action: "left",
+                  reason:
+                    "the access set wide no longer exists, so the launch sees no servers",
+                  fix: "toolportctl context launch-profile add wide --set <access set>",
+                },
+              ],
+              upToDate: 1,
+            }
+          : { rows: [], upToDate: 0 },
+        directEntries: options.regenerate
+          ? {
+              rows: [
+                {
+                  client: "claude-code",
+                  entry: "sierra-design",
+                  state: "stale",
+                  action: argv.includes("--dry-run") ? "would rewrite" : "rewritten",
+                },
+              ],
+              upToDate: 0,
+            }
+          : { rows: [], upToDate: 0 },
         deploy: {
           built: false,
           note: "rule layers and shims are not part of this build yet",

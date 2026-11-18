@@ -252,7 +252,31 @@ export interface SyncData {
     applied: boolean;
     error?: string;
   }> | null;
+  launchProfiles: RegeneratedPart;
+  directEntries: RegeneratedPart;
   deploy: { built: boolean; note: string };
+}
+
+/** What `context sync` did, or would do, to the files Toolport generated. */
+export interface RegeneratedPart {
+  rows: Array<{
+    /** A launch profile's name; a direct entry has `client` and `entry` instead. */
+    name?: string;
+    client?: string;
+    entry?: string;
+    state: string;
+    action:
+      | "regenerated"
+      | "would regenerate"
+      | "rewritten"
+      | "would rewrite"
+      | "left"
+      | "failed";
+    reason?: string;
+    fix?: string;
+  }>;
+  upToDate: number;
+  error?: string;
 }
 
 export interface ComposePart extends LoadItem {

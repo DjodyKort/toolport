@@ -8,10 +8,46 @@ import { toastError } from "@/lib/toast";
 import { errorText } from "../settings/useCtl";
 import { useLoad } from "../servers/useLoad";
 import { syncContext } from "./commands";
+import type { RegeneratedPart } from "./data";
 import { plural, shortPath } from "./model";
 import { Group, RowShell } from "./StackRows";
 
 const LaunchProfiles = lazy(() => import("./LaunchProfiles"));
+
+const REWRITTEN = new Set(["regenerated", "rewritten"]);
+
+function Regenerated({ title, part }: { title: string; part?: RegeneratedPart }) {
+  if (!part) return null;
+  const todo = part.rows.filter((r) => r.action.startsWith("would")).length;
+  const left = part.rows.length - todo;
+  return (
+    <RowShell
+      title={title}
+      subtitle={
+        part.error
+          ? `Could not be read: ${part.error}`
+          : part.rows.length === 0
+            ? part.upToDate > 0
+              ? `All ${part.upToDate} are up to date.`
+              : "None yet."
+            : [todo > 0 && `${todo} would be rewritten`, left > 0 && `${left} need you`]
+                .filter(Boolean)
+                .join(", ")
+      }
+    >
+      {part.rows.map((row) => (
+        <p
+          key={`${row.name ?? row.client}:${row.entry ?? ""}`}
+          className="text-meta text-muted-foreground"
+        >
+          {row.name ?? `${row.entry} in ${row.client}`} · {row.action}
+          {row.reason && `: ${row.reason}`}
+          {row.fix && ` · ${row.fix}`}
+        </p>
+      ))}
+    </RowShell>
+  );
+}
 
 /** The one pipeline of this tab is `context sync`. This build runs its bundle part (apply the
  * bound bundles when auto-apply is on); the layers deploy and shims are not
@@ -31,8 +67,18 @@ export default function RulesLaunch({
     try {
       const data = await syncContext(false);
       const applied = data.bundles?.filter((b) => b.applied).length ?? 0;
+      const rewritten = [...data.launchProfiles.rows, ...data.directEntries.rows].filter(
+        (row) => REWRITTEN.has(row.action),
+      ).length;
       toast.success(
-        applied ? `Applied ${plural(applied, "bundle")}` : "Nothing to apply",
+        applied || rewritten
+          ? [
+              applied && `Applied ${plural(applied, "bundle")}`,
+              rewritten && `Rewrote ${plural(rewritten, "file")}`,
+            ]
+              .filter(Boolean)
+              .join(", ")
+          : "Nothing to apply",
       );
       preview.reload();
     } catch (error) {
@@ -105,6 +151,8 @@ export default function RulesLaunch({
             subtitle={b.error ?? "would be applied"}
           />
         ))}
+        <Regenerated title="Launch profile files" part={data?.launchProfiles} />
+        <Regenerated title="Direct entries" part={data?.directEntries} />
       </Group>
       <Suspense fallback={<p className="text-meta">Loading the launch profiles…</p>}>
         <LaunchProfiles home={home} folder={folder} />
