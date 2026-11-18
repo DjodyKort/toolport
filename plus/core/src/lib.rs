@@ -22,6 +22,7 @@ pub mod op;
 pub mod progress;
 #[cfg(test)]
 mod randutil;
+pub mod reach;
 mod redact;
 pub mod resource_links;
 pub mod selfmcp;

@@ -9,8 +9,8 @@ use toolport_plus_api::{
     EntrySpec, EntryWrite, EnvEntry, ForkServerFields, GatewayRouter, HostEnv, HttpAccess,
     HttpBody, HttpError, HttpRequest, HttpResponse, McpmSource, ProcessOutcome, ProcessSpec,
     RegistryAccess, RegistryPlus, RegistryTx, RegistryView, RestartOutcome, RunApproval,
-    RunDecision, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules, ServerSpec, TaskHost,
-    TrustInputs, VaultAccess,
+    RunDecision, ScopeKind, ScopeReach, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules,
+    ServerSpec, TaskHost, TrustInputs, VaultAccess,
 };
 
 pub struct HostAdapter;
@@ -94,6 +94,70 @@ fn view_client_access_sets(registry: &crate::registry::Registry) -> Vec<String> 
     ids
 }
 
+fn scope_reach_of(
+    registry: &crate::registry::Registry,
+    kind: ScopeKind,
+    key: &str,
+    reference: &str,
+    resolved: &str,
+) -> ScopeReach {
+    let set_id = registry
+        .profiles
+        .iter()
+        .find(|profile| profile.id == resolved)
+        .map(|profile| profile.id.clone());
+    let implicit = resolved == registry.default_access_id()
+        || resolved == registry.all_access_id()
+        || resolved == crate::registry::ALL_ENABLED_ACCESS;
+    ScopeReach {
+        kind,
+        key: key.to_string(),
+        reference: reference.trim().to_string(),
+        dangling: set_id.is_none() && !implicit,
+        set_id,
+        server_ids: registry
+            .enabled_servers_for(resolved)
+            .into_iter()
+            .map(|server| server.id.clone())
+            .collect(),
+    }
+}
+
+/// Resolved with the functions the gateway calls: `resolve_launch_profile` for a client and
+/// `resolve_profile_id` for a folder mapping; the folder wins over the client at run time.
+pub(crate) fn view_scope_reach(registry: &crate::registry::Registry) -> Vec<ScopeReach> {
+    let mut scopes = vec![scope_reach_of(
+        registry,
+        ScopeKind::Default,
+        "",
+        "",
+        &registry.default_access_id(),
+    )];
+    let mut clients: Vec<&String> = registry.client_scopes.keys().collect();
+    clients.sort();
+    for client in clients {
+        let resolved = crate::clients::resolve_launch_profile(registry, Some(client), &None)
+            .unwrap_or_default();
+        scopes.push(scope_reach_of(
+            registry,
+            ScopeKind::Client,
+            client,
+            &registry.client_scopes[client],
+            &resolved,
+        ));
+    }
+    for folder in &registry.folder_profiles {
+        scopes.push(scope_reach_of(
+            registry,
+            ScopeKind::Folder,
+            &folder.path,
+            &folder.profile,
+            &registry.resolve_profile_id(&folder.profile),
+        ));
+    }
+    scopes
+}
+
 fn view_selfmcp_record(
     registry: &crate::registry::Registry,
 ) -> Result<Option<SelfMcpRecord>, String> {
@@ -120,6 +184,9 @@ macro_rules! registry_view {
             }
             fn selfmcp_record(&self) -> Result<Option<SelfMcpRecord>, String> {
                 view_selfmcp_record(self.$registry())
+            }
+            fn scope_reach(&self) -> Vec<ScopeReach> {
+                view_scope_reach(self.$registry())
             }
             fn direct_entries(&self) -> Result<toolport_plus_api::view::DirectEntries, String> {
                 Ok(RegistryPlus::extract(&self.$registry().unknown_fields)?
@@ -3090,3 +3157,7 @@ mod oauth_tests;
 #[cfg(test)]
 #[path = "plus_adapter_hooks_tests.rs"]
 mod hooks_tests;
+
+#[cfg(test)]
+#[path = "plus_adapter_reach_tests.rs"]
+mod reach_tests;

@@ -39,8 +39,42 @@ pub trait RegistryView {
 
     fn selfmcp_record(&self) -> Result<Option<SelfMcpRecord>, String>;
 
+    /// The default access, every client scope and every folder mapping, each resolved the way the
+    /// gateway resolves it and with the enabled servers it reaches. The default access comes
+    /// first, then clients by id, then folders in the registry's order. A client with no entry
+    /// follows the default access and is not listed.
+    fn scope_reach(&self) -> Vec<ScopeReach>;
+
     /// What `plus.directEntries` records: client id, then entry name.
     fn direct_entries(&self) -> Result<DirectEntries, String>;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ScopeKind {
+    /// Clients without a scope of their own.
+    Default,
+    /// A client id with an entry in `client_scopes`.
+    Client,
+    /// A folder mapping in `folder_profiles`.
+    Folder,
+}
+
+/// Where one scope resolves to by upstream's own rules, and the enabled servers it reaches.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScopeReach {
+    pub kind: ScopeKind,
+    /// Empty for the default access, else the client id or the folder path.
+    pub key: String,
+    /// The stored set reference (id or name); empty when the scope follows the default access.
+    pub reference: String,
+    /// The access set it resolves to; `None` when it reaches every enabled server (no explicit
+    /// default access) or when the reference names no set.
+    pub set_id: Option<String>,
+    /// The reference names no existing set, so the scope reaches nothing.
+    pub dangling: bool,
+    /// Ids of the enabled servers reached, in registry order.
+    pub server_ids: Vec<String>,
 }
 
 pub type DirectEntries =

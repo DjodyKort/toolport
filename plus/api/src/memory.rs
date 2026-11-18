@@ -17,7 +17,8 @@ use crate::{
     AccessSetInfo, AuthAccess, AuthChild, CallsInFlight, CatalogAccess, CatalogEntryRecord,
     ConsentSink, ContextHost, EnvEntry, GatewayRouter, HostEnv, HttpAccess, HttpError, HttpRequest,
     HttpResponse, LaunchError, LaunchFault, RegistryAccess, RegistryTx, RegistryView,
-    RestartOutcome, SecretsHost, ServerRecord, ServerRules, ServerSpec, TrustInputs, VaultAccess,
+    RestartOutcome, ScopeKind, ScopeReach, SecretsHost, ServerRecord, ServerRules, ServerSpec,
+    TrustInputs, VaultAccess,
 };
 
 #[derive(Debug, Default)]
@@ -31,6 +32,10 @@ pub struct MemoryRegistry {
     pub access_sets: RefCell<Vec<AccessSetInfo>>,
     pub default_access: RefCell<Option<String>>,
     pub client_access_sets: RefCell<Vec<String>>,
+    /// `client_scopes`: client id to the stored set reference.
+    pub client_scopes: RefCell<BTreeMap<String, String>>,
+    /// `folder_profiles`: folder path and the stored set reference, in registry order.
+    pub folder_routes: RefCell<Vec<(String, String)>>,
     /// Where `registry_path` points; the data dir of tests that write files next to it.
     pub path: Option<PathBuf>,
 }
@@ -42,6 +47,8 @@ pub struct MemoryState {
     pub access_sets: Vec<AccessSetInfo>,
     pub default_access: Option<String>,
     pub client_access_sets: Vec<String>,
+    pub client_scopes: BTreeMap<String, String>,
+    pub folder_routes: Vec<(String, String)>,
     pub unknown_fields: Map<String, Value>,
 }
 
@@ -75,6 +82,21 @@ impl RegistryView for MemoryState {
         self.client_access_sets.clone()
     }
 
+    fn scope_reach(&self) -> Vec<ScopeReach> {
+        let mut scopes = vec![self.reach_of(ScopeKind::Default, "", "")];
+        scopes.extend(
+            self.client_scopes
+                .iter()
+                .map(|(client, reference)| self.reach_of(ScopeKind::Client, client, reference)),
+        );
+        scopes.extend(
+            self.folder_routes
+                .iter()
+                .map(|(path, reference)| self.reach_of(ScopeKind::Folder, path, reference)),
+        );
+        scopes
+    }
+
     fn direct_entries(&self) -> Result<crate::view::DirectEntries, String> {
         Ok(RegistryPlus::extract(&self.unknown_fields)?
             .direct_entries
@@ -87,6 +109,44 @@ impl RegistryView for MemoryState {
 }
 
 impl MemoryState {
+    /// Upstream's resolution on a version 3 registry: an empty reference is the default access,
+    /// `@all-enabled` every enabled server, a set matches by id or by name, and any other
+    /// reference reaches nothing.
+    fn reach_of(&self, kind: ScopeKind, key: &str, reference: &str) -> ScopeReach {
+        let reference = reference.trim();
+        let lookup = if reference.is_empty() {
+            self.default_access.as_deref().unwrap_or("@all-enabled")
+        } else {
+            reference
+        };
+        let set = self
+            .access_sets
+            .iter()
+            .find(|set| set.id == lookup)
+            .or_else(|| {
+                self.access_sets
+                    .iter()
+                    .find(|set| set.name.eq_ignore_ascii_case(lookup))
+            });
+        let everything = lookup == "@all-enabled";
+        let dangling = set.is_none() && !everything;
+        let server_ids = self
+            .servers
+            .iter()
+            .filter(|server| server.enabled)
+            .filter(|server| everything || set.is_some_and(|s| s.server_ids.contains(&server.id)))
+            .map(|server| server.id.clone())
+            .collect();
+        ScopeReach {
+            kind,
+            key: key.to_string(),
+            reference: reference.to_string(),
+            set_id: set.map(|set| set.id.clone()),
+            dangling,
+            server_ids,
+        }
+    }
+
     /// Upstream's add switches a ready server on and lists it in the default access set (the
     /// first set when none is explicit).
     fn switch_on_like_upstream(&mut self, server_id: &str) -> Result<(), String> {
@@ -355,6 +415,8 @@ impl MemoryRegistry {
             access_sets: self.access_sets.borrow().clone(),
             default_access: self.default_access.borrow().clone(),
             client_access_sets: self.client_access_sets.borrow().clone(),
+            client_scopes: self.client_scopes.borrow().clone(),
+            folder_routes: self.folder_routes.borrow().clone(),
             unknown_fields: self.unknown_fields.borrow().clone(),
         }
     }
