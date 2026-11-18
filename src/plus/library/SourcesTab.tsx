@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import {
   Download,
   FolderPlus,
@@ -40,6 +40,8 @@ import type { SearchHit, SourceRow, SourcesData, TapUpdateData } from "./data";
 import { AskDialog, FileLines, Mono, WriteDialog } from "./dialogs";
 import { canPull, plural, pullBlockedReason, remoteState, when } from "./model";
 import { PullDialog, PushDialog } from "./writes";
+
+const SelectScreen = lazy(() => import("./SelectScreen"));
 
 const SELECT =
   "h-8 rounded-md border bg-background px-2 text-sm text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none";
@@ -175,7 +177,15 @@ function RemoteCard() {
   );
 }
 
-function Taps({ sources, onUpdated }: { sources: SourceRow[]; onUpdated: () => void }) {
+function Taps({
+  sources,
+  onUpdated,
+  onChoose,
+}: {
+  sources: SourceRow[];
+  onUpdated: () => void;
+  onChoose: (source: string) => void;
+}) {
   const taps = useLoad(listTaps, "taps");
   const [results, setResults] = useState<TapUpdateData["results"]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -233,6 +243,7 @@ function Taps({ sources, onUpdated }: { sources: SourceRow[]; onUpdated: () => v
           {rows.map((tap) => {
             const run = results.find((r) => r.name === tap.name);
             const known = sources.find((row) => row.id === `tap:${tap.name}`);
+            const plugins = (tap.marketplace?.plugins ?? []).map((p) => p.name);
             const result =
               run ??
               (known?.status.state === "failed"
@@ -261,6 +272,17 @@ function Taps({ sources, onUpdated }: { sources: SourceRow[]; onUpdated: () => v
                 >
                   {result && !result.ok ? "Retry" : "Update"}
                 </Button>
+                {(plugins.length > 1 ? plugins : [null]).map((plugin) => (
+                  <Button
+                    key={plugin ?? tap.name}
+                    variant="outline"
+                    size="sm"
+                    aria-label={`Choose items of ${plugin ?? tap.name}`}
+                    onClick={() => onChoose(plugin ? `${tap.name}/${plugin}` : tap.name)}
+                  >
+                    Choose items{plugin ? ` · ${plugin}` : ""}
+                  </Button>
+                ))}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -632,10 +654,22 @@ export default function SourcesTab() {
     }
   }, "library");
   const installed = new Set((library.data?.skills ?? []).map((s) => s.name));
+  const [choosing, setChoosing] = useState<string | null>(null);
+  if (choosing) {
+    return (
+      <Suspense fallback={<SkeletonRows rows={4} label="Reading the source" />}>
+        <SelectScreen source={choosing} onBack={() => setChoosing(null)} />
+      </Suspense>
+    );
+  }
   return (
     <div className="flex flex-col gap-6">
       <RemoteCard />
-      <Taps sources={sources.data?.sources ?? []} onUpdated={sources.reload} />
+      <Taps
+        sources={sources.data?.sources ?? []}
+        onUpdated={sources.reload}
+        onChoose={setChoosing}
+      />
       <Find installed={installed} onInstalled={library.reload} />
       <SourceList sources={sources} />
     </div>
