@@ -1,5 +1,6 @@
 {
   "route": "attention-manage",
-  "status": "planned",
-  "summary": "The four checks' switches, the notification categories and the test notification in Settings > Toolport+ > Attention (attention settings, set, notify; attention_settings, attention_set)"
+  "status": "built",
+  "summary": "The four checks' switches, the notification categories and the test notification in Settings > Toolport+ > Attention (attention settings, set, notify; attention_settings, attention_set)",
+  "test": "src/plus/attention/AttentionManage.test.tsx"
 }

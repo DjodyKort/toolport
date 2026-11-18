@@ -36,7 +36,7 @@ async function openMenu(title: string) {
   return screen.findByRole("menu");
 }
 
-describe("the actions of a bell row", () => {
+describe("attention-manage.hide: the actions of a bell row", () => {
   it("test01_a_needs_you_row_offers_only_snoozes_of_at_most_a_week", () => {
     const labels = choicesFor({
       id: "a",

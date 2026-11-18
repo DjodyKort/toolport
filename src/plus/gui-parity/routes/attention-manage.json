@@ -1,4 +1,6 @@
 {
   "title": "Attention: manage",
-  "status": "planned"
+  "status": "built",
+  "page": "settings:toolport",
+  "component": "src/plus/attention/AttentionManage.tsx"
 }
