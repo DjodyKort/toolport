@@ -24,6 +24,7 @@ import { AllCommands } from "./AllCommands";
 import { SetupPage } from "../setup/SetupPage";
 import { Installation } from "./Installation";
 import { leadFor, type LeadVariant } from "./model";
+import { RegistryIndexCard } from "./RegistryIndexCard";
 import { SelfManagement } from "./SelfManagement";
 import { bridgeDown, errorText, useOverview } from "./useCtl";
 
@@ -157,6 +158,11 @@ export default function ToolportPlusPage({
             detail={overview.mcp.error ?? undefined}
           />
         )}
+      </section>
+
+      <section aria-label="Registry index">
+        <SectionHeader>Registry index</SectionHeader>
+        <RegistryIndexCard />
       </section>
 
       <section aria-label="Installation">

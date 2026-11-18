@@ -5,6 +5,7 @@
 mod attention;
 mod backend;
 mod catalog;
+mod catalog_index;
 mod compression;
 #[cfg(test)]
 mod compression_tests;

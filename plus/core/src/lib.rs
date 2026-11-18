@@ -4,6 +4,7 @@
 mod args;
 pub mod attention;
 pub mod auth;
+pub mod catalog_index;
 pub mod compression;
 pub mod context;
 pub mod ctl;

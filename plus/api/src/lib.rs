@@ -35,8 +35,8 @@ pub use mirror::{convert, ServerRecord};
 pub use notifier::{FakeNotifier, Notifier};
 pub use secrets::{SecretsHost, TrustInputs, VaultAccess, HTTP_AUTH_KEY};
 pub use servers::{
-    CallsInFlight, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter, RestartOutcome,
-    ServerRepoHead, ServerRules, ServerSpec,
+    CallsInFlight, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter, RegistryEntries,
+    RestartOutcome, ServerRepoHead, ServerRules, ServerSpec,
 };
 pub use settings::SettingsStore;
 pub use setup::{AddedServer, SetupHost, StaticSecret};

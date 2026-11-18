@@ -1,0 +1,6 @@
+{
+  "route": "registry-index",
+  "status": "built",
+  "summary": "How many servers the local registry index holds, when it was synced and whether catalog search answers from it (catalog status; catalog_status)",
+  "test": "src/plus/settings/ToolportPlusPage.test.tsx"
+}

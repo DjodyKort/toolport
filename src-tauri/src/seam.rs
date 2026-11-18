@@ -114,11 +114,25 @@ pub(crate) fn gateway_tick_with<H: toolport_plus_api::TaskHost + Send + 'static>
 }
 
 /// The desktop app is up: starts the fork's scheduler thread, whose first pass catches up the
-/// task runs that came due while nothing ticked.
+/// task runs that came due while nothing ticked, and the catalog index sync (D-118).
 #[cfg(feature = "desktop")]
 pub(crate) fn app_started() {
     #[cfg(feature = "plus")]
-    toolport_plus::tasks::schedule::spawn_app_ticker(crate::plus_adapter::HostAdapter);
+    {
+        toolport_plus::tasks::schedule::spawn_app_ticker(crate::plus_adapter::HostAdapter);
+        toolport_plus::catalog_index::spawn_app_ticker(crate::plus_adapter::HostAdapter);
+    }
+}
+
+/// The registry hits of a catalog search: the fork's local index while it is fresh, upstream's
+/// live search otherwise and as without the fork.
+pub(crate) fn registry_lookup(
+    query: &str,
+) -> Result<Vec<crate::catalog::CatalogEntry>, crate::catalog::RegistryStatus> {
+    #[cfg(feature = "plus")]
+    return crate::plus_adapter::registry_lookup(query);
+    #[cfg(not(feature = "plus"))]
+    crate::catalog::search_registry(query)
 }
 
 /// The app window exists: starts the thread that notifies about the rows that need the person,

@@ -1561,6 +1561,14 @@
           "tier": 4
         },
         {
+          "description": "Show the local index of the MCP Registry that catalog search answers from: how many servers it holds, when it was last synced, whether it is fresh (synced within 24 hours), stale, syncing, or its last sync failed, and whether an unfinished sync can be continued. Read only; the index is synced in the background and with toolportctl catalog sync",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "catalog_status",
+          "params": [],
+          "tier": 1
+        },
+        {
           "description": "Show the skills library against its remote: branch, commits ahead and behind, uncommitted files, how git authenticates (gh, a credential helper or ssh) and any other clone of the same remote with its own counts. Pass fetch to contact the remote and test the credentials; without it nothing touches the network. Read only",
           "dryRunDefault": false,
           "gate": "none",

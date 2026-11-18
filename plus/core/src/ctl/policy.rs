@@ -14,6 +14,7 @@
 use super::agents;
 use super::attention;
 use super::auth;
+use super::catalog;
 use super::context;
 use super::flags::{switch, value, Flag, Spec};
 use super::library;
@@ -676,6 +677,11 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&styles::CLEAN])
         .skip("removes synced outputs; its --dry-run is a golden step"),
+    row("catalog status", R).spec(&[&catalog::STATUS]),
+    row("catalog sync", W)
+        .needs(&[Needs::Network, Needs::LongRunning])
+        .spec(&[&catalog::SYNC])
+        .skip("fetches the whole MCP Registry; unit tests sync from a scripted registry"),
     row("library status", R).spec(&[&library::STATUS]),
     row("library open", R)
         .spec(&[&library::OPEN])
@@ -1145,6 +1151,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("styles_clean", D, "styles clean").on(),
     own("styles_edit_body", W),
     maps("styles_remove", D, "styles remove").on(),
+    maps("catalog_status", R, "catalog status"),
     maps("library_status", R, "library status"),
     maps("library_pull", W, "library pull").on(),
     maps("library_connect", W, "library connect").on(),

@@ -1,0 +1,37 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Start a new pass over the whole registry and drop what it no longer lists",
+      "escalates": false,
+      "hidden": false,
+      "name": "--full",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "catalog",
+  "id": "catalog sync",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": ["network", "long-running"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["catalog", "sync"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Sync the local index of the MCP Registry from the registry; continues an unfinished sync (--full starts over)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

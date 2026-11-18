@@ -1,0 +1,25 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "catalog",
+  "id": "catalog status",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["catalog", "status"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Show the local index of the MCP Registry: how many servers, when it was last synced, whether it is fresh",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["catalog_status"]
+}

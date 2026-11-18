@@ -2,8 +2,8 @@ use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
 use super::{
-    attention, backend, compression, content, context, library, memory, servers, setup, skills,
-    sources, tasks, ToolError,
+    attention, backend, catalog_index, compression, content, context, library, memory, servers,
+    setup, skills, sources, tasks, ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -723,6 +723,14 @@ pub const TOOLS: &[ToolDef] = &[
         "Remove the applied style from tier-2 clients; dry_run is on by default (apply with dry_run=false and confirm=true)",
         [REPO, CLIENTS, DRY_ON],
         content::styles_remove
+    ),
+    tool!(
+        "catalog_status",
+        1,
+        None,
+        "Show the local index of the MCP Registry that catalog search answers from: how many servers it holds, when it was last synced, whether it is fresh (synced within 24 hours), stale, syncing, or its last sync failed, and whether an unfinished sync can be continued. Read only; the index is synced in the background and with toolportctl catalog sync",
+        [],
+        catalog_index::status
     ),
     tool!(
         "library_status",
