@@ -5,7 +5,7 @@
 use super::ToolError;
 use crate::args::{flag, flag_or, str_arg};
 use crate::library::{self, connect, remote, sync};
-use crate::op::{ErrorKind, OpError};
+use crate::op::OpError;
 use crate::selective::handlers as selective;
 use crate::selective::ops::Options;
 use serde_json::{json, Value};
