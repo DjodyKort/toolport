@@ -68,7 +68,7 @@ describe("the sidebar with the Claude group", () => {
       within(claude)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["Library", "Context", "Tasks"]);
+    ).toEqual(["Library", "Context", "Tasks", "Spend"]);
     expect(
       views.compareDocumentPosition(claude) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
