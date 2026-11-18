@@ -71,6 +71,7 @@ describe("the server envelope types match the Rust goldens", () => {
         "name",
         "requestTimeoutMs",
         "source",
+        "toolBudgets",
         "transport",
         "url",
       ].sort(),

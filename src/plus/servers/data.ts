@@ -60,6 +60,8 @@ export interface ServerInfoData {
   forwardInstructions: boolean;
   /** Longest a call to a local server may run while it reports progress; `null` means the default. */
   maxRequestTimeoutMs: number | null;
+  /** Seconds a call to a tool may run, by the tool's own name; set with `server edit --tool-budget`. */
+  toolBudgets: Record<string, number>;
   /** The server's own request timeout (set in Edit); `null` means the default. */
   requestTimeoutMs: number | null;
   interop: InteropData;

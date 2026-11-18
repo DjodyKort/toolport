@@ -41,6 +41,7 @@
       "name": "gamma",
       "requestTimeoutMs": null,
       "source": "manual",
+      "toolBudgets": {},
       "transport": "stdio",
       "url": null
     },

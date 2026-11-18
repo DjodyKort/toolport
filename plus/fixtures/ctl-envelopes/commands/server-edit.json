@@ -138,6 +138,17 @@
       "required": false,
       "sensitive": false,
       "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Longest a call to one tool may run, as <tool>=<seconds> (up to 86400), or <tool>=default to remove it (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--tool-budget",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
     }
   ],
   "group": "server",

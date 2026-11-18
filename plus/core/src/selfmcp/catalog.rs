@@ -869,7 +869,7 @@ pub const TOOLS: &[ToolDef] = &[
         "servers_update_config",
         3,
         Always,
-        "Patch a server's configuration, including plain env entries, inheritEnv and maxRequestTimeoutMs (milliseconds, 1 to 86400000; null restores the default)",
+        "Patch a server's configuration, including plain env entries, inheritEnv and maxRequestTimeoutMs (milliseconds, 1 to 86400000; null restores the default) and toolBudgets (seconds per tool name, 0 to 86400 exclusive; null removes one)",
         [
             NAME,
             p(

@@ -14,7 +14,7 @@ use crate::servers::{self, Patch, ServerError, UninstallArgs};
 
 const INSTALL_USAGE: &str = "usage: server install <catalog name> [--offline]";
 const NEW_USAGE: &str = "usage: server new <name> (--command <cmd> [--arg <a>]... [--env <KEY=VALUE>]... | --url <url> [--transport http|sse]) [--cwd <dir>] [--inherit-env on|off]";
-const EDIT_USAGE: &str = "usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--env <KEY=VALUE>]... [--unset-env <KEY>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--inherit-env on|off] [--declare-client-capabilities on|off] [--forward-instructions on|off] [--max-request-timeout-ms <ms>|default]";
+const EDIT_USAGE: &str = "usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--env <KEY=VALUE>]... [--unset-env <KEY>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--inherit-env on|off] [--declare-client-capabilities on|off] [--forward-instructions on|off] [--max-request-timeout-ms <ms>|default] [--tool-budget <tool>=<seconds>|<tool>=default]...";
 const INFO_USAGE: &str = "usage: server info <id|name>";
 const UNINSTALL_USAGE: &str =
     "usage: server uninstall <id|name> [--dry-run] [--keep-clients] [--keep-secrets]";
@@ -52,6 +52,7 @@ pub(super) const EDIT: Spec = Spec {
         value("--declare-client-capabilities"),
         value("--forward-instructions"),
         value("--max-request-timeout-ms"),
+        value("--tool-budget"),
     ],
     ..Spec::PLAIN
 };
@@ -170,6 +171,13 @@ pub fn info(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     if let Some(ms) = server.fork.max_request_timeout_ms {
         human.push_str(&format!("\nCall limit:   {ms} ms"));
     }
+    if let Some(budgets) = server.fork.tool_budgets.as_ref() {
+        let listed: Vec<String> = budgets
+            .iter()
+            .map(|(tool, seconds)| format!("{tool}={seconds}s"))
+            .collect();
+        human.push_str(&format!("\nTool budgets: {}", listed.join(", ")));
+    }
     if data["mode"] != mode::AUTO {
         human.push_str(&format!(
             "\nMode:         {}",
@@ -242,7 +250,24 @@ fn patch_from(flags: &Flags, name: Option<&str>) -> Result<Patch, CtlError> {
                     .map_err(|e| CtlError::usage(format!("--max-request-timeout-ms: {e}")))
             })
             .transpose()?,
+        tool_budgets: tool_budgets(flags)?,
     })
+}
+
+fn tool_budgets(flags: &Flags) -> Result<Vec<(String, Option<f64>)>, CtlError> {
+    flags
+        .all("--tool-budget")
+        .iter()
+        .map(|raw| {
+            let usage = |why: String| CtlError::usage(format!("--tool-budget: {why}"));
+            let (tool, seconds) = raw
+                .split_once('=')
+                .filter(|(tool, _)| !tool.trim().is_empty())
+                .ok_or_else(|| usage(format!("'{raw}' is not <tool>=<seconds>")))?;
+            let seconds = servers::parse_tool_budget(seconds).map_err(usage)?;
+            Ok((tool.trim().to_string(), seconds))
+        })
+        .collect()
 }
 
 fn env_changes(flags: &Flags) -> Result<Vec<Change>, CtlError> {
@@ -337,6 +362,18 @@ pub fn edit(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
             patch
                 .max_request_timeout_ms
                 .is_some_and(|limit| limit != server.fork.max_request_timeout_ms),
+        ),
+        (
+            "toolBudgets",
+            patch.tool_budgets.iter().any(|(tool, seconds)| {
+                *seconds
+                    != server
+                        .fork
+                        .tool_budgets
+                        .as_ref()
+                        .and_then(|b| b.get(tool))
+                        .copied()
+            }),
         ),
     ]
     .iter()

@@ -477,6 +477,25 @@ impl RegistryAccess for HostAdapter {
         })
     }
 
+    fn set_server_tool_budget(
+        &self,
+        server_id: &str,
+        tool: &str,
+        seconds: Option<f64>,
+    ) -> Result<(), String> {
+        edit_server_fork_fields(server_id, |fields| {
+            let budgets = fields.tool_budgets.get_or_insert_with(Default::default);
+            match seconds {
+                Some(seconds) => budgets.insert(tool.to_string(), seconds),
+                None => budgets.remove(tool),
+            };
+            if budgets.is_empty() {
+                fields.tool_budgets = None;
+            }
+            Ok(())
+        })
+    }
+
     fn set_server_mode(&self, server_id: &str, mode: Option<&str>) -> Result<(), String> {
         edit_server_fork_fields(server_id, |fields| {
             fields.server_mode = mode.map(String::from);

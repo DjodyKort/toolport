@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "edit", "gamma", "--tool-budget", "job_wait=600"],
+  "envelope": {
+    "command": "server edit",
+    "data": {
+      "changed": ["toolBudgets"],
+      "id": "gamma"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

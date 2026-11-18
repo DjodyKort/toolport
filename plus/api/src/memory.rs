@@ -566,6 +566,28 @@ impl RegistryAccess for MemoryRegistry {
         })
     }
 
+    fn set_server_tool_budget(
+        &self,
+        server_id: &str,
+        tool: &str,
+        seconds: Option<f64>,
+    ) -> Result<(), String> {
+        self.edit(server_id, |server| {
+            let budgets = server
+                .fork
+                .tool_budgets
+                .get_or_insert_with(Default::default);
+            match seconds {
+                Some(seconds) => budgets.insert(tool.to_string(), seconds),
+                None => budgets.remove(tool),
+            };
+            if budgets.is_empty() {
+                server.fork.tool_budgets = None;
+            }
+            Ok(())
+        })
+    }
+
     fn set_server_mode(&self, server_id: &str, mode: Option<&str>) -> Result<(), String> {
         self.edit(server_id, |server| {
             server.fork.server_mode = mode.map(String::from);
@@ -859,6 +881,15 @@ impl RegistryAccess for MemoryHost {
     ) -> Result<(), String> {
         self.registry
             .set_server_max_request_timeout_ms(server_id, timeout_ms)
+    }
+    fn set_server_tool_budget(
+        &self,
+        server_id: &str,
+        tool: &str,
+        seconds: Option<f64>,
+    ) -> Result<(), String> {
+        self.registry
+            .set_server_tool_budget(server_id, tool, seconds)
     }
     fn set_server_mode(&self, server_id: &str, mode: Option<&str>) -> Result<(), String> {
         self.registry.set_server_mode(server_id, mode)

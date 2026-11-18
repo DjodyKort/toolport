@@ -35,6 +35,7 @@
     "name": "alpha",
     "requestTimeoutMs": null,
     "source": null,
+    "toolBudgets": {},
     "transport": "stdio",
     "url": null
   },

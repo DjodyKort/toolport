@@ -264,6 +264,7 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("server edit", m("--declare-client-capabilities", Choice(&["on", "off"]), "Tell this server what the connected client can do (sampling, roots)")),
     ("server edit", m("--forward-instructions", Choice(&["on", "off"]), "Pass this server's instructions on to the client")),
     ("server edit", m("--max-request-timeout-ms", Str, "Longest a call to a local server may run while it keeps reporting progress, in milliseconds (1 to 86400000), or default")),
+    ("server edit", m("--tool-budget", Str, "Longest a call to one tool may run, as <tool>=<seconds> (up to 86400), or <tool>=default to remove it (repeatable)").repeats()),
     ("compression presets", m("--refresh", Bool, "Re-snapshot the presets from the installed engine")),
     ("compression presets", m("--dry-run", Bool, "Show the plan and change nothing")),
     ("compression enable", m("--provider", Str, "Compression provider: headroom, rtk-only, parsec or none")),

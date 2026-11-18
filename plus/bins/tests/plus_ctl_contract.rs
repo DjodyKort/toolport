@@ -654,6 +654,29 @@ const CASES: &[Case] = &[
                     "default",
                 ],
             ),
+            apply(
+                "budget",
+                &["server", "edit", "gamma", "--tool-budget", "job_wait=600"],
+            ),
+            read("budget-info", &["server", "info", "gamma"]),
+            usage(
+                "budget-refused",
+                &["server", "edit", "gamma", "--tool-budget", "job_wait=0"],
+            ),
+            usage(
+                "budget-malformed",
+                &["server", "edit", "gamma", "--tool-budget", "job_wait"],
+            ),
+            apply(
+                "budget-removed",
+                &[
+                    "server",
+                    "edit",
+                    "gamma",
+                    "--tool-budget",
+                    "job_wait=default",
+                ],
+            ),
             usage("usage", &["server", "edit"]),
         ],
     ),

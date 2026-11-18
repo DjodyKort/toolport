@@ -304,6 +304,7 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
       declareClientCapabilities: server.declareClientCapabilities,
       forwardInstructions: server.forwardInstructions,
       maxRequestTimeoutMs: server.maxRequestTimeoutMs,
+      toolBudgets: {},
       requestTimeoutMs: server.requestTimeoutMs,
       interop: interopOf(server, servers),
       disabledTools: [],
