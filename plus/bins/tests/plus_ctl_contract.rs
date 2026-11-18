@@ -679,32 +679,94 @@ const CASES: &[Case] = &[
             hook("home", claude_code_home),
             read(
                 "plan",
-                &["client", "direct", "add", "alpha", "--client", "claude-code", "--dry-run"],
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                    "--dry-run",
+                ],
             ),
-            apply("apply", &["client", "direct", "add", "alpha", "--client", "claude-code"]),
-            apply("unchanged", &["client", "direct", "add", "alpha", "--client", "claude-code"]),
-            apply("remote", &["client", "direct", "add", "beta", "--client", "claude-code"]),
+            apply(
+                "apply",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
+            apply(
+                "unchanged",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
+            apply(
+                "remote",
+                &["client", "direct", "add", "beta", "--client", "claude-code"],
+            ),
             read(
                 "stale-plan",
                 &[
-                    "client", "direct", "add", "alpha", "--client", "claude-code", "--plan-hash",
-                    "0000000000000000", "--force",
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                    "--plan-hash",
+                    "0000000000000000",
+                    "--force",
                 ],
             )
             .exit(1),
             read(
                 "unsupported",
-                &["client", "direct", "add", "alpha", "--client", "goose", "--dry-run"],
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "goose",
+                    "--dry-run",
+                ],
             )
             .exit(1),
             read(
                 "unknown-client",
-                &["client", "direct", "add", "alpha", "--client", "no-such-client", "--dry-run"],
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "no-such-client",
+                    "--dry-run",
+                ],
             )
             .exit(1),
             read(
                 "unknown-server",
-                &["client", "direct", "add", "nope", "--client", "claude-code", "--dry-run"],
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "nope",
+                    "--client",
+                    "claude-code",
+                    "--dry-run",
+                ],
             )
             .exit(1),
             usage("usage", &["client", "direct", "add", "alpha"]),
@@ -714,16 +776,53 @@ const CASES: &[Case] = &[
         "client direct rm",
         &[
             hook("home", claude_code_home),
-            setup("add", &["client", "direct", "add", "alpha", "--client", "claude-code"]),
+            setup(
+                "add",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
             read(
                 "plan",
-                &["client", "direct", "rm", "alpha", "--client", "claude-code", "--dry-run"],
+                &[
+                    "client",
+                    "direct",
+                    "rm",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                    "--dry-run",
+                ],
             ),
-            apply("apply", &["client", "direct", "rm", "alpha", "--client", "claude-code"]),
-            apply("absent", &["client", "direct", "rm", "alpha", "--client", "claude-code"]),
-            setup("add-again", &["client", "direct", "add", "alpha", "--client", "claude-code"]),
+            apply(
+                "apply",
+                &["client", "direct", "rm", "alpha", "--client", "claude-code"],
+            ),
+            apply(
+                "absent",
+                &["client", "direct", "rm", "alpha", "--client", "claude-code"],
+            ),
+            setup(
+                "add-again",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
             hook("edited", edit_the_client_file),
-            apply("forgotten", &["client", "direct", "rm", "alpha", "--client", "claude-code"]),
+            apply(
+                "forgotten",
+                &["client", "direct", "rm", "alpha", "--client", "claude-code"],
+            ),
             usage("usage", &["client", "direct", "rm", "alpha"]),
         ],
     ),
@@ -732,18 +831,44 @@ const CASES: &[Case] = &[
         &[
             hook("home", claude_code_home),
             read("empty", &["client", "direct", "ls"]),
-            setup("add", &["client", "direct", "add", "alpha", "--client", "claude-code"]),
+            setup(
+                "add",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
             read("entries", &["client", "direct", "ls"]),
-            read("one-client", &["client", "direct", "ls", "--client", "claude-code"]),
-            read("unknown-client", &["client", "direct", "ls", "--client", "no-such-client"])
-                .exit(1),
+            read(
+                "one-client",
+                &["client", "direct", "ls", "--client", "claude-code"],
+            ),
+            read(
+                "unknown-client",
+                &["client", "direct", "ls", "--client", "no-such-client"],
+            )
+            .exit(1),
         ],
     ),
     case(
         "client direct check",
         &[
             hook("home", claude_code_home),
-            setup("add", &["client", "direct", "add", "alpha", "--client", "claude-code"]),
+            setup(
+                "add",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
             read("in-sync", &["client", "direct", "check"]),
             hook("edited", edit_the_client_file),
             read("drifted", &["client", "direct", "check"]).exit(1),

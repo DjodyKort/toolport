@@ -33,6 +33,10 @@
 #   with stays whole. The gateway tests of the mode are included from plus_gateway.rs (2 lines in the test
 #   module).
 38	src-tauri/src/bin/toolport-gateway.rs
+# clients.rs, 1 changed line: `pub(crate) mod direct_entry;`. mutation, restore and the journal's revision
+# helpers are private to `clients`, so the writer of one named entry has to be a module inside it; the file
+# (src-tauri/src/clients/direct_entry.rs) is fork-owned and not counted. The seam stays one line (S11, D-148).
+1	src-tauri/src/clients.rs
 # desktop.rs, 6 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
 # plus_ctl commands (D-060) and hands every other command on (4); seam::app_started() at the start of
 # run() starts the task scheduler thread of the desktop app, the always-on tick of D-128 (2).

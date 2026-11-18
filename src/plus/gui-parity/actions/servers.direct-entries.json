@@ -1,0 +1,5 @@
+{
+  "route": "servers",
+  "status": "planned",
+  "summary": "The Direct entries panel of a client and the Add direct entry dialog (S11-B): list with the seven states, plan with its hash before every write, Rewrite, Remove entry and Undo from the result (client direct ls, check, add, rm; client_direct_ls, client_direct_check, client_direct_add, client_direct_rm)"
+}

@@ -43,7 +43,8 @@ pub trait RegistryView {
     fn direct_entries(&self) -> Result<DirectEntries, String>;
 }
 
-pub type DirectEntries = std::collections::BTreeMap<String, std::collections::BTreeMap<String, DirectEntry>>;
+pub type DirectEntries =
+    std::collections::BTreeMap<String, std::collections::BTreeMap<String, DirectEntry>>;
 
 /// Write side, run inside one lock, load and save. The edit is dropped when the
 /// closure returns an error.
