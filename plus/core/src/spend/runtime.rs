@@ -59,6 +59,8 @@ struct Running {
     last_prune_ms: i64,
 }
 
+const TICK_GAP_MS: i64 = 2_000;
+static LAST_TICK_MS: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
 static RUNNING: Mutex<Option<Running>> = Mutex::new(None);
 
 fn state_path(dir: &Path) -> PathBuf {
@@ -86,11 +88,17 @@ pub fn home_roots(host: &dyn Host) -> Vec<PathBuf> {
         .unwrap_or_default()
 }
 
+/// Gateway watchers call this every tick, so it returns at once unless `TICK_GAP_MS` has passed.
 pub fn tick_host(host: &dyn Host, owner: Owner) {
+    let now = now_ms();
+    if now - LAST_TICK_MS.load(std::sync::atomic::Ordering::Relaxed) < TICK_GAP_MS {
+        return;
+    }
+    LAST_TICK_MS.store(now, std::sync::atomic::Ordering::Relaxed);
     let Some(base) = base_of(host) else {
         return;
     };
-    tick(&spend_dir(&base), &home_roots(host), owner, now_ms());
+    tick(&spend_dir(&base), &home_roots(host), owner, now);
 }
 
 pub fn tick(dir: &Path, roots: &[PathBuf], owner: Owner, now: i64) {

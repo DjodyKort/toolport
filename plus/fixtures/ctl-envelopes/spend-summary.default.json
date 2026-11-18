@@ -1,0 +1,244 @@
+{
+  "argv": ["spend", "summary"],
+  "envelope": {
+    "command": "spend summary",
+    "data": {
+      "byDay": [
+        {
+          "byModel": {
+            "claude-haiku-4": 0.03
+          },
+          "cost": {
+            "badge": "Measured",
+            "estimatedUsd": 0.0,
+            "usd": 0.03
+          },
+          "key": "2027-01-14",
+          "requests": 0,
+          "sessions": 1,
+          "share": 0.196,
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 500,
+            "cacheRead": 8000,
+            "fromTranscript": 0,
+            "input": 1000,
+            "output": 200,
+            "total": 9700
+          }
+        },
+        {
+          "byModel": {
+            "claude-sonnet-4": 0.122775
+          },
+          "cost": {
+            "badge": "Estimate",
+            "estimatedUsd": 0.002775,
+            "usd": 0.122775
+          },
+          "key": "2027-01-15",
+          "requests": 1,
+          "sessions": 2,
+          "share": 0.804,
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 600,
+            "cacheRead": 10000,
+            "fromTranscript": 2460,
+            "input": 1300,
+            "output": 260,
+            "total": 12160
+          }
+        }
+      ],
+      "byModel": [
+        {
+          "cost": {
+            "badge": "Estimate",
+            "estimatedUsd": 0.002775,
+            "usd": 0.122775
+          },
+          "key": "claude-sonnet-4",
+          "requests": 1,
+          "sessions": 2,
+          "share": 0.804,
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 600,
+            "cacheRead": 10000,
+            "fromTranscript": 2460,
+            "input": 1300,
+            "output": 260,
+            "total": 12160
+          }
+        },
+        {
+          "cost": {
+            "badge": "Measured",
+            "estimatedUsd": 0.0,
+            "usd": 0.03
+          },
+          "key": "claude-haiku-4",
+          "requests": 0,
+          "sessions": 1,
+          "share": 0.196,
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 500,
+            "cacheRead": 8000,
+            "fromTranscript": 0,
+            "input": 1000,
+            "output": 200,
+            "total": 9700
+          }
+        }
+      ],
+      "byProject": [
+        {
+          "cost": {
+            "badge": "Measured",
+            "estimatedUsd": 0.0,
+            "usd": 0.15
+          },
+          "key": "/work/alpha",
+          "requests": 0,
+          "sessions": 2,
+          "share": 0.982,
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 1000,
+            "cacheRead": 16000,
+            "fromTranscript": 0,
+            "input": 2000,
+            "output": 400,
+            "total": 19400
+          }
+        },
+        {
+          "cost": {
+            "badge": "Estimate",
+            "estimatedUsd": 0.002775,
+            "usd": 0.002775
+          },
+          "key": "/work/beta",
+          "requests": 1,
+          "sessions": 1,
+          "share": 0.018,
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 100,
+            "cacheRead": 2000,
+            "fromTranscript": 2460,
+            "input": 300,
+            "output": 60,
+            "total": 2460
+          }
+        }
+      ],
+      "byTask": [
+        {
+          "cost": {
+            "badge": "Estimate",
+            "estimatedUsd": 0.002775,
+            "usd": 0.152775
+          },
+          "key": "Unattributed",
+          "requests": 1,
+          "sessions": 3,
+          "share": 1.0,
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 1100,
+            "cacheRead": 18000,
+            "fromTranscript": 2460,
+            "input": 2300,
+            "output": 460,
+            "total": 21860
+          }
+        }
+      ],
+      "cacheShare": {
+        "badge": "Measured",
+        "value": 0.841
+      },
+      "mcpPart": {
+        "note": "Upstream's saved tokens cover tool-definition exposure only and are never added to spend",
+        "savedTokens": 0,
+        "shareOfInputTokens": {
+          "badge": "Estimate",
+          "value": 0.0374
+        },
+        "state": "ready",
+        "toolDefinitions": {
+          "badge": "Counted",
+          "exposedTokens": 800,
+          "fullTokens": 5000,
+          "sessions": 1,
+          "tokenizer": "cl100k_base"
+        }
+      },
+      "notes": ["Spend is never added to upstream's saved-tokens number"],
+      "previous": {
+        "costDelta": null,
+        "tokensDelta": null
+      },
+      "project": null,
+      "range": "7d",
+      "since": "<masked>",
+      "sources": {
+        "estimatedShare": 0.018,
+        "otelSessions": 4,
+        "transcriptSessions": 1
+      },
+      "status": {
+        "enabled": false,
+        "lastEvent": "<TIME>",
+        "profilesSetUp": 0,
+        "receiver": {
+          "address": "127.0.0.1:<PORT>",
+          "dropped": 0,
+          "error": null,
+          "events": 0,
+          "listening": false,
+          "owner": null,
+          "rejected": 0,
+          "requests": 0
+        },
+        "showCost": true,
+        "state": "off",
+        "store": {
+          "bytes": 1951,
+          "dailyLines": 1,
+          "events": 15,
+          "maxBytes": 67108864,
+          "oldest": "<TIME>",
+          "retentionDays": 30,
+          "skippedLines": 0
+        }
+      },
+      "totals": {
+        "cost": {
+          "badge": "Estimate",
+          "estimatedUsd": 0.002775,
+          "usd": 0.152775
+        },
+        "key": "total",
+        "requests": 1,
+        "sessions": 3,
+        "share": 1.0,
+        "tokens": {
+          "badge": "Measured",
+          "cacheCreation": 1100,
+          "cacheRead": 18000,
+          "fromTranscript": 2460,
+          "input": 2300,
+          "output": 460,
+          "total": 21860
+        }
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

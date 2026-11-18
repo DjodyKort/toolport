@@ -6,10 +6,15 @@ use super::store;
 use std::path::{Path, PathBuf};
 
 pub const SKILLS_AUTO_SYNC: &str = "skills-auto-sync";
+pub const SPEND_WEEKLY_MEASURE: &str = "spend-weekly-measure";
 
-const SHIPPED: [(&str, &str); 2] = [
+const SHIPPED: [(&str, &str); 3] = [
     ("moodle-token", include_str!("moodle-token.json")),
     (SKILLS_AUTO_SYNC, include_str!("skills-auto-sync.json")),
+    (
+        SPEND_WEEKLY_MEASURE,
+        include_str!("spend-weekly-measure.json"),
+    ),
 ];
 
 fn marker(base: &Path) -> PathBuf {

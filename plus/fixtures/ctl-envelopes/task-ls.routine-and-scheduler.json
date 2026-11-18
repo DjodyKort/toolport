@@ -164,6 +164,29 @@
             }
           },
           "waiting": false
+        },
+        {
+          "enabled": false,
+          "id": "spend-weekly-measure",
+          "kind": "script",
+          "lastRun": null,
+          "nextRun": null,
+          "refreshes": [],
+          "title": "Measure the context once a week",
+          "triggers": {
+            "cli": true,
+            "manual": true,
+            "onAuthFailure": [],
+            "schedule": {
+              "autoRun": true,
+              "cron": "0 9 * * 1"
+            },
+            "selfMcp": {
+              "approval": "every-run",
+              "enabled": false
+            }
+          },
+          "waiting": false
         }
       ]
     },

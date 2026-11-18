@@ -1,0 +1,24 @@
+{
+  "argv": ["spend", "receiver", "status"],
+  "envelope": {
+    "command": "spend receiver status",
+    "data": {
+      "enabled": false,
+      "lastEvent": null,
+      "receiver": {
+        "address": "127.0.0.1:<PORT>",
+        "dropped": 0,
+        "error": null,
+        "events": 0,
+        "listening": false,
+        "owner": null,
+        "rejected": 0,
+        "requests": 0
+      },
+      "state": "off"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

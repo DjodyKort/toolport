@@ -1,0 +1,94 @@
+{
+  "argv": ["spend", "summary"],
+  "envelope": {
+    "command": "spend summary",
+    "data": {
+      "byDay": [],
+      "byModel": [],
+      "byProject": [],
+      "byTask": [],
+      "cacheShare": {
+        "badge": "Measured",
+        "value": 0.0
+      },
+      "mcpPart": {
+        "note": "Upstream's saved tokens cover tool-definition exposure only and are never added to spend",
+        "savedTokens": 0,
+        "shareOfInputTokens": {
+          "badge": "Estimate",
+          "value": null
+        },
+        "state": "empty",
+        "toolDefinitions": {
+          "badge": "Counted",
+          "exposedTokens": 0,
+          "fullTokens": 0,
+          "sessions": 0,
+          "tokenizer": "cl100k_base"
+        }
+      },
+      "notes": ["Spend is never added to upstream's saved-tokens number"],
+      "previous": {
+        "costDelta": null,
+        "tokensDelta": null
+      },
+      "project": null,
+      "range": "7d",
+      "since": "<masked>",
+      "sources": {
+        "estimatedShare": 0.0,
+        "otelSessions": 0,
+        "transcriptSessions": 0
+      },
+      "status": {
+        "enabled": false,
+        "lastEvent": null,
+        "profilesSetUp": 0,
+        "receiver": {
+          "address": "127.0.0.1:<PORT>",
+          "dropped": 0,
+          "error": null,
+          "events": 0,
+          "listening": false,
+          "owner": null,
+          "rejected": 0,
+          "requests": 0
+        },
+        "showCost": true,
+        "state": "off",
+        "store": {
+          "bytes": 0,
+          "dailyLines": 0,
+          "events": 0,
+          "maxBytes": 67108864,
+          "oldest": null,
+          "retentionDays": 30,
+          "skippedLines": 0
+        }
+      },
+      "totals": {
+        "cost": {
+          "badge": "Estimate",
+          "estimatedUsd": 0.0,
+          "usd": 0.0
+        },
+        "key": "total",
+        "requests": 0,
+        "sessions": 0,
+        "share": 0.0,
+        "tokens": {
+          "badge": "Measured",
+          "cacheCreation": 0,
+          "cacheRead": 0,
+          "fromTranscript": 0,
+          "input": 0,
+          "output": 0,
+          "total": 0
+        }
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

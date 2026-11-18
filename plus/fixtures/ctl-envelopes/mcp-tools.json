@@ -1534,6 +1534,50 @@
           "tier": 3
         },
         {
+          "description": "Show whether model-spend collection is on, the OTLP receiver (address, owner, counters, last error), the last event and the event store against its size and age caps",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "spend_status",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Model spend from Claude Code's OpenTelemetry export for a window ending today: totals, by day, by project folder, by model and by task, each figure with its kind (Measured, Counted, Estimate, Not itemised), plus the MCP part. Transcripts fill in sessions without OTel events",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "spend_summary",
+          "params": [
+            {
+              "description": "today, 7d (default) or 30d",
+              "name": "range",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Only this project folder, as the by-project rows name it",
+              "name": "project",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Show the five OTel env keys Toolport would write to each Claude Code profile's settings.json, and which already hold another value; writes nothing",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "spend_setup_plan",
+          "params": [
+            {
+              "description": "Receiver port (default 4318)",
+              "name": "port",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
           "description": "Show the compression provider, active preset, engine pin and shims",
           "dryRunDefault": false,
           "gate": "none",

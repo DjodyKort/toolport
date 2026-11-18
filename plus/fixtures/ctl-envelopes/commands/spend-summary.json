@@ -1,0 +1,49 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "choices": ["today", "7d", "30d"],
+      "effect": "Window ending today (default 7d)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--range",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "effect": "Only this project folder, as the by-project rows name it",
+      "escalates": false,
+      "hidden": false,
+      "name": "--project",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "spend",
+  "id": "spend summary",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["spend", "summary"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Model spend by day, project, model and task, with the MCP part (--range, --project)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["spend_summary"]
+}

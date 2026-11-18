@@ -1,0 +1,13 @@
+{
+  "argv": ["spend", "setup", "undo", "--dry-run"],
+  "envelope": {
+    "command": "spend setup undo",
+    "data": {
+      "dryRun": true,
+      "profilesSetUp": 1
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

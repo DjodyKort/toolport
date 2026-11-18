@@ -1,0 +1,13 @@
+{
+  "argv": ["spend", "export-csv", "--range", "30d"],
+  "envelope": {
+    "command": "spend export-csv",
+    "data": {
+      "csv": "day,project,model,input_tokens,output_tokens,cache_read_tokens,cache_creation_tokens,cost_usd,cost_basis,requests,source\n2027-01-14,/work/alpha,claude-haiku-4,1000,200,8000,500,0.030000,Measured,0,otel\n2027-01-15,/work/alpha,claude-sonnet-4,1000,200,8000,500,0.120000,Measured,0,otel\n2027-01-15,/work/beta,claude-sonnet-4,300,60,2000,100,0.002775,Estimate,1,transcript\n",
+      "rows": 3
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

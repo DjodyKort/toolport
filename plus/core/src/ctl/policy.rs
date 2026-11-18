@@ -27,6 +27,7 @@ use super::skills_state;
 use super::skills_taps;
 use super::skills_undo;
 use super::sources;
+use super::spend;
 use super::styles;
 use super::task;
 use super::{compression, compression_cfg, compression_hooks};
@@ -717,6 +718,26 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&compression::LEDGER_RECORD])
         .requires(&["--provider"])
         .skip("appends to the ledger; its golden step runs in a scratch data dir"),
+    row("spend status", R).spec(&[&spend::STATUS]),
+    row("spend receiver status", R).spec(&[&spend::STATUS]),
+    row("spend summary", R).spec(&[&spend::SUMMARY]),
+    row("spend export-csv", W)
+        .reads(&["--out"])
+        .spec(&[&spend::EXPORT])
+        .smoke(&[]),
+    row("spend prune", D)
+        .dry()
+        .spec(&[&spend::PRUNE])
+        .skip("removes events; plus_ctl_contract runs it on a scratch data dir"),
+    row("spend setup plan", R).spec(&[&spend::SETUP_PLAN]),
+    row("spend setup apply", W)
+        .dry()
+        .spec(&[&spend::SETUP_APPLY])
+        .skip("writes Claude Code settings; its --dry-run is a golden step and plus_ctl_contract runs it in a scratch home"),
+    row("spend setup undo", W)
+        .dry()
+        .spec(&[&spend::SETUP_UNDO])
+        .skip("restores Claude Code settings; plus_ctl_contract runs it in a scratch home"),
     row("task ls", R).spec(&[&task::LS]),
     row("task show", R)
         .spec(&[&task::SHOW])
@@ -874,6 +895,9 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("where_am_i", R),
     maps("doctor", R, "doctor"),
     own("flow_diagram", R),
+    maps("spend_status", R, "spend status"),
+    maps("spend_summary", R, "spend summary"),
+    maps("spend_setup_plan", R, "spend setup plan"),
     maps("compression_status", R, "compression status"),
     maps("compression_measure", R, "compression measure"),
     maps("compression_hooks_pause", W, "compression hooks pause"),

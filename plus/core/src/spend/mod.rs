@@ -2,6 +2,7 @@
 //! upstream has no OTLP code. Upstream's savings rows and tokenizer are read through the host
 //! traits only.
 
+pub mod api;
 pub mod config;
 pub mod event;
 pub mod mcp_part;

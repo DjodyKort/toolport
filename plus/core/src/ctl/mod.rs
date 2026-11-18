@@ -29,6 +29,7 @@ mod skills_state;
 mod skills_taps;
 mod skills_undo;
 mod sources;
+mod spend;
 mod styles;
 mod task;
 
@@ -627,6 +628,48 @@ pub const COMMANDS: &[Command] = &[
         &["compression"],
         "Compression: status presets enable disable set-provider use sync pin seal env doctor run verify measure ledger proxy update",
         compression_cfg::group,
+    ),
+    cmd(
+        &["spend", "status"],
+        "Show whether collection is on, the receiver, the last event and the store against its caps",
+        spend::status,
+    )
+    .no_options(),
+    cmd(
+        &["spend", "receiver", "status"],
+        "Show the OTLP receiver: address, owner, counters and the last error",
+        spend::receiver_status,
+    )
+    .no_options(),
+    cmd(
+        &["spend", "summary"],
+        "Model spend by day, project, model and task, with the MCP part (--range, --project)",
+        spend::summary,
+    ),
+    cmd(
+        &["spend", "export-csv"],
+        "Export spend as CSV, one row per day, project and model (--range, --out)",
+        spend::export_csv,
+    ),
+    cmd(
+        &["spend", "prune"],
+        "Remove events past the retention and size caps, keeping the daily totals (--dry-run, --totals --yes)",
+        spend::prune,
+    ),
+    cmd(
+        &["spend", "setup", "plan"],
+        "Show the five OTel env keys that would be written to each Claude Code profile (--port, --overwrite)",
+        spend::setup_plan,
+    ),
+    cmd(
+        &["spend", "setup", "apply"],
+        "Write the OTel env keys after a plan and turn collection on (--port, --overwrite, --dry-run)",
+        spend::setup_apply,
+    ),
+    cmd(
+        &["spend", "setup", "undo"],
+        "Remove the env keys Toolport wrote and turn collection off (--dry-run)",
+        spend::setup_undo,
     ),
     cmd(
         &["task", "ls"],

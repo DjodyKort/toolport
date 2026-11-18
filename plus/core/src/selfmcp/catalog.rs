@@ -2,7 +2,8 @@ use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
 use super::{
-    backend, compression, content, context, library, servers, skills, sources, tasks, ToolError,
+    backend, compression, content, context, library, servers, skills, sources, spend, tasks,
+    ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -676,6 +677,35 @@ pub const TOOLS: &[ToolDef] = &[
             DRY_ON
         ],
         skills::resolve
+    ),
+    tool!(
+        "spend_status",
+        1,
+        None,
+        "Show whether model-spend collection is on, the OTLP receiver (address, owner, counters, last error), the last event and the event store against its size and age caps",
+        [],
+        spend::status
+    ),
+    tool!(
+        "spend_summary",
+        1,
+        None,
+        "Model spend from Claude Code's OpenTelemetry export for a window ending today: totals, by day, by project folder, by model and by task, each figure with its kind (Measured, Counted, Estimate, Not itemised), plus the MCP part. Transcripts fill in sessions without OTel events",
+        [
+            p("range", Ty::Str, false, "today, 7d (default) or 30d"),
+            p("project", Ty::Str, false, "Only this project folder, as the by-project rows name it")
+        ],
+        spend::summary
+    ),
+    tool!(
+        "spend_setup_plan",
+        1,
+        None,
+        "Show the five OTel env keys Toolport would write to each Claude Code profile's settings.json, and which already hold another value; writes nothing",
+        [
+            p("port", Ty::Str, false, "Receiver port (default 4318)")
+        ],
+        spend::setup_plan
     ),
     tool!(
         "compression_status",

@@ -1,0 +1,13 @@
+{
+  "argv": ["spend", "setup", "plan", "--port", "80"],
+  "envelope": {
+    "command": "spend setup plan",
+    "error": {
+      "code": "usage",
+      "message": "the port must be 1024 or higher"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

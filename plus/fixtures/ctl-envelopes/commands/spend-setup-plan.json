@@ -1,0 +1,48 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Port the receiver listens on (default 4318)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--port",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "An env key that already holds another value and may be overwritten, or all; repeat for more",
+      "escalates": false,
+      "hidden": false,
+      "name": "--overwrite",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "spend",
+  "id": "spend setup plan",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["spend", "setup", "plan"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Show the five OTel env keys that would be written to each Claude Code profile (--port, --overwrite)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["spend_setup_plan"]
+}

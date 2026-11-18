@@ -71,12 +71,18 @@ pub fn gateway_tick(
     pooled: &dyn Fn() -> Vec<PooledLaunch>,
 ) {
     #[cfg(feature = "plus")]
-    drop(gateway_tick_with(
-        crate::plus_adapter::HostAdapter,
-        router,
-        dirty,
-        pooled,
-    ));
+    {
+        drop(gateway_tick_with(
+            crate::plus_adapter::HostAdapter,
+            router,
+            dirty,
+            pooled,
+        ));
+        toolport_plus::spend::runtime::tick_host(
+            &crate::plus_adapter::HostAdapter,
+            toolport_plus::spend::runtime::Owner::Gateway,
+        );
+    }
     #[cfg(not(feature = "plus"))]
     let _ = (router, dirty, pooled);
 }
@@ -118,7 +124,10 @@ pub(crate) fn gateway_tick_with<H: toolport_plus_api::TaskHost + Send + 'static>
 #[cfg(feature = "desktop")]
 pub(crate) fn app_started() {
     #[cfg(feature = "plus")]
-    toolport_plus::tasks::schedule::spawn_app_ticker(crate::plus_adapter::HostAdapter);
+    {
+        toolport_plus::tasks::schedule::spawn_app_ticker(crate::plus_adapter::HostAdapter);
+        toolport_plus::spend::runtime::spawn_app(crate::plus_adapter::HostAdapter);
+    }
 }
 
 /// Takes the tools of servers whose mode is `search` out of the surface a Full tools/list sends.

@@ -1307,6 +1307,34 @@ const CASES: &[Case] = &[
     ),
     // compression
     case(
+        "spend_status",
+        &[
+            read("off", "spend_status", "{}"),
+            hook("data", spend_data),
+            read("with_data", "spend_status", "{}"),
+        ],
+    ),
+    case(
+        "spend_summary",
+        &[
+            read("empty", "spend_summary", "{}"),
+            fails(
+                "bad_range",
+                "invalid_arguments",
+                "spend_summary",
+                r#"{"range":"year"}"#,
+            ),
+        ],
+    ),
+    case(
+        "spend_setup_plan",
+        &[
+            hook("settings", spend_settings),
+            read("plan", "spend_setup_plan", "{}"),
+            read("port", "spend_setup_plan", r#"{"port":"4999"}"#),
+        ],
+    ),
+    case(
         "compression_status",
         &[
             read("fresh", "compression_status", "{}"),
@@ -1609,6 +1637,14 @@ fn arguments(world: &World, case: &Case, call: &Call) -> Value {
         .replace("{base}", &world.base.to_string_lossy());
     serde_json::from_str(&expanded)
         .unwrap_or_else(|e| panic!("{} {}: arguments are not JSON: {e}", case.tool, call.label))
+}
+
+fn spend_data(world: &World) {
+    common::spend_world::build(world);
+}
+
+fn spend_settings(world: &World) {
+    common::spend_world::settings_with_a_conflict(world);
 }
 
 fn sources_home(world: &World) {

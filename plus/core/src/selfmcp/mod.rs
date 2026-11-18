@@ -14,6 +14,7 @@ pub mod register;
 mod servers;
 mod skills;
 mod sources;
+mod spend;
 mod tasks;
 
 pub use catalog::{find_resource, find_tool, Gate, ToolDef, RESOURCES, TOOLS};

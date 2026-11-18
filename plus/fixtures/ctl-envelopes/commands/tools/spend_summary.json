@@ -1,0 +1,7 @@
+{
+  "command": "spend summary",
+  "dryRun": "none",
+  "name": "spend_summary",
+  "tier": "read",
+  "toolTier": 1
+}

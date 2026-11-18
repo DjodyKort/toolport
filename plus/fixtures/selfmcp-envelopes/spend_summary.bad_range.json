@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "range": "year"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "unknown range 'year' (have: today, 7d, 30d)"
+    }
+  },
+  "text": "invalid_arguments: unknown range 'year' (have: today, 7d, 30d)",
+  "tool": "spend_summary"
+}

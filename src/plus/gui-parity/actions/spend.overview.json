@@ -1,0 +1,5 @@
+{
+  "route": "spend",
+  "status": "planned",
+  "summary": "Range tiles, cost by day and the by-project, by-model and by-task rows, each figure badged Measured, Counted, Estimate or Not itemised, with the MCP part and the Collecting card (spend status, spend summary, spend receiver status, spend_status, spend_summary)"
+}

@@ -1,0 +1,57 @@
+{
+  "argv": ["spend", "setup", "plan", "--overwrite", "OTEL_METRICS_EXPORTER"],
+  "envelope": {
+    "command": "spend setup plan",
+    "data": {
+      "conflicts": 0,
+      "contentFlags": "never written",
+      "endpoint": "http://127.0.0.1:<PORT>",
+      "note": "Each profile's settings file is backed up by the settings writer before it changes",
+      "port": 4318,
+      "profiles": [
+        {
+          "conflicts": 0,
+          "entries": [
+            {
+              "action": "add",
+              "current": null,
+              "key": "CLAUDE_CODE_ENABLE_TELEMETRY",
+              "wanted": "1"
+            },
+            {
+              "action": "overwrite",
+              "current": "prometheus",
+              "key": "OTEL_METRICS_EXPORTER",
+              "wanted": "otlp"
+            },
+            {
+              "action": "add",
+              "current": null,
+              "key": "OTEL_LOGS_EXPORTER",
+              "wanted": "otlp"
+            },
+            {
+              "action": "add",
+              "current": null,
+              "key": "OTEL_EXPORTER_OTLP_PROTOCOL",
+              "wanted": "http/json"
+            },
+            {
+              "action": "add",
+              "current": null,
+              "key": "OTEL_EXPORTER_OTLP_ENDPOINT",
+              "wanted": "http://127.0.0.1:<PORT>"
+            }
+          ],
+          "exists": true,
+          "profile": "<WORLD>/home/.claude/settings.json",
+          "writes": 5
+        }
+      ],
+      "writes": 5
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

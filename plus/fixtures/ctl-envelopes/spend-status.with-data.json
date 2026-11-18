@@ -1,0 +1,35 @@
+{
+  "argv": ["spend", "status"],
+  "envelope": {
+    "command": "spend status",
+    "data": {
+      "enabled": false,
+      "lastEvent": "<TIME>",
+      "profilesSetUp": 0,
+      "receiver": {
+        "address": "127.0.0.1:<PORT>",
+        "dropped": 0,
+        "error": null,
+        "events": 0,
+        "listening": false,
+        "owner": null,
+        "rejected": 0,
+        "requests": 0
+      },
+      "showCost": true,
+      "state": "off",
+      "store": {
+        "bytes": 1951,
+        "dailyLines": 1,
+        "events": 15,
+        "maxBytes": 67108864,
+        "oldest": "<TIME>",
+        "retentionDays": 30,
+        "skippedLines": 0
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

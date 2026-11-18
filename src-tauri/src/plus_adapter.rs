@@ -504,6 +504,17 @@ impl HostEnv for HostAdapter {
         std::env::set_var("TOOLPORT_DATA_DIR", dir);
     }
 
+    fn now_unix(&self) -> i64 {
+        std::env::var("TOOLPORT_PLUS_NOW")
+            .ok()
+            .and_then(|text| text.parse().ok())
+            .unwrap_or_else(|| {
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0, |elapsed| elapsed.as_secs() as i64)
+            })
+    }
+
     fn seam_live(&self) -> bool {
         "https://toolport.app/"
             .parse()

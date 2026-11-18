@@ -1,0 +1,270 @@
+{
+  "argv": ["spend", "summary", "--range", "30d", "--project", "/work/alpha"],
+  "envelope": {
+    "command": "spend summary",
+    "data": {
+      "byDay": [
+        {
+          "byModel": {
+            "claude-haiku-4": 0.03
+          },
+          "cost": {
+            "badge": "Measured",
+            "estimatedUsd": 0.0,
+            "usd": 0.03
+          },
+          "key": "2027-01-14",
+          "requests": 0,
+          "sessions": 1,
+          "share": 0.2,
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 500,
+            "cacheRead": 8000,
+            "fromTranscript": 0,
+            "input": 1000,
+            "output": 200,
+            "total": 9700
+          }
+        },
+        {
+          "byModel": {
+            "claude-sonnet-4": 0.12
+          },
+          "cost": {
+            "badge": "Measured",
+            "estimatedUsd": 0.0,
+            "usd": 0.12
+          },
+          "key": "2027-01-15",
+          "requests": 0,
+          "sessions": 1,
+          "share": 0.8,
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 500,
+            "cacheRead": 8000,
+            "fromTranscript": 0,
+            "input": 1000,
+            "output": 200,
+            "total": 9700
+          }
+        }
+      ],
+      "byModel": [
+        {
+          "cost": {
+            "badge": "Measured",
+            "estimatedUsd": 0.0,
+            "usd": 0.12
+          },
+          "key": "claude-sonnet-4",
+          "requests": 0,
+          "sessions": 1,
+          "share": 0.8,
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 500,
+            "cacheRead": 8000,
+            "fromTranscript": 0,
+            "input": 1000,
+            "output": 200,
+            "total": 9700
+          }
+        },
+        {
+          "cost": {
+            "badge": "Measured",
+            "estimatedUsd": 0.0,
+            "usd": 0.03
+          },
+          "key": "claude-haiku-4",
+          "requests": 0,
+          "sessions": 1,
+          "share": 0.2,
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 500,
+            "cacheRead": 8000,
+            "fromTranscript": 0,
+            "input": 1000,
+            "output": 200,
+            "total": 9700
+          }
+        }
+      ],
+      "byProject": [
+        {
+          "cost": {
+            "badge": "Measured",
+            "estimatedUsd": 0.0,
+            "usd": 0.15
+          },
+          "key": "/work/alpha",
+          "requests": 0,
+          "sessions": 2,
+          "share": 1.0,
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 1000,
+            "cacheRead": 16000,
+            "fromTranscript": 0,
+            "input": 2000,
+            "output": 400,
+            "total": 19400
+          }
+        }
+      ],
+      "byTask": [
+        {
+          "cost": {
+            "badge": "Measured",
+            "estimatedUsd": 0.0,
+            "usd": 0.15
+          },
+          "key": "Unattributed",
+          "requests": 0,
+          "sessions": 2,
+          "share": 1.0,
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 1000,
+            "cacheRead": 16000,
+            "fromTranscript": 0,
+            "input": 2000,
+            "output": 400,
+            "total": 19400
+          }
+        }
+      ],
+      "cacheShare": {
+        "badge": "Measured",
+        "value": 0.842
+      },
+      "mcpPart": {
+        "note": "Upstream's saved tokens cover tool-definition exposure only and are never added to spend",
+        "savedTokens": 0,
+        "shareOfInputTokens": {
+          "badge": "Estimate",
+          "value": 0.0421
+        },
+        "state": "ready",
+        "toolDefinitions": {
+          "badge": "Counted",
+          "exposedTokens": 800,
+          "fullTokens": 5000,
+          "sessions": 1,
+          "tokenizer": "cl100k_base"
+        }
+      },
+      "notes": ["Spend is never added to upstream's saved-tokens number"],
+      "previous": {
+        "costDelta": -0.7,
+        "tokensDelta": 1.0
+      },
+      "project": "/work/alpha",
+      "range": "30d",
+      "sessionList": [
+        {
+          "cost": {
+            "badge": "Measured",
+            "estimatedUsd": 0.0,
+            "usd": 0.12
+          },
+          "key": "s-a",
+          "requests": 0,
+          "sessions": 1,
+          "share": 0.8,
+          "source": "otel",
+          "start": "<TIME>",
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 500,
+            "cacheRead": 8000,
+            "fromTranscript": 0,
+            "input": 1000,
+            "output": 200,
+            "total": 9700
+          }
+        },
+        {
+          "cost": {
+            "badge": "Measured",
+            "estimatedUsd": 0.0,
+            "usd": 0.03
+          },
+          "key": "s-b",
+          "requests": 0,
+          "sessions": 1,
+          "share": 0.2,
+          "source": "otel",
+          "start": "<TIME>",
+          "tokens": {
+            "badge": "Measured",
+            "cacheCreation": 500,
+            "cacheRead": 8000,
+            "fromTranscript": 0,
+            "input": 1000,
+            "output": 200,
+            "total": 9700
+          }
+        }
+      ],
+      "since": "<masked>",
+      "sources": {
+        "estimatedShare": 0.0,
+        "otelSessions": 4,
+        "transcriptSessions": 1
+      },
+      "status": {
+        "enabled": false,
+        "lastEvent": "<TIME>",
+        "profilesSetUp": 0,
+        "receiver": {
+          "address": "127.0.0.1:<PORT>",
+          "dropped": 0,
+          "error": null,
+          "events": 0,
+          "listening": false,
+          "owner": null,
+          "rejected": 0,
+          "requests": 0
+        },
+        "showCost": true,
+        "state": "off",
+        "store": {
+          "bytes": 1951,
+          "dailyLines": 1,
+          "events": 15,
+          "maxBytes": 67108864,
+          "oldest": "<TIME>",
+          "retentionDays": 30,
+          "skippedLines": 0
+        }
+      },
+      "totals": {
+        "cost": {
+          "badge": "Measured",
+          "estimatedUsd": 0.0,
+          "usd": 0.15
+        },
+        "key": "total",
+        "requests": 0,
+        "sessions": 2,
+        "share": 1.0,
+        "tokens": {
+          "badge": "Measured",
+          "cacheCreation": 1000,
+          "cacheRead": 16000,
+          "fromTranscript": 0,
+          "input": 2000,
+          "output": 400,
+          "total": 19400
+        }
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
