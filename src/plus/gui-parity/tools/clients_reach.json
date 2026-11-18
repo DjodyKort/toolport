@@ -1,5 +1,5 @@
 {
-  "route": "servers",
-  "action": "servers.reach",
+  "route": "client-direct",
+  "action": "client.reach-panel",
   "surface": "screen"
 }

@@ -1,6 +1,6 @@
 {
   "route": "servers",
   "status": "built",
-  "summary": "Who reaches each server: the set columns say who uses them (default, clients, folder routing), a server no set reaches is flagged, a folder mapping that outranks a client's set is explained, and the Reach row names the clients and folders (client reach, clients_reach)",
+  "summary": "Who reaches each server: the set columns say who uses them (default, clients, folder routing), a server no set reaches is flagged, a folder mapping that outranks a client's set is explained, and the Reach row names the clients and folders (client reach)",
   "test": "src/plus/servers/AccessCompare.test.tsx"
 }

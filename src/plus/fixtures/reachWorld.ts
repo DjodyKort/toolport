@@ -103,6 +103,16 @@ export function createReachWorld(options: ReachWorldOptions, state: () => ReachS
         servers: [s.id],
         text: `No access set reaches ${s.name}: the default access, the clients' own sets and the folder mappings all leave it out.`,
       }));
+    for (const client of clients.filter((c) => c.missing)) {
+      findings.push({
+        kind: "missing-set",
+        server: null,
+        client: client.id,
+        folder: null,
+        servers: [],
+        text: `${client.name} is bound to an access set that no longer exists, so it sees no servers.`,
+      });
+    }
     for (const folder of folders.filter((f) => !f.missing)) {
       for (const client of clients.filter(
         (c) => c.ownSet && !c.missing && c.accessSet !== folder.accessSet,

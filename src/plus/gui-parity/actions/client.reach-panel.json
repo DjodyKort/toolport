@@ -1,0 +1,6 @@
+{
+  "route": "client-direct",
+  "status": "built",
+  "summary": "The reach panel of a client: the access set it uses, the servers that set reaches and the ones it leaves out (with the Attention wording), the folder mapping that outranks it, and the link to the compare table (clients_reach, client reach --client)",
+  "test": "src/plus/clients/ClientReach.test.tsx"
+}
