@@ -32,8 +32,8 @@ pub use memory::{
 pub use mirror::{convert, ServerRecord};
 pub use secrets::{SecretsHost, TrustInputs, VaultAccess, HTTP_AUTH_KEY};
 pub use servers::{
-    CallsInFlight, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter, RestartOutcome,
-    ServerRules, ServerSpec,
+    CallsInFlight, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter, RegistryEntries,
+    RestartOutcome, ServerRules, ServerSpec,
 };
 pub use settings::SettingsStore;
 pub use tasks::{

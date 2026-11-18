@@ -1010,6 +1010,43 @@ impl CatalogAccess for MemoryHost {
             .cloned()
             .collect()
     }
+
+    fn registry_entries(&self, body: &Value) -> crate::RegistryEntries {
+        let mut page = crate::RegistryEntries::default();
+        let items = body["servers"].as_array().into_iter().flatten();
+        for item in items {
+            let official = &item["_meta"]["io.modelcontextprotocol.registry/official"];
+            if official["isLatest"] == Value::Bool(false) {
+                continue;
+            }
+            let server = item.get("server").unwrap_or(item);
+            let Some(id) = server["name"].as_str() else {
+                continue;
+            };
+            if official["status"]
+                .as_str()
+                .is_some_and(|status| status != "active")
+            {
+                page.retired.push(id.to_string());
+                continue;
+            }
+            let Some(url) = server["remotes"][0]["url"].as_str() else {
+                page.retired.push(id.to_string());
+                continue;
+            };
+            let entry = serde_json::json!({
+                "name": server["title"].as_str().unwrap_or(id),
+                "description": server["description"].as_str().unwrap_or(""),
+                "transport": "http", "command": null, "args": [], "url": url,
+                "envKeys": [], "source": "registry", "homepage": null,
+                "publisher": id.split_once('/').map(|(namespace, _)| namespace),
+            });
+            if let Ok(record) = crate::convert(&entry) {
+                page.entries.push((id.to_string(), record));
+            }
+        }
+        page
+    }
 }
 
 /// A gateway router in memory: the servers it holds, with the calls in flight on each, and a

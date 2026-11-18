@@ -97,11 +97,25 @@ pub trait ServerRules {
     fn spawn_env_refused(&self, key: &str, value: &str) -> bool;
 }
 
+/// One page of the MCP Registry's server list, mapped to catalog entries by upstream's own code.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct RegistryEntries {
+    /// The latest, active version of each listed server, with its registry id.
+    pub entries: Vec<(String, CatalogEntryRecord)>,
+    /// Registry ids whose latest version is no longer active or that upstream cannot map to an
+    /// entry.
+    pub retired: Vec<String>,
+}
+
 /// Upstream's curated catalog.
 pub trait CatalogAccess {
     /// Curated entries matching `query`, in the catalog's own order; all of them for an empty
     /// query. Never goes to the network.
     fn curated(&self, query: &str) -> Vec<CatalogEntryRecord>;
+
+    /// The servers of one `GET /v0.1/servers` response, filtered and mapped the way upstream's
+    /// live search does it.
+    fn registry_entries(&self, body: &Value) -> RegistryEntries;
 }
 
 /// What happened to one instance of a server when a gateway process was asked to restart it. A
