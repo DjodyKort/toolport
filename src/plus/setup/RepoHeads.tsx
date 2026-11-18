@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ctlData } from "../bridge/ctl";
 import { errorText } from "../settings/useCtl";
+import { openView } from "../shell/navigate";
 import { whenText } from "./syncModel";
 
 interface Head {
@@ -31,6 +33,19 @@ const RELATION: Record<string, string> = {
   unknown: "not fetched here yet",
   not_here: "not on this machine",
 };
+
+function OpenServers({ server }: { server: string }) {
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      aria-label={`Open Servers for ${server}`}
+      onClick={() => openView("servers")}
+    >
+      Open Servers
+    </Button>
+  );
+}
 
 const short = (id: string) => id.slice(0, 8);
 
@@ -74,7 +89,10 @@ export default function RepoHeads({ active }: { active: boolean }) {
             </li>
           )}
           {data.mine.map((head) => (
-            <li key={`mine-${head.server}`} className="flex items-center gap-3 px-4 py-3">
+            <li
+              key={`mine-${head.server}`}
+              className="flex flex-wrap items-center gap-3 px-4 py-3"
+            >
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{head.server}</p>
                 <p className="text-meta text-muted-foreground">
@@ -84,13 +102,14 @@ export default function RepoHeads({ active }: { active: boolean }) {
                 </p>
               </div>
               {!head.pushed && <Badge variant="partial">Not pushed</Badge>}
+              <OpenServers server={head.server} />
             </li>
           ))}
           {data.others.flatMap((other) =>
             other.heads.map((head) => (
               <li
                 key={`${other.machine}-${head.server}`}
-                className="flex items-center gap-3 px-4 py-3"
+                className="flex flex-wrap items-center gap-3 px-4 py-3"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold">{head.server}</p>
@@ -105,6 +124,7 @@ export default function RepoHeads({ active }: { active: boolean }) {
                     ? "other branch"
                     : (RELATION[head.relation] ?? head.relation)}
                 </Badge>
+                <OpenServers server={head.server} />
               </li>
             )),
           )}

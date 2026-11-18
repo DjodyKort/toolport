@@ -26,10 +26,12 @@ import { Switch } from "@/components/ui/switch";
 import { toastError } from "@/lib/toast";
 import { ctlData } from "../bridge/ctl";
 import { errorText } from "../settings/useCtl";
+import { openView } from "../shell/navigate";
 import type { PartsData } from "./model";
 import RepoHeads from "./RepoHeads";
 import {
   changes,
+  pageOfRow,
   placeOf,
   pullArgv,
   rowName,
@@ -362,6 +364,16 @@ function PlanCard({
   );
 }
 
+function OpenPage({ id }: { id: string }) {
+  const page = pageOfRow(id);
+  if (!page) return null;
+  return (
+    <Button variant="outline" size="sm" onClick={() => openView(page.view)}>
+      {page.label}
+    </Button>
+  );
+}
+
 function NeedsYou({
   status,
   notes,
@@ -407,10 +419,13 @@ function NeedsYou({
             >
               Other machine
             </Button>
+            <OpenPage id={id} />
           </Item>
         ))}
         {held.map((row) => (
-          <Item key={row.id} title={row.label} detail={row.note} />
+          <Item key={row.id} title={row.label} detail={row.note}>
+            {pageOfRow(row.id) && <OpenPage id={row.id} />}
+          </Item>
         ))}
       </ul>
     </section>

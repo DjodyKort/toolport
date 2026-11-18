@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { resetPlusFixture } from "../fixtures/ipc";
 import type { WorldOptions } from "../fixtures/ctlWorld";
 import { guiParity } from "../guiParity";
+import { PLUS_NAVIGATE_EVENT } from "../shell/navigate";
 import { SetupPage } from "./SetupPage";
 import SyncView from "./SyncView";
 
@@ -346,5 +347,53 @@ describe("SyncView", () => {
     expect(
       await screen.findByText(/does not publish its server checkouts/),
     ).toBeInTheDocument();
+  });
+
+  it("test21_a_conflict_row_opens_the_page_that_owns_it", async () => {
+    world({ conflicts: ["server:calendar", "task:nightly-digest"], remote: "same" });
+    const opened = vi.fn();
+    const listener = (event: Event) => opened((event as CustomEvent).detail);
+    window.addEventListener(PLUS_NAVIGATE_EVENT, listener);
+    try {
+      const user = userEvent.setup();
+      render(<SyncView />);
+      const needs = await screen.findByRole("region", { name: "Needs you" });
+      const buttons = await within(needs).findAllByRole("button", { name: /^Open / });
+      expect(buttons.map((button) => button.textContent)).toEqual([
+        "Open Servers",
+        "Open Tasks",
+      ]);
+      await user.click(buttons[0]);
+      await user.click(buttons[1]);
+      expect(opened.mock.calls).toEqual([["servers"], ["tasks"]]);
+    } finally {
+      window.removeEventListener(PLUS_NAVIGATE_EVENT, listener);
+    }
+  });
+
+  it("test22_a_row_of_another_kind_has_no_open_button", async () => {
+    world({ conflicts: ["access:default"], remote: "same" });
+    render(<SyncView />);
+    const needs = await screen.findByRole("region", { name: "Needs you" });
+    expect(within(needs).queryByRole("button", { name: /^Open / })).toBeNull();
+  });
+
+  it("test23_a_repo_row_opens_the_servers_page", async () => {
+    const opened = vi.fn();
+    const listener = (event: Event) => opened((event as CustomEvent).detail);
+    window.addEventListener(PLUS_NAVIGATE_EVENT, listener);
+    try {
+      const user = userEvent.setup();
+      render(<SyncView />);
+      const repos = await screen.findByRole("region", { name: "Repos" });
+      const buttons = await within(repos).findAllByRole("button", {
+        name: /^Open Servers for /,
+      });
+      expect(buttons.length).toBeGreaterThanOrEqual(2);
+      await user.click(buttons[0]);
+      expect(opened).toHaveBeenCalledWith("servers");
+    } finally {
+      window.removeEventListener(PLUS_NAVIGATE_EVENT, listener);
+    }
   });
 });

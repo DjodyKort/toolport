@@ -1,3 +1,4 @@
+import type { View } from "@/lib/types";
 import { ago } from "../tasks/model";
 
 export interface SyncPart {
@@ -127,6 +128,17 @@ export function pullArgv(options: {
 export function rowName(id: string): string {
   const at = id.indexOf(":");
   return at < 0 ? id : id.slice(at + 1);
+}
+
+const PAGE_OF_ROW: Record<string, { view: View; label: string }> = {
+  server: { view: "servers", label: "Open Servers" },
+  task: { view: "tasks", label: "Open Tasks" },
+};
+
+/** The page where a row of the bundle is reviewed, named by the kind in front of its id. */
+export function pageOfRow(id: string): { view: View; label: string } | null {
+  const at = id.indexOf(":");
+  return at < 0 ? null : (PAGE_OF_ROW[id.slice(0, at)] ?? null);
 }
 
 export function whenText(iso: string | null, now = Date.now()): string {
