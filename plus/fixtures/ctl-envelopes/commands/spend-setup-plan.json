@@ -24,6 +24,17 @@
       "required": false,
       "sensitive": false,
       "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "A Claude Code settings file or its folder; repeat for more (default: every detected profile)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--profile",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
     }
   ],
   "group": "spend",
@@ -41,7 +52,7 @@
     "flag": null,
     "mode": "none"
   },
-  "summary": "Show the five OTel env keys that would be written to each Claude Code profile (--port, --overwrite)",
+  "summary": "Show the five OTel env keys that would be written to each Claude Code profile (--port, --overwrite, --profile)",
   "surface": "screen",
   "tier": "read",
   "tools": ["spend_setup_plan"]

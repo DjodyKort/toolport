@@ -142,6 +142,19 @@ impl Store {
         }
     }
 
+    /// Deletes the events and the daily totals; returns what was there.
+    pub fn delete_all(&self) -> Result<Stats, String> {
+        let _lock = self.lock().ok_or("the spend store is locked")?;
+        let stats = self.stats();
+        match fs::remove_file(self.events_path()) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e.to_string()),
+        }
+        self.delete_daily()?;
+        Ok(stats)
+    }
+
     pub fn stats(&self) -> Stats {
         let (events, skipped) = self.read_events();
         Stats {

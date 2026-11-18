@@ -352,6 +352,16 @@ const CASES: &[Case] = &[
             )
             .env(SPEND_CLOCK),
             usage("low-port", &["spend", "setup", "plan", "--port", "80"]).env(SPEND_CLOCK),
+            read(
+                "profile",
+                &["spend", "setup", "plan", "--profile", "{home}/.claude"],
+            )
+            .env(SPEND_CLOCK),
+            usage(
+                "unknown-profile",
+                &["spend", "setup", "plan", "--profile", "{home}/elsewhere"],
+            )
+            .env(SPEND_CLOCK),
         ],
     ),
     case(
@@ -393,7 +403,35 @@ const CASES: &[Case] = &[
             )
             .env(SPEND_CLOCK),
             read("dry-run", &["spend", "setup", "undo", "--dry-run"]).env(SPEND_CLOCK),
+            hook("data", spend_data),
+            read(
+                "dry-run-delete-data",
+                &["spend", "setup", "undo", "--delete-data", "--dry-run"],
+            )
+            .env(SPEND_CLOCK),
+            usage(
+                "delete-data-needs-yes",
+                &["spend", "setup", "undo", "--delete-data"],
+            )
+            .env(SPEND_CLOCK),
+            usage(
+                "unknown-profile",
+                &["spend", "setup", "undo", "--profile", "{home}/elsewhere"],
+            )
+            .env(SPEND_CLOCK),
             apply("undo", &["spend", "setup", "undo"]).env(SPEND_CLOCK),
+            apply("undo-again", &["spend", "setup", "undo"]).env(SPEND_CLOCK),
+            setup(
+                "turn-on-again",
+                &["spend", "setup", "apply", "--overwrite", "all"],
+            )
+            .env(SPEND_CLOCK),
+            apply(
+                "undo-delete-data",
+                &["spend", "setup", "undo", "--delete-data", "--yes"],
+            )
+            .env(SPEND_CLOCK),
+            read("data-gone", &["spend", "status"]).env(SPEND_CLOCK),
         ],
     ),
     case(

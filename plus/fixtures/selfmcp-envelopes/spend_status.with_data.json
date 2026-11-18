@@ -26,6 +26,10 @@
       "oldest": "<TIME>",
       "retentionDays": 30,
       "skippedLines": 0
+    },
+    "transcripts": {
+      "done": 0,
+      "files": 1
     }
   },
   "tool": "spend_status"

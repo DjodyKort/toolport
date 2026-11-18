@@ -64,28 +64,51 @@ fn transcript_files(roots: &[PathBuf]) -> Vec<PathBuf> {
     files
 }
 
+fn key_of(path: &Path) -> Option<CacheKey> {
+    let meta = std::fs::metadata(path).ok()?;
+    Some((
+        meta.len(),
+        meta.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+    ))
+}
+
+fn cached(path: &Path, key: CacheKey) -> Option<Option<TranscriptSession>> {
+    let guard = CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    match guard.as_ref()?.get(path) {
+        Some((k, parsed)) if *k == key => Some(parsed.clone()),
+        _ => None,
+    }
+}
+
+/// Transcript files found and how many of them are already parsed and cached, for the
+/// first-run progress of the Spend page. The lock is not held while a file parses, so this can
+/// be asked while `scan` runs.
+pub fn progress(roots: &[PathBuf]) -> (usize, usize) {
+    let files = transcript_files(roots);
+    let done = files
+        .iter()
+        .filter(|p| key_of(p).is_some_and(|k| cached(p, k).is_some()))
+        .count();
+    (files.len(), done)
+}
+
 /// Every session found, keyed by session id. Files are parsed once per size and modification
 /// time; a later call reuses the result.
 pub fn scan(roots: &[PathBuf]) -> BTreeMap<String, TranscriptSession> {
     let mut out = BTreeMap::new();
-    let mut guard = CACHE.lock().unwrap_or_else(|e| e.into_inner());
-    let cache = guard.get_or_insert_with(HashMap::new);
     for path in transcript_files(roots) {
-        let Ok(meta) = std::fs::metadata(&path) else {
+        let Some(key) = key_of(&path) else {
             continue;
         };
-        let key = (
-            meta.len(),
-            meta.modified().unwrap_or(SystemTime::UNIX_EPOCH),
-        );
-        let parsed = match cache.get(&path) {
-            Some((k, parsed)) if *k == key => parsed.clone(),
-            _ => {
-                let parsed = parse_file(&path);
-                cache.insert(path.clone(), (key, parsed.clone()));
-                parsed
-            }
-        };
+        let parsed = cached(&path, key).unwrap_or_else(|| {
+            let parsed = parse_file(&path);
+            CACHE
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .get_or_insert_with(HashMap::new)
+                .insert(path.clone(), (key, parsed.clone()));
+            parsed
+        });
         if let Some(session) = parsed {
             out.insert(session.session.clone(), session);
         }

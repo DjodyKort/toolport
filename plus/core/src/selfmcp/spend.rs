@@ -22,5 +22,11 @@ pub(super) fn summary(host: &dyn Host, args: &Value) -> Result<Value, ToolError>
 }
 
 pub(super) fn setup_plan(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
-    Ok(api::setup_plan(host, str_trimmed(args, "port"), &[])?)
+    Ok(api::setup_plan(
+        host,
+        &api::SetupChoice {
+            port: str_trimmed(args, "port").map(str::to_string),
+            ..api::SetupChoice::default()
+        },
+    )?)
 }

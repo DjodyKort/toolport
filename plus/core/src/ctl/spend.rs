@@ -1,13 +1,13 @@
 //! `toolportctl spend ...`: model spend from Claude Code's OpenTelemetry export (S10). Thin
 //! renderers over `spend::api`, which the spend tools and the Spend page call as well.
 
-use super::flags::{switch, value, Inline, Operands, Spec, Unknown};
+use super::flags::{switch, value, Flags, Inline, Operands, Spec, Unknown};
 use super::output::{CtlError, Output};
 use crate::spend::api;
 use serde_json::Value;
 use toolport_plus_api::Host;
 
-const NO_ARGS: &str = "usage: spend status | receiver status | summary [--range today|7d|30d] [--project <folder>] | export-csv [--range <r>] [--out <file>] | prune [--dry-run] [--totals --yes] | config set [--port <n>] [--retention-days <n>] [--max-mb <n>] [--show-cost on|off] | setup plan|apply|undo [--port <n>] [--overwrite <KEY>|all]";
+const NO_ARGS: &str = "usage: spend status | receiver status | summary [--range today|7d|30d] [--project <folder>] | export-csv [--range <r>] [--out <file>] | prune [--dry-run] [--totals --yes] | config set [--port <n>] [--retention-days <n>] [--max-mb <n>] [--show-cost on|off] | setup plan|apply|undo [--port <n>] [--overwrite <KEY>|all] [--profile <settings file or folder>] | setup undo [--profile <p>] [--delete-data --yes] [--dry-run]";
 
 const BASE: Spec = Spec {
     flags: &[],
@@ -35,12 +35,17 @@ pub(super) const PRUNE: Spec = Spec {
 };
 
 pub(super) const SETUP_PLAN: Spec = Spec {
-    flags: &[value("--port"), value("--overwrite")],
+    flags: &[value("--port"), value("--overwrite"), value("--profile")],
     ..BASE
 };
 
 pub(super) const SETUP_APPLY: Spec = Spec {
-    flags: &[value("--port"), value("--overwrite"), switch("--dry-run")],
+    flags: &[
+        value("--port"),
+        value("--overwrite"),
+        value("--profile"),
+        switch("--dry-run"),
+    ],
     ..BASE
 };
 
@@ -55,7 +60,12 @@ pub(super) const CONFIG_SET: Spec = Spec {
 };
 
 pub(super) const SETUP_UNDO: Spec = Spec {
-    flags: &[switch("--dry-run")],
+    flags: &[
+        value("--profile"),
+        switch("--delete-data"),
+        switch("--yes"),
+        switch("--dry-run"),
+    ],
     ..BASE
 };
 
@@ -190,20 +200,23 @@ fn plan_text(plan: &Value) -> String {
     human.join("\n")
 }
 
+fn choice(flags: &Flags) -> api::SetupChoice {
+    api::SetupChoice {
+        port: flags.one("--port").map(str::to_string),
+        overwrite: flags.all("--overwrite"),
+        profiles: flags.all("--profile"),
+    }
+}
+
 pub fn setup_plan(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = SETUP_PLAN.parse(rest)?;
-    let data = api::setup_plan(host, flags.one("--port"), &flags.all("--overwrite"))?;
+    let data = api::setup_plan(host, &choice(&flags))?;
     Ok(Output::new(data.clone(), plan_text(&data)))
 }
 
 pub fn setup_apply(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = SETUP_APPLY.parse(rest)?;
-    let data = api::setup_apply(
-        host,
-        flags.one("--port"),
-        &flags.all("--overwrite"),
-        flags.on("--dry-run"),
-    )?;
+    let data = api::setup_apply(host, &choice(&flags), flags.on("--dry-run"))?;
     let human = if data["dryRun"] == true {
         format!("Dry run, nothing written\n{}", plan_text(&data["plan"]))
     } else if data["complete"] == true {
@@ -217,9 +230,20 @@ pub fn setup_apply(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError>
 
 pub fn setup_undo(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = SETUP_UNDO.parse(rest)?;
-    let data = api::setup_undo(host, flags.on("--dry-run"))?;
+    let (dry, delete) = (flags.on("--dry-run"), flags.on("--delete-data"));
+    if delete && !dry && !flags.on("--yes") {
+        return Err(CtlError::usage(
+            "--delete-data deletes the collected events and daily totals for good: add --yes, or --dry-run to look first",
+        ));
+    }
+    let data = api::setup_undo(host, &flags.all("--profile"), delete, dry)?;
     let human = if data["dryRun"] == true {
         format!("Dry run: {} profile(s) set up", data["profilesSetUp"])
+    } else if data["enabled"] == true {
+        "The keys Toolport wrote are removed from the chosen profiles; other profiles keep exporting"
+            .to_string()
+    } else if data["deleted"].is_object() {
+        "Collection is off; the keys Toolport wrote and the collected data are removed".to_string()
     } else {
         "Collection is off; the keys Toolport wrote are removed".to_string()
     };

@@ -27,6 +27,10 @@
         "oldest": null,
         "retentionDays": 30,
         "skippedLines": 0
+      },
+      "transcripts": {
+        "done": 0,
+        "files": 0
       }
     },
     "ok": true,

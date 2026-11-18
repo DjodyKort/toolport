@@ -331,7 +331,7 @@ fn test12_pruned_otel_sessions_are_not_double_counted_from_transcripts() {
 }
 
 #[test]
-fn test13_costs_group_by_model_project_and_task_with_unattributed_rows() {
+fn test13_costs_group_by_model_project_and_task_with_interactive_rows() {
     let dir = TempDir::new().unwrap();
     let store = Store::new(dir.path());
     let mut a = vec![
@@ -364,7 +364,7 @@ fn test13_costs_group_by_model_project_and_task_with_unattributed_rows() {
         })
         .collect();
     assert_eq!(tasks["nightly"], 1.0);
-    assert_eq!(tasks[report::UNATTRIBUTED], 2.0);
+    assert_eq!(tasks[report::INTERACTIVE], 2.0);
     assert_eq!(summary["byModel"][0]["key"], "claude-sonnet-4");
     assert_eq!(summary["byProject"][0]["key"], "Unknown");
 }
@@ -436,13 +436,13 @@ fn test16_setup_writes_the_five_keys_and_never_a_content_flag() {
     let dir = TempDir::new().unwrap();
     let (host, settings) = setup_host(&dir, Some(r#"{"theme": "dark"}"#));
     let spend = dir.path().join("spend");
-    let plan = setup::plan(&host, &spend, 4318, &[]).unwrap();
+    let plan = setup::plan(&host, &spend, 4318, &[], &[]).unwrap();
     assert_eq!(plan["writes"], 5);
     assert_eq!(
         std::fs::read_to_string(&settings).unwrap(),
         r#"{"theme": "dark"}"#
     );
-    let applied = setup::apply(&host, &spend, 4318, &[], "now").unwrap();
+    let applied = setup::apply(&host, &spend, 4318, &[], &[], "now").unwrap();
     assert_eq!(applied["complete"], true);
     let env = env_of(&settings);
     assert_eq!(env.as_object().unwrap().len(), 5);
@@ -467,12 +467,12 @@ fn test17_a_different_existing_value_is_a_conflict_until_the_person_chooses_to_o
         Some(r#"{"env": {"OTEL_METRICS_EXPORTER": "prometheus", "KEEP": "1"}}"#),
     );
     let spend = dir.path().join("spend");
-    let plan = setup::plan(&host, &spend, 4318, &[]).unwrap();
+    let plan = setup::plan(&host, &spend, 4318, &[], &[]).unwrap();
     assert_eq!(
         (plan["writes"].as_u64(), plan["conflicts"].as_u64()),
         (Some(4), Some(1))
     );
-    let applied = setup::apply(&host, &spend, 4318, &[], "now").unwrap();
+    let applied = setup::apply(&host, &spend, 4318, &[], &[], "now").unwrap();
     assert_eq!(applied["complete"], false);
     assert_eq!(env_of(&settings)["OTEL_METRICS_EXPORTER"], "prometheus");
     let again = setup::apply(
@@ -480,12 +480,13 @@ fn test17_a_different_existing_value_is_a_conflict_until_the_person_chooses_to_o
         &spend,
         4318,
         &["OTEL_METRICS_EXPORTER".into()],
+        &[],
         "later",
     )
     .unwrap();
     assert_eq!(again["complete"], true);
     assert_eq!(env_of(&settings)["OTEL_METRICS_EXPORTER"], "otlp");
-    setup::undo(&host, &spend).unwrap();
+    setup::undo(&host, &spend, &[]).unwrap();
     let env = env_of(&settings);
     assert_eq!(env["OTEL_METRICS_EXPORTER"], "prometheus");
     assert_eq!(env["KEEP"], "1");
@@ -497,12 +498,12 @@ fn test18_undo_leaves_a_key_the_person_changed_since() {
     let dir = TempDir::new().unwrap();
     let (host, settings) = setup_host(&dir, None);
     let spend = dir.path().join("spend");
-    setup::apply(&host, &spend, 4318, &[], "now").unwrap();
+    setup::apply(&host, &spend, 4318, &[], &[], "now").unwrap();
     let mut root: Value =
         serde_json::from_str(&std::fs::read_to_string(&settings).unwrap()).unwrap();
     root["env"]["OTEL_EXPORTER_OTLP_ENDPOINT"] = json!("http://elsewhere:1");
     std::fs::write(&settings, root.to_string()).unwrap();
-    let undone = setup::undo(&host, &spend).unwrap();
+    let undone = setup::undo(&host, &spend, &[]).unwrap();
     assert_eq!(
         undone["profiles"][0]["keptChanged"],
         json!(["OTEL_EXPORTER_OTLP_ENDPOINT"])
@@ -519,8 +520,8 @@ fn test19_undo_removes_the_env_object_it_created() {
     let dir = TempDir::new().unwrap();
     let (host, settings) = setup_host(&dir, Some(r#"{"theme": "dark"}"#));
     let spend = dir.path().join("spend");
-    setup::apply(&host, &spend, 4318, &[], "now").unwrap();
-    setup::undo(&host, &spend).unwrap();
+    setup::apply(&host, &spend, 4318, &[], &[], "now").unwrap();
+    setup::undo(&host, &spend, &[]).unwrap();
     let root: Value = serde_json::from_str(&std::fs::read_to_string(&settings).unwrap()).unwrap();
     assert_eq!(root, json!({"theme": "dark"}));
 }
@@ -530,13 +531,13 @@ fn test20_changing_the_port_updates_only_keys_toolport_wrote() {
     let dir = TempDir::new().unwrap();
     let (host, settings) = setup_host(&dir, None);
     let spend = dir.path().join("spend");
-    setup::apply(&host, &spend, 4318, &[], "now").unwrap();
-    let plan = setup::plan(&host, &spend, 4999, &[]).unwrap();
+    setup::apply(&host, &spend, 4318, &[], &[], "now").unwrap();
+    let plan = setup::plan(&host, &spend, 4999, &[], &[]).unwrap();
     assert_eq!(
         (plan["writes"].as_u64(), plan["conflicts"].as_u64()),
         (Some(1), Some(0))
     );
-    setup::apply(&host, &spend, 4999, &[], "later").unwrap();
+    setup::apply(&host, &spend, 4999, &[], &[], "later").unwrap();
     assert_eq!(
         env_of(&settings)["OTEL_EXPORTER_OTLP_ENDPOINT"],
         "http://127.0.0.1:4999"
@@ -779,4 +780,137 @@ fn test30_stale_check_finds_sessions_after_the_last_event_and_project_overrides(
     let found = super::stale::check(&sessions, NOW - MS_PER_DAY, None, "http://127.0.0.1:4318");
     assert_eq!(found["sessionsSince"], 1);
     assert_eq!(found["projectOverrides"].as_array().unwrap().len(), 1);
+}
+
+fn two_profile_host(dir: &TempDir) -> (MemoryHost, [std::path::PathBuf; 2]) {
+    let paths = ["a", "b"].map(|n| dir.path().join(n).join("settings.json"));
+    for p in &paths {
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(p, "{}").unwrap();
+    }
+    let host = MemoryHost {
+        settings_paths: paths.to_vec(),
+        ..MemoryHost::default()
+    };
+    (host, paths)
+}
+
+#[test]
+fn test31_setup_writes_only_the_chosen_profiles_and_undo_keeps_collection_on_for_the_rest() {
+    let dir = TempDir::new().unwrap();
+    let (host, [a, b]) = two_profile_host(&dir);
+    let spend = dir.path().join("spend");
+    let only_a = [a.parent().unwrap().to_string_lossy().into_owned()];
+    let plan = setup::plan(&host, &spend, 4318, &[], &only_a).unwrap();
+    assert_eq!(plan["profiles"].as_array().unwrap().len(), 1);
+    setup::apply(&host, &spend, 4318, &[], &only_a, "now").unwrap();
+    assert_eq!(env_of(&a).as_object().unwrap().len(), 5);
+    assert!(env_of(&b).is_null());
+    setup::apply(&host, &spend, 4318, &[], &[], "later").unwrap();
+    assert_eq!(setup::applied_profiles(&spend), 2);
+    let undone = setup::undo(&host, &spend, &only_a).unwrap();
+    assert_eq!(undone["enabled"], true);
+    assert!(env_of(&a).is_null());
+    assert_eq!(env_of(&b).as_object().unwrap().len(), 5);
+    assert_eq!(setup::remaining_after_undo(&spend, &[]).unwrap(), 0);
+    let all = setup::undo(&host, &spend, &[]).unwrap();
+    assert_eq!(all["enabled"], false);
+    assert!(!config::load(&spend).enabled);
+}
+
+#[test]
+fn test32_an_unknown_profile_is_refused_before_anything_is_written() {
+    let dir = TempDir::new().unwrap();
+    let (host, [a, _]) = two_profile_host(&dir);
+    let spend = dir.path().join("spend");
+    let err = setup::apply(&host, &spend, 4318, &[], &["/nowhere".into()], "now").unwrap_err();
+    assert!(err.starts_with(setup::UNKNOWN_PROFILE), "{err}");
+    assert_eq!(std::fs::read_to_string(&a).unwrap(), "{}");
+    assert!(!spend.join(setup::LEDGER_FILE).exists());
+}
+
+#[test]
+fn test33_undo_can_delete_the_collected_data_only_when_no_profile_stays_set_up() {
+    use super::api;
+    let dir = TempDir::new().unwrap();
+    let (mut host, [a, _]) = two_profile_host(&dir);
+    host.registry.path = Some(dir.path().join("registry.json"));
+    let spend = super::spend_dir(dir.path());
+    setup::apply(&host, &spend, 4318, &[], &[], "now").unwrap();
+    let store = Store::new(&spend);
+    store
+        .append(&[token_event("s-1", TOKEN_INPUT, 5.0, NOW)])
+        .unwrap();
+    std::fs::write(
+        store.daily_path(),
+        r#"{"day":"2026-01-01","project":"p","model":"m","sessions":[]}"#.to_string() + "\n",
+    )
+    .unwrap();
+    let only_a = [a.to_string_lossy().into_owned()];
+    let refused = api::setup_undo(&host, &only_a, true, false).unwrap_err();
+    assert!(refused.message.contains("every profile"), "{refused:?}");
+    assert_eq!(store.stats().events, 1);
+    let plan = api::setup_undo(&host, &[], true, true).unwrap();
+    assert_eq!(plan["deleteData"]["events"], 1);
+    assert_eq!(plan["deleteData"]["dailyLines"], 1);
+    assert_eq!(store.stats().events, 1);
+    let kept = api::setup_undo(&host, &[], false, false).unwrap();
+    assert!(kept["deleted"].is_null());
+    assert_eq!(store.stats().events, 1);
+    setup::apply(&host, &spend, 4318, &[], &[], "again").unwrap();
+    let done = api::setup_undo(&host, &[], true, false).unwrap();
+    assert_eq!(done["deleted"]["events"], 1);
+    assert_eq!(store.stats().events, 0);
+    assert!(!store.daily_path().exists());
+}
+
+#[test]
+fn test34_a_session_without_a_matching_run_is_interactive_and_folded_totals_stay_unattributed() {
+    let dir = TempDir::new().unwrap();
+    let store = Store::new(dir.path());
+    store
+        .append(&[
+            token_event("by-hand", TOKEN_INPUT, 5.0, NOW),
+            cost_event("by-hand", 2.0, NOW),
+        ])
+        .unwrap();
+    std::fs::write(
+        store.daily_path(),
+        format!(
+            r#"{{"day":"{}","project":"p","model":"m","cost":3.0,"sessions":["old"]}}"#,
+            day_of(NOW)
+        ) + "\n",
+    )
+    .unwrap();
+    let summary = report::summary(&inputs(&store, &[], vec![]), Range::Days7, None);
+    let usd = |key: &str| {
+        summary["byTask"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["key"] == key)
+            .map(|r| r["cost"]["usd"].as_f64().unwrap())
+    };
+    assert_eq!(usd(report::INTERACTIVE), Some(2.0));
+    assert_eq!(usd(report::UNATTRIBUTED), Some(3.0));
+}
+
+#[test]
+fn test35_transcript_progress_counts_files_and_cached_ones() {
+    let dir = TempDir::new().unwrap();
+    let project = dir.path().join("projects").join("p");
+    std::fs::create_dir_all(&project).unwrap();
+    for n in 0..3 {
+        std::fs::write(
+            project.join(format!("tp-{n}.jsonl")),
+            format!(
+                r#"{{"sessionId":"tp-{n}","cwd":"/w","timestamp":"2026-11-01T10:00:00Z","message":{{"id":"m","model":"claude-sonnet-4","usage":{{"input_tokens":1}}}}}}"#
+            ) + "\n",
+        )
+        .unwrap();
+    }
+    let roots = [dir.path().join("projects")];
+    assert_eq!(transcript::progress(&roots), (3, 0));
+    transcript::scan(&roots);
+    assert_eq!(transcript::progress(&roots), (3, 3));
 }

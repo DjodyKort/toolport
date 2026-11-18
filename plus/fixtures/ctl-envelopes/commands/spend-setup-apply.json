@@ -27,6 +27,17 @@
     },
     {
       "aliases": [],
+      "effect": "A Claude Code settings file or its folder; repeat for more (default: every detected profile)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--profile",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
       "effect": "Show the plan and change nothing",
       "escalates": false,
       "hidden": false,
@@ -52,7 +63,7 @@
     "flag": "--dry-run",
     "mode": "flag"
   },
-  "summary": "Write the OTel env keys after a plan and turn collection on (--port, --overwrite, --dry-run)",
+  "summary": "Write the OTel env keys after a plan and turn collection on (--port, --overwrite, --profile, --dry-run)",
   "surface": "screen",
   "tier": "write",
   "tools": []

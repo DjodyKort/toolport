@@ -4,7 +4,8 @@
     "command": "spend setup undo",
     "data": {
       "dryRun": true,
-      "profilesSetUp": 0
+      "profilesSetUp": 0,
+      "remaining": 0
     },
     "ok": true,
     "schemaVersion": 1

@@ -12,6 +12,7 @@ use toolport_plus_api::SettingsStore;
 
 use super::config;
 
+pub const UNKNOWN_PROFILE: &str = "no Claude Code profile";
 pub const LEDGER_FILE: &str = "setup.json";
 const ENV_KEY: &str = "env";
 
@@ -137,15 +138,37 @@ fn profile_json(path: &Path, entries: &[Entry], exists: bool) -> Value {
     })
 }
 
+fn matches_profile(path: &Path, wanted: &str) -> bool {
+    path.to_string_lossy() == wanted || path.parent().is_some_and(|p| p.to_string_lossy() == wanted)
+}
+
+/// `names` is the settings path or its folder; empty selects every profile.
+fn select(paths: Vec<PathBuf>, names: &[String]) -> Result<Vec<PathBuf>, String> {
+    if names.is_empty() {
+        return Ok(paths);
+    }
+    if let Some(unknown) = names
+        .iter()
+        .find(|n| !paths.iter().any(|p| matches_profile(p, n)))
+    {
+        return Err(format!("{UNKNOWN_PROFILE} '{unknown}'"));
+    }
+    Ok(paths
+        .into_iter()
+        .filter(|p| names.iter().any(|n| matches_profile(p, n)))
+        .collect())
+}
+
 pub fn plan(
     store: &dyn SettingsStore,
     dir: &Path,
     port: u16,
     overwrite: &[String],
+    only: &[String],
 ) -> Result<Value, String> {
     let ledger = load_ledger(dir);
     let mut profiles = Vec::new();
-    for path in store.claude_settings_paths() {
+    for path in select(store.claude_settings_paths(), only)? {
         let (root, text) = store.read_settings(&path)?;
         let list = entries(
             &root,
@@ -183,11 +206,12 @@ pub fn apply(
     dir: &Path,
     port: u16,
     overwrite: &[String],
+    only: &[String],
     now_text: &str,
 ) -> Result<Value, String> {
     let mut ledger = load_ledger(dir);
     let mut results = Vec::new();
-    for path in store.claude_settings_paths() {
+    for path in select(store.claude_settings_paths(), only)? {
         let name = path.to_string_lossy().into_owned();
         let (root, text) = store.read_settings(&path)?;
         let list = entries(&root, ledger.profiles.get(&name), port, overwrite)?;
@@ -240,10 +264,29 @@ pub fn apply(
     Ok(json!({"profiles": results, "port": port, "enabled": true, "complete": complete}))
 }
 
-pub fn undo(store: &dyn SettingsStore, dir: &Path) -> Result<Value, String> {
+/// Profiles Toolport wrote to that `only` names (all of them when empty).
+fn undo_targets(ledger: &Ledger, only: &[String]) -> Result<Vec<String>, String> {
+    let known: Vec<PathBuf> = ledger.profiles.keys().map(PathBuf::from).collect();
+    Ok(select(known, only)?
+        .into_iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect())
+}
+
+/// How many profiles stay set up after undoing `only`.
+pub fn remaining_after_undo(dir: &Path, only: &[String]) -> Result<usize, String> {
+    let ledger = load_ledger(dir);
+    Ok(ledger.profiles.len() - undo_targets(&ledger, only)?.len())
+}
+
+pub fn undo(store: &dyn SettingsStore, dir: &Path, only: &[String]) -> Result<Value, String> {
     let mut ledger = load_ledger(dir);
+    let targets = undo_targets(&ledger, only)?;
     let mut results = Vec::new();
-    for (name, entry) in std::mem::take(&mut ledger.profiles) {
+    for name in targets {
+        let Some(entry) = ledger.profiles.remove(&name) else {
+            continue;
+        };
         let path = PathBuf::from(&name);
         let (root, text) = store.read_settings(&path)?;
         let mut env = env_of(&root)?.cloned().unwrap_or_default();
@@ -271,10 +314,11 @@ pub fn undo(store: &dyn SettingsStore, dir: &Path) -> Result<Value, String> {
         results.push(json!({"profile": name, "restored": restored, "keptChanged": kept}));
     }
     save_ledger(dir, &ledger)?;
+    let enabled = !ledger.profiles.is_empty();
     let mut cfg = config::load(dir);
-    cfg.enabled = false;
+    cfg.enabled = enabled;
     config::save(dir, &cfg)?;
-    Ok(json!({"profiles": results, "enabled": false}))
+    Ok(json!({"profiles": results, "enabled": enabled}))
 }
 
 pub fn applied_profiles(dir: &Path) -> usize {

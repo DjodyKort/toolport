@@ -77,9 +77,16 @@ fn range_of(text: Option<&str>) -> Result<Range, OpError> {
     }
 }
 
+fn transcripts_json(roots: &[PathBuf]) -> Value {
+    let (files, done) = transcript::progress(roots);
+    json!({"files": files, "done": done})
+}
+
 pub fn status(host: &dyn Host) -> Result<Value, OpError> {
     let ctx = ctx(host)?;
-    Ok(runtime::status(&ctx.dir, ctx.now))
+    let mut out = runtime::status(&ctx.dir, ctx.now);
+    out["transcripts"] = transcripts_json(&ctx.roots);
+    Ok(out)
 }
 
 pub fn receiver_status(host: &dyn Host) -> Result<Value, OpError> {
@@ -100,8 +107,9 @@ pub fn summary(
     let ctx = ctx(host)?;
     let range = range_of(range)?;
     let store = Store::new(&ctx.dir);
-    let status = runtime::status(&ctx.dir, ctx.now);
+    let mut status = runtime::status(&ctx.dir, ctx.now);
     let transcripts = transcript::scan(&ctx.roots);
+    status["transcripts"] = transcripts_json(&ctx.roots);
     let stale = status["lastEvent"]
         .as_str()
         .and_then(super::parse_ts)
@@ -243,41 +251,89 @@ fn port_of(host: &dyn Host, port: Option<&str>) -> Result<u16, OpError> {
     }
 }
 
-pub fn setup_plan(
-    host: &dyn Host,
-    port: Option<&str>,
-    overwrite: &[String],
-) -> Result<Value, OpError> {
-    let ctx = ctx(host)?;
-    setup::plan(host, &ctx.dir, port_of(host, port)?, overwrite)
-        .map_err(|e| OpError::failed("setup_failed", e))
+fn setup_error(message: String) -> OpError {
+    if message.starts_with(setup::UNKNOWN_PROFILE) {
+        OpError::usage(message)
+    } else {
+        OpError::failed("setup_failed", message)
+    }
 }
 
-pub fn setup_apply(
-    host: &dyn Host,
-    port: Option<&str>,
-    overwrite: &[String],
-    dry_run: bool,
-) -> Result<Value, OpError> {
+#[derive(Default)]
+pub struct SetupChoice {
+    pub port: Option<String>,
+    pub overwrite: Vec<String>,
+    pub profiles: Vec<String>,
+}
+
+pub fn setup_plan(host: &dyn Host, choice: &SetupChoice) -> Result<Value, OpError> {
+    let ctx = ctx(host)?;
+    setup::plan(
+        host,
+        &ctx.dir,
+        port_of(host, choice.port.as_deref())?,
+        &choice.overwrite,
+        &choice.profiles,
+    )
+    .map_err(setup_error)
+}
+
+pub fn setup_apply(host: &dyn Host, choice: &SetupChoice, dry_run: bool) -> Result<Value, OpError> {
     if dry_run {
-        return setup_plan(host, port, overwrite).map(|plan| json!({"dryRun": true, "plan": plan}));
+        return setup_plan(host, choice).map(|plan| json!({"dryRun": true, "plan": plan}));
     }
     let ctx = ctx(host)?;
     setup::apply(
         host,
         &ctx.dir,
-        port_of(host, port)?,
-        overwrite,
+        port_of(host, choice.port.as_deref())?,
+        &choice.overwrite,
+        &choice.profiles,
         &super::format_ts(ctx.now),
     )
-    .map_err(|e| OpError::failed("setup_failed", e))
+    .map_err(setup_error)
 }
 
-pub fn setup_undo(host: &dyn Host, dry_run: bool) -> Result<Value, OpError> {
+fn stats_json(stats: &super::store::Stats) -> Value {
+    json!({"events": stats.events, "bytes": stats.bytes, "dailyLines": stats.daily_lines})
+}
+
+/// With `delete_data` the collected events and daily totals go too, which only makes sense once
+/// no profile is left exporting.
+pub fn setup_undo(
+    host: &dyn Host,
+    profiles: &[String],
+    delete_data: bool,
+    dry_run: bool,
+) -> Result<Value, OpError> {
     let ctx = ctx(host)?;
-    if dry_run {
-        return Ok(json!({"dryRun": true, "profilesSetUp": setup::applied_profiles(&ctx.dir)}));
+    let remaining = setup::remaining_after_undo(&ctx.dir, profiles).map_err(setup_error)?;
+    if delete_data && remaining > 0 {
+        return Err(OpError::usage(
+            "--delete-data needs every profile undone: drop --profile or undo the rest first",
+        ));
     }
-    runtime::stop(&ctx.dir);
-    setup::undo(host, &ctx.dir).map_err(|e| OpError::failed("setup_failed", e))
+    let store = Store::new(&ctx.dir);
+    if dry_run {
+        let mut out = json!({
+            "dryRun": true,
+            "profilesSetUp": setup::applied_profiles(&ctx.dir),
+            "remaining": remaining,
+        });
+        if delete_data {
+            out["deleteData"] = stats_json(&store.stats());
+        }
+        return Ok(out);
+    }
+    let mut out = setup::undo(host, &ctx.dir, profiles).map_err(setup_error)?;
+    if remaining == 0 {
+        runtime::stop(&ctx.dir);
+    }
+    if delete_data {
+        let stats = store
+            .delete_all()
+            .map_err(|e| OpError::failed("setup_failed", e))?;
+        out["deleted"] = stats_json(&stats);
+    }
+    Ok(out)
 }

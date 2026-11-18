@@ -16,6 +16,7 @@ pub const BADGE_COUNTED: &str = "Counted";
 pub const BADGE_ESTIMATE: &str = "Estimate";
 pub const BADGE_NOT_ITEMISED: &str = "Not itemised";
 pub const UNATTRIBUTED: &str = "Unattributed";
+pub const INTERACTIVE: &str = "Interactive";
 const TASK_MATCH_SLACK_MS: i64 = 60_000;
 const TASK_MATCH_OPEN_MS: i64 = 3_600_000;
 const LISTED_SESSIONS: usize = 50;
@@ -316,17 +317,15 @@ pub fn summary(inputs: &Inputs, range: Range, project: Option<&str>) -> Value {
             .entry(s.model.clone().unwrap_or_else(|| UNKNOWN_MODEL.into()))
             .or_default()
             .add(s);
-        let task = s
-            .session
-            .as_deref()
-            .and_then(|id| {
-                task_of(
-                    &inputs.runs,
-                    id,
-                    collected.session_start.get(id).copied().unwrap_or(s.ts),
-                )
-            })
-            .unwrap_or_else(|| UNATTRIBUTED.to_string());
+        let task = match s.session.as_deref() {
+            Some(id) => task_of(
+                &inputs.runs,
+                id,
+                collected.session_start.get(id).copied().unwrap_or(s.ts),
+            )
+            .unwrap_or_else(|| INTERACTIVE.to_string()),
+            None => UNATTRIBUTED.to_string(),
+        };
         by_task.entry(task).or_default().add(s);
         if let Some(id) = &s.session {
             sessions.entry(id.clone()).or_default().add(s);

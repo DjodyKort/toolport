@@ -663,17 +663,17 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["spend", "setup", "plan"],
-        "Show the five OTel env keys that would be written to each Claude Code profile (--port, --overwrite)",
+        "Show the five OTel env keys that would be written to each Claude Code profile (--port, --overwrite, --profile)",
         spend::setup_plan,
     ),
     cmd(
         &["spend", "setup", "apply"],
-        "Write the OTel env keys after a plan and turn collection on (--port, --overwrite, --dry-run)",
+        "Write the OTel env keys after a plan and turn collection on (--port, --overwrite, --profile, --dry-run)",
         spend::setup_apply,
     ),
     cmd(
         &["spend", "setup", "undo"],
-        "Remove the env keys Toolport wrote and turn collection off (--dry-run)",
+        "Remove the env keys Toolport wrote and turn collection off; --delete-data --yes also deletes the collected data (--profile, --dry-run)",
         spend::setup_undo,
     ),
     cmd(

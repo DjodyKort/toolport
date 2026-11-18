@@ -99,7 +99,7 @@
             "estimatedUsd": 0.002775,
             "usd": 0.122775
           },
-          "key": "Unattributed",
+          "key": "Interactive",
           "requests": 1,
           "sessions": 2,
           "share": 1.0,
@@ -185,6 +185,10 @@
           "oldest": "<TIME>",
           "retentionDays": 30,
           "skippedLines": 0
+        },
+        "transcripts": {
+          "done": 1,
+          "files": 1
         }
       },
       "tiles": {

@@ -1,0 +1,19 @@
+{
+  "argv": ["spend", "setup", "undo", "--delete-data", "--dry-run"],
+  "envelope": {
+    "command": "spend setup undo",
+    "data": {
+      "deleteData": {
+        "bytes": 1951,
+        "dailyLines": 1,
+        "events": 15
+      },
+      "dryRun": true,
+      "profilesSetUp": 1,
+      "remaining": 0
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
