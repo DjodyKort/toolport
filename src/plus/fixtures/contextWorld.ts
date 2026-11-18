@@ -798,7 +798,7 @@ export function createContextWorld(options: ContextWorldOptions = {}) {
           : null,
         deploy: {
           built: false,
-          note: "rule layers, shims and launch profiles are not part of this build yet",
+          note: "rule layers and shims are not part of this build yet",
         },
       },
     };

@@ -4,6 +4,10 @@ import { createCompressionWorld, type CompressionWorldOptions } from "./compress
 import { createContextWorld, type ContextWorldOptions } from "./contextWorld";
 import { createDirectWorld, type DirectWorldOptions } from "./directWorld";
 import { createReachWorld, type ReachWorldOptions } from "./reachWorld";
+import {
+  createLaunchProfileWorld,
+  type LaunchProfileWorldOptions,
+} from "./launchProfileWorld";
 import { createLibraryWorld, type LibraryWorldOptions } from "./libraryWorld";
 import { createServerWorld, type ServerWorldOptions } from "./serverWorld";
 import { createTaskWorld, type TaskWorldOptions } from "./taskWorld";
@@ -57,6 +61,8 @@ export interface WorldOptions {
   direct?: DirectWorldOptions;
   /** The clients with an access set of their own and the folder mappings `client reach` reads. */
   reach?: ReachWorldOptions;
+  /** The launch profiles `context launch-profile` lists and the folder mappings that outrank them. */
+  launchProfiles?: LaunchProfileWorldOptions;
 }
 
 /** A small in-memory toolportctl: enough state for install, uninstall and doctor to answer the way
@@ -70,6 +76,10 @@ export function createCtlWorld(options: WorldOptions = {}) {
   const libraryWorld = createLibraryWorld(options.library);
   const directWorld = createDirectWorld(options.direct ?? {}, () => serverWorld.servers);
   const reachWorld = createReachWorld(options.reach ?? {}, () => serverWorld);
+  const launchProfileWorld = createLaunchProfileWorld(
+    options.launchProfiles ?? {},
+    () => serverWorld.sets,
+  );
   const defaultAccess = accessSets[0] ?? null;
   const doctorMode = options.doctor ?? "ok";
   let state: SelfMcpState = options.self ?? "missing";
@@ -307,6 +317,9 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "secret") return serverWorld.secret(key, stdin);
       if (first === "auth") return serverWorld.auth(key);
       if (first === "task") return taskWorld.run(key.slice(1), stdin);
+      if (first === "context" && second === "launch-profile") {
+        return launchProfileWorld.run(key);
+      }
       if (first === "context" || first === "plugins") return contextWorld.run(key);
       if (first === "compression") return compressionWorld.run(key);
       if (first === "client" && second === "direct") return directWorld.run(key);
