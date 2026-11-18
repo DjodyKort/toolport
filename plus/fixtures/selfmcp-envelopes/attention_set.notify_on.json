@@ -54,7 +54,8 @@
           }
         ],
         "enabled": true
-      }
+      },
+      "staleDays": 30
     }
   },
   "tool": "attention_set"

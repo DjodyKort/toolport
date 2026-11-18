@@ -783,6 +783,31 @@ impl ServerRules for HostAdapter {
     }
 }
 
+impl toolport_plus_api::ServerActivity for HostAdapter {
+    fn last_successful_calls(
+        &self,
+        server_ids: &[String],
+    ) -> Result<std::collections::BTreeMap<String, i64>, String> {
+        let entries = crate::audit::read_all().map_err(|error| error.to_string())?;
+        let mut latest = std::collections::BTreeMap::new();
+        for entry in &entries {
+            if crate::audit::tool_call_ok(entry) != Some(true) {
+                continue;
+            }
+            let (Some(id), Some(ms)) = (
+                crate::audit::resolve_server_id(entry, server_ids),
+                entry.get("ts").and_then(Value::as_u64),
+            ) else {
+                continue;
+            };
+            let seconds = (ms / 1000) as i64;
+            let at = latest.entry(id.to_string()).or_insert(seconds);
+            *at = (*at).max(seconds);
+        }
+        Ok(latest)
+    }
+}
+
 /// Registry settings that travel between machines. Ports, tokens and paths stay behind.
 const SETUP_SETTINGS: [&str; 12] = [
     "safetyLevel",

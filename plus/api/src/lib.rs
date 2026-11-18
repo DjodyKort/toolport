@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use serde_json::{Map, Value};
 
+pub mod activity;
 pub mod auth;
 pub mod clients;
 pub mod context;
@@ -22,6 +23,7 @@ pub mod setup;
 pub mod tasks;
 pub mod view;
 
+pub use activity::ServerActivity;
 pub use auth::{AuthAccess, AuthChild, ConsentSink, LaunchError, LaunchFault};
 pub use clients::{
     ClientEntryInfo, ClientInfo, ClientWriteError, ClientsHost, EntrySpec, EntryWrite,
@@ -192,6 +194,7 @@ pub trait Host:
     + VaultAccess
     + HostEnv
     + ServerRules
+    + ServerActivity
     + CatalogAccess
     + HttpAccess
     + AuthAccess
@@ -209,6 +212,7 @@ impl<
             + VaultAccess
             + HostEnv
             + ServerRules
+            + ServerActivity
             + CatalogAccess
             + HttpAccess
             + AuthAccess

@@ -198,6 +198,10 @@ pub fn human_hidden(snapshot: &Snapshot) -> String {
 pub fn human_settings(settings: &serde_json::Value) -> String {
     let word = |on: &serde_json::Value| if on == true { "on" } else { "off" };
     let mut out = format!("Notifications: {}\n", word(&settings["notify"]["enabled"]));
+    out.push_str(&format!(
+        "Stale servers after: {} days\n",
+        settings["staleDays"]
+    ));
     for (heading, rows) in [
         ("Checks", &settings["checks"]),
         ("Notify for", &settings["notify"]["categories"]),
@@ -267,3 +271,6 @@ mod tests_notify;
 
 #[cfg(test)]
 mod tests_packages;
+
+#[cfg(test)]
+mod tests_stale;

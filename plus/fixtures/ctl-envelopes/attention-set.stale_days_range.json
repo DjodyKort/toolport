@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "set", "stale-days", "0"],
+  "envelope": {
+    "command": "attention set",
+    "error": {
+      "code": "usage",
+      "message": "stale-days is a number of days from 1 to 365"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

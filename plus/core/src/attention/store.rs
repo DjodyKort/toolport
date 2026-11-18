@@ -111,6 +111,10 @@ pub struct AccessLedger {
     pub sets: BTreeMap<String, String>,
     #[serde(default)]
     pub sets_changed_at: Option<i64>,
+    /// Server id to the time of its latest successful call the notifier pass or a check saw. The
+    /// audit log is size-capped, so this keeps what it has already trimmed.
+    #[serde(default)]
+    pub last_ok: BTreeMap<String, i64>,
 }
 
 impl AccessLedger {
@@ -167,7 +171,35 @@ impl AccessLedger {
                 (id.clone(), seen)
             })
             .collect();
+        self.last_ok.retain(|id, _| self.servers.contains_key(id));
         *self != before
+    }
+
+    /// Keeps the later of what the ledger and the audit log know of each server's last success.
+    pub fn record_calls(&mut self, calls: &BTreeMap<String, i64>) -> bool {
+        let before = self.last_ok.clone();
+        for (id, at) in calls {
+            let known = self.last_ok.entry(id.clone()).or_insert(*at);
+            *known = (*known).max(*at);
+        }
+        self.last_ok != before
+    }
+
+    /// When `server` was last known to work, or else when the ledger first knew the server: the
+    /// moment its idle time starts counting. `None` before the first observation, since nothing
+    /// is known then. A server the ledger has not seen yet counts from `now`.
+    pub fn idle_since(&self, server: &str, logged: Option<i64>, now: i64) -> Option<i64> {
+        let observed = self.observed_at?;
+        let first_seen = match self.servers.get(server) {
+            Some(0) => observed,
+            Some(at) => *at,
+            None => now,
+        };
+        let last_ok = [self.last_ok.get(server).copied(), logged]
+            .into_iter()
+            .flatten()
+            .max();
+        Some(last_ok.map_or(first_seen, |ok| ok.max(first_seen)))
     }
 }
 
@@ -185,9 +217,19 @@ pub struct Settings {
     pub checks: BTreeMap<String, bool>,
     #[serde(default)]
     pub notify: Notify,
+    /// Days without a successful call after which a server in use counts as stale.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stale_days: Option<u32>,
 }
 
+pub const DEFAULT_STALE_DAYS: u32 = 30;
+pub const STALE_DAYS_RANGE: std::ops::RangeInclusive<u32> = 1..=365;
+
 impl Settings {
+    pub fn stale_days(&self) -> u32 {
+        self.stale_days.unwrap_or(DEFAULT_STALE_DAYS)
+    }
+
     pub fn check_on(&self, name: &str) -> bool {
         self.checks.get(name).copied().unwrap_or(true)
     }
@@ -212,6 +254,7 @@ impl Settings {
         json!({
             "checks": checks,
             "notify": {"enabled": self.notify.enabled, "categories": categories},
+            "staleDays": self.stale_days(),
         })
     }
 }

@@ -117,6 +117,8 @@ fn inputs_of(world: &World) -> Inputs {
         store,
         access: Ok(super::feed_access::AccessInputs {
             unreached: Vec::new(),
+            stale: Vec::new(),
+            stale_days: 30,
             folders: Vec::new(),
         }),
         credentials: Ok(super::feed_credentials::CredentialInputs {

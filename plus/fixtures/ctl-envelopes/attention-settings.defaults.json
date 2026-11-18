@@ -49,7 +49,8 @@
           }
         ],
         "enabled": false
-      }
+      },
+      "staleDays": 30
     },
     "ok": true,
     "schemaVersion": 1

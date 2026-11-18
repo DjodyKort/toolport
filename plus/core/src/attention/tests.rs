@@ -537,6 +537,8 @@ fn test17_a_feed_that_cannot_be_read_is_named_and_the_others_still_answer() {
         updates: Ok(no_updates()),
         access: Ok(feed_access::AccessInputs {
             unreached: Vec::new(),
+            stale: Vec::new(),
+            stale_days: 30,
             folders: Vec::new(),
         }),
         credentials: Ok(credentials(

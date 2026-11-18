@@ -3,6 +3,7 @@ import { RotateCw } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { SectionHeader } from "@/components/ui/section-header";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -24,9 +25,47 @@ import {
   refreshAttention,
   restoreRow,
   sendTestNotification,
+  setStaleDays,
   setSwitch,
 } from "./attentionCtl";
 import { RowMenu } from "./RowMenu";
+
+function StaleDays({
+  days,
+  disabled,
+  onSave,
+}: {
+  days: number;
+  disabled: boolean;
+  onSave: (days: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const text = draft ?? String(days);
+  const next = Number(text);
+  const valid = Number.isInteger(next) && next >= 1 && next <= 365;
+  const commit = () => {
+    if (valid && next !== days) onSave(next);
+    setDraft(null);
+  };
+  return (
+    <label className="mt-1 flex items-center gap-2 text-meta text-muted-foreground">
+      Stale after
+      <Input
+        type="number"
+        min={1}
+        max={365}
+        className="h-7 w-16"
+        value={text}
+        disabled={disabled}
+        aria-label="Days until a server counts as stale"
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => event.key === "Enter" && commit()}
+      />
+      days without a successful call
+    </label>
+  );
+}
 
 type Filter = "all" | "needs-you" | "worth-a-look";
 
@@ -49,7 +88,7 @@ const CHECK_INFO: Record<
   access: {
     title: "Access",
     watches:
-      "A server added after your access sets last changed that no set reaches, so no agent sees its tools. Servers that no set reaches, and folder mappings that outrank a client's own set, as quiet rows.",
+      "A server added after your access sets last changed that no set reaches, so no agent sees its tools. Servers that no set reaches, servers in use that no call has succeeded on for a while, and folder mappings that outrank a client's own set, as quiet rows.",
     runs: "On every read",
   },
   tasks: {
@@ -222,6 +261,13 @@ export default function AttentionManage() {
       refreshAttention();
     }, "Could not change the setting");
 
+  const saveStaleDays = (days: number) =>
+    run(async () => {
+      const { settings } = await setStaleDays(days);
+      setView((current) => current && { ...current, settings });
+      refreshAttention();
+    }, "Could not change the setting");
+
   const sendTest = () =>
     run(async () => {
       await sendTestNotification();
@@ -338,6 +384,13 @@ export default function AttentionManage() {
                       <p className="font-medium">{info.title}</p>
                       <p className="text-meta text-muted-foreground">{info.watches}</p>
                       <p className="text-meta text-muted-foreground">Runs: {info.runs}</p>
+                      {name === "access" && (
+                        <StaleDays
+                          days={settings.staleDays}
+                          disabled={busy || !on}
+                          onSave={(days) => void saveStaleDays(days)}
+                        />
+                      )}
                       {status && !status.ok && (
                         <p role="status" className="text-meta text-destructive">
                           Not read: {status.error}

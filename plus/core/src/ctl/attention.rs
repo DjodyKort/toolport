@@ -151,11 +151,19 @@ pub fn settings(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn set(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
-    let usage = "usage: toolportctl attention set <notify|check.<name>|notify.<name>> <on|off>";
+    let usage = "usage: toolportctl attention set <notify|check.<name>|notify.<name>> <on|off> | stale-days <days>";
     let flags = ONE.parse(rest)?;
     let [key, state] = flags.operands() else {
         return Err(CtlError::usage(usage));
     };
+    if key == "stale-days" {
+        let days: u32 = state.parse().map_err(|_| CtlError::usage(usage))?;
+        let data = ops::set_stale_days(host, days)?;
+        return Ok(Output::new(
+            json!({"key": key, "days": days, "settings": data}),
+            format!("servers count as stale after {days} days without a successful call"),
+        ));
+    }
     let on = match state.as_str() {
         "on" => true,
         "off" => false,

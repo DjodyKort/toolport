@@ -456,6 +456,8 @@ const CASES: &[Case] = &[
             hook("busy-world", attention_home),
             apply("check_off", &["attention", "set", "check.updates", "off"]),
             apply("notify_on", &["attention", "set", "notify", "on"]),
+            apply("stale_days", &["attention", "set", "stale-days", "14"]),
+            apply("stale_days_range", &["attention", "set", "stale-days", "0"]).exit(2),
             apply("unknown", &["attention", "set", "check.nothing", "on"]).exit(2),
             usage("usage", &["attention", "set", "notify"]),
         ],

@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use serde_json::{json, Value};
 use toolport_plus_api::Host;
 
-use super::store::{HideKind, Store, CHECKS};
+use super::store::{HideKind, Store, CHECKS, STALE_DAYS_RANGE};
 use super::{compute, read, updates, Item, Snapshot};
 use crate::compression::hooks::{parse_duration, parse_until};
 use crate::op::OpError;
@@ -149,6 +149,21 @@ pub fn set_switch(host: &dyn Host, key: &str, on: bool) -> Result<Value, OpError
             CHECKS.join(", ")
         )));
     }
+    save(&base, &store)?;
+    Ok(store.settings.to_json())
+}
+
+/// Days without a successful call after which a server that an access set reaches is stale.
+pub fn set_stale_days(host: &dyn Host, days: u32) -> Result<Value, OpError> {
+    if !STALE_DAYS_RANGE.contains(&days) {
+        return Err(OpError::usage(format!(
+            "stale-days is a number of days from {} to {}",
+            STALE_DAYS_RANGE.start(),
+            STALE_DAYS_RANGE.end()
+        )));
+    }
+    let (base, mut store) = open_store(host)?;
+    store.settings.stale_days = Some(days);
     save(&base, &store)?;
     Ok(store.settings.to_json())
 }

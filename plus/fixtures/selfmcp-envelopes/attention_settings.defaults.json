@@ -48,7 +48,8 @@
         }
       ],
       "enabled": false
-    }
+    },
+    "staleDays": 30
   },
   "tool": "attention_settings"
 }

@@ -4,7 +4,7 @@
     "command": "attention set",
     "error": {
       "code": "usage",
-      "message": "usage: toolportctl attention set <notify|check.<name>|notify.<name>> <on|off>"
+      "message": "usage: toolportctl attention set <notify|check.<name>|notify.<name>> <on|off> | stale-days <days>"
     },
     "ok": false,
     "schemaVersion": 1

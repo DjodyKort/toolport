@@ -833,6 +833,10 @@ pub struct MemoryHost {
     pub launch_at_login: Cell<Option<bool>>,
     pub sync: MemorySync,
     pub clients: crate::clients::MemoryClients,
+    /// What `ServerActivity` reports: server id to the time of its latest successful call.
+    pub activity: RefCell<BTreeMap<String, i64>>,
+    /// Makes `ServerActivity` fail with this message.
+    pub activity_error: RefCell<Option<String>>,
 }
 
 /// What the sync seam of a test host answers.
@@ -1128,6 +1132,24 @@ impl ServerRules for MemoryHost {
             "JAVA_TOOL_OPTIONS" => value.contains("-javaagent"),
             _ => false,
         }
+    }
+}
+
+impl crate::ServerActivity for MemoryHost {
+    fn last_successful_calls(
+        &self,
+        server_ids: &[String],
+    ) -> Result<BTreeMap<String, i64>, String> {
+        if let Some(error) = self.activity_error.borrow().clone() {
+            return Err(error);
+        }
+        Ok(self
+            .activity
+            .borrow()
+            .iter()
+            .filter(|(id, _)| server_ids.contains(id))
+            .map(|(id, at)| (id.clone(), *at))
+            .collect())
     }
 }
 

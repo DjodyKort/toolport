@@ -10,7 +10,7 @@ use super::{compute, observe_access, read, snapshot, Item, Screen, Urgency};
 
 const LATER: i64 = NOW + 3600;
 
-fn server(id: &str, enabled: bool) -> ServerRecord {
+pub(super) fn server(id: &str, enabled: bool) -> ServerRecord {
     convert(
         &json!({"id": id, "name": id.to_uppercase(), "enabled": enabled,
         "transport": "stdio", "command": "run-it"}),
@@ -18,7 +18,7 @@ fn server(id: &str, enabled: bool) -> ServerRecord {
     .unwrap()
 }
 
-fn set(id: &str, members: &[&str]) -> AccessSetInfo {
+pub(super) fn set(id: &str, members: &[&str]) -> AccessSetInfo {
     AccessSetInfo {
         id: id.into(),
         name: id.into(),
@@ -26,7 +26,7 @@ fn set(id: &str, members: &[&str]) -> AccessSetInfo {
     }
 }
 
-fn host(dir: &Dir, servers: &[&str], sets: Vec<AccessSetInfo>) -> MemoryHost {
+pub(super) fn host(dir: &Dir, servers: &[&str], sets: Vec<AccessSetInfo>) -> MemoryHost {
     let host = MemoryHost {
         registry: MemoryRegistry::with_servers(servers.iter().map(|id| server(id, true)).collect()),
         clients: MemoryClients::with_client("claude-code", "Claude Code"),
@@ -177,6 +177,8 @@ fn test75_a_mapped_folder_that_outranks_a_clients_own_set_is_a_calm_skippable_ro
 #[test]
 fn test76_added_servers_and_old_ones_are_separate_rows_with_their_own_ids() {
     let inputs = AccessInputs {
+        stale: Vec::new(),
+        stale_days: 30,
         unreached: vec![
             UnreachedServer {
                 id: "x".into(),

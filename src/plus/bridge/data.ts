@@ -248,6 +248,8 @@ export interface AttentionSettings {
     enabled: boolean;
     categories: Array<{ name: AttentionCheckName; on: boolean }>;
   };
+  /** Days without a successful call after which a server in use counts as stale. */
+  staleDays: number;
 }
 
 /** `attention check`: what the network pass looked at. */

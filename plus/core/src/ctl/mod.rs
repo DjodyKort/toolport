@@ -660,7 +660,7 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["attention", "set"],
-        "Switch a check or a notification on or off (<notify|check.name|notify.name> <on|off>)",
+        "Switch a check or a notification on or off (<notify|check.name|notify.name> <on|off>), or set how many days without a call make a server stale (stale-days <days>)",
         attention::set,
     ),
     cmd(

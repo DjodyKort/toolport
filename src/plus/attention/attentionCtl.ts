@@ -110,6 +110,15 @@ export function setSwitch(
   ]);
 }
 
+export function setStaleDays(days: number) {
+  return ctlData<{ settings: AttentionSettings }>([
+    "attention",
+    "set",
+    "stale-days",
+    String(days),
+  ]);
+}
+
 export function checkNow() {
   return ctlData<AttentionCheckReport>(["attention", "check"]);
 }

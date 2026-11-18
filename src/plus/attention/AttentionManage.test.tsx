@@ -139,4 +139,20 @@ describe("Settings > Toolport+ > Attention", () => {
       await screen.findByRole("switch", { name: "Notify me about Access" }),
     ).not.toBeChecked();
   });
+
+  it("test09_the_access_check_sets_how_many_days_make_a_server_stale", async () => {
+    mount();
+    const days = await screen.findByRole("spinbutton", {
+      name: "Days until a server counts as stale",
+    });
+    expect(days).toHaveValue(30);
+    await userEvent.clear(days);
+    await userEvent.type(days, "14");
+    await userEvent.tab();
+    await waitFor(() => expect(days).toHaveValue(14));
+    await userEvent.clear(days);
+    await userEvent.type(days, "999");
+    await userEvent.tab();
+    await waitFor(() => expect(days).toHaveValue(14));
+  });
 });

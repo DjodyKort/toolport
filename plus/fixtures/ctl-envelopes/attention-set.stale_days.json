@@ -1,0 +1,63 @@
+{
+  "argv": ["attention", "set", "stale-days", "14"],
+  "envelope": {
+    "command": "attention set",
+    "data": {
+      "days": 14,
+      "key": "stale-days",
+      "settings": {
+        "checks": [
+          {
+            "name": "credentials",
+            "on": true
+          },
+          {
+            "name": "updates",
+            "on": false
+          },
+          {
+            "name": "access",
+            "on": true
+          },
+          {
+            "name": "tasks",
+            "on": true
+          },
+          {
+            "name": "library",
+            "on": true
+          }
+        ],
+        "notify": {
+          "categories": [
+            {
+              "name": "credentials",
+              "on": true
+            },
+            {
+              "name": "updates",
+              "on": false
+            },
+            {
+              "name": "access",
+              "on": false
+            },
+            {
+              "name": "tasks",
+              "on": true
+            },
+            {
+              "name": "library",
+              "on": false
+            }
+          ],
+          "enabled": true
+        },
+        "staleDays": 14
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

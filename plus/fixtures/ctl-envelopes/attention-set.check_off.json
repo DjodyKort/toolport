@@ -52,7 +52,8 @@
             }
           ],
           "enabled": false
-        }
+        },
+        "staleDays": 30
       }
     },
     "ok": true,

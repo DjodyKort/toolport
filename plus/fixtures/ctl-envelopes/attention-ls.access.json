@@ -28,7 +28,7 @@
       ],
       "counts": {
         "needsYou": 4,
-        "worthALook": 1
+        "worthALook": 2
       },
       "hiddenCount": 0,
       "items": [
@@ -92,6 +92,20 @@
           "since": "<masked>",
           "source": "Tasks",
           "title": "Task Nightly report failed",
+          "urgency": "worth-a-look"
+        },
+        {
+          "action": {
+            "label": "Review",
+            "screen": "servers"
+          },
+          "detail": "alpha is on and an access set reaches it, but no call succeeded in that time. Switch it off or take it out of the sets if nobody uses it; the row goes with the next successful call.",
+          "id": "access:stale:srv-alpha",
+          "skip": {
+            "label": "these servers"
+          },
+          "source": "Access",
+          "title": "alpha has not worked for 30 days",
           "urgency": "worth-a-look"
         }
       ]

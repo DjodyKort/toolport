@@ -217,6 +217,7 @@ export function createAttentionWorld(options: AttentionWorldOptions = {}) {
         on: NOTIFIES_BY_DEFAULT.includes(name),
       })),
     },
+    staleDays: 30,
   };
 
   function rows(now: number): AttentionRow[] {
@@ -303,6 +304,14 @@ export function createAttentionWorld(options: AttentionWorldOptions = {}) {
         return { ok: true, data: { id: last.id, undone: true } };
       }
       if (verb === "settings") return { ok: true, data: settings };
+      if (verb === "set" && argv[2] === "stale-days") {
+        const days = Number(argv[3]);
+        if (!Number.isInteger(days) || days < 1 || days > 365) {
+          return fail("usage", "stale-days is a number of days from 1 to 365");
+        }
+        settings.staleDays = days;
+        return { ok: true, data: { key: argv[2], days, settings } };
+      }
       if (verb === "set") {
         const [scope, name] = (argv[2] ?? "").split(".");
         const on = argv[3] === "on";
