@@ -169,6 +169,7 @@
           "tokenizer": "cl100k_base"
         }
       },
+      "model": null,
       "notes": ["Spend is never added to upstream's saved-tokens number"],
       "previous": {
         "costDelta": -0.7,
@@ -184,11 +185,15 @@
             "usd": 0.12
           },
           "key": "s-a",
+          "lengthMs": 0,
+          "model": "claude-sonnet-4",
+          "modelCount": 1,
           "requests": 0,
           "sessions": 1,
           "share": 0.8,
           "source": "otel",
           "start": "<TIME>",
+          "task": "Interactive",
           "tokens": {
             "badge": "Measured",
             "cacheCreation": 500,
@@ -206,11 +211,15 @@
             "usd": 0.03
           },
           "key": "s-b",
+          "lengthMs": 0,
+          "model": "claude-haiku-4",
+          "modelCount": 1,
           "requests": 0,
           "sessions": 1,
           "share": 0.2,
           "source": "otel",
           "start": "<TIME>",
+          "task": "Interactive",
           "tokens": {
             "badge": "Measured",
             "cacheCreation": 500,
@@ -260,6 +269,7 @@
           "files": 1
         }
       },
+      "task": null,
       "tiles": {
         "30d": {
           "cost": {

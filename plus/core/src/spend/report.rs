@@ -64,6 +64,20 @@ pub struct RunSpan {
     pub session: Option<String>,
 }
 
+/// Page filters: each one narrows every figure of the report, and any of them adds the session list.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Filter<'a> {
+    pub project: Option<&'a str>,
+    pub model: Option<&'a str>,
+    pub task: Option<&'a str>,
+}
+
+impl Filter<'_> {
+    pub fn is_set(&self) -> bool {
+        self.project.is_some() || self.model.is_some() || self.task.is_some()
+    }
+}
+
 pub struct Inputs<'a> {
     pub store: &'a Store,
     pub transcripts: BTreeMap<String, TranscriptSession>,
@@ -169,6 +183,7 @@ pub struct Collected {
     pub otel_sessions: usize,
     pub transcript_sessions: usize,
     pub session_start: BTreeMap<String, i64>,
+    pub session_end: BTreeMap<String, i64>,
 }
 
 pub fn collect(inputs: &Inputs) -> Collected {
@@ -188,10 +203,13 @@ pub fn collect(inputs: &Inputs) -> Collected {
         samples.extend(session.samples.iter().cloned());
     }
     let mut session_start: BTreeMap<String, i64> = BTreeMap::new();
+    let mut session_end: BTreeMap<String, i64> = BTreeMap::new();
     for s in &samples {
         if let Some(id) = &s.session {
             let slot = session_start.entry(id.clone()).or_insert(s.ts);
             *slot = (*slot).min(s.ts);
+            let slot = session_end.entry(id.clone()).or_insert(s.ts);
+            *slot = (*slot).max(s.ts);
         }
     }
     for s in &mut samples {
@@ -211,6 +229,7 @@ pub fn collect(inputs: &Inputs) -> Collected {
         otel_sessions,
         transcript_sessions,
         session_start,
+        session_end,
     }
 }
 
@@ -280,11 +299,36 @@ fn tiles(samples: &[Sample], now: i64, keep: impl Fn(&&Sample) -> bool) -> Value
     Value::Object(out)
 }
 
-pub fn summary(inputs: &Inputs, range: Range, project: Option<&str>) -> Value {
+pub fn summary(inputs: &Inputs, range: Range, filter: &Filter) -> Value {
     let collected = collect(inputs);
     let start = range_start(inputs.now, range);
     let previous_start = start - range.days() * MS_PER_DAY;
-    let keep = |s: &&Sample| project.is_none_or(|p| s.project.as_deref() == Some(p));
+    let session_task: BTreeMap<&String, String> = collected
+        .session_start
+        .iter()
+        .map(|(id, first)| {
+            let task = task_of(&inputs.runs, id, *first).unwrap_or_else(|| INTERACTIVE.to_string());
+            (id, task)
+        })
+        .collect();
+    let task_name = |s: &Sample| -> String {
+        match &s.session {
+            Some(id) => session_task
+                .get(id)
+                .cloned()
+                .unwrap_or_else(|| INTERACTIVE.to_string()),
+            None => UNATTRIBUTED.to_string(),
+        }
+    };
+    let keep = |s: &&Sample| {
+        filter
+            .project
+            .is_none_or(|p| s.project.as_deref() == Some(p))
+            && filter
+                .model
+                .is_none_or(|m| s.model.as_deref().unwrap_or(UNKNOWN_MODEL) == m)
+            && filter.task.is_none_or(|t| task_name(s) == t)
+    };
     let current: Vec<&Sample> = collected
         .samples
         .iter()
@@ -317,16 +361,7 @@ pub fn summary(inputs: &Inputs, range: Range, project: Option<&str>) -> Value {
             .entry(s.model.clone().unwrap_or_else(|| UNKNOWN_MODEL.into()))
             .or_default()
             .add(s);
-        let task = match s.session.as_deref() {
-            Some(id) => task_of(
-                &inputs.runs,
-                id,
-                collected.session_start.get(id).copied().unwrap_or(s.ts),
-            )
-            .unwrap_or_else(|| INTERACTIVE.to_string()),
-            None => UNATTRIBUTED.to_string(),
-        };
-        by_task.entry(task).or_default().add(s);
+        by_task.entry(task_name(s)).or_default().add(s);
         if let Some(id) = &s.session {
             sessions.entry(id.clone()).or_default().add(s);
         }
@@ -357,7 +392,9 @@ pub fn summary(inputs: &Inputs, range: Range, project: Option<&str>) -> Value {
     let input_side = total.input + total.cache_read + total.cache_creation;
     let mut out = json!({
         "range": range.name(),
-        "project": project,
+        "project": filter.project,
+        "model": filter.model,
+        "task": filter.task,
         "since": super::format_ts(start),
         "totals": total.json("total", grand),
         "previous": {
@@ -380,9 +417,19 @@ pub fn summary(inputs: &Inputs, range: Range, project: Option<&str>) -> Value {
         "tiles": tiles(&collected.samples, inputs.now, keep),
         "notes": ["Spend is never added to upstream's saved-tokens number"],
     });
-    if project.is_some() {
+    if filter.is_set() {
         let mut list: Vec<(&String, &Acc)> = sessions.iter().collect();
-        list.sort_by_key(|(id, _)| std::cmp::Reverse(collected.session_start.get(*id).copied()));
+        list.sort_by(|a, b| {
+            b.1.total_cost()
+                .total_cmp(&a.1.total_cost())
+                .then(b.1.tokens().cmp(&a.1.tokens()))
+                .then(
+                    collected
+                        .session_start
+                        .get(b.0)
+                        .cmp(&collected.session_start.get(a.0)),
+                )
+        });
         out["sessionList"] = Value::Array(
             list.into_iter()
                 .take(LISTED_SESSIONS)
@@ -396,6 +443,14 @@ pub fn summary(inputs: &Inputs, range: Range, project: Option<&str>) -> Value {
                     } else {
                         "otel"
                     });
+                    row["task"] = json!(session_task.get(id).cloned().unwrap_or_default());
+                    let mut models: Vec<(&String, &f64)> = a.by_model.iter().collect();
+                    models.sort_by(|x, y| y.1.total_cmp(x.1).then(x.0.cmp(y.0)));
+                    row["model"] = json!(models.first().map(|(m, _)| m.as_str()));
+                    row["modelCount"] = json!(models.len());
+                    let first = collected.session_start.get(id).copied().unwrap_or(0);
+                    let last = collected.session_end.get(id).copied().unwrap_or(first);
+                    row["lengthMs"] = json!(last - first);
                     row
                 })
                 .collect(),

@@ -8,17 +8,19 @@ use toolport_plus_api::Host;
 use super::ToolError;
 use crate::args::str_trimmed;
 use crate::spend::api;
+use crate::spend::report::Filter;
 
 pub(super) fn status(host: &dyn Host, _args: &Value) -> Result<Value, ToolError> {
     Ok(api::status(host)?)
 }
 
 pub(super) fn summary(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
-    Ok(api::summary(
-        host,
-        str_trimmed(args, "range"),
-        str_trimmed(args, "project"),
-    )?)
+    let filter = Filter {
+        project: str_trimmed(args, "project"),
+        model: str_trimmed(args, "model"),
+        task: str_trimmed(args, "task"),
+    };
+    Ok(api::summary(host, str_trimmed(args, "range"), &filter)?)
 }
 
 pub(super) fn setup_plan(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {

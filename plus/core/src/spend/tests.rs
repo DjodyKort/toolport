@@ -10,7 +10,7 @@ use super::config::{self, SpendConfig};
 use super::event::*;
 use super::otlp::{self, Signal};
 use super::receiver::{Limits, Receiver};
-use super::report::{self, Inputs, Range, RunSpan};
+use super::report::{self, Filter, Inputs, Range, RunSpan};
 use super::sample;
 use super::setup;
 use super::store::Store;
@@ -293,7 +293,11 @@ fn test11_a_session_with_otel_events_is_not_counted_again_from_its_transcript() 
         ])
         .unwrap();
     let roots = transcript::roots_under(home.path(), None);
-    let summary = report::summary(&inputs(&store, &roots, vec![]), Range::Today, None);
+    let summary = report::summary(
+        &inputs(&store, &roots, vec![]),
+        Range::Today,
+        &Filter::default(),
+    );
     assert_eq!(summary["sources"]["otelSessions"], 1);
     assert_eq!(summary["sources"]["transcriptSessions"], 1);
     assert_eq!(summary["totals"]["tokens"]["input"], 1 + 20);
@@ -324,7 +328,11 @@ fn test12_pruned_otel_sessions_are_not_double_counted_from_transcripts() {
         .prune(NOW, 1, u64::MAX, &|_| Some("/work/repo".into()), false)
         .unwrap();
     let roots = transcript::roots_under(home.path(), None);
-    let summary = report::summary(&inputs(&store, &roots, vec![]), Range::Days7, None);
+    let summary = report::summary(
+        &inputs(&store, &roots, vec![]),
+        Range::Days7,
+        &Filter::default(),
+    );
     assert_eq!(summary["totals"]["tokens"]["input"], 40);
     assert_eq!(summary["sources"]["transcriptSessions"], 0);
     assert_eq!(summary["totals"]["cost"]["badge"], "Measured");
@@ -351,7 +359,7 @@ fn test13_costs_group_by_model_project_and_task_with_interactive_rows() {
     }];
     let mut query_inputs = inputs(&store, &[], runs);
     query_inputs.now = NOW + 5 * 3_600_000;
-    let summary = report::summary(&query_inputs, Range::Days7, None);
+    let summary = report::summary(&query_inputs, Range::Days7, &Filter::default());
     let tasks: BTreeMap<String, f64> = summary["byTask"]
         .as_array()
         .unwrap()
@@ -699,7 +707,11 @@ fn test27_tiles_carry_all_three_ranges_with_delta_and_estimated_days() {
             cost_event("b", 1.0, NOW - MS_PER_DAY),
         ])
         .unwrap();
-    let summary = report::summary(&inputs(&store, &[], vec![]), Range::Days7, None);
+    let summary = report::summary(
+        &inputs(&store, &[], vec![]),
+        Range::Days7,
+        &Filter::default(),
+    );
     let tiles = &summary["tiles"];
     assert_eq!(tiles["today"]["cost"]["usd"], 2.0);
     assert_eq!(tiles["today"]["previousUsd"], 1.0);
@@ -882,7 +894,11 @@ fn test34_a_session_without_a_matching_run_is_interactive_and_folded_totals_stay
         ) + "\n",
     )
     .unwrap();
-    let summary = report::summary(&inputs(&store, &[], vec![]), Range::Days7, None);
+    let summary = report::summary(
+        &inputs(&store, &[], vec![]),
+        Range::Days7,
+        &Filter::default(),
+    );
     let usd = |key: &str| {
         summary["byTask"]
             .as_array()
@@ -913,4 +929,85 @@ fn test35_transcript_progress_counts_files_and_cached_ones() {
     assert_eq!(transcript::progress(&roots), (3, 0));
     transcript::scan(&roots);
     assert_eq!(transcript::progress(&roots), (3, 3));
+}
+
+#[test]
+fn test36_model_and_task_filters_narrow_every_figure_and_the_session_list_names_task_model_and_length(
+) {
+    let dir = TempDir::new().unwrap();
+    let store = Store::new(dir.path());
+    let other_model = |session: &str, value: f64, ts: i64| Event {
+        model: Some("claude-haiku-4".into()),
+        ..cost_event(session, value, ts)
+    };
+    store
+        .append(&[
+            token_event("in-run", TOKEN_INPUT, 10.0, NOW),
+            cost_event("in-run", 1.0, NOW),
+            token_event("in-run", TOKEN_OUTPUT, 5.0, NOW + 90_000),
+            cost_event("manual", 2.0, NOW + 4 * 3_600_000),
+            other_model("manual", 0.5, NOW + 4 * 3_600_000 + 60_000),
+        ])
+        .unwrap();
+    let runs = vec![RunSpan {
+        task: "nightly".into(),
+        start_ms: NOW - 1000,
+        end_ms: Some(NOW + 120_000),
+        session: None,
+    }];
+    let mut query = inputs(&store, &[], runs);
+    query.now = NOW + 5 * 3_600_000;
+
+    let by_task = report::summary(
+        &query,
+        Range::Days7,
+        &Filter {
+            task: Some("nightly"),
+            ..Filter::default()
+        },
+    );
+    assert_eq!(by_task["totals"]["cost"]["usd"], 1.0);
+    assert_eq!(by_task["byTask"].as_array().unwrap().len(), 1);
+    let row = &by_task["sessionList"][0];
+    assert_eq!(row["key"], "in-run");
+    assert_eq!(row["task"], "nightly");
+    assert_eq!(row["model"], "claude-sonnet-4");
+    assert_eq!(row["lengthMs"], 90_000);
+
+    let by_model = report::summary(
+        &query,
+        Range::Days7,
+        &Filter {
+            model: Some("claude-haiku-4"),
+            ..Filter::default()
+        },
+    );
+    assert_eq!(by_model["totals"]["cost"]["usd"], 0.5);
+    assert_eq!(by_model["byModel"].as_array().unwrap().len(), 1);
+    assert_eq!(by_model["tiles"]["7d"]["cost"]["usd"], 0.5);
+    assert_eq!(by_model["sessionList"][0]["task"], report::INTERACTIVE);
+    assert_eq!(by_model["sessionList"][0]["modelCount"], 1);
+    let interactive = report::summary(
+        &query,
+        Range::Days7,
+        &Filter {
+            task: Some(report::INTERACTIVE),
+            ..Filter::default()
+        },
+    );
+    assert_eq!(interactive["sessionList"][0]["modelCount"], 2);
+    assert_eq!(interactive["sessionList"][0]["model"], "claude-sonnet-4");
+
+    let nothing = report::summary(
+        &query,
+        Range::Days7,
+        &Filter {
+            task: Some("nightly"),
+            model: Some("claude-haiku-4"),
+            ..Filter::default()
+        },
+    );
+    assert_eq!(nothing["totals"]["cost"]["usd"], 0.0);
+    assert_eq!(nothing["sessionList"].as_array().unwrap().len(), 0);
+    assert!(report::summary(&query, Range::Days7, &Filter::default())["sessionList"].is_null());
 }

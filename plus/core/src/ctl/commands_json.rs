@@ -317,6 +317,8 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("compression hooks adopt-edit", m("--revert", Bool, "Put the ledger back as it was before the edit was adopted")),
     ("spend summary", m("--range", Choice(&["today", "7d", "30d"]), "Window ending today (default 7d)")),
     ("spend summary", m("--project", Str, "Only this project folder, as the by-project rows name it")),
+    ("spend summary", m("--model", Str, "Only this model, as the by-model rows name it")),
+    ("spend summary", m("--task", Str, "Only this task, as the by-task rows name it (Interactive, Unattributed)")),
     ("spend export-csv", m("--range", Choice(&["today", "7d", "30d"]), "Window ending today (default 7d)")),
     ("spend export-csv", m("--out", Path, "Write the CSV to this file instead of printing it")),
     ("spend prune", m("--dry-run", Bool, "Show what would be removed and change nothing")),

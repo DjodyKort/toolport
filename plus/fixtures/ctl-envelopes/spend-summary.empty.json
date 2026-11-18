@@ -39,6 +39,7 @@
           "tokenizer": "cl100k_base"
         }
       },
+      "model": null,
       "notes": ["Spend is never added to upstream's saved-tokens number"],
       "previous": {
         "costDelta": null,
@@ -84,6 +85,7 @@
           "files": 0
         }
       },
+      "task": null,
       "tiles": {
         "30d": {
           "cost": {

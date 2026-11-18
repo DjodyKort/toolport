@@ -1318,6 +1318,12 @@ const CASES: &[Case] = &[
         "spend_summary",
         &[
             read("empty", "spend_summary", "{}"),
+            hook("data", spend_data),
+            read(
+                "model_and_task",
+                "spend_summary",
+                r#"{"range":"30d","model":"claude-sonnet-4","task":"Interactive"}"#,
+            ),
             fails(
                 "bad_range",
                 "invalid_arguments",

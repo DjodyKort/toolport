@@ -25,6 +25,28 @@
       "required": false,
       "sensitive": false,
       "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Only this model, as the by-model rows name it",
+      "escalates": false,
+      "hidden": false,
+      "name": "--model",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Only this task, as the by-task rows name it (Interactive, Unattributed)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--task",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
     }
   ],
   "group": "spend",

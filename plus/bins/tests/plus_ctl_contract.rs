@@ -268,6 +268,30 @@ const CASES: &[Case] = &[
                 ],
             )
             .env(SPEND_CLOCK),
+            read(
+                "month-model",
+                &[
+                    "spend",
+                    "summary",
+                    "--range",
+                    "30d",
+                    "--model",
+                    "claude-haiku-4",
+                ],
+            )
+            .env(SPEND_CLOCK),
+            read(
+                "month-task",
+                &[
+                    "spend",
+                    "summary",
+                    "--range",
+                    "30d",
+                    "--task",
+                    "Interactive",
+                ],
+            )
+            .env(SPEND_CLOCK),
             usage("bad-range", &["spend", "summary", "--range", "year"]).env(SPEND_CLOCK),
         ],
     ),

@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use toolport_plus_api::Host;
 
 use super::config::{self, SpendConfig};
-use super::report::{self, Inputs, Range, RunSpan};
+use super::report::{self, Filter, Inputs, Range, RunSpan};
 use super::store::Store;
 use super::{mcp_part, runtime, setup, spend_dir, transcript};
 use crate::compression::measure_csv::cell;
@@ -99,11 +99,7 @@ pub fn receiver_status(host: &dyn Host) -> Result<Value, OpError> {
     }))
 }
 
-pub fn summary(
-    host: &dyn Host,
-    range: Option<&str>,
-    project: Option<&str>,
-) -> Result<Value, OpError> {
+pub fn summary(host: &dyn Host, range: Option<&str>, filter: &Filter) -> Result<Value, OpError> {
     let ctx = ctx(host)?;
     let range = range_of(range)?;
     let store = Store::new(&ctx.dir);
@@ -130,7 +126,7 @@ pub fn summary(
         runs: run_spans(&ctx.base),
         now: ctx.now,
     };
-    let mut out = report::summary(&inputs, range, project);
+    let mut out = report::summary(&inputs, range, filter);
     out["stale"] = stale.unwrap_or(Value::Null);
     let input_side = ["input", "cacheRead", "cacheCreation"]
         .iter()

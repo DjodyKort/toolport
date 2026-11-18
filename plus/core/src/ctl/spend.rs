@@ -4,10 +4,11 @@
 use super::flags::{switch, value, Flags, Inline, Operands, Spec, Unknown};
 use super::output::{CtlError, Output};
 use crate::spend::api;
+use crate::spend::report::Filter;
 use serde_json::Value;
 use toolport_plus_api::Host;
 
-const NO_ARGS: &str = "usage: spend status | receiver status | summary [--range today|7d|30d] [--project <folder>] | export-csv [--range <r>] [--out <file>] | prune [--dry-run] [--totals --yes] | config set [--port <n>] [--retention-days <n>] [--max-mb <n>] [--show-cost on|off] | setup plan|apply|undo [--port <n>] [--overwrite <KEY>|all] [--profile <settings file or folder>] | setup undo [--profile <p>] [--delete-data --yes] [--dry-run]";
+const NO_ARGS: &str = "usage: spend status | receiver status | summary [--range today|7d|30d] [--project <folder>] [--model <name>] [--task <name>] | export-csv [--range <r>] [--out <file>] | prune [--dry-run] [--totals --yes] | config set [--port <n>] [--retention-days <n>] [--max-mb <n>] [--show-cost on|off] | setup plan|apply|undo [--port <n>] [--overwrite <KEY>|all] [--profile <settings file or folder>] | setup undo [--profile <p>] [--delete-data --yes] [--dry-run]";
 
 const BASE: Spec = Spec {
     flags: &[],
@@ -20,7 +21,12 @@ const BASE: Spec = Spec {
 pub(super) const STATUS: Spec = BASE;
 
 pub(super) const SUMMARY: Spec = Spec {
-    flags: &[value("--range"), value("--project")],
+    flags: &[
+        value("--range"),
+        value("--project"),
+        value("--model"),
+        value("--task"),
+    ],
     ..BASE
 };
 
@@ -119,7 +125,12 @@ fn status_text(data: &Value) -> String {
 
 pub fn summary(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = SUMMARY.parse(rest)?;
-    let data = api::summary(host, flags.one("--range"), flags.one("--project"))?;
+    let filter = Filter {
+        project: flags.one("--project"),
+        model: flags.one("--model"),
+        task: flags.one("--task"),
+    };
+    let data = api::summary(host, flags.one("--range"), &filter)?;
     let mut human = vec![format!(
         "Spend, {} since {}: {} · {} tokens",
         data["range"].as_str().unwrap_or(""),

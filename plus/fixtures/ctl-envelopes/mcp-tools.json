@@ -1558,6 +1558,18 @@
               "name": "project",
               "required": false,
               "type": "string"
+            },
+            {
+              "description": "Only this model, as the by-model rows name it",
+              "name": "model",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Only this task, as the by-task rows name it (Interactive, Unattributed)",
+              "name": "task",
+              "required": false,
+              "type": "string"
             }
           ],
           "tier": 1

@@ -693,7 +693,9 @@ pub const TOOLS: &[ToolDef] = &[
         "Model spend from Claude Code's OpenTelemetry export for a window ending today: totals, by day, by project folder, by model and by task, each figure with its kind (Measured, Counted, Estimate, Not itemised), plus the MCP part. Transcripts fill in sessions without OTel events",
         [
             p("range", Ty::Str, false, "today, 7d (default) or 30d"),
-            p("project", Ty::Str, false, "Only this project folder, as the by-project rows name it")
+            p("project", Ty::Str, false, "Only this project folder, as the by-project rows name it"),
+            p("model", Ty::Str, false, "Only this model, as the by-model rows name it"),
+            p("task", Ty::Str, false, "Only this task, as the by-task rows name it (Interactive, Unattributed)")
         ],
         spend::summary
     ),
