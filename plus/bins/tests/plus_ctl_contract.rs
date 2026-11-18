@@ -1712,6 +1712,233 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "library select ls",
+        &[
+            read("empty", &["library", "select", "ls"]),
+            apply("unknown", &["library", "select", "ls", "nope"]).exit(1),
+            hook("repos", taps_world::select_src),
+            setup(
+                "setup",
+                &[
+                    "skills",
+                    "tap",
+                    "add",
+                    "{base}/select-src",
+                    "--name",
+                    "picks",
+                ],
+            ),
+            read("items", &["library", "select", "ls", "picks"]),
+            setup(
+                "choose",
+                &["library", "select", "set", "picks", "--on", "code-review"],
+            ),
+            read("listed", &["library", "select", "ls"]),
+        ],
+    ),
+    case(
+        "library select set",
+        &[
+            hook("repos", taps_world::select_src),
+            setup(
+                "setup",
+                &[
+                    "skills",
+                    "tap",
+                    "add",
+                    "{base}/select-src",
+                    "--name",
+                    "picks",
+                ],
+            ),
+            usage("usage", &["library", "select", "set", "picks"]),
+            apply(
+                "unknown",
+                &["library", "select", "set", "nope", "--on", "x"],
+            )
+            .exit(1),
+            apply(
+                "unknown_item",
+                &["library", "select", "set", "picks", "--on", "nope"],
+            )
+            .exit(1),
+            read(
+                "preview",
+                &[
+                    "library",
+                    "select",
+                    "set",
+                    "picks",
+                    "--on",
+                    "code-review",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "hook_needs_a_tick",
+                &[
+                    "library",
+                    "select",
+                    "set",
+                    "picks",
+                    "--on",
+                    "PostToolUse:Write|Edit",
+                ],
+            )
+            .exit(2),
+            apply(
+                "apply",
+                &[
+                    "library",
+                    "select",
+                    "set",
+                    "picks",
+                    "--on",
+                    "code-review,agent:reviewer,deploy,style",
+                    "--tick-hook",
+                    "PostToolUse:Write|Edit",
+                ],
+            ),
+            apply(
+                "off",
+                &["library", "select", "set", "picks", "--off", "deploy"],
+            ),
+        ],
+    ),
+    case(
+        "library select plan",
+        &[
+            usage("usage", &["library", "select", "plan"]),
+            hook("repos", taps_world::select_src),
+            setup(
+                "setup",
+                &[
+                    "skills",
+                    "tap",
+                    "add",
+                    "{base}/select-src",
+                    "--name",
+                    "picks",
+                ],
+            ),
+            setup(
+                "choose",
+                &[
+                    "library",
+                    "select",
+                    "set",
+                    "picks",
+                    "--on",
+                    "code-review,agent:reviewer",
+                    "--tick-hook",
+                    "PostToolUse:Write|Edit",
+                ],
+            ),
+            read("plan", &["library", "select", "plan", "picks"]),
+            read(
+                "local",
+                &["library", "select", "plan", "picks", "--no-fetch"],
+            ),
+        ],
+    ),
+    case(
+        "library select apply",
+        &[
+            usage("usage", &["library", "select", "apply", "picks"]),
+            hook("repos", taps_world::select_src),
+            setup(
+                "setup",
+                &[
+                    "skills",
+                    "tap",
+                    "add",
+                    "{base}/select-src",
+                    "--name",
+                    "picks",
+                ],
+            ),
+            setup(
+                "choose",
+                &[
+                    "library",
+                    "select",
+                    "set",
+                    "picks",
+                    "--on",
+                    "code-review,agent:reviewer",
+                    "--tick-hook",
+                    "PostToolUse:Write|Edit",
+                ],
+            ),
+            apply(
+                "stale_plan",
+                &[
+                    "library",
+                    "select",
+                    "apply",
+                    "picks",
+                    "--plan-hash",
+                    "sha256:0000000000000000",
+                ],
+            )
+            .exit(1),
+            apply(
+                "apply",
+                &[
+                    "library",
+                    "select",
+                    "apply",
+                    "picks",
+                    "--plan-hash",
+                    "sha256:1ec014b1a33f82fe",
+                ],
+            ),
+            read("again", &["library", "select", "plan", "picks"]),
+        ],
+    ),
+    case(
+        "library select undo",
+        &[
+            usage("usage", &["library", "select", "undo"]),
+            hook("repos", taps_world::select_src),
+            setup(
+                "setup",
+                &[
+                    "skills",
+                    "tap",
+                    "add",
+                    "{base}/select-src",
+                    "--name",
+                    "picks",
+                ],
+            ),
+            apply("nothing", &["library", "select", "undo", "picks"]).exit(1),
+            setup(
+                "choose",
+                &["library", "select", "set", "picks", "--on", "code-review"],
+            ),
+            setup(
+                "apply",
+                &[
+                    "library",
+                    "select",
+                    "apply",
+                    "picks",
+                    "--plan-hash",
+                    "sha256:2301a9e8f4612e06",
+                ],
+            ),
+            apply("undo", &["library", "select", "undo", "picks"]),
+        ],
+    ),
+    case(
+        "library select check",
+        &[
+            usage("usage", &["library", "select", "check", "picks"]),
+            apply("none", &["library", "select", "check", "--no-fetch"]),
+        ],
+    ),
+    case(
         "skills search",
         &[
             read("empty", &["skills", "search", "tapskill"]),

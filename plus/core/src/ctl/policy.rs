@@ -16,6 +16,7 @@ use super::auth;
 use super::context;
 use super::flags::{switch, value, Flag, Spec};
 use super::library;
+use super::library_select;
 use super::mcp;
 use super::plugins;
 use super::secret;
@@ -601,6 +602,33 @@ pub(super) const ROWS: &[Row] = &[
         .needs(&[Needs::Network])
         .spec(&[&library::CHANGE])
         .skip("commits and pushes the library; its --dry-run is a golden step"),
+    row("library select ls", R)
+        .spec(&[&library_select::LS])
+        .args(&[opt("source")]),
+    row("library select set", W)
+        .dry()
+        .spec(&[&library_select::SET])
+        .args(&[req("source")])
+        .skip("writes the selection file; its --dry-run is a golden step"),
+    row("library select plan", W)
+        .needs(&[Needs::Network])
+        .spec(&[&library_select::PLAN])
+        .args(&[req("source")])
+        .skip("fetches the source into a temporary clone; it is a golden step"),
+    row("library select apply", W)
+        .needs(&[Needs::Network])
+        .spec(&[&library_select::APPLY])
+        .args(&[req("source")])
+        .requires(&["--plan-hash"])
+        .skip("generates the slice plugin and writes the Claude Code settings; it is a golden step"),
+    row("library select undo", W)
+        .spec(&[&library_select::UNDO])
+        .args(&[req("source")])
+        .skip("restores the settings and the slice plugin; it is a golden step"),
+    row("library select check", W)
+        .needs(&[Needs::Network])
+        .spec(&[&library_select::CHECK])
+        .skip("fetches every selected source; it is a golden step"),
     row("skills bundle", W)
         .dry()
         .spec(&[&skills_repo::BUNDLE])
@@ -974,6 +1002,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("styles_remove", D, "styles remove").on(),
     maps("library_status", R, "library status"),
     maps("library_pull", W, "library pull").on(),
+    maps("library_select_ls", R, "library select ls"),
+    maps("library_select_plan", W, "library select plan"),
     own("skills_git_push", D),
     own("skills_edit_body", W),
     own("skills_edit_frontmatter", W),

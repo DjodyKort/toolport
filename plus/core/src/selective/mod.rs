@@ -9,6 +9,7 @@
 
 pub mod check;
 pub mod discover;
+pub mod handlers;
 pub mod ops;
 pub mod plan;
 pub mod slice;

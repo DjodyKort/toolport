@@ -1,0 +1,25 @@
+{
+  "id": "selective-update-check",
+  "title": "Check chosen items for updates",
+  "description": "Fetches every tap or plugin you chose single items from, compares each item with the version you pinned and records which sources have a plan waiting. It only checks: nothing is applied, no item is turned on and no hook is ticked. Apply a plan yourself from the Library screen or with `toolportctl library select apply`.",
+  "enabled": false,
+  "requires": { "servers": [], "commands": ["toolportctl"] },
+  "writesSecrets": [],
+  "steps": [
+    {
+      "id": "check",
+      "title": "Check the chosen sources for updates",
+      "type": "exec",
+      "program": "toolportctl",
+      "args": ["library", "select", "check"]
+    }
+  ],
+  "triggers": {
+    "manual": true,
+    "cli": true,
+    "selfMcp": { "enabled": false, "approval": "every-run" },
+    "schedule": { "cron": "0 6 * * *", "autoRun": true },
+    "onAuthFailure": []
+  },
+  "createdFrom": { "kind": "manual" }
+}

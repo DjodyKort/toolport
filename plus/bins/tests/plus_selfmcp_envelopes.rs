@@ -1196,6 +1196,41 @@ const CASES: &[Case] = &[
         &[read("none", "skills_tap_update", "{}")],
     ),
     prepared(
+        "library_select_ls",
+        taps_world::select_src,
+        &[
+            read("empty", "library_select_ls", "{}"),
+            fails(
+                "unknown",
+                "not_found",
+                "library_select_ls",
+                r#"{"source":"nope"}"#,
+            ),
+            setup(
+                "skills_tap_add",
+                r#"{"repo":"{base}/select-src","name":"picks","dry_run":false}"#,
+            ),
+            read("items", "library_select_ls", r#"{"source":"picks"}"#),
+        ],
+    ),
+    prepared(
+        "library_select_plan",
+        taps_world::select_src,
+        &[
+            fails("missing", "invalid_arguments", "library_select_plan", "{}"),
+            setup(
+                "skills_tap_add",
+                r#"{"repo":"{base}/select-src","name":"picks","dry_run":false}"#,
+            ),
+            read("plan", "library_select_plan", r#"{"source":"picks"}"#),
+            read(
+                "local",
+                "library_select_plan",
+                r#"{"source":"picks","fetch":false}"#,
+            ),
+        ],
+    ),
+    prepared(
         "skills_tap_link",
         taps_world::both,
         &[

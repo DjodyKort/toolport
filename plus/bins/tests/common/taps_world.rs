@@ -58,6 +58,37 @@ pub fn plugin_src(world: &World) {
     commit(&dir, world);
 }
 
+/// A tap with several kinds of items, for the selective loading cases: two skills, an agent, a
+/// command, a rule and a hook that runs a script.
+pub fn select_src(world: &World) {
+    let dir = world.base.join("select-src");
+    put(
+        &dir,
+        &[
+            (
+                "skills/code-review/SKILL.md",
+                "---\nname: code-review\ndescription: A synthetic skill\n---\nReview a diff\n",
+            ),
+            (
+                "skills/tdd-workflow/SKILL.md",
+                "---\nname: tdd-workflow\ndescription: A synthetic skill\n---\nTest first\n",
+            ),
+            ("agents/reviewer.md", "---\nname: reviewer\n---\nReviews\n"),
+            (
+                "commands/deploy.md",
+                "---\ndescription: Deploy\n---\nShip it\n",
+            ),
+            ("rules/style.md", "Keep functions short\n"),
+            (
+                "hooks/hooks.json",
+                r#"{"hooks": {"PostToolUse": [{"matcher": "Write|Edit", "hooks": [{"type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/format.sh"}]}]}}"#,
+            ),
+            ("scripts/format.sh", "#!/bin/sh\necho formatting\n"),
+        ],
+    );
+    commit(&dir, world);
+}
+
 /// Both repositories, for the cases that add a plain tap and a marketplace tap.
 pub fn both(world: &World) {
     tap_src(world);

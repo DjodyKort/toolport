@@ -1,10 +1,13 @@
 //! `library_status` (tier 1), `library_pull` (tier 2) and `skills_git_push` (tier 4): the same
-//! operations as `toolportctl library status|pull|push`, over `crate::library`.
+//! operations as `toolportctl library status|pull|push`, over `crate::library`; and
+//! `library_select_ls` and `library_select_plan` (tier 1) over `crate::selective`.
 
 use super::ToolError;
 use crate::args::{flag, flag_or, str_arg};
 use crate::library::{self, remote, sync};
 use crate::op::{ErrorKind, OpError};
+use crate::selective::handlers as selective;
+use crate::selective::ops::Options;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use toolport_plus_api::Host;
@@ -66,5 +69,29 @@ pub(super) fn git_push(host: &dyn Host, args: &Value) -> Result<Value, ToolError
         } else {
             Ok(json!({"pushed": false, "message": done["message"]}))
         }
+    })
+}
+
+fn source_arg(args: &Value) -> Result<&str, ToolError> {
+    str_arg(args, "source")
+        .filter(|s| !s.trim().is_empty())
+        .ok_or_else(|| ToolError::new("invalid_arguments", "source is required"))
+}
+
+pub(super) fn select_ls(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    with_paths(host, || {
+        selective::ls(host, str_arg(args, "source")).map_err(tool_error)
+    })
+}
+
+/// Only plans: applying a plan and ticking a hook are not offered through this server.
+pub(super) fn select_plan(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    let source = source_arg(args)?;
+    with_paths(host, || {
+        let opts = Options {
+            fetch: flag_or(args, "fetch", true),
+            switch: flag(args, "switch"),
+        };
+        selective::plan(host, source, opts).map_err(tool_error)
     })
 }

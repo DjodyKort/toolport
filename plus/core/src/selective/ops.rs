@@ -159,6 +159,9 @@ impl Drop for Latest {
     fn drop(&mut self) {
         if let Some(temp) = &self.temp {
             let _ = std::fs::remove_dir_all(temp);
+            if let Some(parent) = temp.parent() {
+                let _ = std::fs::remove_dir(parent);
+            }
         }
     }
 }
@@ -734,7 +737,7 @@ fn plan_hash(key: &str, prepared: &Prepared, edits: &[Edit]) -> String {
         "to": prepared.latest.head,
         "diffs": prepared.computed.diffs,
         "next": prepared.computed.next,
-        "edits": edits.iter().map(|e| json!([e.key, e.entry, e.value])).collect::<Vec<_>>(),
+        "edits": edits.iter().map(|e| json!([e.key, e.entry, e.action])).collect::<Vec<_>>(),
     });
     lock_hash(body.to_string())
 }
@@ -987,6 +990,7 @@ pub fn apply(env: &Env, source: &str, plan_hash: &str, opts: Options) -> Result<
     }
     let mut data = built.data;
     data["dryRun"] = json!(false);
+    data["waiting"] = json!(false);
     data["result"] = json!(ResultV1 {
         applied: true,
         changed: changed_lines(&built.edits, &built.settings),

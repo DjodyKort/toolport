@@ -635,6 +635,26 @@ pub const TOOLS: &[ToolDef] = &[
         library::pull
     ),
     tool!(
+        "library_select_ls",
+        1,
+        None,
+        "List the sources that have a selection of single skills, agents, commands, hooks and rules, or with source the items of one tap or plugin with their state (on, off, new, removed) and the offer to switch a plugin that is installed whole to its chosen items. Read only",
+        [p("source", Ty::Str, false, "A tap, or <tap>/<plugin> for a plugin marketplace tap")],
+        library::select_ls
+    ),
+    tool!(
+        "library_select_plan",
+        2,
+        None,
+        "Plan the selection of a tap or plugin: fetch the latest version into a temporary clone and return, per item, what applying would add, drop, update or hold (a hook whose command changed needs a new tick), plus the settings it would write and the plan hash. Only plans: applying and ticking hooks are done with toolportctl",
+        [
+            p("source", Ty::Str, true, "A tap, or <tap>/<plugin> for a plugin marketplace tap"),
+            p("fetch", Ty::Bool, false, "Fetch the latest version (default true); false compares with the local clone"),
+            p("switch", Ty::Bool, false, "Include switching off the whole plugin that is installed beside the chosen items"),
+        ],
+        library::select_plan
+    ),
+    tool!(
         "skills_git_push",
         4,
         Always,
