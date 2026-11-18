@@ -36,6 +36,8 @@ export interface WorldServer {
   forwardInstructions: boolean;
   maxRequestTimeoutMs: number | null;
   requestTimeoutMs: number | null;
+  serial?: boolean;
+  toolBudgets?: Record<string, number>;
   source: string | null;
   /** A running gateway has this server connected with fewer client capabilities than its clients
    * declared; a restart ends it. */
@@ -87,6 +89,8 @@ export interface ServerWorldOptions {
   /** Login checks by server id; a server without one has no probe. */
   logins?: Record<string, LoginSeed>;
   signIn?: Record<string, SignInScript>;
+  /** Every `server edit` is refused with this reason. */
+  editFailure?: string;
   /** Every vault command fails the way a locked keychain does. */
   vaultLocked?: boolean;
 }
@@ -304,8 +308,8 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
       declareClientCapabilities: server.declareClientCapabilities,
       forwardInstructions: server.forwardInstructions,
       maxRequestTimeoutMs: server.maxRequestTimeoutMs,
-      toolBudgets: {},
-      serial: false,
+      toolBudgets: server.toolBudgets ?? {},
+      serial: server.serial ?? false,
       requestTimeoutMs: server.requestTimeoutMs,
       interop: interopOf(server, servers),
       disabledTools: [],
@@ -332,6 +336,7 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
   }
 
   function edit(server: WorldServer, argv: string[]): CtlReply {
+    if (options.editFailure) return fail("input", options.editFailure);
     const changed: string[] = [];
     const command = flagValues(argv, "--command")[0];
     if (command) {
@@ -362,6 +367,36 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
         );
       if (ms !== server.maxRequestTimeoutMs) changed.push("maxRequestTimeoutMs");
       server.maxRequestTimeoutMs = ms;
+    }
+    if (argv.includes("--serial") && argv.includes("--no-serial"))
+      return fail("usage", "--serial and --no-serial are mutually exclusive");
+    for (const flag of ["--serial", "--no-serial"]) {
+      if (!argv.includes(flag)) continue;
+      if ((server.serial ?? false) !== (flag === "--serial")) changed.push("serial");
+      server.serial = flag === "--serial";
+    }
+    const budgets = { ...server.toolBudgets };
+    for (const raw of flagValues(argv, "--tool-budget")) {
+      const at = raw.indexOf("=");
+      const tool = raw.slice(0, at).trim();
+      const seconds = raw.slice(at + 1).trim();
+      if (at < 1 || tool === "")
+        return fail("usage", `--tool-budget: '${raw}' is not <tool>=<seconds>`);
+      if (seconds === "default") {
+        delete budgets[tool];
+        continue;
+      }
+      const value = Number(seconds);
+      if (!(value > 0 && value <= 86_400))
+        return fail(
+          "usage",
+          "--tool-budget: a tool budget must be more than 0 and at most 86400 seconds (24 hours)",
+        );
+      budgets[tool] = value;
+    }
+    if (JSON.stringify(budgets) !== JSON.stringify(server.toolBudgets ?? {})) {
+      changed.push("toolBudgets");
+      server.toolBudgets = budgets;
     }
     return { ok: true, data: { id: server.id, changed } satisfies EditData };
   }

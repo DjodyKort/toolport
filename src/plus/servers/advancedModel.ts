@@ -82,11 +82,85 @@ export function bridgeWith(
   };
 }
 
+export const MIN_BUDGET_SECONDS = 1;
+export const MAX_BUDGET_SECONDS = 86_400;
+
+export interface BudgetRow {
+  key: number;
+  tool: string;
+  seconds: string;
+}
+
+export interface BudgetCheck {
+  /** Rows that carry a budget, by tool name. */
+  budgets: Record<string, number>;
+  errors: Record<number, string>;
+}
+
+/** A row with no seconds carries no budget and is dropped on save; a seconds value outside 1 to
+ * 86,400 is explained, never clamped. */
+export function checkBudgets(rows: BudgetRow[]): BudgetCheck {
+  const budgets: Record<string, number> = {};
+  const errors: Record<number, string> = {};
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const tool = row.tool.trim();
+    const raw = row.seconds.trim().replace(",", ".");
+    if (tool === "" && raw === "") continue;
+    if (tool === "") {
+      errors[row.key] = "Give the tool's name.";
+      continue;
+    }
+    if (tool.includes("=")) {
+      errors[row.key] = "A tool name cannot contain =.";
+      continue;
+    }
+    if (seen.has(tool)) {
+      errors[row.key] = `${tool} is listed twice. One budget per tool.`;
+      continue;
+    }
+    seen.add(tool);
+    if (raw === "") continue;
+    const seconds = /^\d*\.?\d+$/.test(raw) ? Number(raw) : Number.NaN;
+    if (!Number.isFinite(seconds)) {
+      errors[row.key] = "Enter a number of seconds, for example 600.";
+    } else if (seconds < MIN_BUDGET_SECONDS) {
+      errors[row.key] = "At least 1 second.";
+    } else if (seconds > MAX_BUDGET_SECONDS) {
+      errors[row.key] = "At most 86,400 seconds (24 hours).";
+    } else {
+      budgets[tool] = seconds;
+    }
+  }
+  return { budgets, errors };
+}
+
+/** What `server edit` must be told to turn the stored budgets into `next`. */
+export function budgetChanges(
+  stored: Record<string, number>,
+  next: Record<string, number>,
+): Array<[string, number | null]> {
+  const changes: Array<[string, number | null]> = [];
+  for (const [tool, seconds] of Object.entries(next)) {
+    if (stored[tool] !== seconds) changes.push([tool, seconds]);
+  }
+  for (const tool of Object.keys(stored)) if (!(tool in next)) changes.push([tool, null]);
+  return changes;
+}
+
+export function budgetRows(stored: Record<string, number>): BudgetRow[] {
+  return Object.entries(stored)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([tool, seconds], key) => ({ key, tool, seconds: String(seconds) }));
+}
+
 export interface Values {
   mode: ServerInfoData["mode"];
   declareClientCapabilities: boolean;
   forwardInstructions: boolean;
+  serial: boolean;
   limitMs: number | null;
+  toolBudgets: Record<string, number>;
 }
 
 export function valuesOf(info: ServerInfoData): Values {
@@ -94,7 +168,9 @@ export function valuesOf(info: ServerInfoData): Values {
     mode: info.mode,
     declareClientCapabilities: info.declareClientCapabilities,
     forwardInstructions: info.forwardInstructions,
+    serial: info.serial,
     limitMs: info.maxRequestTimeoutMs,
+    toolBudgets: info.toolBudgets,
   };
 }
 
@@ -103,7 +179,9 @@ export function changedCount(values: Values): number {
     (values.mode === "auto" ? 0 : 1) +
     (values.declareClientCapabilities ? 1 : 0) +
     (values.forwardInstructions ? 1 : 0) +
-    (values.limitMs === null ? 0 : 1)
+    (values.serial ? 1 : 0) +
+    (values.limitMs === null ? 0 : 1) +
+    (Object.keys(values.toolBudgets).length === 0 ? 0 : 1)
   );
 }
 
@@ -121,6 +199,9 @@ export function summaryLine(
       ? "no interop switches"
       : `${switches} ${switches === 1 ? "switch" : "switches"} on`,
   ];
+  if (values.serial) parts.push("one call at a time");
+  const budgets = Object.keys(values.toolBudgets).length;
+  if (local && budgets > 0) parts.push(plural(budgets, "tool budget"));
   if (local) parts.push(`calls up to ${span(values.limitMs ?? interop.defaultLimitMs)}`);
   if (changedCount(values) > 0) return parts.join(" · ");
   const [first, ...rest] = parts;
