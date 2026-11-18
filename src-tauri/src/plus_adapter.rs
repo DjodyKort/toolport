@@ -773,6 +773,10 @@ fn read_registry() -> Result<crate::registry::Registry, String> {
     }
 }
 
+/// Where the sync passphrase sits in the keychain: an owner id no server can have.
+const SYNC_SECRET_OWNER: &str = "__toolport_plus_sync__";
+const SYNC_SECRET_KEY: &str = "passphrase";
+
 impl SetupHost for HostAdapter {
     fn setup_servers(&self) -> Result<Vec<Value>, String> {
         let registry = read_registry()?;
@@ -1128,6 +1132,30 @@ impl SetupHost for HostAdapter {
             }
         }
         Ok(found)
+    }
+
+    fn upstream_sync_active(&self) -> Result<bool, String> {
+        Ok(crate::personal_sync::is_personal(&read_registry()?))
+    }
+
+    fn sync_passphrase(&self, unattended: bool) -> Result<Option<String>, String> {
+        if unattended {
+            crate::secrets::get_secret_without_prompt(SYNC_SECRET_OWNER, SYNC_SECRET_KEY)
+        } else {
+            crate::secrets::get_secret_result(SYNC_SECRET_OWNER, SYNC_SECRET_KEY)
+        }
+    }
+
+    fn sync_store_passphrase(&self, passphrase: &str) -> Result<(), String> {
+        crate::secrets::set_secret(SYNC_SECRET_OWNER, SYNC_SECRET_KEY, passphrase)
+    }
+
+    fn sync_clear_passphrase(&self) -> Result<(), String> {
+        crate::secrets::delete_secret(SYNC_SECRET_OWNER, SYNC_SECRET_KEY)
+    }
+
+    fn keyring_locked(&self) -> bool {
+        crate::secrets::store_would_prompt()
     }
 
     fn setup_store_secret(&self, secret: &toolport_plus_api::StaticSecret) -> Result<(), String> {
