@@ -36,6 +36,7 @@ mod skills_taps;
 mod skills_undo;
 mod sources;
 mod styles;
+mod sync;
 mod task;
 
 use toolport_plus_api::Host;
@@ -923,6 +924,36 @@ pub const COMMANDS: &[Command] = &[
         &["setup", "check"],
         "Before a reset: unpushed work, repositories without a remote, changes and stashes, plus the things you carry yourself (--roots, --tick, --untick, --ack)",
         setup::check,
+    ),
+    cmd(
+        &["sync", "status"],
+        "Where the setup file is kept, which parts sync, when it last ran, the rows that wait for you and whether sync is paused while the keyring is locked",
+        sync::status,
+    ),
+    cmd(
+        &["sync", "setup"],
+        "Choose where the sealed setup file is kept (a private git repository or a folder), which parts sync, and store the passphrase in the keychain; the passphrase comes on stdin (--git, --branch, --folder, --parts, --passphrase-stdin, --forget-passphrase, --enable, --disable, --schedule, --dry-run)",
+        sync::setup,
+    ),
+    cmd(
+        &["sync", "push"],
+        "Seal this machine's parts as one file and put it on the transport; refused while the remote holds something this machine has not pulled (--dry-run, --keep-mine)",
+        sync::push,
+    ),
+    cmd(
+        &["sync", "pull"],
+        "Plan the file on the transport against this machine (dry run); apply it with the plan hash. Rows both machines changed keep this machine's until taken; nothing is merged (--take, --apply, --plan, --unattended)",
+        sync::pull,
+    ),
+    cmd(
+        &["sync", "plan"],
+        "The same plan as sync pull without any way to apply it (--take)",
+        sync::plan,
+    ),
+    cmd(
+        &["sync", "undo"],
+        "Undo the last applied sync pull as far as nothing changed since, and offer its changes again (--dry-run)",
+        sync::undo,
     ),
     cmd(
         &["mcp"],

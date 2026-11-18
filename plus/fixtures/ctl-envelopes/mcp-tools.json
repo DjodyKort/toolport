@@ -3109,6 +3109,29 @@
           "tier": 3
         },
         {
+          "description": "Where the sealed setup file is kept, which parts sync, when sync last ran, the rows that wait for a person and whether sync is paused while the keyring is locked. Reads local files only and never returns the passphrase",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "sync_status",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Plan the file on the sync transport against this machine and change nothing: each row is add, here, incoming, mine, conflict, needs you or skip, with a plan hash. Reads the remote and uses the passphrase kept in the keychain without asking for it. Pushing and applying are done by a person with toolportctl or in the app",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "sync_plan",
+          "params": [
+            {
+              "description": "Conflict rows to plan as taken from the other machine",
+              "name": "take",
+              "required": false,
+              "type": "string[]"
+            }
+          ],
+          "tier": 1
+        },
+        {
           "description": "List the tasks (named, repeatable jobs of steps) with their triggers, last run, next scheduled run and whether a run waits for the person. Disabled drafts only with all",
           "dryRunDefault": false,
           "gate": "none",

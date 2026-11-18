@@ -717,6 +717,15 @@ pub struct MemoryHost {
     pub settings_paths: Vec<PathBuf>,
     pub tasks: crate::tasks::FakeTaskHost,
     pub launch_at_login: Cell<Option<bool>>,
+    pub sync: MemorySync,
+}
+
+/// What the sync seam of a test host answers.
+#[derive(Debug, Default)]
+pub struct MemorySync {
+    pub passphrase: RefCell<Option<String>>,
+    pub keyring_locked: Cell<bool>,
+    pub upstream_active: Cell<bool>,
 }
 
 impl crate::SettingsStore for MemoryHost {
@@ -1442,6 +1451,45 @@ impl crate::SetupHost for MemoryHost {
         Ok(added)
     }
 
+    fn setup_update_server(&self, doc: &Value) -> Result<crate::UpdatedServer, String> {
+        let name = doc["name"].as_str().ok_or("a server has no name")?;
+        let before = self
+            .registry
+            .list_servers()?
+            .into_iter()
+            .find(|server| server.name.eq_ignore_ascii_case(name))
+            .ok_or_else(|| format!("no server named {name}"))?;
+        let id = before.id.clone();
+        let after = self.registry.edit(&id, |server| {
+            let command = doc["command"].as_str().unwrap_or("placeholder");
+            server
+                .extra
+                .insert("command".into(), Value::String(command.into()));
+            if server.text("command") != before.text("command") {
+                server.enabled = false;
+            }
+            Ok(server.clone())
+        })?;
+        Ok(crate::UpdatedServer {
+            name: before.name.clone(),
+            id,
+            before: serde_json::to_value(&before).map_err(|e| e.to_string())?,
+            after: serde_json::to_value(&after).map_err(|e| e.to_string())?,
+        })
+    }
+
+    fn setup_restore_server(&self, updated: &crate::UpdatedServer) -> Result<(), String> {
+        let before: ServerRecord =
+            serde_json::from_value(updated.before.clone()).map_err(|e| e.to_string())?;
+        self.registry.edit(&updated.id, |server| {
+            if serde_json::to_value(&*server).map_err(|e| e.to_string())? != updated.after {
+                return Err(format!("{} changed since the update", updated.name));
+            }
+            *server = before;
+            Ok(())
+        })
+    }
+
     fn setup_access(&self) -> Result<Value, String> {
         let servers = self.registry.list_servers()?;
         let name = |id: &String| {
@@ -1562,6 +1610,31 @@ impl crate::SetupHost for MemoryHost {
                 value: value.clone(),
             })
             .collect())
+    }
+
+    fn upstream_sync_active(&self) -> Result<bool, String> {
+        Ok(self.sync.upstream_active.get())
+    }
+
+    fn sync_passphrase(&self, unattended: bool) -> Result<Option<String>, String> {
+        if unattended && self.sync.keyring_locked.get() {
+            return Err("the keyring is locked".into());
+        }
+        Ok(self.sync.passphrase.borrow().clone())
+    }
+
+    fn sync_store_passphrase(&self, passphrase: &str) -> Result<(), String> {
+        *self.sync.passphrase.borrow_mut() = Some(passphrase.to_string());
+        Ok(())
+    }
+
+    fn sync_clear_passphrase(&self) -> Result<(), String> {
+        *self.sync.passphrase.borrow_mut() = None;
+        Ok(())
+    }
+
+    fn keyring_locked(&self) -> bool {
+        self.sync.keyring_locked.get()
     }
 
     fn setup_store_secret(&self, secret: &crate::StaticSecret) -> Result<(), String> {

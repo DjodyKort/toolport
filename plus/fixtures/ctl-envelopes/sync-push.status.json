@@ -1,0 +1,97 @@
+{
+  "argv": ["sync", "status"],
+  "envelope": {
+    "command": "sync status",
+    "data": {
+      "configured": true,
+      "enabled": true,
+      "keyringLocked": false,
+      "lastCheck": null,
+      "lastSync": {
+        "at": "<TIME>",
+        "direction": "push",
+        "machine": "<masked>",
+        "revision": "<masked>"
+      },
+      "machines": [
+        {
+          "at": "<TIME>",
+          "machine": "<masked>",
+          "thisMachine": true
+        }
+      ],
+      "parts": [
+        {
+          "default": true,
+          "handledBy": null,
+          "id": "servers",
+          "label": "Servers",
+          "on": true
+        },
+        {
+          "default": true,
+          "handledBy": null,
+          "id": "access",
+          "label": "Clients and access sets",
+          "on": true
+        },
+        {
+          "default": true,
+          "handledBy": null,
+          "id": "tasks",
+          "label": "Tasks",
+          "on": true
+        },
+        {
+          "default": true,
+          "handledBy": null,
+          "id": "settings",
+          "label": "Toolport settings",
+          "on": true
+        },
+        {
+          "default": false,
+          "handledBy": null,
+          "id": "claudeUser",
+          "label": "Claude Code user files",
+          "on": false
+        },
+        {
+          "default": false,
+          "handledBy": null,
+          "id": "memory",
+          "label": "Memory",
+          "on": false
+        },
+        {
+          "default": false,
+          "handledBy": null,
+          "id": "secrets",
+          "label": "Secrets",
+          "on": false
+        }
+      ],
+      "passphrase": "stored",
+      "paused": false,
+      "pending": [],
+      "remoteSeen": "<masked>",
+      "schedule": {
+        "cron": "*/30 * * * *",
+        "enabled": false,
+        "present": true,
+        "task": "sync-pull"
+      },
+      "transport": {
+        "kind": "folder",
+        "path": "<WORLD>/shared"
+      },
+      "undoable": null,
+      "upstream": {
+        "active": false
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

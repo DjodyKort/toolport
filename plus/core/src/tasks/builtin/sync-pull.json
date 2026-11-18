@@ -1,0 +1,25 @@
+{
+  "id": "sync-pull",
+  "title": "Check the sync remote",
+  "description": "Looks at the sealed setup file on your sync remote every 30 minutes and records what a pull would change. It only plans: nothing is applied, pushed or merged, and it skips quietly while the keyring is locked. Settings > Toolport+ > Setup & backup > Sync shows the result and applies it when you choose.",
+  "enabled": false,
+  "requires": { "servers": [], "commands": ["toolportctl"] },
+  "writesSecrets": [],
+  "steps": [
+    {
+      "id": "check",
+      "title": "Plan a pull of the sync file",
+      "type": "exec",
+      "program": "toolportctl",
+      "args": ["sync", "pull", "--unattended"]
+    }
+  ],
+  "triggers": {
+    "manual": true,
+    "cli": true,
+    "selfMcp": { "enabled": false, "approval": "every-run" },
+    "schedule": { "cron": "*/30 * * * *", "autoRun": true },
+    "onAuthFailure": []
+  },
+  "createdFrom": { "kind": "manual" }
+}

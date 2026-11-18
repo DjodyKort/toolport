@@ -55,6 +55,15 @@ impl std::fmt::Display for OpenError {
     }
 }
 
+/// True when the file starts with the magic of a sealed stream, as a sealed sync file does.
+pub fn is_sealed_file(path: &std::path::Path) -> bool {
+    use std::io::Read;
+    let mut head = [0u8; 4];
+    std::fs::File::open(path)
+        .and_then(|mut file| file.read_exact(&mut head))
+        .is_ok_and(|()| &head == MAGIC)
+}
+
 pub fn available() -> bool {
     cfg!(feature = "cipher")
 }

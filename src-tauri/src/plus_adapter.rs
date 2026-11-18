@@ -779,6 +779,45 @@ fn read_registry() -> Result<crate::registry::Registry, String> {
     }
 }
 
+fn apply_fork_switches(fields: &mut ForkServerFields, switches: &Value) {
+    if let Some(on) = switches["forwardInstructions"].as_bool() {
+        fields.forward_instructions = Some(on);
+    }
+    if let Some(on) = switches["declareClientCapabilities"].as_bool() {
+        fields.declare_client_capabilities = Some(on);
+    }
+    if let Some(ms) = switches["maxRequestTimeoutMs"].as_u64() {
+        fields.max_request_timeout_ms = Some(ms);
+    }
+    if let Some(mode) = switches["serverMode"].as_str() {
+        fields.server_mode = Some(mode.to_string());
+    }
+    if let Some(on) = switches["mcpmOauth"].as_bool() {
+        fields.mcpm_oauth = Some(on);
+    }
+    if let Ok(tags) = serde_json::from_value::<Vec<String>>(switches["mcpmTags"].clone()) {
+        fields.mcpm_tags = Some(tags);
+    }
+}
+
+/// The entry as a journal keeps it: whole, with no secret value in it.
+fn setup_snapshot(entry: &crate::registry::ServerEntry) -> Value {
+    let mut copy = entry.clone();
+    for var in copy.env.iter_mut().filter(|v| v.secret) {
+        var.value = None;
+    }
+    for input in copy.launch.iter_mut().flat_map(|l| &mut l.inputs) {
+        if input.secret {
+            input.value = None;
+        }
+    }
+    serde_json::json!(copy)
+}
+
+/// Where the sync passphrase sits in the keychain: an owner id no server can have.
+const SYNC_SECRET_OWNER: &str = "__toolport_plus_sync__";
+const SYNC_SECRET_KEY: &str = "passphrase";
+
 impl SetupHost for HostAdapter {
     fn setup_servers(&self) -> Result<Vec<Value>, String> {
         let registry = read_registry()?;
@@ -838,26 +877,7 @@ impl SetupHost for HostAdapter {
             };
             let switches = doc["forkSwitches"].clone();
             edit_server_fork_fields(&entry.id, |fields| {
-                if let Some(on) = switches["forwardInstructions"].as_bool() {
-                    fields.forward_instructions = Some(on);
-                }
-                if let Some(on) = switches["declareClientCapabilities"].as_bool() {
-                    fields.declare_client_capabilities = Some(on);
-                }
-                if let Some(ms) = switches["maxRequestTimeoutMs"].as_u64() {
-                    fields.max_request_timeout_ms = Some(ms);
-                }
-                if let Some(mode) = switches["serverMode"].as_str() {
-                    fields.server_mode = Some(mode.to_string());
-                }
-                if let Some(on) = switches["mcpmOauth"].as_bool() {
-                    fields.mcpm_oauth = Some(on);
-                }
-                if let Ok(tags) =
-                    serde_json::from_value::<Vec<String>>(switches["mcpmTags"].clone())
-                {
-                    fields.mcpm_tags = Some(tags);
-                }
+                apply_fork_switches(fields, &switches);
                 Ok(())
             })?;
             added.push(toolport_plus_api::AddedServer {
@@ -866,6 +886,82 @@ impl SetupHost for HostAdapter {
             });
         }
         Ok(added)
+    }
+
+    fn setup_update_server(&self, doc: &Value) -> Result<toolport_plus_api::UpdatedServer, String> {
+        let name = doc["name"].as_str().ok_or("a server has no name")?;
+        let mut plain = doc.clone();
+        if let Some(map) = plain.as_object_mut() {
+            for key in ["id", "disabled", "forkSwitches"] {
+                map.remove(key);
+            }
+        }
+        let text = serde_json::json!({"kind": "conduit-setup", "version": 1, "servers": [plain]})
+            .to_string();
+        let mut scratch = crate::registry::Registry::default();
+        crate::sharing_controller::apply_import(&mut scratch, &text)?;
+        let mut incoming = scratch
+            .servers
+            .pop()
+            .ok_or_else(|| format!("{name} is not a server definition"))?;
+        let (_, updated) = crate::registry::update(|registry| {
+            let slot = registry
+                .servers
+                .iter_mut()
+                .find(|s| s.name.eq_ignore_ascii_case(name))
+                .ok_or_else(|| format!("no server named {name}"))?;
+            if crate::clients::is_gateway_server(slot) || crate::personal_sync::keep_local(slot) {
+                return Err(format!("{name} is kept on this machine only"));
+            }
+            let old = slot.clone();
+            incoming.id = old.id.clone();
+            incoming.source = old.source.clone();
+            crate::personal_sync::restore_local(&mut incoming, &old);
+            for (key, value) in &old.unknown_fields {
+                if key != "headerKeys" {
+                    incoming
+                        .unknown_fields
+                        .entry(key.clone())
+                        .or_insert_with(|| value.clone());
+                }
+            }
+            let mut fields = ForkServerFields::extract(&old.unknown_fields)
+                .map_err(|error| format!("server {}: {error}", old.id))?;
+            apply_fork_switches(&mut fields, &doc["forkSwitches"]);
+            fields.store(&mut incoming.unknown_fields)?;
+            incoming.enabled = old.enabled
+                && crate::personal_sync::command_identity(&serde_json::json!(old))
+                    == crate::personal_sync::command_identity(&serde_json::json!(incoming));
+            *slot = incoming;
+            Ok(toolport_plus_api::UpdatedServer {
+                name: old.name.clone(),
+                id: old.id.clone(),
+                before: setup_snapshot(&old),
+                after: setup_snapshot(slot),
+            })
+        })?;
+        Ok(updated)
+    }
+
+    fn setup_restore_server(
+        &self,
+        updated: &toolport_plus_api::UpdatedServer,
+    ) -> Result<(), String> {
+        let before: crate::registry::ServerEntry =
+            serde_json::from_value(updated.before.clone()).map_err(|e| e.to_string())?;
+        crate::registry::update(|registry| {
+            let slot = registry
+                .servers
+                .iter_mut()
+                .find(|s| s.id == updated.id)
+                .ok_or_else(|| format!("{} is gone", updated.name))?;
+            if setup_snapshot(slot) != updated.after {
+                return Err(format!("{} changed since the restore", updated.name));
+            }
+            *slot = before;
+            Ok(())
+        })
+        .map(|_| ())
     }
 
     fn setup_access(&self) -> Result<Value, String> {
@@ -1134,6 +1230,30 @@ impl SetupHost for HostAdapter {
             }
         }
         Ok(found)
+    }
+
+    fn upstream_sync_active(&self) -> Result<bool, String> {
+        Ok(crate::personal_sync::is_personal(&read_registry()?))
+    }
+
+    fn sync_passphrase(&self, unattended: bool) -> Result<Option<String>, String> {
+        if unattended {
+            crate::secrets::get_secret_without_prompt(SYNC_SECRET_OWNER, SYNC_SECRET_KEY)
+        } else {
+            crate::secrets::get_secret_result(SYNC_SECRET_OWNER, SYNC_SECRET_KEY)
+        }
+    }
+
+    fn sync_store_passphrase(&self, passphrase: &str) -> Result<(), String> {
+        crate::secrets::set_secret(SYNC_SECRET_OWNER, SYNC_SECRET_KEY, passphrase)
+    }
+
+    fn sync_clear_passphrase(&self) -> Result<(), String> {
+        crate::secrets::delete_secret(SYNC_SECRET_OWNER, SYNC_SECRET_KEY)
+    }
+
+    fn keyring_locked(&self) -> bool {
+        crate::secrets::store_would_prompt()
     }
 
     fn setup_store_secret(&self, secret: &toolport_plus_api::StaticSecret) -> Result<(), String> {
@@ -3049,6 +3169,109 @@ mod tests {
     #[test]
     fn the_seam_is_live_in_a_plus_build() {
         assert!(HostAdapter.seam_live());
+    }
+
+    fn update_world(scratch: &Scratch) {
+        scratch.write_registry(
+            &json!({"version": 3, "profiles": [
+                {"id": "focus", "name": "Focus", "enabledServerIds": ["alpha"]}],
+            "servers": [{
+                "id": "alpha", "name": "alpha", "enabled": true, "transport": "stdio",
+                "command": "old-mcp", "args": ["--a"], "source": "manual",
+                "env": [
+                    {"key": "MODE", "value": "fast", "secret": false},
+                    {"key": "TOKEN", "secret": true}]}]})
+            .to_string(),
+        );
+    }
+
+    fn other_machine(command: &str) -> Value {
+        json!({
+            "id": "alpha", "name": "alpha", "disabled": false, "transport": "stdio",
+            "command": command, "args": ["--b"],
+            "env": [{"key": "MODE", "secret": false}, {"key": "TOKEN", "secret": true}],
+            "forkSwitches": {"forwardInstructions": true}})
+    }
+
+    #[test]
+    fn test01_an_update_takes_the_other_definition_holds_it_and_keeps_what_is_local() {
+        use toolport_plus_api::SetupHost as _;
+        let scratch = Scratch::new("setup-update");
+        update_world(&scratch);
+        let updated = HostAdapter
+            .setup_update_server(&other_machine("new-mcp"))
+            .unwrap();
+        let stored = scratch.raw_registry();
+        let server = &stored["servers"][0];
+        assert_eq!(updated.id, "alpha");
+        assert_eq!(server["command"], "new-mcp");
+        assert_eq!(server["args"], json!(["--b"]));
+        assert_eq!(
+            server["enabled"], false,
+            "a changed command is held for review"
+        );
+        assert_eq!(server["forwardInstructions"], true);
+        assert_eq!(
+            server["env"],
+            json!([
+                {"key": "MODE", "value": "fast", "secret": false},
+                {"key": "TOKEN", "secret": true}]),
+            "the value typed here stays and the secret stays in the vault"
+        );
+        assert_eq!(stored["profiles"][0]["enabledServerIds"], json!(["alpha"]));
+    }
+
+    #[test]
+    fn test02_an_update_that_only_changes_labels_leaves_the_server_running() {
+        use toolport_plus_api::SetupHost as _;
+        let scratch = Scratch::new("setup-update-keeps-enabled");
+        update_world(&scratch);
+        let mut doc = other_machine("old-mcp");
+        doc["args"] = json!(["--a"]);
+        doc["requestTimeoutMs"] = json!(45_000);
+        HostAdapter.setup_update_server(&doc).unwrap();
+        let stored = scratch.raw_registry();
+        assert_eq!(stored["servers"][0]["requestTimeoutMs"], 45_000);
+        assert_eq!(stored["servers"][0]["enabled"], true);
+    }
+
+    #[test]
+    fn test03_restoring_puts_the_old_definition_back_unless_it_changed_since() {
+        use toolport_plus_api::SetupHost as _;
+        let scratch = Scratch::new("setup-update-undo");
+        update_world(&scratch);
+        let before = scratch.raw_registry();
+        let updated = HostAdapter
+            .setup_update_server(&other_machine("new-mcp"))
+            .unwrap();
+        HostAdapter.setup_restore_server(&updated).unwrap();
+        assert_eq!(scratch.raw_registry()["servers"], before["servers"]);
+
+        let again = HostAdapter
+            .setup_update_server(&other_machine("new-mcp"))
+            .unwrap();
+        crate::registry::update(|registry| {
+            registry.servers[0].args = vec!["--edited".into()];
+            Ok(())
+        })
+        .unwrap();
+        let error = HostAdapter.setup_restore_server(&again).unwrap_err();
+        assert!(error.contains("changed since"), "{error}");
+        assert_eq!(
+            scratch.raw_registry()["servers"][0]["args"],
+            json!(["--edited"])
+        );
+    }
+
+    #[test]
+    fn test04_an_update_refuses_a_server_that_is_not_here() {
+        use toolport_plus_api::SetupHost as _;
+        let scratch = Scratch::new("setup-update-refuses");
+        update_world(&scratch);
+        let mut missing = other_machine("new-mcp");
+        missing["name"] = json!("nobody");
+        let error = HostAdapter.setup_update_server(&missing).unwrap_err();
+        assert!(error.contains("no server named nobody"), "{error}");
     }
 
     #[test]

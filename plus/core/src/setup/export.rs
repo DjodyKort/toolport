@@ -36,6 +36,8 @@ pub struct Options {
     pub name: Option<String>,
     pub peek: Option<PartId>,
     pub dry_run: bool,
+    /// The whole file, manifest included, is sealed with the passphrase (the sync form).
+    pub seal_file: bool,
 }
 
 impl Default for Options {
@@ -52,6 +54,7 @@ impl Default for Options {
             name: None,
             peek: None,
             dry_run: false,
+            seal_file: false,
         }
     }
 }
@@ -62,7 +65,7 @@ impl Options {
     }
 
     pub fn needs_passphrase(&self) -> bool {
-        self.parts.iter().any(|p| p.sealed())
+        self.seal_file || self.parts.iter().any(|p| p.sealed())
     }
 }
 
@@ -76,6 +79,15 @@ struct Scan {
 }
 
 fn scan_repos(ctx: &Ctx<'_>, opts: &Options, ignored_names: bool) -> Scan {
+    let needs_repos = [PartId::Repos, PartId::Memory, PartId::History]
+        .iter()
+        .any(|p| opts.parts.contains(p));
+    if !needs_repos {
+        return Scan {
+            roots: Vec::new(),
+            repos: Vec::new(),
+        };
+    }
     let roots = search_roots(ctx, &opts.roots);
     let repos = repos::find(&roots)
         .iter()
@@ -185,7 +197,7 @@ fn manifest_row(part: &Part) -> Result<Value, OpError> {
     Ok(row)
 }
 
-fn machine_name() -> String {
+pub fn machine_name() -> String {
     let named = ["HOSTNAME", "COMPUTERNAME"]
         .iter()
         .find_map(|v| std::env::var(v).ok().filter(|s| !s.is_empty()));
@@ -414,7 +426,7 @@ pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Va
     let scratch_base = target
         .as_ref()
         .and_then(|t| t.parent().map(Path::to_path_buf))
-        .filter(|p| p.is_dir())
+        .filter(|p| p.is_dir() && !opts.seal_file)
         .unwrap_or_else(|| ctx.state_dir());
     let scratch = scratch_in(&scratch_base)?;
     let _guard = Scratch(scratch.clone());
@@ -464,8 +476,17 @@ pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Va
         "parts": rows,
     });
     let partial = PathBuf::from(format!("{}.part", target.display()));
-    let written = write_zip(&partial, &manifest, &parts)
-        .and_then(|()| verify(&partial, &rows, passphrase))
+    let plain = if opts.seal_file {
+        scratch.join("setup.zip")
+    } else {
+        partial.clone()
+    };
+    let written = write_zip(&plain, &manifest, &parts)
+        .and_then(|()| verify(&plain, &rows, passphrase))
+        .and_then(|()| match (opts.seal_file, passphrase) {
+            (true, Some(pass)) => seal_file(&plain, &partial, pass),
+            _ => Ok(()),
+        })
         .and_then(|()| {
             std::fs::rename(&partial, &target)
                 .map_err(|e| OpError::failed("write", format!("{}: {e}", target.display())))
@@ -475,8 +496,10 @@ pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Va
         return Err(error);
     }
     let bytes = std::fs::metadata(&target).map_or(0, |m| m.len());
-    record_last(ctx, &target, &manifest, bytes);
-    Ok(json!({
+    if !opts.seal_file {
+        record_last(ctx, &target, &manifest, bytes);
+    }
+    let mut data = json!({
         "dryRun": false,
         "file": target.to_string_lossy(),
         "name": target.file_name().map(|n| n.to_string_lossy().into_owned()),
@@ -487,7 +510,24 @@ pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Va
         "verified": true,
         "notIncluded": not_included(&opts.parts),
         "result": {"undo": "delete the file"},
-    }))
+    });
+    if opts.seal_file {
+        data["sealedFile"] = json!(true);
+    }
+    Ok(data)
+}
+
+/// Seals the finished zip as a whole and opens the result once more before it is kept.
+fn seal_file(plain: &Path, out: &Path, passphrase: &str) -> Result<(), OpError> {
+    let write = |e: String| OpError::failed("write", e);
+    let mut input = std::fs::File::open(plain).map_err(|e| write(e.to_string()))?;
+    let mut sealed = parts::create_private(out).map_err(write)?;
+    crypto::seal(passphrase, &mut input, &mut sealed).map_err(write)?;
+    sealed.sync_all().map_err(|e| write(e.to_string()))?;
+    drop(sealed);
+    let mut again = std::fs::File::open(out).map_err(|e| write(e.to_string()))?;
+    crypto::open(passphrase, &mut again, &mut std::io::sink())
+        .map_err(|e| OpError::failed("verify", format!("the sealed file does not open: {e}")))
 }
 
 fn write_zip(path: &Path, manifest: &Value, parts: &[Part]) -> Result<(), OpError> {

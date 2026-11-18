@@ -29,7 +29,7 @@ pub use fork_data::{
 };
 pub use http::{HttpAccess, HttpBody, HttpError, HttpMethod, HttpRequest, HttpResponse};
 pub use memory::{
-    MemoryGateway, MemoryHost, MemoryRegistry, MemorySecrets, MemoryState, ScriptedHttp,
+    MemoryGateway, MemoryHost, MemoryRegistry, MemorySecrets, MemoryState, MemorySync, ScriptedHttp,
 };
 pub use mirror::{convert, ServerRecord};
 pub use notifier::{FakeNotifier, Notifier};
@@ -39,7 +39,7 @@ pub use servers::{
     RestartOutcome, ServerRepoHead, ServerRules, ServerSpec,
 };
 pub use settings::SettingsStore;
-pub use setup::{AddedServer, SetupHost, StaticSecret};
+pub use setup::{AddedServer, SetupHost, StaticSecret, UpdatedServer};
 pub use tasks::{
     FakeTaskHost, ProcessOutcome, ProcessSpec, RunApproval, RunDecision, SharedClockTaskHost,
     TaskHost,

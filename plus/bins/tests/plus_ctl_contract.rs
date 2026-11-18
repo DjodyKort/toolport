@@ -195,6 +195,10 @@ fn differing_setup(world: &World) {
     std::fs::write(path, "# my setup\nstep one\n").unwrap();
 }
 
+fn sync_home(world: &World) {
+    setup_world::sync_home(world);
+}
+
 fn setup_home(world: &World) {
     setup_world::setup_home(world);
 }
@@ -2193,6 +2197,114 @@ const CASES: &[Case] = &[
             usage("usage", &["setup", "restore"]),
         ],
     ),
+    case(
+        "sync status",
+        &[
+            read("unconfigured", &["sync", "status"]),
+            usage("usage", &["sync", "status", "extra"]),
+        ],
+    ),
+    case(
+        "sync setup",
+        &[
+            hook("sync-world", sync_home),
+            read(
+                "preview",
+                &["sync", "setup", "--folder", "{base}/shared", "--dry-run"],
+            ),
+            apply(
+                "folder",
+                &[
+                    "sync",
+                    "setup",
+                    "--folder",
+                    "{base}/shared",
+                    "--passphrase-stdin",
+                ],
+            )
+            .stdin(PASSPHRASE),
+            read("configured", &["sync", "status"]),
+            read(
+                "hosted-service",
+                &["sync", "setup", "--git", "https://teams.toolport.app/x.git"],
+            )
+            .exit(1),
+            usage(
+                "both",
+                &["sync", "setup", "--git", "x", "--folder", "{base}/shared"],
+            ),
+            apply("short-passphrase", &["sync", "setup", "--passphrase-stdin"])
+                .stdin("short\n")
+                .exit(2),
+        ],
+    ),
+    case(
+        "sync push",
+        &[
+            hook("sync-world", sync_home),
+            setup(
+                "setup",
+                &[
+                    "sync",
+                    "setup",
+                    "--folder",
+                    "{base}/shared",
+                    "--passphrase-stdin",
+                ],
+            )
+            .stdin(PASSPHRASE),
+            read("preview", &["sync", "push", "--dry-run"]),
+            apply("push", &["sync", "push"]),
+            read("status", &["sync", "status"]),
+        ],
+    ),
+    case(
+        "sync plan",
+        &[
+            hook("sync-world", sync_home),
+            setup(
+                "setup",
+                &[
+                    "sync",
+                    "setup",
+                    "--folder",
+                    "{base}/shared",
+                    "--passphrase-stdin",
+                ],
+            )
+            .stdin(PASSPHRASE),
+            apply("empty-remote", &["sync", "plan"]),
+            setup("push", &["sync", "push"]),
+            apply("plan", &["sync", "plan"]),
+            usage("usage", &["sync", "plan", "extra"]),
+        ],
+    ),
+    case(
+        "sync pull",
+        &[
+            hook("sync-world", sync_home),
+            setup(
+                "setup",
+                &[
+                    "sync",
+                    "setup",
+                    "--folder",
+                    "{base}/shared",
+                    "--passphrase-stdin",
+                ],
+            )
+            .stdin(PASSPHRASE),
+            setup("push", &["sync", "push"]),
+            apply("plan", &["sync", "pull"]),
+            apply("unattended", &["sync", "pull", "--unattended"]),
+            usage("no-plan", &["sync", "pull", "--apply"]),
+            usage(
+                "unattended-apply",
+                &["sync", "pull", "--unattended", "--apply", "--plan", "x"],
+            ),
+        ],
+    ),
+    case("sync undo", &[read("nothing", &["sync", "undo"]).exit(1)]),
     case(
         "setup undo",
         &[

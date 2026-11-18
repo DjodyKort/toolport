@@ -1,0 +1,17 @@
+{
+  "argv": ["sync", "plan"],
+  "envelope": {
+    "command": "sync plan",
+    "data": {
+      "applied": false,
+      "dryRun": true,
+      "empty": true,
+      "note": "nothing is on the remote yet: push from the machine that has the setup",
+      "rows": [],
+      "skipped": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

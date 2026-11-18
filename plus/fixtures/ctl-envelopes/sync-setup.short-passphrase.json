@@ -1,0 +1,13 @@
+{
+  "argv": ["sync", "setup", "--passphrase-stdin"],
+  "envelope": {
+    "command": "sync setup",
+    "error": {
+      "code": "usage",
+      "message": "the passphrase needs at least 12 characters"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

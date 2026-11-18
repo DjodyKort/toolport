@@ -1,0 +1,81 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Take the other machine's copy of a conflict row instead of keeping yours (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--take",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "With --apply: settle a conflict row as this machine's version, which goes out with the next push (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--keep",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Apply the plan; without it the command only plans and writes nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--apply",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "The plan hash printed by the dry run; apply refuses when this machine or the remote changed since",
+      "escalates": false,
+      "hidden": false,
+      "name": "--plan",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "A scheduled check: plans only and skips while the keyring is locked",
+      "escalates": false,
+      "hidden": false,
+      "name": "--unattended",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "sync",
+  "id": "sync pull",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["sync", "pull"],
+  "planned": false,
+  "preview": {
+    "flag": "--apply",
+    "mode": "unless-applied"
+  },
+  "summary": "Plan the file on the transport against this machine (dry run); apply it with the plan hash. Rows both machines changed keep this machine's until taken; nothing is merged (--take, --apply, --plan, --unattended)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

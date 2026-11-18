@@ -3,7 +3,7 @@ use toolport_plus_api::Host;
 
 use super::{
     attention, backend, catalog_index, compression, content, context, library, memory, servers,
-    setup, skills, sources, tasks, ToolError,
+    setup, skills, sources, sync, tasks, ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1379,6 +1379,22 @@ pub const TOOLS: &[ToolDef] = &[
             DRY_ON
         ],
         setup::restore
+    ),
+    tool!(
+        "sync_status",
+        1,
+        None,
+        "Where the sealed setup file is kept, which parts sync, when sync last ran, the rows that wait for a person and whether sync is paused while the keyring is locked. Reads local files only and never returns the passphrase",
+        [],
+        sync::status
+    ),
+    tool!(
+        "sync_plan",
+        1,
+        None,
+        "Plan the file on the sync transport against this machine and change nothing: each row is add, here, incoming, mine, conflict, needs you or skip, with a plan hash. Reads the remote and uses the passphrase kept in the keychain without asking for it. Pushing and applying are done by a person with toolportctl or in the app",
+        [p("take", Ty::StrList, false, "Conflict rows to plan as taken from the other machine")],
+        sync::plan
     ),
     tool!(
         "tasks_list",

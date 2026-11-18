@@ -34,6 +34,7 @@ use super::skills_taps;
 use super::skills_undo;
 use super::sources;
 use super::styles;
+use super::sync;
 use super::task;
 use super::{compression, compression_cfg, compression_hooks};
 
@@ -937,6 +938,25 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&setup::UNDO])
         .skip("reverses a restore run; covered by the setup unit tests"),
     row("setup check", R).spec(&[&setup::CHECK]),
+    row("sync status", R).spec(&[&sync::STATUS]),
+    row("sync setup", W)
+        .dry()
+        .needs(&[Needs::Stdin])
+        .spec(&[&sync::SETUP])
+        .skip("writes the sync settings and the keychain entry; covered by the sync unit tests"),
+    row("sync push", W)
+        .dry()
+        .spec(&[&sync::PUSH])
+        .skip("puts a sealed file on the transport; covered by the sync unit tests"),
+    row("sync pull", W)
+        .unless("--apply")
+        .spec(&[&sync::PULL])
+        .skip("plans against the transport and applies like a restore; covered by the sync unit tests"),
+    row("sync plan", R).spec(&[&sync::PLAN]),
+    row("sync undo", W)
+        .dry()
+        .spec(&[&sync::UNDO])
+        .skip("reverses a sync pull; covered by the sync unit tests"),
     row("mcp install", W)
         .spec(&[&mcp::INSTALL])
         .skip("registers the server and lists it in access sets; plus_mcp.rs round trip"),
@@ -1173,6 +1193,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("setup_inspect", R, "setup inspect"),
     maps("setup_check", R, "setup check"),
     maps("setup_restore", W, "setup restore").on(),
+    maps("sync_status", R, "sync status"),
+    maps("sync_plan", R, "sync plan"),
     maps("tasks_list", R, "task ls"),
     maps("tasks_get", R, "task show"),
     maps("tasks_history", R, "task history"),

@@ -7,6 +7,7 @@ import { createContextWorld, type ContextWorldOptions } from "./contextWorld";
 import { createMemoryWorld, type MemoryWorldOptions } from "./memoryWorld";
 import { createLibraryWorld, type LibraryWorldOptions } from "./libraryWorld";
 import { createSetupWorld } from "./setupWorld";
+import { createSyncWorld, type SyncWorldOptions } from "./syncWorld";
 import { createServerWorld, type ServerWorldOptions } from "./serverWorld";
 import { createTaskWorld, type TaskWorldOptions } from "./taskWorld";
 import type {
@@ -61,6 +62,8 @@ export interface WorldOptions {
   memory?: MemoryWorldOptions;
   /** The local registry index the Settings card reads. */
   catalog?: CatalogWorldOptions;
+  /** The Sync view of Setup & backup: set up or not, locked keychain, conflicts, the remote. */
+  sync?: SyncWorldOptions;
 }
 
 /** A small in-memory toolportctl: enough state for install, uninstall and doctor to answer the way
@@ -72,6 +75,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
   const contextWorld = createContextWorld(options.context);
   const compressionWorld = createCompressionWorld(options.compression);
   const setupWorld = createSetupWorld();
+  const syncWorld = createSyncWorld(options.sync);
   const libraryWorld = createLibraryWorld(options.library);
   const memoryWorld = createMemoryWorld(options.memory);
   const attentionWorld = createAttentionWorld(options.attention);
@@ -322,6 +326,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "compression") return compressionWorld.run(key);
       if (first === "setup") return setupWorld.run(key, stdin);
       if (first === "catalog") return catalogWorld.run(key);
+      if (first === "sync") return syncWorld.run(key, stdin);
       if (["skills", "library", "sources", "agents", "styles"].includes(first ?? ""))
         return libraryWorld.run(key);
       if (first === "mcp") {

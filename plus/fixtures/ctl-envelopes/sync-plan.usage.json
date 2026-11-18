@@ -1,0 +1,13 @@
+{
+  "argv": ["sync", "plan", "extra"],
+  "envelope": {
+    "command": "sync plan",
+    "error": {
+      "code": "usage",
+      "message": "unexpected argument: extra"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

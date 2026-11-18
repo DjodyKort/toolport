@@ -1,0 +1,105 @@
+{
+  "argv": ["sync", "plan"],
+  "envelope": {
+    "command": "sync plan",
+    "data": {
+      "applied": false,
+      "dryRun": true,
+      "file": "toolport-sync.tpsync",
+      "file_info": [
+        {
+          "count": 2,
+          "fileSize": 0,
+          "id": "servers",
+          "label": "Servers",
+          "sealed": false,
+          "standing": "ok"
+        },
+        {
+          "count": 1,
+          "fileSize": 0,
+          "id": "access",
+          "label": "Clients and access sets",
+          "sealed": false,
+          "standing": "ok"
+        },
+        {
+          "count": 0,
+          "fileSize": 0,
+          "id": "tasks",
+          "label": "Tasks",
+          "sealed": false,
+          "standing": "ok"
+        },
+        {
+          "count": 9,
+          "fileSize": 0,
+          "id": "settings",
+          "label": "Toolport settings",
+          "sealed": false,
+          "standing": "ok"
+        }
+      ],
+      "locked": false,
+      "plan": "<PLAN>",
+      "remote": {
+        "machine": "<masked>",
+        "madeAt": "<TIME>"
+      },
+      "revision": "<masked>",
+      "rows": [
+        {
+          "hash": "<masked>",
+          "id": "server:alpha",
+          "label": "alpha",
+          "note": "already here, same",
+          "part": "servers",
+          "state": "here"
+        },
+        {
+          "hash": "<masked>",
+          "id": "server:beta",
+          "label": "beta",
+          "note": "already here, same",
+          "part": "servers",
+          "state": "here"
+        },
+        {
+          "id": "access",
+          "label": "Clients and access sets",
+          "note": "no access set to add",
+          "part": "access",
+          "state": "here"
+        },
+        {
+          "id": "tasks",
+          "label": "Tasks",
+          "note": "0 already here",
+          "part": "tasks",
+          "state": "here"
+        },
+        {
+          "hash": "<masked>",
+          "id": "settings",
+          "label": "Toolport settings",
+          "note": "same values",
+          "part": "settings",
+          "state": "here"
+        }
+      ],
+      "skipped": [],
+      "summary": {
+        "add": 0,
+        "conflict": 0,
+        "here": 5,
+        "incoming": 0,
+        "mine": 0,
+        "needs": 0,
+        "skip": 0
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

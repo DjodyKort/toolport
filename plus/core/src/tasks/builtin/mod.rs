@@ -8,8 +8,9 @@ use std::path::{Path, PathBuf};
 pub const SKILLS_AUTO_SYNC: &str = "skills-auto-sync";
 pub const UPDATES_CHECK: &str = "updates-check";
 pub const SELECTIVE_UPDATE_CHECK: &str = "selective-update-check";
+pub const SYNC_PULL: &str = "sync-pull";
 
-const SHIPPED: [(&str, &str); 4] = [
+const SHIPPED: [(&str, &str); 5] = [
     ("moodle-token", include_str!("moodle-token.json")),
     (SKILLS_AUTO_SYNC, include_str!("skills-auto-sync.json")),
     (UPDATES_CHECK, include_str!("updates-check.json")),
@@ -17,6 +18,7 @@ const SHIPPED: [(&str, &str); 4] = [
         SELECTIVE_UPDATE_CHECK,
         include_str!("selective-update-check.json"),
     ),
+    (SYNC_PULL, include_str!("sync-pull.json")),
 ];
 
 fn marker(base: &Path) -> PathBuf {

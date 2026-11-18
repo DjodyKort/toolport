@@ -87,3 +87,9 @@ pub fn setup_home(world: &World) {
     put(&project.join("abc.jsonl"), "{\"type\":\"user\"}\n");
     std::fs::create_dir_all(world.base.join("out")).unwrap();
 }
+
+/// The setup home plus an empty folder to keep the sync file in.
+pub fn sync_home(world: &World) {
+    setup_home(world);
+    std::fs::create_dir_all(world.base.join("shared")).unwrap();
+}

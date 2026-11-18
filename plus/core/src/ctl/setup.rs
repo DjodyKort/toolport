@@ -135,7 +135,7 @@ pub fn parts(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     Ok(Output::new(data, human))
 }
 
-fn read_passphrase(input: &mut dyn BufRead) -> Result<String, CtlError> {
+pub(super) fn read_passphrase(input: &mut dyn BufRead) -> Result<String, CtlError> {
     let mut line = String::new();
     input
         .read_line(&mut line)
@@ -340,7 +340,7 @@ pub fn check(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     Ok(Output::new(data, human))
 }
 
-fn rows_text(data: &Value) -> String {
+pub(super) fn rows_text(data: &Value) -> String {
     let mut out = String::new();
     for row in data["rows"].as_array().into_iter().flatten() {
         out.push_str(&format!(

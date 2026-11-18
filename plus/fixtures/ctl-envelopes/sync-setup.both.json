@@ -1,0 +1,13 @@
+{
+  "argv": ["sync", "setup", "--git", "x", "--folder", "{base}/shared"],
+  "envelope": {
+    "command": "sync setup",
+    "error": {
+      "code": "usage",
+      "message": "name a git URL or a folder, not both"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

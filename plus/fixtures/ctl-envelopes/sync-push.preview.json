@@ -1,0 +1,124 @@
+{
+  "argv": ["sync", "push", "--dry-run"],
+  "envelope": {
+    "command": "sync push",
+    "data": {
+      "dryRun": true,
+      "file": "toolport-sync.tpsync",
+      "name": "toolport-sync.tpsync",
+      "notIncluded": [
+        "your code and anything uncommitted, stashed or unpushed",
+        "server sign-in sessions (you sign in again)",
+        "Claude Code login, SSH keys and git credentials",
+        "files in .gitignore such as .env",
+        "past conversations (sessions), unless you tick them",
+        "secret values, unless you tick Secrets"
+      ],
+      "parts": [
+        {
+          "count": 2,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "servers",
+          "info": {
+            "secretValues": 0
+          },
+          "label": "Servers",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 1,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "access",
+          "info": {
+            "accessSets": 1,
+            "clients": 0
+          },
+          "label": "Clients and access sets",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 0,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "tasks",
+          "info": {},
+          "label": "Tasks",
+          "notes": [],
+          "sealed": false
+        },
+        {
+          "count": 9,
+          "error": null,
+          "fileSize": 0,
+          "flagged": [],
+          "id": "settings",
+          "info": {
+            "bundles": 0,
+            "compression": false,
+            "registry": 9,
+            "sourceRoots": 0
+          },
+          "label": "Toolport settings",
+          "notes": [],
+          "sealed": false
+        }
+      ],
+      "plan": {
+        "steps": [],
+        "summary": "4 parts, about <N> bytes"
+      },
+      "skipped": [],
+      "totalSize": 0,
+      "tree": [
+        {
+          "fileSize": 0,
+          "name": "manifest.json",
+          "part": null
+        },
+        {
+          "count": 2,
+          "fileSize": 0,
+          "kind": "file",
+          "name": "servers.json",
+          "part": "servers",
+          "sealed": false
+        },
+        {
+          "count": 1,
+          "fileSize": 0,
+          "kind": "file",
+          "name": "access.json",
+          "part": "access",
+          "sealed": false
+        },
+        {
+          "count": 0,
+          "fileSize": 0,
+          "kind": "file",
+          "name": "tasks.json",
+          "part": "tasks",
+          "sealed": false
+        },
+        {
+          "count": 9,
+          "fileSize": 0,
+          "kind": "file",
+          "name": "settings.json",
+          "part": "settings",
+          "sealed": false
+        }
+      ],
+      "wouldReplace": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["sync", "pull", "--unattended", "--apply", "--plan", "x"],
+  "envelope": {
+    "command": "sync pull",
+    "error": {
+      "code": "usage",
+      "message": "an unattended pull only plans"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

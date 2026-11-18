@@ -1,0 +1,6 @@
+{
+  "route": "setup",
+  "status": "built",
+  "summary": "Undo the last applied sync pull and offer its changes again (sync undo)",
+  "test": "src/plus/setup/SyncView.test.tsx"
+}

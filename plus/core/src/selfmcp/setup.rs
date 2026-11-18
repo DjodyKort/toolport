@@ -24,7 +24,7 @@ fn tool_error(error: OpError) -> ToolError {
     }
 }
 
-fn with_ctx<R>(
+pub(super) fn with_ctx<R>(
     host: &dyn Host,
     run: impl FnOnce(&Ctx<'_>) -> Result<R, OpError>,
 ) -> Result<R, ToolError> {

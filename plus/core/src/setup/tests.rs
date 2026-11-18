@@ -13,15 +13,15 @@ use super::mem::slug;
 use super::zipio::ZipFile;
 use super::{Ctx, PartId};
 
-pub(super) const PASS: &str = "correct horse battery";
-pub(super) const SECRET_VALUE: &str = "vaulted-value-7f3a-not-a-real-credential";
+pub(crate) const PASS: &str = "correct horse battery";
+pub(crate) const SECRET_VALUE: &str = "vaulted-value-7f3a-not-a-real-credential";
 
 /// Spelled in pieces so no scanner reads it as a credential.
-pub(super) fn token() -> String {
+pub(crate) fn token() -> String {
     ["gh", "p_", &"Q1w2E3r4".repeat(5)].concat()
 }
 
-pub(super) struct World {
+pub(crate) struct World {
     pub dir: tempfile::TempDir,
     pub home: PathBuf,
     pub data: PathBuf,
@@ -219,7 +219,7 @@ impl World {
     }
 }
 
-pub(super) fn options(world: &World) -> Options {
+pub(crate) fn options(world: &World) -> Options {
     Options {
         roots: vec![world.home.join("code")],
         out: Some(world.out_dir()),

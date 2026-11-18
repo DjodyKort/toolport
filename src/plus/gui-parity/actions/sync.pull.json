@@ -1,0 +1,6 @@
+{
+  "route": "setup",
+  "status": "built",
+  "summary": "Plan the other machine's file first, then apply it with the plan hash; rows both machines changed keep this machine's until taken from the other machine (--take) or kept (--keep) (sync pull, sync plan; sync_plan)",
+  "test": "src/plus/setup/SyncView.test.tsx"
+}

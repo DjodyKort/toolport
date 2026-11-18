@@ -1,0 +1,10 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "configured": false,
+    "note": "sync is not set up on this machine: a person runs `toolportctl sync setup`",
+    "rows": []
+  },
+  "tool": "sync_plan"
+}

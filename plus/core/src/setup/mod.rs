@@ -12,12 +12,13 @@ pub mod parts;
 pub mod repos;
 pub mod restore;
 pub mod scan;
+pub mod threeway;
 pub mod zipio;
 
 #[cfg(test)]
 mod restore_tests;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};

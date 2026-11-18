@@ -1882,6 +1882,8 @@ const CASES: &[Case] = &[
             ),
         ],
     ),
+    case("sync_status", &[read("unconfigured", "sync_status", "{}")]),
+    case("sync_plan", &[read("unconfigured", "sync_plan", "{}")]),
     case(
         "skills_bundle",
         &[

@@ -1,0 +1,13 @@
+{
+  "argv": ["sync", "undo"],
+  "envelope": {
+    "command": "sync undo",
+    "error": {
+      "code": "not_found",
+      "message": "no applied sync pull to undo"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

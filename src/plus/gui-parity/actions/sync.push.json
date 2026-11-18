@@ -1,0 +1,6 @@
+{
+  "route": "setup",
+  "status": "built",
+  "summary": "Seal this machine's parts as one file and put it on the transport; refused over a remote this machine has not pulled (sync push)",
+  "test": "src/plus/setup/SyncView.test.tsx"
+}

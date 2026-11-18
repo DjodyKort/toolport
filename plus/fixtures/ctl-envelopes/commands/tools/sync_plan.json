@@ -1,0 +1,7 @@
+{
+  "command": "sync plan",
+  "dryRun": "none",
+  "name": "sync_plan",
+  "tier": "read",
+  "toolTier": 1
+}
