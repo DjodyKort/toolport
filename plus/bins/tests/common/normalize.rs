@@ -23,6 +23,7 @@ pub const MASKED_KEYS: &[&str] = &[
     "bundleBytes",
     "nextDueAt",
     "lastProbe",
+    "planHash",
     "since",
     "expiresAt",
     "fileSize",

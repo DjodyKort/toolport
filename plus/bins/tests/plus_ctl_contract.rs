@@ -157,10 +157,66 @@ fn explicit_default_access(world: &World) {
     world.write_registry(&registry);
 }
 
+fn folder_routing(world: &World) {
+    let mut registry = world.registry();
+    registry["profiles"] = json!([
+        {"id": "default", "name": "Default", "enabledServerIds": ["srv-alpha"]},
+        {"id": "focus", "name": "Focus", "enabledServerIds": ["srv-alpha"]},
+        {"id": "wide", "name": "Wide", "enabledServerIds": ["srv-alpha", "srv-beta"]},
+    ]);
+    registry["folderProfiles"] = json!([{"path": "/work/proj", "profile": "wide"}]);
+    world.write_registry(&registry);
+}
+
+fn a_set_that_was_deleted(world: &World) {
+    let mut registry = world.registry();
+    registry["clientScopes"] = json!({"claude-code": "gone"});
+    world.write_registry(&registry);
+}
+
+fn launch_profile_sets(world: &World) {
+    let mut registry = world.registry();
+    registry["version"] = json!(3);
+    registry["servers"][0]["enabled"] = json!(true);
+    registry["servers"][1]["enabled"] = json!(true);
+    registry["defaultAccessProfileId"] = json!("default");
+    registry["profiles"] = json!([
+        {"id": "default", "name": "Default", "enabledServerIds": ["srv-alpha", "srv-beta"]},
+        {"id": "bare", "name": "Bare", "enabledServerIds": ["srv-alpha"]},
+        {"id": "wide", "name": "Wide", "enabledServerIds": ["srv-alpha", "srv-beta"]},
+        {"id": "empty", "name": "Empty", "enabledServerIds": []},
+    ]);
+    world.write_registry(&registry);
+}
+
+fn map_the_project_folder(world: &World) {
+    let mut registry = world.registry();
+    registry["folderProfiles"] = json!([
+        {"path": world.home.join("proj").to_string_lossy(), "profile": "wide"}
+    ]);
+    world.write_registry(&registry);
+}
+
 fn opt_alpha_into_the_stdio_probe(world: &World) {
     let mut registry = world.registry();
     registry["servers"][0]["plus"] = json!({"authProbe": {"kind": "stdio"}});
     world.write_registry(&registry);
+}
+
+fn claude_code_home(world: &World) {
+    std::fs::write(
+        world.home.join(".claude.json"),
+        r#"{"theme": "dark", "mcpServers": {"legacy-lint": {"command": "lint", "args": []}}}"#,
+    )
+    .unwrap();
+}
+
+fn edit_the_client_file(world: &World) {
+    std::fs::write(
+        world.home.join(".claude.json"),
+        r#"{"theme": "light", "mcpServers": {}}"#,
+    )
+    .unwrap();
 }
 
 fn context_files(world: &World) {
@@ -844,6 +900,244 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "client reach",
+        &[
+            read("default-access", &["client", "reach"]),
+            hook("explicit-access-sets", explicit_default_access),
+            read("narrow-sets", &["client", "reach"]),
+            read("one-server", &["client", "reach", "--server", "beta"]),
+            read(
+                "one-client",
+                &["client", "reach", "--client", "claude-code"],
+            ),
+            hook("map-a-folder", folder_routing),
+            read("folder-outranks", &["client", "reach"]),
+            hook("delete-the-set", a_set_that_was_deleted),
+            read("deleted-set", &["client", "reach"]),
+            hook("home", claude_code_home),
+            setup(
+                "add",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
+            setup(
+                "uninstall",
+                &["server", "uninstall", "alpha", "--keep-clients"],
+            ),
+            read("kept-direct-entry", &["client", "reach"]),
+            read("unknown-server", &["client", "reach", "--server", "nope"]).exit(1),
+            read("unknown-client", &["client", "reach", "--client", "nope"]).exit(1),
+            usage("usage", &["client", "reach", "alpha"]),
+        ],
+    ),
+    case(
+        "client direct add",
+        &[
+            hook("home", claude_code_home),
+            read(
+                "plan",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
+            apply(
+                "unchanged",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
+            apply(
+                "remote",
+                &["client", "direct", "add", "beta", "--client", "claude-code"],
+            ),
+            read(
+                "stale-plan",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                    "--plan-hash",
+                    "0000000000000000",
+                    "--force",
+                ],
+            )
+            .exit(1),
+            read(
+                "unsupported",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "goose",
+                    "--dry-run",
+                ],
+            )
+            .exit(1),
+            read(
+                "unknown-client",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "no-such-client",
+                    "--dry-run",
+                ],
+            )
+            .exit(1),
+            read(
+                "unknown-server",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "nope",
+                    "--client",
+                    "claude-code",
+                    "--dry-run",
+                ],
+            )
+            .exit(1),
+            usage("usage", &["client", "direct", "add", "alpha"]),
+        ],
+    ),
+    case(
+        "client direct rm",
+        &[
+            hook("home", claude_code_home),
+            setup(
+                "add",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
+            read(
+                "plan",
+                &[
+                    "client",
+                    "direct",
+                    "rm",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &["client", "direct", "rm", "alpha", "--client", "claude-code"],
+            ),
+            apply(
+                "absent",
+                &["client", "direct", "rm", "alpha", "--client", "claude-code"],
+            ),
+            setup(
+                "add-again",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
+            hook("edited", edit_the_client_file),
+            apply(
+                "forgotten",
+                &["client", "direct", "rm", "alpha", "--client", "claude-code"],
+            ),
+            usage("usage", &["client", "direct", "rm", "alpha"]),
+        ],
+    ),
+    case(
+        "client direct ls",
+        &[
+            hook("home", claude_code_home),
+            read("empty", &["client", "direct", "ls"]),
+            setup(
+                "add",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
+            read("entries", &["client", "direct", "ls"]),
+            read(
+                "one-client",
+                &["client", "direct", "ls", "--client", "claude-code"],
+            ),
+            read(
+                "unknown-client",
+                &["client", "direct", "ls", "--client", "no-such-client"],
+            )
+            .exit(1),
+        ],
+    ),
+    case(
+        "client direct check",
+        &[
+            hook("home", claude_code_home),
+            setup(
+                "add",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
+            read("in-sync", &["client", "direct", "check"]),
+            hook("edited", edit_the_client_file),
+            read("drifted", &["client", "direct", "check"]).exit(1),
+        ],
+    ),
+    case(
         "server mode",
         &[
             apply("apply", &["server", "mode", "alpha", "search"]),
@@ -1494,6 +1788,199 @@ const CASES: &[Case] = &[
             )
             .exit(1),
             usage("usage", &["context", "leave-out", "add"]),
+        ],
+    ),
+    case(
+        "context launch-profile add",
+        &[
+            hook("files", context_files),
+            hook("sets", launch_profile_sets),
+            read(
+                "plan",
+                &[
+                    "context",
+                    "launch-profile",
+                    "add",
+                    "bare",
+                    "--set",
+                    "bare",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &["context", "launch-profile", "add", "bare", "--set", "bare"],
+            ),
+            read(
+                "again",
+                &["context", "launch-profile", "add", "bare", "--dry-run"],
+            ),
+            read(
+                "unknown-set",
+                &[
+                    "context",
+                    "launch-profile",
+                    "add",
+                    "bare",
+                    "--set",
+                    "nope",
+                    "--dry-run",
+                ],
+            )
+            .exit(1),
+            read(
+                "needs-a-set",
+                &["context", "launch-profile", "add", "other", "--dry-run"],
+            )
+            .exit(2),
+            usage("usage", &["context", "launch-profile", "add"]),
+            hook("map-the-folder", map_the_project_folder),
+            read(
+                "folder-outranks",
+                &[
+                    "context",
+                    "launch-profile",
+                    "add",
+                    "bare",
+                    "--set",
+                    "empty",
+                    "--dry-run",
+                ],
+            ),
+        ],
+    ),
+    case(
+        "context launch-profile ls",
+        &[
+            hook("files", context_files),
+            hook("sets", launch_profile_sets),
+            read("none", &["context", "launch-profile", "ls"]),
+            setup(
+                "add",
+                &["context", "launch-profile", "add", "bare", "--set", "bare"],
+            ),
+            hook("map-the-folder", map_the_project_folder),
+            read("ls", &["context", "launch-profile", "ls"]),
+            read(
+                "ls-inside",
+                &[
+                    "context",
+                    "launch-profile",
+                    "ls",
+                    "bare",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            read("ls-unknown", &["context", "launch-profile", "ls", "nope"]).exit(1),
+        ],
+    ),
+    case(
+        "context launch-profile rm",
+        &[
+            hook("files", context_files),
+            hook("sets", launch_profile_sets),
+            setup(
+                "add",
+                &["context", "launch-profile", "add", "bare", "--set", "bare"],
+            ),
+            read(
+                "plan",
+                &["context", "launch-profile", "rm", "bare", "--dry-run"],
+            ),
+            apply("apply", &["context", "launch-profile", "rm", "bare"]),
+            read("gone", &["context", "launch-profile", "rm", "bare"]).exit(1),
+            usage("usage", &["context", "launch-profile", "rm"]),
+        ],
+    ),
+    case(
+        "context launch-profile policy",
+        &[
+            hook("files", context_files),
+            hook("sets", launch_profile_sets),
+            hook("home", claude_code_home),
+            setup(
+                "direct",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
+            setup(
+                "add",
+                &[
+                    "context",
+                    "launch-profile",
+                    "add",
+                    "bare",
+                    "--set",
+                    "empty",
+                    "--deny-direct",
+                    "on",
+                ],
+            ),
+            read(
+                "plan",
+                &[
+                    "context",
+                    "launch-profile",
+                    "policy",
+                    "bare",
+                    "--cwd",
+                    "{home}/proj",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "context",
+                    "launch-profile",
+                    "policy",
+                    "bare",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            apply(
+                "off",
+                &[
+                    "context",
+                    "launch-profile",
+                    "add",
+                    "bare",
+                    "--deny-direct",
+                    "off",
+                ],
+            ),
+            read(
+                "switched-off",
+                &[
+                    "context",
+                    "launch-profile",
+                    "policy",
+                    "bare",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            read(
+                "unknown-profile",
+                &[
+                    "context",
+                    "launch-profile",
+                    "policy",
+                    "nope",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            )
+            .exit(1),
+            usage("usage", &["context", "launch-profile", "policy", "bare"]),
         ],
     ),
     case(

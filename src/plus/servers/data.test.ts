@@ -8,6 +8,7 @@ import type {
   LoginData,
   MembershipData,
   ProbeData,
+  ReachData,
   RestartData,
   SecretGetData,
   SecretRemoveData,
@@ -244,5 +245,59 @@ describe("the S8 envelope types match the Rust goldens", () => {
     });
     const info = world.run(["server", "info", "alpha"]).data as ServerInfoData;
     expect(info.interop).toEqual(alpha.interop);
+  });
+
+  it("test12_client_reach_has_the_fields_the_reach_screens_read", () => {
+    const goldens = ctl("client-reach").filter((g) => g.envelope.ok);
+    expect(goldens.length).toBeGreaterThan(3);
+    for (const golden of goldens) {
+      const data = golden.envelope.data as ReachData;
+      expect(keys(data)).toEqual([
+        "accessRows",
+        "accessSets",
+        "clients",
+        "defaultAccess",
+        "findings",
+        "folders",
+        "servers",
+      ]);
+      expect(keys(data.accessSets[0])).toEqual([
+        "clients",
+        "default",
+        "folders",
+        "id",
+        "listed",
+        "name",
+        "reached",
+      ]);
+      expect(keys(data.servers[0])).toEqual([
+        "clients",
+        "default",
+        "direct",
+        "enabled",
+        "folders",
+        "id",
+        "listedIn",
+        "name",
+        "unreached",
+      ]);
+      expect(keys(data.defaultAccess)).toEqual([
+        "accessSet",
+        "accessSetName",
+        "missing",
+        "servers",
+      ]);
+    }
+    const outranks = goldens
+      .flatMap((g) => (g.envelope.data as ReachData).findings)
+      .find((f) => f.kind === "folder-outranks");
+    expect(keys(outranks)).toEqual([
+      "client",
+      "folder",
+      "kind",
+      "server",
+      "servers",
+      "text",
+    ]);
   });
 });

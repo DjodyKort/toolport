@@ -1,0 +1,102 @@
+{
+  "argv": ["client", "reach"],
+  "envelope": {
+    "command": "client reach",
+    "data": {
+      "accessRows": [],
+      "accessSets": [
+        {
+          "clients": [],
+          "default": true,
+          "folders": [],
+          "id": "default",
+          "listed": ["srv-alpha"],
+          "name": "Default",
+          "reached": ["srv-alpha"]
+        },
+        {
+          "clients": [],
+          "default": false,
+          "folders": [],
+          "id": "focus",
+          "listed": ["srv-alpha"],
+          "name": "Focus",
+          "reached": ["srv-alpha"]
+        },
+        {
+          "clients": [],
+          "default": false,
+          "folders": ["/work/proj"],
+          "id": "wide",
+          "listed": ["srv-alpha", "srv-beta"],
+          "name": "Wide",
+          "reached": ["srv-alpha", "srv-beta"]
+        }
+      ],
+      "clients": [
+        {
+          "accessSet": null,
+          "accessSetName": null,
+          "gateway": false,
+          "id": "claude-code",
+          "missing": true,
+          "name": "Claude Code",
+          "ownSet": true,
+          "servers": []
+        }
+      ],
+      "defaultAccess": {
+        "accessSet": "default",
+        "accessSetName": "Default",
+        "missing": false,
+        "servers": ["srv-alpha"]
+      },
+      "findings": [
+        {
+          "client": "claude-code",
+          "folder": null,
+          "kind": "missing-set",
+          "server": null,
+          "servers": [],
+          "text": "Claude Code is bound to an access set that no longer exists, so it sees no servers."
+        }
+      ],
+      "folders": [
+        {
+          "accessSet": "wide",
+          "accessSetName": "Wide",
+          "missing": false,
+          "path": "/work/proj",
+          "servers": ["srv-alpha", "srv-beta"]
+        }
+      ],
+      "servers": [
+        {
+          "clients": [],
+          "default": true,
+          "direct": [],
+          "enabled": true,
+          "folders": ["/work/proj"],
+          "id": "srv-alpha",
+          "listedIn": ["default", "focus", "wide"],
+          "name": "alpha",
+          "unreached": false
+        },
+        {
+          "clients": [],
+          "default": false,
+          "direct": [],
+          "enabled": true,
+          "folders": ["/work/proj"],
+          "id": "srv-beta",
+          "listedIn": ["wide"],
+          "name": "beta",
+          "unreached": false
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

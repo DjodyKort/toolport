@@ -1,0 +1,37 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Folder the launch starts in; only the folder mappings that cover it are listed as warnings",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    }
+  ],
+  "group": "context",
+  "id": "context launch-profile ls",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["context", "launch-profile", "ls"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List the launch profiles: client id, access set, state and the folder mappings that would outrank them (<name>, --cwd)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["context_launch_profile_ls"]
+}

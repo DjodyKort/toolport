@@ -1,0 +1,57 @@
+{
+  "argv": ["context", "launch-profile", "policy", "bare", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "context launch-profile policy",
+    "data": {
+      "conflicts": [],
+      "cwd": "<WORLD>/home/proj",
+      "denyDirect": true,
+      "dryRun": false,
+      "keys": [
+        {
+          "serverName": "alpha"
+        }
+      ],
+      "name": "bare",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "1 key(s) owned by launch-policy:bare",
+            "diff": {
+              "after": "deniedMcpServers: {\"serverName\":\"alpha\"}\n",
+              "before": "deniedMcpServers: (absent)\n"
+            },
+            "keys": ["deniedMcpServers"],
+            "op": "create",
+            "path": "<WORLD>/home/proj/.claude/settings.local.json"
+          },
+          {
+            "detail": "git-ignore .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/proj/.git/info/exclude"
+          }
+        ],
+        "summary": "Keep 1 direct entry out of <WORLD>/home/proj",
+        "undo": "toolportctl context launch-profile add bare --deny-direct off",
+        "warnings": [
+          "the keys go into <WORLD>/home/proj/.claude/settings.local.json and apply to every Claude Code session started in that folder, not only launches of bare",
+          "unverified: whether Claude Code honours deniedMcpServers from a folder's settings.local.json; one real launch on the Mac has to confirm it before you rely on it",
+          "`context launch-profile add bare --deny-direct off` removes the keys again in every folder they were written to"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "<WORLD>/home/proj/.claude/settings.local.json",
+          "<WORLD>/home/proj/.git/info/exclude"
+        ],
+        "undo": "toolportctl context launch-profile add bare --deny-direct off"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

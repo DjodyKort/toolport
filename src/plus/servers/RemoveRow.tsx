@@ -40,9 +40,11 @@ function RemovePreview({
         <li>
           {preview.error
             ? `Client entries could not be checked: ${preview.error}`
-            : clients === 0
-              ? "No client entries: clients reach every server through Toolport's one gateway entry"
-              : `${plural(clients, "client entry")}`}
+            : options.keepClients
+              ? "Direct entries stay in the clients' files and show as orphans there"
+              : clients === 0
+                ? "No client entries: clients reach every server through Toolport's one gateway entry"
+                : `${plural(clients, "client entry")}`}
         </li>
       </ul>
       {secretKeys.length > 0 && (
@@ -70,7 +72,10 @@ function RemovePreview({
         />
         <span>
           Keep client entries
-          <span className="block text-muted-foreground">Takes effect in S11.</span>
+          <span className="block text-muted-foreground">
+            Leaves the direct entries Toolport wrote for this server in the clients'
+            files; they show as orphans until you remove them.
+          </span>
         </span>
       </label>
     </div>

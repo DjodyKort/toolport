@@ -1,0 +1,42 @@
+{
+  "argv": ["client", "direct", "add", "alpha", "--client", "claude-code"],
+  "envelope": {
+    "command": "client direct add",
+    "data": {
+      "action": "unchanged",
+      "changed": false,
+      "client": "claude-code",
+      "clientName": "Claude Code",
+      "dryRun": false,
+      "entry": "alpha",
+      "path": "<WORLD>/home/.claude.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "a backup of the client file is made first; the write goes through the client's own lock and conflict check",
+            "op": "note"
+          }
+        ],
+        "summary": "Give Claude Code a direct entry 'alpha' for alpha",
+        "undo": "toolportctl client direct rm srv-alpha --client claude-code",
+        "warnings": [
+          "A direct entry bypasses the Toolport gateway: its tools are not covered by access sets, approvals or lazy discovery, and every client with a direct entry starts its own process of the server instead of sharing one.",
+          "Secrets stay in Toolport: the launcher reads them when the client starts the entry; they are never written to the client file."
+        ]
+      },
+      "planHash": "<masked>",
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [],
+        "undo": "toolportctl client direct rm srv-alpha --client claude-code"
+      },
+      "server": "srv-alpha",
+      "serverName": "alpha"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

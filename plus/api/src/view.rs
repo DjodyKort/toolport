@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::fork_data::SelfMcpRecord;
+use crate::fork_data::{DirectEntry, SelfMcpRecord};
 use crate::{CatalogEntryRecord, EnvEntry, ServerRecord, ServerSpec};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -38,7 +38,51 @@ pub trait RegistryView {
     fn client_access_sets(&self) -> Vec<String>;
 
     fn selfmcp_record(&self) -> Result<Option<SelfMcpRecord>, String>;
+
+    /// The default access, every client scope and every folder mapping, each resolved the way the
+    /// gateway resolves it and with the enabled servers it reaches. The default access comes
+    /// first, then clients by id, then folders in the registry's order. A client with no entry
+    /// follows the default access and is not listed.
+    fn scope_reach(&self) -> Vec<ScopeReach>;
+
+    /// What `plus.directEntries` records: client id, then entry name.
+    fn direct_entries(&self) -> Result<DirectEntries, String>;
+
+    /// A client's own discovery-mode override (`full`, `lazy` or `grouped`); `None` inherits the
+    /// global mode.
+    fn client_discovery(&self, client_id: &str) -> Option<String>;
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ScopeKind {
+    /// Clients without a scope of their own.
+    Default,
+    /// A client id with an entry in `client_scopes`.
+    Client,
+    /// A folder mapping in `folder_profiles`.
+    Folder,
+}
+
+/// Where one scope resolves to by upstream's own rules, and the enabled servers it reaches.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScopeReach {
+    pub kind: ScopeKind,
+    /// Empty for the default access, else the client id or the folder path.
+    pub key: String,
+    /// The stored set reference (id or name); empty when the scope follows the default access.
+    pub reference: String,
+    /// The access set it resolves to; `None` when it reaches every enabled server (no explicit
+    /// default access) or when the reference names no set.
+    pub set_id: Option<String>,
+    /// The reference names no existing set, so the scope reaches nothing.
+    pub dangling: bool,
+    /// Ids of the enabled servers reached, in registry order.
+    pub server_ids: Vec<String>,
+}
+
+pub type DirectEntries =
+    std::collections::BTreeMap<String, std::collections::BTreeMap<String, DirectEntry>>;
 
 /// Write side, run inside one lock, load and save. The edit is dropped when the
 /// closure returns an error.
@@ -68,6 +112,17 @@ pub trait RegistryTx: RegistryView {
     ) -> Result<(), String>;
 
     fn set_selfmcp_record(&mut self, record: Option<SelfMcpRecord>) -> Result<(), String>;
+
+    /// Binds a client id to an access set through upstream's `set_client_scope`; `None` removes
+    /// the binding, so the client falls back to `TOOLPORT_PROFILE` and then the default access.
+    fn set_client_scope(
+        &mut self,
+        client_id: &str,
+        access_set_id: Option<&str>,
+    ) -> Result<(), String>;
+
+    /// Pins a client's discovery mode (`full`, `lazy`, `grouped`); `None` clears the override.
+    fn set_client_discovery(&mut self, client_id: &str, mode: Option<&str>) -> Result<(), String>;
 
     /// Adds a server through upstream's own add and returns its id. Upstream switches the new
     /// server on and lists it in the default access set when it needs no credential.

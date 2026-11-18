@@ -39,6 +39,10 @@
 # become pub(crate) (2 each), so the adapter maps a registry page into entries with upstream's own code
 # instead of a copy.
 8	src-tauri/src/catalog.rs
+# clients.rs, 1 changed line: `pub(crate) mod direct_entry;`. mutation, restore and the journal's revision
+# helpers are private to `clients`, so the writer of one named entry has to be a module inside it; the file
+# (src-tauri/src/clients/direct_entry.rs) is fork-owned and not counted. The seam stays one line (S11, D-148).
+1	src-tauri/src/clients.rs
 # desktop.rs, 6 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
 # plus_ctl commands (D-060) and hands every other command on (4); seam::app_started() at the start of
 # run() starts the task scheduler thread of the desktop app, the always-on tick of D-128 (2);
@@ -76,7 +80,9 @@
 2	src-tauri/src/oauth_controller.rs
 # registry_controller.rs, 2 lines: `catalog_server` becomes pub(crate), so the adapter adds a catalog entry
 # inside the fork's registry transaction (name check and add under one lock) instead of copying its body.
-2	src-tauri/src/registry_controller.rs
+# +2 lines (S11): `preview_client_setup` skips the entries Toolport recorded as direct entries
+# (seam::is_direct), so "Move into gateway" never offers the launcher entry and imports it as a server.
+4	src-tauri/src/registry_controller.rs
 # router.rs, 4 lines: `#[cfg(feature = "plus")] #[path = "plus_router.rs"] mod plus_ext;` declares a child
 # module that reaches the private slots: holds_server, calls in flight (the one confirmation before a
 # restart) and the restart itself (a fresh connection swapped in under the lifecycle lock). Upstream
@@ -121,6 +127,10 @@
 # AppSidebar.tsx, 6 changed lines: the Claude group under upstream's nav (1), the footer bell (1), the Puzzle icon
 # of the new Settings page in the position-based icon array (2), and the imports (2).
 6	src/components/AppSidebar.tsx
+# ClientDetail.tsx, 2 lines (S11): the import and one render of PlusClientDirect, the Direct entries panel, between
+# the connectors card and the Import section. The panel is lazy and fork-owned (src/plus/clients); the client
+# detail lives in ClientDetail.tsx, not in ClientsView.tsx, which only lists the clients.
+2	src/components/ClientDetail.tsx
 # SettingsView.tsx, 2 lines (S2): the Compare access sets table (src/plus/servers/AccessCompare.tsx) at the end of
 # the Access page, as the one place that already lists the access sets.
 2	src/components/SettingsView.tsx

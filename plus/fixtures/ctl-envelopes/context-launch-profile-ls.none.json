@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "launch-profile", "ls"],
+  "envelope": {
+    "command": "context launch-profile ls",
+    "data": {
+      "base": "claude-code",
+      "profiles": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

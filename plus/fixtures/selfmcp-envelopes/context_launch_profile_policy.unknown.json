@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj",
+    "name": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no launch profile called nope"
+    }
+  },
+  "text": "not_found: no launch profile called nope",
+  "tool": "context_launch_profile_policy"
+}

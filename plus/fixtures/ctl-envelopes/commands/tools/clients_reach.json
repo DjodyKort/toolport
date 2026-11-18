@@ -1,0 +1,7 @@
+{
+  "command": "client reach",
+  "dryRun": "none",
+  "name": "clients_reach",
+  "tier": "read",
+  "toolTier": 1
+}

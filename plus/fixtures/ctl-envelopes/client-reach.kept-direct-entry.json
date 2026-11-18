@@ -1,0 +1,99 @@
+{
+  "argv": ["client", "reach"],
+  "envelope": {
+    "command": "client reach",
+    "data": {
+      "accessRows": [],
+      "accessSets": [
+        {
+          "clients": [],
+          "default": true,
+          "folders": [],
+          "id": "default",
+          "listed": [],
+          "name": "Default",
+          "reached": []
+        },
+        {
+          "clients": [],
+          "default": false,
+          "folders": [],
+          "id": "focus",
+          "listed": [],
+          "name": "Focus",
+          "reached": []
+        },
+        {
+          "clients": [],
+          "default": false,
+          "folders": ["/work/proj"],
+          "id": "wide",
+          "listed": ["srv-beta"],
+          "name": "Wide",
+          "reached": ["srv-beta"]
+        }
+      ],
+      "clients": [
+        {
+          "accessSet": null,
+          "accessSetName": null,
+          "gateway": false,
+          "id": "claude-code",
+          "missing": true,
+          "name": "Claude Code",
+          "ownSet": true,
+          "servers": []
+        }
+      ],
+      "defaultAccess": {
+        "accessSet": "default",
+        "accessSetName": "Default",
+        "missing": false,
+        "servers": []
+      },
+      "findings": [
+        {
+          "client": "claude-code",
+          "folder": null,
+          "kind": "direct-orphan",
+          "server": null,
+          "servers": [],
+          "text": "Claude Code still has a direct entry, alpha, for a server that was removed, so it reaches nothing through any access set. Remove it with `client direct rm srv-alpha --client claude-code`."
+        },
+        {
+          "client": "claude-code",
+          "folder": null,
+          "kind": "missing-set",
+          "server": null,
+          "servers": [],
+          "text": "Claude Code is bound to an access set that no longer exists, so it sees no servers."
+        }
+      ],
+      "folders": [
+        {
+          "accessSet": "wide",
+          "accessSetName": "Wide",
+          "missing": false,
+          "path": "/work/proj",
+          "servers": ["srv-beta"]
+        }
+      ],
+      "servers": [
+        {
+          "clients": [],
+          "default": false,
+          "direct": [],
+          "enabled": true,
+          "folders": ["/work/proj"],
+          "id": "srv-beta",
+          "listedIn": ["wide"],
+          "name": "beta",
+          "unreached": false
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "launch-profile", "policy", "nope", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "context launch-profile policy",
+    "error": {
+      "code": "not_found",
+      "message": "no launch profile called nope"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

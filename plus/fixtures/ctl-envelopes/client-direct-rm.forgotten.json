@@ -1,0 +1,39 @@
+{
+  "argv": ["client", "direct", "rm", "alpha", "--client", "claude-code"],
+  "envelope": {
+    "command": "client direct rm",
+    "data": {
+      "action": "forgotten",
+      "changed": true,
+      "client": "claude-code",
+      "clientName": "Claude Code",
+      "dryRun": false,
+      "entry": "alpha",
+      "path": "<WORLD>/home/.claude.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "drop the record of 'alpha' under plus.directEntries.claude-code",
+            "op": "note"
+          }
+        ],
+        "summary": "Remove the direct entry 'alpha' from Claude Code",
+        "undo": "toolportctl client direct add srv-alpha --client claude-code",
+        "warnings": []
+      },
+      "planHash": "<masked>",
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["registry: plus.directEntries"],
+        "undo": "toolportctl client direct add srv-alpha --client claude-code"
+      },
+      "server": "srv-alpha",
+      "serverName": "alpha"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

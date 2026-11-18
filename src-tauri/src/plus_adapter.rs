@@ -5,11 +5,12 @@ use std::path::{Path, PathBuf};
 use serde_json::{Map, Value};
 use toolport_plus_api::{
     convert, plus_ops, AccessSetInfo, AuthProbe, CallsInFlight, CatalogAccess, CatalogEntryRecord,
-    ContextHost, DirectEntry, EnvEntry, ForkServerFields, GatewayRouter, HostEnv, HttpAccess,
+    ClientEntryInfo, ClientInfo, ClientWriteError, ClientsHost, ContextHost, DirectEntry,
+    EntrySpec, EntryWrite, EnvEntry, ForkServerFields, GatewayRouter, HostEnv, HttpAccess,
     HttpBody, HttpError, HttpRequest, HttpResponse, McpmSource, ProcessOutcome, ProcessSpec,
     RegistryAccess, RegistryEntries, RegistryPlus, RegistryTx, RegistryView, RestartOutcome,
-    RunApproval, RunDecision, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules, ServerSpec,
-    SetupHost, TaskHost, TrustInputs, VaultAccess,
+    RunApproval, RunDecision, ScopeKind, ScopeReach, SecretsHost, SelfMcpRecord, ServerRecord,
+    ServerRules, ServerSpec, SetupHost, TaskHost, TrustInputs, VaultAccess,
 };
 
 pub struct HostAdapter;
@@ -93,6 +94,70 @@ fn view_client_access_sets(registry: &crate::registry::Registry) -> Vec<String> 
     ids
 }
 
+fn scope_reach_of(
+    registry: &crate::registry::Registry,
+    kind: ScopeKind,
+    key: &str,
+    reference: &str,
+    resolved: &str,
+) -> ScopeReach {
+    let set_id = registry
+        .profiles
+        .iter()
+        .find(|profile| profile.id == resolved)
+        .map(|profile| profile.id.clone());
+    let implicit = resolved == registry.default_access_id()
+        || resolved == registry.all_access_id()
+        || resolved == crate::registry::ALL_ENABLED_ACCESS;
+    ScopeReach {
+        kind,
+        key: key.to_string(),
+        reference: reference.trim().to_string(),
+        dangling: set_id.is_none() && !implicit,
+        set_id,
+        server_ids: registry
+            .enabled_servers_for(resolved)
+            .into_iter()
+            .map(|server| server.id.clone())
+            .collect(),
+    }
+}
+
+/// Resolved with the functions the gateway calls: `resolve_launch_profile` for a client and
+/// `resolve_profile_id` for a folder mapping; the folder wins over the client at run time.
+pub(crate) fn view_scope_reach(registry: &crate::registry::Registry) -> Vec<ScopeReach> {
+    let mut scopes = vec![scope_reach_of(
+        registry,
+        ScopeKind::Default,
+        "",
+        "",
+        &registry.default_access_id(),
+    )];
+    let mut clients: Vec<&String> = registry.client_scopes.keys().collect();
+    clients.sort();
+    for client in clients {
+        let resolved = crate::clients::resolve_launch_profile(registry, Some(client), &None)
+            .unwrap_or_default();
+        scopes.push(scope_reach_of(
+            registry,
+            ScopeKind::Client,
+            client,
+            &registry.client_scopes[client],
+            &resolved,
+        ));
+    }
+    for folder in &registry.folder_profiles {
+        scopes.push(scope_reach_of(
+            registry,
+            ScopeKind::Folder,
+            &folder.path,
+            &folder.profile,
+            &registry.resolve_profile_id(&folder.profile),
+        ));
+    }
+    scopes
+}
+
 fn view_selfmcp_record(
     registry: &crate::registry::Registry,
 ) -> Result<Option<SelfMcpRecord>, String> {
@@ -119,6 +184,19 @@ macro_rules! registry_view {
             }
             fn selfmcp_record(&self) -> Result<Option<SelfMcpRecord>, String> {
                 view_selfmcp_record(self.$registry())
+            }
+            fn scope_reach(&self) -> Vec<ScopeReach> {
+                view_scope_reach(self.$registry())
+            }
+            fn client_discovery(&self, client_id: &str) -> Option<String> {
+                self.$registry()
+                    .client_discovery_mode(client_id)
+                    .map(String::from)
+            }
+            fn direct_entries(&self) -> Result<toolport_plus_api::view::DirectEntries, String> {
+                Ok(RegistryPlus::extract(&self.$registry().unknown_fields)?
+                    .direct_entries
+                    .unwrap_or_default())
             }
         }
     };
@@ -222,6 +300,20 @@ impl RegistryTx for TxView<'_> {
         included: bool,
     ) -> Result<(), String> {
         self.0.set_access_server(access_set_id, server_id, included)
+    }
+
+    fn set_client_scope(
+        &mut self,
+        client_id: &str,
+        access_set_id: Option<&str>,
+    ) -> Result<(), String> {
+        self.0.set_client_scope(client_id, access_set_id);
+        Ok(())
+    }
+
+    fn set_client_discovery(&mut self, client_id: &str, mode: Option<&str>) -> Result<(), String> {
+        self.0.set_client_discovery(client_id, mode);
+        Ok(())
     }
 
     fn set_selfmcp_record(&mut self, record: Option<SelfMcpRecord>) -> Result<(), String> {
@@ -1613,17 +1705,102 @@ fn auth_environment(server: &crate::registry::ServerEntry) -> Vec<(String, Strin
             value.map(|value| (var.key.clone(), value))
         })
         .collect();
+    merged_environment(server, own)
+}
+
+fn merged_environment(
+    server: &crate::registry::ServerEntry,
+    own: Vec<(String, String)>,
+) -> Vec<(String, String)> {
     let mut env: Vec<(String, String)> = std::env::vars()
         .filter(|(name, _)| {
-            if crate::downstream::is_control_env_name(name) {
-                return false;
-            }
-            server.inherit_env || crate::downstream::CHILD_ENV_ALLOWLIST.contains(&name.as_str())
+            !crate::downstream::is_control_env_name(name)
+                && (server.inherit_env || crate::downstream::is_allowed_child_env_name(name))
         })
         .collect();
     env.retain(|(name, _)| !own.iter().any(|(key, _)| key == name));
     env.extend(own);
     env
+}
+
+fn launch_environment(
+    server: &crate::registry::ServerEntry,
+    mut vault: impl FnMut(&str, &str) -> Result<Option<String>, String>,
+) -> Result<Vec<(String, String)>, String> {
+    let mut own = Vec::new();
+    for var in &server.env {
+        if let Some(value) = &var.value {
+            own.push((var.key.clone(), value.clone()));
+        } else if var.secret {
+            match vault(&server.id, &var.key) {
+                Ok(Some(value)) => own.push((var.key.clone(), value)),
+                Ok(None) => {
+                    let required = server
+                        .launch
+                        .as_ref()
+                        .is_none_or(|launch| launch.required_env.contains(&var.key));
+                    if required {
+                        return Err(format!(
+                            "missing secret '{key}' (set it with `toolportctl secret set {id} {key}`)",
+                            key = var.key,
+                            id = server.id
+                        ));
+                    }
+                }
+                Err(error) => {
+                    return Err(format!(
+                        "could not read secret '{}' from the keychain: {error}",
+                        var.key
+                    ))
+                }
+            }
+        }
+    }
+    Ok(merged_environment(server, own))
+}
+
+fn launch_command(
+    server: &crate::registry::ServerEntry,
+    vault: impl FnMut(&str, &str) -> Result<Option<String>, String>,
+) -> Result<toolport_plus_api::LaunchCommand, String> {
+    let command = match (&server.command, server.transport.as_str()) {
+        (Some(command), transport) if transport.eq_ignore_ascii_case("stdio") => command.clone(),
+        _ => return Err(format!("{} is not a stdio server", server.name)),
+    };
+    let resolved = crate::launch_inputs::resolve_args(server)?;
+    let mut env = launch_environment(server, vault)?;
+    let (command, args) = crate::downstream::normalize_invocation(&command, &resolved.args);
+    crate::downstream::screen_spawn_command(&command, &args)
+        .and_then(|()| crate::downstream::screen_spawn_env(&env))
+        .map_err(|message| resolved.redact(message))?;
+    #[cfg(not(windows))]
+    if !server.inherit_env {
+        env.retain(|(name, _)| name != "PATH");
+        env.push(("PATH".into(), crate::downstream::augmented_path().into()));
+    }
+    let cwd = match server
+        .cwd
+        .as_deref()
+        .and_then(|cwd| crate::downstream::resolve_root_token(cwd, None))
+    {
+        Some(dir) => {
+            let expanded = crate::downstream::expand_cwd(&dir);
+            if !expanded.is_dir() {
+                return Err(format!(
+                    "working directory {} does not exist",
+                    expanded.display()
+                ));
+            }
+            Some(expanded.to_string_lossy().into_owned())
+        }
+        None => None,
+    };
+    Ok(toolport_plus_api::LaunchCommand {
+        program: crate::downstream::resolve_command(&command),
+        args,
+        env,
+        cwd,
+    })
 }
 
 struct AuthProcess {
@@ -1908,6 +2085,157 @@ fn run_guarded_script(source: &str, args: Value, servers: &[String]) -> Result<V
     }
 }
 
+const LAUNCHER_STEM: &str = "toolportctl";
+
+fn launcher_file() -> String {
+    format!("{LAUNCHER_STEM}{}", std::env::consts::EXE_SUFFIX)
+}
+
+fn client_info(client: &crate::clients::DetectedClient) -> ClientInfo {
+    let shown = serde_json::to_value(client).unwrap_or(Value::Null);
+    let entries: Vec<ClientEntryInfo> = shown
+        .get("servers")
+        .cloned()
+        .and_then(|servers| serde_json::from_value(servers).ok())
+        .unwrap_or_default();
+    ClientInfo {
+        id: client.id.clone(),
+        name: client.name.clone(),
+        config_path: client.config_path.clone(),
+        config_exists: client.config_exists,
+        app_present: client.app_present,
+        uses_connectors: client.uses_connectors,
+        gateway_installed: client.gateway_installed,
+        entries,
+        error: shown
+            .get("error")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        direct_unsupported: crate::clients::direct_entry::unsupported_reason(&client.id),
+        extra: Map::new(),
+    }
+}
+
+fn server_entry_of(spec: &EntrySpec) -> Result<crate::registry::ServerEntry, String> {
+    let env: Vec<Value> = spec
+        .env
+        .iter()
+        .map(|(key, value)| serde_json::json!({"key": key, "value": value, "secret": false}))
+        .collect();
+    let mut entry = serde_json::json!({
+        "id": spec.name,
+        "name": spec.name,
+        "transport": spec.transport,
+        "env": env,
+        "source": "plus:direct",
+    });
+    if let Some(command) = &spec.command {
+        entry["command"] = Value::String(command.clone());
+        entry["args"] = serde_json::json!(spec.args);
+    }
+    if let Some(url) = &spec.url {
+        entry["url"] = Value::String(url.clone());
+    }
+    serde_json::from_value(entry).map_err(|error| format!("entry {}: {error}", spec.name))
+}
+
+impl ClientsHost for HostAdapter {
+    fn detect_clients(&self) -> Vec<ClientInfo> {
+        crate::clients::detect_clients()
+            .iter()
+            .map(client_info)
+            .collect()
+    }
+
+    fn client_revision(&self, client_id: &str) -> Result<Option<String>, String> {
+        crate::clients::direct_entry::file_revision(client_id)
+    }
+
+    fn render_entry(&self, client_id: &str, spec: &EntrySpec) -> Result<String, String> {
+        crate::clients::direct_entry::render_entry(client_id, &spec.name, &server_entry_of(spec)?)
+    }
+
+    fn write_entry(
+        &self,
+        client_id: &str,
+        name: &str,
+        spec: Option<&EntrySpec>,
+        expect_revision: Option<&Option<String>>,
+    ) -> Result<EntryWrite, ClientWriteError> {
+        let entry = spec
+            .map(server_entry_of)
+            .transpose()
+            .map_err(ClientWriteError::Failed)?;
+        crate::clients::direct_entry::set_entry(client_id, name, entry.as_ref(), expect_revision)
+            .map(|written| EntryWrite {
+                path: written.path,
+                backup: written.backup,
+                revision: written.revision,
+                extra: Map::new(),
+            })
+            .map_err(|error| {
+                if error.contains(crate::clients::direct_entry::CHANGED_SINCE_PLAN) {
+                    ClientWriteError::Conflict(error)
+                } else {
+                    ClientWriteError::Failed(error)
+                }
+            })
+    }
+
+    fn gateway_command(&self) -> Option<String> {
+        crate::clients::resolve_gateway_path_for_launch()
+            .ok()
+            .flatten()
+            .map(|path| path.to_string_lossy().into_owned())
+    }
+
+    fn launcher_command(&self) -> Option<String> {
+        let file = launcher_file();
+        let exe = std::env::current_exe().ok();
+        if let Some(exe) = &exe {
+            if exe.file_stem().and_then(|stem| stem.to_str()) == Some(LAUNCHER_STEM) {
+                return Some(exe.to_string_lossy().into_owned());
+            }
+        }
+        let mut dirs: Vec<PathBuf> = Vec::new();
+        dirs.extend(exe.as_ref().and_then(|exe| exe.parent()).map(PathBuf::from));
+        dirs.extend(crate::registry::conduit_dir().map(|dir| dir.join("bin")));
+        dirs.extend(
+            std::env::var_os("PATH")
+                .iter()
+                .flat_map(std::env::split_paths),
+        );
+        dirs.into_iter()
+            .map(|dir| dir.join(&file))
+            .find(|candidate| candidate.is_file())
+            .map(|found| found.to_string_lossy().into_owned())
+    }
+
+    fn prepare_launch(&self, server_id: &str) -> Result<toolport_plus_api::LaunchCommand, String> {
+        let registry = crate::registry::load_resolved()?;
+        let server = registry
+            .servers
+            .iter()
+            .find(|server| server.id == server_id)
+            .ok_or_else(|| format!("unknown server {server_id}"))?;
+        let server =
+            crate::secret_refs::resolve_server(server).map_err(|error| error.to_string())?;
+        launch_command(&server, crate::secrets::get_secret_result)
+    }
+
+    fn launcher_env(&self) -> std::collections::BTreeMap<String, String> {
+        [
+            ("TOOLPORT_DATA_DIR", "CONDUIT_DATA_DIR"),
+            ("TOOLPORT_REGISTRY", "CONDUIT_REGISTRY"),
+        ]
+        .into_iter()
+        .filter_map(|(new, legacy)| {
+            crate::brand::env_var(new, legacy).map(|value| (new.to_string(), value))
+        })
+        .collect()
+    }
+}
+
 impl TaskHost for HostAdapter {
     fn unattended(&self, run: &mut dyn FnMut()) {
         crate::secrets::without_prompts(run);
@@ -2050,6 +2378,72 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(FIXTURE).unwrap();
         let entry = serde_json::from_value(json.clone()).unwrap();
         (json, entry)
+    }
+
+    fn stdio_entry(extra: serde_json::Value) -> ServerEntry {
+        let mut entry = json!({"id": "srv", "name": "srv", "transport": "stdio",
+            "command": "run-it", "args": ["--flag"]});
+        entry
+            .as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        serde_json::from_value(entry).unwrap()
+    }
+
+    #[test]
+    fn launch_command_reads_secrets_from_the_vault_and_keeps_plain_values() {
+        let server = stdio_entry(json!({"env": [
+            {"key": "PLAIN", "value": "p"}, {"key": "TOKEN", "secret": true}]}));
+        let launch = launch_command(&server, |id, key| {
+            assert_eq!((id, key), ("srv", "TOKEN"));
+            Ok(Some("vault-value".into()))
+        })
+        .unwrap();
+        assert_eq!(launch.args, ["--flag"]);
+        let value = |name: &str| {
+            launch
+                .env
+                .iter()
+                .find(|(k, _)| k == name)
+                .map(|(_, v)| v.as_str())
+        };
+        assert_eq!(value("PLAIN"), Some("p"));
+        assert_eq!(value("TOKEN"), Some("vault-value"));
+        assert!(launch
+            .env
+            .iter()
+            .all(|(k, _)| !crate::downstream::is_control_env_name(k)));
+    }
+
+    #[test]
+    fn launch_command_names_the_missing_secret_without_a_value() {
+        let server = stdio_entry(json!({"env": [{"key": "TOKEN", "secret": true}]}));
+        let error = launch_command(&server, |_, _| Ok(None)).unwrap_err();
+        assert!(error.contains("missing secret 'TOKEN'") && error.contains("secret set srv TOKEN"));
+        let error = launch_command(&server, |_, _| Err("vault locked".into())).unwrap_err();
+        assert!(error.contains("could not read secret 'TOKEN'"));
+    }
+
+    #[test]
+    fn launch_command_skips_a_secret_the_launch_config_does_not_require() {
+        let server = stdio_entry(json!({
+            "env": [{"key": "TOKEN", "secret": true}, {"key": "OTHER", "value": "o"}],
+            "launch": {"requiredEnv": ["OTHER"]}}));
+        let launch = launch_command(&server, |_, _| Ok(None)).unwrap();
+        assert!(launch.env.iter().all(|(k, _)| k != "TOKEN"));
+    }
+
+    #[test]
+    fn launch_command_applies_the_spawn_screening_of_the_gateway() {
+        let server = stdio_entry(json!({"env": [{"key": "LD_PRELOAD", "value": "/tmp/x.so"}]}));
+        assert!(launch_command(&server, |_, _| Ok(None)).is_err());
+    }
+
+    #[test]
+    fn launch_command_refuses_a_working_directory_that_does_not_exist() {
+        let server = stdio_entry(json!({"cwd": "/nonexistent/plus-launch-dir"}));
+        let error = launch_command(&server, |_, _| Ok(None)).unwrap_err();
+        assert!(error.contains("working directory /nonexistent/plus-launch-dir does not exist"));
     }
 
     #[cfg(target_os = "macos")]
@@ -3556,3 +3950,7 @@ mod oauth_tests;
 #[cfg(test)]
 #[path = "plus_adapter_hooks_tests.rs"]
 mod hooks_tests;
+
+#[cfg(test)]
+#[path = "plus_adapter_reach_tests.rs"]
+mod reach_tests;

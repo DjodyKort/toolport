@@ -110,7 +110,7 @@ export default function ContextScreen() {
               />
             )}
             {tab === "bundles" && <Bundles folder={folder} home={home} />}
-            {tab === "rules" && <RulesLaunch home={home} />}
+            {tab === "rules" && <RulesLaunch home={home} folder={folder} />}
             {tab === "hooks" && (
               <Suspense
                 fallback={<SkeletonRows label="Loading the compression hooks…" />}

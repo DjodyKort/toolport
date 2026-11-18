@@ -10,6 +10,8 @@ mod agents;
 mod attention;
 mod auth;
 mod catalog;
+mod client_direct;
+mod client_reach;
 mod commands;
 mod commands_json;
 pub(crate) mod compression;
@@ -17,6 +19,7 @@ mod compression_cfg;
 mod compression_hooks;
 mod context;
 mod flags;
+mod launch_profile;
 mod library;
 mod library_select;
 mod mcp;
@@ -172,6 +175,31 @@ pub const COMMANDS: &[Command] = &[
         &["server", "restart"],
         "Restart a server's process in every running gateway [--dry-run] [--wait <s>] [--if-idle]",
         server::restart,
+    ),
+    cmd(
+        &["client", "direct", "add"],
+        "Give a client one server as its own entry outside the gateway <server> --client <id> [--force] [--dry-run] [--plan-hash <hash>]",
+        client_direct::add,
+    ),
+    cmd(
+        &["client", "direct", "rm"],
+        "Remove a direct entry Toolport wrote <server> --client <id> [--force] [--dry-run] [--plan-hash <hash>]",
+        client_direct::rm,
+    ),
+    cmd(
+        &["client", "direct", "ls"],
+        "List direct client entries with their state [--client <id>]",
+        client_direct::ls,
+    ),
+    cmd(
+        &["client", "direct", "check"],
+        "Check direct client entries against what Toolport wrote; exits 1 when one drifted [--client <id>]",
+        client_direct::check,
+    ),
+    cmd(
+        &["client", "reach"],
+        "Show which access sets, clients and folders reach each server, and the servers nothing reaches [--server <id|name>] [--client <id>]",
+        client_reach::run,
     ),
     cmd(
         &["auth", "statusline"],
@@ -347,6 +375,26 @@ pub const COMMANDS: &[Command] = &[
         &["sessions", "retention"],
         "Show how long Claude Code keeps sessions, or set it for every project (--set <days>, at least 1, --dry-run)",
         memory::sessions_retention,
+    ),
+    cmd(
+        &["context", "launch-profile", "ls"],
+        "List the launch profiles: client id, access set, state and the folder mappings that would outrank them (<name>, --cwd)",
+        launch_profile::ls,
+    ),
+    cmd(
+        &["context", "launch-profile", "add"],
+        "Add or change a launch profile: its own client id claude-code-<name> bound to an access set, one gateway entry in mcp.json (<name>, --set, --deny-direct on|off, --dry-run)",
+        launch_profile::add,
+    ),
+    cmd(
+        &["context", "launch-profile", "rm"],
+        "Remove a launch profile with its binding, file and rendered policy (<name>, --dry-run)",
+        launch_profile::rm,
+    ),
+    cmd(
+        &["context", "launch-profile", "policy"],
+        "Write deniedMcpServers for the direct Claude Code entries a profile's access set leaves out, when its --deny-direct switch is on (<name>, --cwd, --dry-run)",
+        launch_profile::policy,
     ),
     cmd(
         &["plugins", "off"],
@@ -1086,6 +1134,12 @@ pub fn run_with(
             out,
             err,
         );
+    }
+    if crate::direct::launcher::is_run(&parsed.positional) {
+        if let Some(dir) = &parsed.data_dir {
+            host.use_data_dir(std::path::Path::new(dir));
+        }
+        return crate::direct::launcher::main(host, &parsed.positional);
     }
     let name = parsed.positional.join(" ");
     let Some((command, rest)) = find_command(&parsed.positional) else {

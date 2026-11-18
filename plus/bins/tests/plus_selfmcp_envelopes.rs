@@ -1020,6 +1020,101 @@ const CASES: &[Case] = &[
             ),
         ],
     ),
+    prepared(
+        "clients_reach",
+        folder_routing_world,
+        &[
+            read("folder_outranks", "clients_reach", "{}"),
+            read("one_server", "clients_reach", r#"{"name":"beta"}"#),
+            fails(
+                "unknown_server",
+                "not_found",
+                "clients_reach",
+                r#"{"name":"nope"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "client_direct_ls",
+        claude_code_home,
+        &[
+            read("empty", "client_direct_ls", "{}"),
+            setup(
+                "client_direct_add",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false,"confirm":true}"#,
+            ),
+            read("entries", "client_direct_ls", r#"{"client":"claude-code"}"#),
+        ],
+    ),
+    prepared(
+        "client_direct_check",
+        claude_code_home,
+        &[
+            setup(
+                "client_direct_add",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false,"confirm":true}"#,
+            ),
+            read("in_sync", "client_direct_check", "{}"),
+        ],
+    ),
+    prepared(
+        "client_direct_add",
+        claude_code_home,
+        &[
+            read(
+                "plan",
+                "client_direct_add",
+                r#"{"name":"alpha","client":"claude-code"}"#,
+            ),
+            refused(
+                "refused",
+                "client_direct_add",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "client_direct_add",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "unsupported",
+                "backend_error",
+                "client_direct_add",
+                r#"{"name":"alpha","client":"goose"}"#,
+            ),
+            fails(
+                "missing",
+                "not_found",
+                "client_direct_add",
+                r#"{"name":"nope","client":"claude-code"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "client_direct_rm",
+        claude_code_home,
+        &[
+            setup(
+                "client_direct_add",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false,"confirm":true}"#,
+            ),
+            read(
+                "plan",
+                "client_direct_rm",
+                r#"{"name":"alpha","client":"claude-code"}"#,
+            ),
+            refused(
+                "refused",
+                "client_direct_rm",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "client_direct_rm",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
     case(
         "servers_uninstall",
         &[
@@ -1139,6 +1234,103 @@ const CASES: &[Case] = &[
                 r#"{"cwd":"{home}/proj","dry_run":true}"#,
             ),
             write("result", "context_bundle_undo", r#"{"cwd":"{home}/proj"}"#),
+        ],
+    ),
+    prepared(
+        "context_launch_profile_ls",
+        launch_profile_world,
+        &[
+            read("none", "context_launch_profile_ls", "{}"),
+            setup(
+                "context_launch_profile_add",
+                r#"{"name":"bare","set":"bare","dry_run":false,"confirm":true}"#,
+            ),
+            read("one", "context_launch_profile_ls", r#"{"name":"bare"}"#),
+            fails(
+                "unknown",
+                "not_found",
+                "context_launch_profile_ls",
+                r#"{"name":"nope"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "context_launch_profile_add",
+        launch_profile_world,
+        &[
+            read(
+                "plan",
+                "context_launch_profile_add",
+                r#"{"name":"bare","set":"bare"}"#,
+            ),
+            refused(
+                "refused",
+                "context_launch_profile_add",
+                r#"{"name":"bare","set":"bare","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "context_launch_profile_add",
+                r#"{"name":"bare","set":"bare","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "unknown_set",
+                "not_found",
+                "context_launch_profile_add",
+                r#"{"name":"other","set":"nope"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "context_launch_profile_rm",
+        launch_profile_world,
+        &[
+            setup(
+                "context_launch_profile_add",
+                r#"{"name":"bare","set":"bare","dry_run":false,"confirm":true}"#,
+            ),
+            read("plan", "context_launch_profile_rm", r#"{"name":"bare"}"#),
+            write(
+                "apply",
+                "context_launch_profile_rm",
+                r#"{"name":"bare","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "gone",
+                "not_found",
+                "context_launch_profile_rm",
+                r#"{"name":"bare"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "context_launch_profile_policy",
+        launch_profile_world,
+        &[
+            setup(
+                "client_direct_add",
+                r#"{"name":"alpha","client":"claude-code","dry_run":false,"confirm":true}"#,
+            ),
+            setup(
+                "context_launch_profile_add",
+                r#"{"name":"bare","set":"empty","deny_direct":true,"dry_run":false,"confirm":true}"#,
+            ),
+            read(
+                "plan",
+                "context_launch_profile_policy",
+                r#"{"name":"bare","cwd":"{home}/proj"}"#,
+            ),
+            write(
+                "apply",
+                "context_launch_profile_policy",
+                r#"{"name":"bare","cwd":"{home}/proj","dry_run":false}"#,
+            ),
+            fails(
+                "unknown",
+                "not_found",
+                "context_launch_profile_policy",
+                r#"{"name":"nope","cwd":"{home}/proj"}"#,
+            ),
         ],
     ),
     context_case(
@@ -2312,6 +2504,46 @@ fn differing_setup(world: &World) {
     let path = world.home.join(".claude/skills/acceptance/SETUP.md");
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(path, "# my setup\nstep one\n").unwrap();
+}
+
+fn claude_code_home(world: &World) {
+    std::fs::write(
+        world.home.join(".claude.json"),
+        r#"{"theme": "dark", "mcpServers": {"legacy-lint": {"command": "lint", "args": []}}}"#,
+    )
+    .unwrap();
+}
+
+fn launch_profile_world(world: &World) {
+    world.context_files();
+    claude_code_home(world);
+    let mut registry = world.registry();
+    registry["version"] = serde_json::json!(3);
+    registry["servers"][0]["enabled"] = serde_json::json!(true);
+    registry["servers"][1]["enabled"] = serde_json::json!(true);
+    registry["defaultAccessProfileId"] = serde_json::json!("default");
+    registry["profiles"] = serde_json::json!([
+        {"id": "default", "name": "Default", "enabledServerIds": ["srv-alpha", "srv-beta"]},
+        {"id": "bare", "name": "Bare", "enabledServerIds": ["srv-alpha"]},
+        {"id": "empty", "name": "Empty", "enabledServerIds": []},
+    ]);
+    world.write_registry(&registry);
+}
+
+fn folder_routing_world(world: &World) {
+    let mut registry = world.registry();
+    registry["version"] = serde_json::json!(3);
+    registry["servers"][0]["enabled"] = serde_json::json!(true);
+    registry["servers"][1]["enabled"] = serde_json::json!(true);
+    registry["defaultAccessProfileId"] = serde_json::json!("default");
+    registry["profiles"] = serde_json::json!([
+        {"id": "default", "name": "Default", "enabledServerIds": ["srv-alpha"]},
+        {"id": "focus", "name": "Focus", "enabledServerIds": ["srv-alpha"]},
+        {"id": "wide", "name": "Wide", "enabledServerIds": ["srv-alpha", "srv-beta"]},
+    ]);
+    registry["clientScopes"] = serde_json::json!({"claude-code": "focus"});
+    registry["folderProfiles"] = serde_json::json!([{"path": "/work/proj", "profile": "wide"}]);
+    world.write_registry(&registry);
 }
 
 fn sources_home(world: &World) {

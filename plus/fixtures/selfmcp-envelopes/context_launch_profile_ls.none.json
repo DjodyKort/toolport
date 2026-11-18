@@ -1,0 +1,9 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "base": "claude-code",
+    "profiles": []
+  },
+  "tool": "context_launch_profile_ls"
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "launch-profile", "ls", "nope"],
+  "envelope": {
+    "command": "context launch-profile ls",
+    "error": {
+      "code": "not_found",
+      "message": "no launch profile called nope"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

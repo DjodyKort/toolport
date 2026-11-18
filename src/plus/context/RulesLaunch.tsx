@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -11,10 +11,18 @@ import { syncContext } from "./commands";
 import { plural, shortPath } from "./model";
 import { Group, RowShell } from "./StackRows";
 
+const LaunchProfiles = lazy(() => import("./LaunchProfiles"));
+
 /** The one pipeline of this tab is `context sync`. This build runs its bundle part (apply the
- * bound bundles when auto-apply is on); the layers deploy, shims and launch profiles are not
+ * bound bundles when auto-apply is on); the layers deploy and shims are not
  * part of it yet and the tab says so instead of showing health it cannot know. */
-export default function RulesLaunch({ home }: { home: string | null }) {
+export default function RulesLaunch({
+  home,
+  folder,
+}: {
+  home: string | null;
+  folder: string | null;
+}) {
   const preview = useLoad(() => syncContext(true), "sync");
   const [busy, setBusy] = useState(false);
 
@@ -98,6 +106,9 @@ export default function RulesLaunch({ home }: { home: string | null }) {
           />
         ))}
       </Group>
+      <Suspense fallback={<p className="text-meta">Loading the launch profiles…</p>}>
+        <LaunchProfiles home={home} folder={folder} />
+      </Suspense>
       <Group title="Not built yet" hint="lands with the next part of the Context slice">
         <RowShell
           title="Rule layers"
@@ -108,8 +119,8 @@ export default function RulesLaunch({ home }: { home: string | null }) {
           subtitle="The source order of the shell and the presync stamp."
         />
         <RowShell
-          title="Launch profiles and the checkpoint gauge"
-          subtitle="Own client id per profile."
+          title="The checkpoint gauge"
+          subtitle="Auto-compact window and the checkpoint hook."
         />
       </Group>
     </div>

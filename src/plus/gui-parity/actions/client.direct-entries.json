@@ -1,0 +1,6 @@
+{
+  "route": "client-direct",
+  "status": "built",
+  "summary": "The Direct entries panel of a client and the Add direct entry dialog: the seven states, the plan with its hash before every write, Rewrite, Remove entry, Forget, Track it, Re-point and Undo (client direct ls, add, rm, check; client_direct_ls, client_direct_check, client_direct_add, client_direct_rm)",
+  "test": "src/plus/clients/DirectEntries.test.tsx"
+}

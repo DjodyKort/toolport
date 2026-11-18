@@ -1,0 +1,29 @@
+{
+  "arguments": {
+    "name": "bare"
+  },
+  "isError": false,
+  "result": {
+    "base": "claude-code",
+    "profiles": [
+      {
+        "accessSet": {
+          "id": "bare",
+          "name": "Bare"
+        },
+        "accessSetRef": "bare",
+        "clientId": "claude-code-bare",
+        "command": "claude --strict-mcp-config --mcp-config <WORLD>/home/.config/toolport/profiles/bare/mcp.json",
+        "denyDirect": false,
+        "discovery": null,
+        "folderWarnings": [],
+        "mcpFile": "<WORLD>/home/.config/toolport/profiles/bare/mcp.json",
+        "name": "bare",
+        "policyFolders": [],
+        "problems": [],
+        "state": "ok"
+      }
+    ]
+  },
+  "tool": "context_launch_profile_ls"
+}

@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { StatusCard } from "@/components/ui/status-card";
 import type { Registry } from "@/lib/types";
 import { plural } from "../settings/model";
-import { listAccessSets, listServers } from "./commands";
-import type { AccessSetRow, ServerListRow } from "./data";
+import { listAccessSets, listServers, loadReach } from "./commands";
+import type { AccessSetRow, ReachData, ReachFinding, ServerListRow } from "./data";
 import { changeMembership, useMembershipSync, type MembershipChange } from "./membership";
-import { identicalSets } from "./model";
+import { identicalSets, usedBy } from "./model";
 import { useLoad } from "./useLoad";
 
 const ARROWS: Record<string, [number, number]> = {
@@ -31,6 +31,7 @@ export default function AccessCompare({
 }: AccessCompareProps) {
   const servers = useLoad(listServers, registry);
   const sets = useLoad(listAccessSets, registry);
+  const reach = useLoad(loadReach, registry);
   const grid = useRef<HTMLDivElement>(null);
   const syncRegistry = useMembershipSync(registry, onRegistryChange);
 
@@ -69,6 +70,7 @@ export default function AccessCompare({
     syncRegistry(change);
     servers.reload();
     sets.reload();
+    reach.reload();
   }
 
   function toggle(server: ServerListRow, set: AccessSetRow) {
@@ -86,12 +88,23 @@ export default function AccessCompare({
       ?.focus();
   }
 
-  const offBadge = (server: ServerListRow) =>
-    !server.enabled && (
-      <Badge variant="off" className="ml-2">
-        Off
-      </Badge>
-    );
+  const unreached = new Set(
+    reach.data?.servers.filter((s) => s.unreached).map((s) => s.id),
+  );
+  const badges = (server: ServerListRow) => (
+    <>
+      {!server.enabled && (
+        <Badge variant="off" className="ml-2">
+          Off
+        </Badge>
+      )}
+      {unreached.has(server.id) && (
+        <Badge variant="warning" className="ml-2">
+          No set reaches it
+        </Badge>
+      )}
+    </>
+  );
 
   return (
     <section
@@ -132,6 +145,22 @@ export default function AccessCompare({
                     <span className="block font-normal text-muted-foreground">
                       {plural(set.serverIds.length, "server")}
                     </span>
+                    {reach.data && (
+                      <span className="block font-normal text-muted-foreground">
+                        {usedBy(
+                          reach.data.accessSets.find((r) => r.id === set.id) ?? {
+                            id: set.id,
+                            name: set.name,
+                            listed: set.serverIds,
+                            reached: [],
+                            default: false,
+                            clients: [],
+                            folders: [],
+                          },
+                          reach.data,
+                        )}
+                      </span>
+                    )}
                     {same.has(set.id) && (
                       <Badge variant="info">same as {same.get(set.id)}</Badge>
                     )}
@@ -147,7 +176,7 @@ export default function AccessCompare({
                 >
                   <th scope="row" className="px-4 py-1.5 font-medium">
                     {server.name}
-                    {offBadge(server)}
+                    {badges(server)}
                   </th>
                   {columns.map((set, col) => {
                     const member = set.serverIds.includes(server.id);
@@ -185,7 +214,7 @@ export default function AccessCompare({
               >
                 <span className="text-sm font-medium">
                   {server.name}
-                  {offBadge(server)}
+                  {badges(server)}
                 </span>
                 <span className="flex flex-wrap gap-1.5">
                   {columns.map((set) => {
@@ -210,6 +239,68 @@ export default function AccessCompare({
           </ul>
         </div>
       )}
+      {reach.error && (
+        <p className="text-meta text-muted-foreground">
+          Who uses each set could not be read: {reach.error}
+        </p>
+      )}
+      {reach.data && <FolderRouting reach={reach.data} />}
     </section>
   );
 }
+
+/** The folder mappings and what the gateway makes of them: folder routing outranks a client's own
+ * access set, which is the one precedence that surprises. */
+function FolderRouting({ reach }: { reach: ReachData }) {
+  if (reach.folders.length === 0 && reach.findings.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      {reach.folders.length > 0 && (
+        <div>
+          <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Folder routing
+          </h3>
+          <ul className="toolport-list mt-1">
+            {reach.folders.map((folder) => (
+              <li
+                key={folder.path}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2 text-meta last:border-b-0"
+              >
+                <span className="min-w-0 flex-1 basis-[180px] font-mono break-all">
+                  {folder.path}
+                </span>
+                <span className="text-muted-foreground">
+                  {folder.missing
+                    ? "access set was deleted"
+                    : `${folder.accessSetName ?? "every enabled server"} · ${plural(folder.servers.length, "server")}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {reach.findings.length > 0 && (
+        <ul aria-label="Access findings" className="flex flex-col gap-1.5">
+          {reach.findings.map((finding) => (
+            <li
+              key={`${finding.kind}:${finding.server ?? ""}:${finding.client ?? ""}:${finding.folder ?? ""}`}
+              className="flex items-start gap-2 rounded-lg border border-border px-3 py-2 text-meta"
+            >
+              <Badge variant="warning" className="shrink-0">
+                {FINDING_LABEL[finding.kind]}
+              </Badge>
+              <span className="min-w-0 break-words">{finding.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const FINDING_LABEL: Record<ReachFinding["kind"], string> = {
+  unreached: "Nothing reaches it",
+  "folder-outranks": "Folder wins",
+  "missing-set": "Set deleted",
+  "direct-orphan": "Entry left behind",
+};

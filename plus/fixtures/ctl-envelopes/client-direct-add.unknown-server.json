@@ -1,0 +1,13 @@
+{
+  "argv": ["client", "direct", "add", "nope", "--client", "claude-code", "--dry-run"],
+  "envelope": {
+    "command": "client direct add",
+    "error": {
+      "code": "not_found",
+      "message": "Server 'nope' not found"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

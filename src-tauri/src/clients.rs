@@ -23,6 +23,7 @@ mod claude_add;
 mod claude_profiles;
 pub use claude_profiles::ClaudeProfile;
 mod diagnostics;
+pub(crate) mod direct_entry;
 mod disconnect;
 mod recovery_values;
 pub(crate) use disconnect::for_purge as disconnect_all_for_purge;

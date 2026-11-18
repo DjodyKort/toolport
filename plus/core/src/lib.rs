@@ -8,6 +8,7 @@ pub mod catalog_index;
 pub mod compression;
 pub mod context;
 pub mod ctl;
+pub mod direct;
 pub mod egress;
 pub mod fsx;
 pub mod handshake;
@@ -25,6 +26,7 @@ pub mod plugins;
 pub mod progress;
 #[cfg(test)]
 mod randutil;
+pub mod reach;
 mod redact;
 pub mod resource_links;
 pub mod selective;

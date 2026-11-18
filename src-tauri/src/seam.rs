@@ -183,6 +183,25 @@ pub fn search_only_surface(
     let _ = (full_list, reg, owner_of, surface, helpers);
 }
 
+/// Whether `server` is an entry Toolport wrote into `client` for a direct run: "Move into gateway"
+/// must not offer it, or the launcher would be imported as a server.
+pub(crate) fn is_direct(
+    client: &crate::clients::DetectedClient,
+    server: &crate::clients::McpServer,
+) -> bool {
+    #[cfg(feature = "plus")]
+    return toolport_plus::direct::is_recorded(
+        &crate::plus_adapter::HostAdapter,
+        &client.id,
+        &server.name,
+    );
+    #[cfg(not(feature = "plus"))]
+    {
+        let _ = (client, server);
+        false
+    }
+}
+
 /// Whether `uv` with these arguments syncs an environment before it can answer, so its first
 /// `initialize` gets the launcher budget. `args` are the arguments after the command.
 pub fn is_uv_download_launcher(args: &[String]) -> bool {

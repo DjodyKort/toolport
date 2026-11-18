@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "other",
+    "set": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no access set called nope; the access sets are: Default, Bare, Empty"
+    }
+  },
+  "text": "not_found: no access set called nope; the access sets are: Default, Bare, Empty",
+  "tool": "context_launch_profile_add"
+}

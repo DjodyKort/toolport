@@ -8,6 +8,8 @@ import type {
   BundleStatusData,
   ComposeData,
   FolderStatusData,
+  LaunchProfilesData,
+  LaunchProfileWriteData,
   LoadsData,
   MeasureData,
   SyncData,
@@ -185,3 +187,54 @@ export const removeBundle = (name: string, dryRun: boolean) =>
 
 export const syncContext = (dryRun: boolean) =>
   ctlData<SyncData>(["context", "sync", ...dry(dryRun)]);
+
+export const listLaunchProfiles = (cwd?: string) =>
+  ctlData<LaunchProfilesData>([
+    "context",
+    "launch-profile",
+    "ls",
+    ...(cwd ? ["--cwd", cwd] : []),
+  ]);
+
+export interface LaunchProfileFields {
+  /** Access set by name or id; required for a new profile. */
+  set?: string;
+  denyDirect?: boolean;
+}
+
+export const saveLaunchProfile = (
+  name: string,
+  fields: LaunchProfileFields,
+  dryRun: boolean,
+) =>
+  ctlData<LaunchProfileWriteData>([
+    "context",
+    "launch-profile",
+    "add",
+    name,
+    ...(fields.set ? ["--set", fields.set] : []),
+    ...(fields.denyDirect === undefined
+      ? []
+      : ["--deny-direct", fields.denyDirect ? "on" : "off"]),
+    ...dry(dryRun),
+  ]);
+
+export const removeLaunchProfile = (name: string, dryRun: boolean) =>
+  ctlData<LaunchProfileWriteData>([
+    "context",
+    "launch-profile",
+    "rm",
+    name,
+    ...dry(dryRun),
+  ]);
+
+export const renderLaunchPolicy = (name: string, cwd: string, dryRun: boolean) =>
+  ctlData<LaunchProfileWriteData>([
+    "context",
+    "launch-profile",
+    "policy",
+    name,
+    "--cwd",
+    cwd,
+    ...dry(dryRun),
+  ]);

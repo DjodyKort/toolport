@@ -1,0 +1,65 @@
+{
+  "argv": ["context", "launch-profile", "add", "bare", "--set", "empty", "--dry-run"],
+  "envelope": {
+    "command": "context launch-profile add",
+    "data": {
+      "clientId": "claude-code-bare",
+      "created": false,
+      "dryRun": true,
+      "folderWarnings": [
+        {
+          "folder": "<WORLD>/home/proj",
+          "rule": "A folder mapping outranks a client's own access set: inside a mapped folder, and below it, the gateway uses the folder's set for every client. Order: folder mapping, the client's own set, TOOLPORT_PROFILE, Default access.",
+          "servers": ["srv-alpha", "srv-beta"],
+          "text": "In <WORLD>/home/proj the gateway uses Wide, not launch profile bare's own set: it adds 2 servers its own set leaves out (alpha, beta). A folder mapping outranks a client's own access set: inside a mapped folder, and below it, the gateway uses the folder's set for every client. Order: folder mapping, the client's own set, TOOLPORT_PROFILE, Default access."
+        }
+      ],
+      "name": "bare",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "bind claude-code-bare to the access set Empty and give it Claude Code's discovery mode",
+            "diff": {
+              "after": "clientScopes.claude-code-bare: empty\nclientDiscovery.claude-code-bare: (inherits the global mode)\n",
+              "before": "clientScopes.claude-code-bare: bare\nclientDiscovery.claude-code-bare: (inherits the global mode)\n"
+            },
+            "keys": ["clientScopes.claude-code-bare", "clientDiscovery.claude-code-bare"],
+            "op": "update",
+            "path": "<WORLD>/data/registry.json"
+          },
+          {
+            "detail": "one gateway entry carrying TOOLPORT_CLIENT_ID=claude-code-bare",
+            "diff": {
+              "after": "{\n  \"mcpServers\": {\n    \"toolport\": {\n      \"args\": [],\n      \"command\": \"<BIN>/toolport-gateway\",\n      \"env\": {\n        \"TOOLPORT_CLIENT_ID\": \"claude-code-bare\",\n        \"TOOLPORT_PROFILE\": \"empty\"\n      }\n    }\n  }\n}\n",
+              "before": "{\n  \"mcpServers\": {\n    \"toolport\": {\n      \"args\": [],\n      \"command\": \"<BIN>/toolport-gateway\",\n      \"env\": {\n        \"TOOLPORT_CLIENT_ID\": \"claude-code-bare\",\n        \"TOOLPORT_PROFILE\": \"bare\"\n      }\n    }\n  }\n}\n"
+            },
+            "op": "merge",
+            "path": "<WORLD>/home/.config/toolport/profiles/bare/mcp.json"
+          },
+          {
+            "detail": "change the record of bare",
+            "diff": {
+              "after": "accessSet: empty\ndenyDirect: false\n",
+              "before": "accessSet: bare\ndenyDirect: false\n"
+            },
+            "keys": ["launchProfiles.bare"],
+            "op": "merge",
+            "path": "<WORLD>/home/.config/mcpm/context.json"
+          }
+        ],
+        "summary": "Update launch profile bare: Claude Code started with claude-code-bare sees the access set Empty",
+        "undo": "toolportctl context launch-profile add bare --set bare --deny-direct off",
+        "warnings": [
+          "In <WORLD>/home/proj the gateway uses Wide, not launch profile bare's own set: it adds 2 servers its own set leaves out (alpha, beta). A folder mapping outranks a client's own access set: inside a mapped folder, and below it, the gateway uses the folder's set for every client. Order: folder mapping, the client's own set, TOOLPORT_PROFILE, Default access.",
+          "claude-code has no discovery override, so claude-code-bare follows the global mode; the small-catalog Full that claude-code gets under Auto is built into that client id and cannot be copied"
+        ]
+      },
+      "profile": null,
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -670,6 +670,9 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
   return {
     servers,
     sets,
+    get defaultAccess() {
+      return defaultAccess;
+    },
     authSection,
     secret,
     auth,

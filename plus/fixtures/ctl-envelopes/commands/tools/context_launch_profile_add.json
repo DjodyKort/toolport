@@ -1,0 +1,7 @@
+{
+  "command": "context launch-profile add",
+  "dryRun": "default-on",
+  "name": "context_launch_profile_add",
+  "tier": "write",
+  "toolTier": 3
+}

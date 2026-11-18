@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no server 'nope'"
+    }
+  },
+  "text": "not_found: no server 'nope'",
+  "tool": "clients_reach"
+}

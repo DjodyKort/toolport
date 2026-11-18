@@ -4,9 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Registry, ServerEntry } from "@/lib/types";
 import { plural } from "../settings/model";
-import type { AccessSetsData, ServerInfoData } from "./data";
+import type { AccessSetsData, ReachData, ServerInfoData } from "./data";
+import { clientName } from "./format";
 import { changeMembership, clientBindings, type MembershipChange } from "./membership";
-import { leftOutOfDefault } from "./model";
+import { leftOutOfDefault, reachedBy } from "./model";
 import { OperationRow } from "./OperationRow";
 import type { Loaded } from "./useLoad";
 
@@ -16,6 +17,8 @@ export interface ReachRowProps {
   registry: Registry | null;
   info: Loaded<ServerInfoData>;
   sets: Loaded<AccessSetsData>;
+  /** Who reaches the server across clients and folders; the row works without it. */
+  reach?: Loaded<ReachData>;
   /** Runs after a membership changed, so the app's registry and both readers follow. */
   onChanged: (change: MembershipChange) => void | Promise<void>;
   onOpenAccessSets: () => void;
@@ -29,6 +32,7 @@ export function ReachRow({
   registry,
   info,
   sets,
+  reach,
   onChanged,
   onOpenAccessSets,
 }: ReachRowProps) {
@@ -56,10 +60,16 @@ export function ReachRow({
   const leftOut = leftOutOfDefault(enabled, data, info.data);
   const defaultName = defaultSet ? defaultSet.name : "every enabled server";
   const bindings = clientBindings(registry);
-  const isOpen = open ?? leftOut;
+  const facts = reach?.data?.servers.find((s) => s.id === server.id);
+  const unreached = enabled && facts?.unreached === true;
+  const reachedNames = reach?.data && facts ? reachedBy(facts, reach.data) : [];
+  const isOpen = open ?? (leftOut || unreached);
 
   let sub = `Default access: ${defaultName} · listed in ${listed.size} of ${plural(data.accessSets.length, "access set")}`;
   if (!enabled) sub = "Switched off · no client reaches it, and its access sets are kept";
+  else if (unreached)
+    sub =
+      "No access set reaches it: the default access, the clients' own sets and the folder mappings all leave it out";
   else if (leftOut) sub = `Clients on the default access (${defaultName}) cannot see it`;
 
   async function toggle(set: { id: string; name: string }, member: boolean) {
@@ -74,10 +84,12 @@ export function ReachRow({
       icon={<Network />}
       title="Who can reach it"
       sub={sub}
-      tone={leftOut ? "warning" : undefined}
+      tone={leftOut || unreached ? "warning" : undefined}
       badge={
         !enabled ? (
           <Badge variant="off">Off</Badge>
+        ) : unreached ? (
+          <Badge variant="warning">Nobody reaches it</Badge>
         ) : leftOut ? (
           <Badge variant="warning">Left out</Badge>
         ) : (
@@ -89,6 +101,17 @@ export function ReachRow({
       open={isOpen}
       onToggle={() => setOpen(!isOpen)}
     >
+      {enabled && facts && (
+        <p className="text-meta text-muted-foreground">
+          {reachedNames.length > 0
+            ? `Reached by ${reachedNames.join(", ")}.`
+            : "No client, folder or default access reaches it through an access set."}
+          {facts.direct.length > 0 &&
+            ` Direct entries bypass the sets: ${facts.direct
+              .map((d) => `${clientName(d.client)} (${d.state})`)
+              .join(", ")}.`}
+        </p>
+      )}
       {data.accessSets.length === 0 ? (
         <p className="text-meta text-muted-foreground">
           There are no access sets, so every client sees every enabled server.

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "bare"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no launch profile called bare"
+    }
+  },
+  "text": "not_found: no launch profile called bare",
+  "tool": "context_launch_profile_rm"
+}

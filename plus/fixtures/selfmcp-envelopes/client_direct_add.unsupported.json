@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "client": "goose",
+    "name": "alpha"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "backend_error",
+      "message": "Goose cannot hold a direct entry: its config is not a JSON or TOML server list"
+    }
+  },
+  "text": "backend_error: Goose cannot hold a direct entry: its config is not a JSON or TOML server list",
+  "tool": "client_direct_add"
+}

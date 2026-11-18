@@ -5,6 +5,12 @@ import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
 import { createCompressionWorld, type CompressionWorldOptions } from "./compressionWorld";
 import { createContextWorld, type ContextWorldOptions } from "./contextWorld";
 import { createMemoryWorld, type MemoryWorldOptions } from "./memoryWorld";
+import { createDirectWorld, type DirectWorldOptions } from "./directWorld";
+import { createReachWorld, type ReachWorldOptions } from "./reachWorld";
+import {
+  createLaunchProfileWorld,
+  type LaunchProfileWorldOptions,
+} from "./launchProfileWorld";
 import { createLibraryWorld, type LibraryWorldOptions } from "./libraryWorld";
 import { createSetupWorld } from "./setupWorld";
 import { createSyncWorld, type SyncWorldOptions } from "./syncWorld";
@@ -64,6 +70,12 @@ export interface WorldOptions {
   catalog?: CatalogWorldOptions;
   /** The Sync view of Setup & backup: set up or not, locked keychain, conflicts, the remote. */
   sync?: SyncWorldOptions;
+  /** The clients that can hold a direct entry and the entries they hold. */
+  direct?: DirectWorldOptions;
+  /** The clients with an access set of their own and the folder mappings `client reach` reads. */
+  reach?: ReachWorldOptions;
+  /** The launch profiles `context launch-profile` lists and the folder mappings that outrank them. */
+  launchProfiles?: LaunchProfileWorldOptions;
 }
 
 /** A small in-memory toolportctl: enough state for install, uninstall and doctor to answer the way
@@ -80,6 +92,12 @@ export function createCtlWorld(options: WorldOptions = {}) {
   const memoryWorld = createMemoryWorld(options.memory);
   const attentionWorld = createAttentionWorld(options.attention);
   const catalogWorld = createCatalogWorld(options.catalog);
+  const directWorld = createDirectWorld(options.direct ?? {}, () => serverWorld.servers);
+  const reachWorld = createReachWorld(options.reach ?? {}, () => serverWorld);
+  const launchProfileWorld = createLaunchProfileWorld(
+    options.launchProfiles ?? {},
+    () => serverWorld.sets,
+  );
   const defaultAccess = accessSets[0] ?? null;
   const doctorMode = options.doctor ?? "ok";
   let state: SelfMcpState = options.self ?? "missing";
@@ -310,6 +328,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
     library: libraryWorld,
     memory: memoryWorld,
     catalog: catalogWorld,
+    direct: directWorld,
     run(argv: string[], stdin?: string): CtlReply {
       const key = argv.filter((a) => a !== "--json");
       const [first, second] = key;
@@ -321,12 +340,17 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "secret") return serverWorld.secret(key, stdin);
       if (first === "auth") return serverWorld.auth(key);
       if (first === "task") return taskWorld.run(key.slice(1), stdin);
+      if (first === "context" && second === "launch-profile") {
+        return launchProfileWorld.run(key);
+      }
       if (first === "context" || first === "plugins") return contextWorld.run(key);
       if (first === "memory" || first === "sessions") return memoryWorld.run(key);
       if (first === "compression") return compressionWorld.run(key);
       if (first === "setup") return setupWorld.run(key, stdin);
       if (first === "catalog") return catalogWorld.run(key);
       if (first === "sync") return syncWorld.run(key, stdin);
+      if (first === "client" && second === "direct") return directWorld.run(key);
+      if (first === "client" && second === "reach") return reachWorld.run(key);
       if (["skills", "library", "sources", "agents", "styles"].includes(first ?? ""))
         return libraryWorld.run(key);
       if (first === "mcp") {

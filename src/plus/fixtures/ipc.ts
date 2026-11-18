@@ -34,6 +34,11 @@ export function resetPlusFixture(options: WorldOptions & { down?: boolean } = {}
   jobs.clear();
 }
 
+/** The running in-memory toolportctl, for a test that changes its world behind the screen's back. */
+export function plusFixtureWorld(): CtlWorld {
+  return world;
+}
+
 /** Keeps the app fixture's access sets and the fork's world as one state: an upstream
  * `set_access_server` call (`write`) goes into the world, and the registry's memberships of the
  * world's servers then follow the world, so what toolportctl wrote shows in upstream's reads. */

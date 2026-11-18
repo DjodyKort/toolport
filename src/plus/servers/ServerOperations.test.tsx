@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
+import type { WorldOptions } from "../fixtures/ctlWorld";
 import { resetPlusFixture } from "../fixtures/ipc";
 import { setsFromIds, stdioServer, type WorldServer } from "../fixtures/serverWorld";
 import { guiParity } from "../guiParity";
@@ -49,12 +50,14 @@ function setup(
     servers?: WorldServer[];
     defaultAccess?: string | null;
     sets?: Array<{ id: string; name: string; serverIds: string[] }>;
+    reach?: WorldOptions["reach"];
   } = {},
 ) {
   const servers = options.servers ?? [alpha, beta];
   const sets = options.sets ?? setsFromIds(["local", "work"], servers);
   resetPlusFixture({
     servers: { servers, sets, defaultAccess: options.defaultAccess ?? null },
+    reach: options.reach,
   });
   const registry = registryOf(servers, sets, { defaultAccess: options.defaultAccess });
   getRegistryMock.mockResolvedValue(registry);
@@ -158,11 +161,13 @@ describe("Operations list", () => {
     expect(toast.success).toHaveBeenCalledWith("Removed alpha-api and 1 vault entry");
   });
 
-  it("test06_servers_remove_keeps_the_vault_and_shows_the_s11_note_for_client_entries", async () => {
+  it("test06_servers_remove_keeps_the_vault_and_says_keep_client_entries_leaves_orphans", async () => {
     setup();
     await userEvent.click(await screen.findByRole("button", { name: "Remove…" }));
     const dialog = await screen.findByRole("dialog", { name: "Remove alpha-api?" });
-    expect(within(dialog).getByText("Takes effect in S11.")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/show as orphans until you remove them/),
+    ).toBeInTheDocument();
     await userEvent.click(
       within(dialog).getByRole("checkbox", { name: /Also remove its vault entries/ }),
     );
@@ -170,6 +175,9 @@ describe("Operations list", () => {
       within(dialog).getByRole("checkbox", { name: /Keep client entries/ }),
     );
     expect(await within(dialog).findByText("No vault entries")).toBeInTheDocument();
+    expect(
+      await within(dialog).findByText(/Direct entries stay in the clients' files/),
+    ).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: "Remove server" }));
     await waitFor(() => expect(host.closeServer).toHaveBeenCalled());
     expect(ranArgv()).toContainEqual([
@@ -199,6 +207,7 @@ describe("Operations list", () => {
         { id: "local", name: "Local fixture", serverIds: ["srv-alpha", "srv-beta"] },
         { id: "work", name: "Work", serverIds: ["srv-beta"] },
       ],
+      reach: { clients: [{ id: "claude-code", set: "local" }] },
     });
     expect(servers).toHaveLength(2);
     expect(await screen.findByText("1 need you")).toBeInTheDocument();
@@ -237,5 +246,49 @@ describe("Operations list", () => {
         /Switched off · no client reaches it, and its access sets are kept/,
       ),
     ).toBeInTheDocument();
+  });
+
+  it("test10_a_server_no_access_set_reaches_says_so_and_opens_the_row", async () => {
+    setup({
+      defaultAccess: "work",
+      sets: [
+        { id: "local", name: "Local fixture", serverIds: ["srv-alpha", "srv-beta"] },
+        { id: "work", name: "Work", serverIds: ["srv-beta"] },
+      ],
+    });
+    expect(await screen.findByText("Nobody reaches it")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /No access set reaches it: the default access, the clients' own sets/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /No client, folder or default access reaches it through an access set/,
+      ),
+    ).toBeInTheDocument();
+    expect(ranArgv()).toContainEqual(["client", "reach"]);
+  });
+
+  it("test11_the_reach_row_names_the_clients_and_folders_that_reach_the_server", async () => {
+    setup({
+      defaultAccess: "work",
+      sets: [
+        { id: "local", name: "Local fixture", serverIds: ["srv-alpha", "srv-beta"] },
+        { id: "work", name: "Work", serverIds: ["srv-beta"] },
+      ],
+      reach: {
+        clients: [{ id: "claude-code", name: "Claude Code", set: "local" }],
+        folders: [{ path: "/work/proj", set: "local" }],
+        direct: [{ client: "cursor", server: "srv-alpha", state: "stale" }],
+      },
+    });
+    expect(
+      await screen.findByText(/Reached by Claude Code, folder \/work\/proj\./),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Direct entries bypass the sets: Cursor \(stale\)/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Nobody reaches it")).not.toBeInTheDocument();
   });
 });

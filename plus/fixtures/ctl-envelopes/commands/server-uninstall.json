@@ -16,7 +16,7 @@
     },
     {
       "aliases": [],
-      "effect": "Leave client entries alone; none exist per server on the gateway, direct entries are handled with them",
+      "effect": "Leave the direct client entries Toolport wrote for the server in place",
       "escalates": false,
       "hidden": false,
       "name": "--keep-clients",

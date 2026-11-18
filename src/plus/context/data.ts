@@ -265,3 +265,48 @@ export interface ComposeData {
   totalTokens: number;
   basis: "estimate";
 }
+
+export type LaunchProfileState =
+  "ok" | "set-missing" | "unbound" | "file-missing" | "stale-file";
+
+export interface FolderWarning {
+  folder: string | null;
+  text: string;
+  servers: string[];
+  /** The precedence rule the gateway applies, as `client reach` states it. */
+  rule: string;
+}
+
+export interface LaunchProfileRow {
+  name: string;
+  clientId: string;
+  accessSet: { id: string; name: string } | null;
+  accessSetRef: string;
+  denyDirect: boolean;
+  discovery: string | null;
+  state: LaunchProfileState;
+  problems: string[];
+  mcpFile: string;
+  command: string;
+  policyFolders: string[];
+  folderWarnings: FolderWarning[];
+}
+
+export interface LaunchProfilesData {
+  profiles: LaunchProfileRow[];
+  base: string;
+}
+
+export interface LaunchProfileWriteData {
+  dryRun: boolean;
+  name: string;
+  clientId: string;
+  created?: boolean;
+  plan: Plan;
+  result: WriteResult | null;
+  profile?: LaunchProfileRow | null;
+  folderWarnings?: FolderWarning[];
+  keys?: Array<{ serverName: string }>;
+  cwd?: string;
+  denyDirect?: boolean;
+}

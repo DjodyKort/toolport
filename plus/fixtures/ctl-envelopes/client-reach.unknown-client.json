@@ -1,0 +1,13 @@
+{
+  "argv": ["client", "reach", "--client", "nope"],
+  "envelope": {
+    "command": "client reach",
+    "error": {
+      "code": "not_found",
+      "message": "no client 'nope' reaches the gateway"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

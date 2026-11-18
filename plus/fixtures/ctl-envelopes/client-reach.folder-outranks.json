@@ -1,0 +1,112 @@
+{
+  "argv": ["client", "reach"],
+  "envelope": {
+    "command": "client reach",
+    "data": {
+      "accessRows": [
+        {
+          "action": {
+            "command": ["toolportctl", "client", "reach"],
+            "label": "Review"
+          },
+          "detail": "In /work/proj the gateway uses Wide, not Claude Code's own set: it adds 1 server its own set leaves out (beta). A folder mapping outranks a client's own access set: inside a mapped folder, and below it, the gateway uses the folder's set for every client. Order: folder mapping, the client's own set, TOOLPORT_PROFILE, Default access.",
+          "id": "access:folder:/work/proj:claude-code",
+          "title": "Folder /work/proj uses its own access set for 1 client"
+        }
+      ],
+      "accessSets": [
+        {
+          "clients": [],
+          "default": true,
+          "folders": [],
+          "id": "default",
+          "listed": ["srv-alpha"],
+          "name": "Default",
+          "reached": ["srv-alpha"]
+        },
+        {
+          "clients": ["claude-code"],
+          "default": false,
+          "folders": [],
+          "id": "focus",
+          "listed": ["srv-alpha"],
+          "name": "Focus",
+          "reached": ["srv-alpha"]
+        },
+        {
+          "clients": [],
+          "default": false,
+          "folders": ["/work/proj"],
+          "id": "wide",
+          "listed": ["srv-alpha", "srv-beta"],
+          "name": "Wide",
+          "reached": ["srv-alpha", "srv-beta"]
+        }
+      ],
+      "clients": [
+        {
+          "accessSet": "focus",
+          "accessSetName": "Focus",
+          "gateway": false,
+          "id": "claude-code",
+          "missing": false,
+          "name": "Claude Code",
+          "ownSet": true,
+          "servers": ["srv-alpha"]
+        }
+      ],
+      "defaultAccess": {
+        "accessSet": "default",
+        "accessSetName": "Default",
+        "missing": false,
+        "servers": ["srv-alpha"]
+      },
+      "findings": [
+        {
+          "client": "claude-code",
+          "folder": "/work/proj",
+          "kind": "folder-outranks",
+          "server": null,
+          "servers": ["srv-beta"],
+          "text": "In /work/proj the gateway uses Wide, not Claude Code's own set: it adds 1 server its own set leaves out (beta). A folder mapping outranks a client's own access set: inside a mapped folder, and below it, the gateway uses the folder's set for every client. Order: folder mapping, the client's own set, TOOLPORT_PROFILE, Default access."
+        }
+      ],
+      "folders": [
+        {
+          "accessSet": "wide",
+          "accessSetName": "Wide",
+          "missing": false,
+          "path": "/work/proj",
+          "servers": ["srv-alpha", "srv-beta"]
+        }
+      ],
+      "servers": [
+        {
+          "clients": ["claude-code"],
+          "default": true,
+          "direct": [],
+          "enabled": true,
+          "folders": ["/work/proj"],
+          "id": "srv-alpha",
+          "listedIn": ["default", "focus", "wide"],
+          "name": "alpha",
+          "unreached": false
+        },
+        {
+          "clients": [],
+          "default": false,
+          "direct": [],
+          "enabled": true,
+          "folders": ["/work/proj"],
+          "id": "srv-beta",
+          "listedIn": ["wide"],
+          "name": "beta",
+          "unreached": false
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

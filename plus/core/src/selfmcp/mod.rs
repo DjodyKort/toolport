@@ -6,13 +6,16 @@ mod attention;
 mod backend;
 mod catalog;
 mod catalog_index;
+mod clients;
 mod compression;
 #[cfg(test)]
 mod compression_tests;
 mod content;
 mod context;
+mod launch_profile;
 mod library;
 mod memory;
+mod reach;
 pub mod register;
 mod servers;
 mod setup;

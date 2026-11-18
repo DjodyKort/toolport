@@ -53,6 +53,7 @@ import { ImportReviewDialog } from "@/components/ImportReviewDialog";
 import { clientRestartHint, clientRestartHintAfterRemoval } from "@/lib/clientConnect";
 import { ClientRecoveryBanners } from "@/components/ClientRecoveryBanners";
 import { clientDiscovery } from "@/lib/clientDiscovery";
+import { PlusClientDirect } from "@/plus/clients/slots";
 
 interface Props {
   client: DetectedClient;
@@ -864,6 +865,7 @@ export function ClientDetail({ client, registry, onChanged, onRegistryChange }: 
         </Card>
       )}
 
+      <PlusClientDirect client={client} onChanged={onChanged} />
       {/* Import: client servers are sources to pull into Toolport. The WHOLE block only
           renders when the client actually has servers of its own to import - otherwise it
           used to show a header + a "how importing works" explainer describing Import / Move

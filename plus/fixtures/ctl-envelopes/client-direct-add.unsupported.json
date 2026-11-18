@@ -1,0 +1,13 @@
+{
+  "argv": ["client", "direct", "add", "alpha", "--client", "goose", "--dry-run"],
+  "envelope": {
+    "command": "client direct add",
+    "error": {
+      "code": "unsupported",
+      "message": "Goose cannot hold a direct entry: its config is not a JSON or TOML server list"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

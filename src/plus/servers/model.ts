@@ -1,5 +1,12 @@
 import type { ProbeResult, Registry, ServerEntry } from "@/lib/types";
-import type { AccessSetRow, AccessSetsData, ServerInfoData } from "./data";
+import type {
+  AccessSetRow,
+  AccessSetsData,
+  ReachData,
+  ReachServer,
+  ReachSet,
+  ServerInfoData,
+} from "./data";
 import { clientBindings } from "./membership";
 
 /** Sets whose members are exactly the same servers, so the table can say so instead of leaving two
@@ -73,4 +80,26 @@ export function setupDone(facts: SetupFacts): boolean {
     facts.reachKnown &&
     facts.narrow.length === 0
   );
+}
+
+/** Who uses a set, as its column header says it: the default access, the clients bound to it and
+ * folder routing; `none` when nothing does. */
+export function usedBy(set: ReachSet, reach: ReachData): string {
+  const names = new Map(reach.clients.map((client) => [client.id, client.name]));
+  const parts = [
+    ...(set.default ? ["default"] : []),
+    ...set.clients.map((id) => names.get(id) ?? id),
+    ...(set.folders.length > 0 ? ["folder routing"] : []),
+  ];
+  return parts.length > 0 ? parts.join(", ") : "none";
+}
+
+/** Names of the clients and folders that reach a server, for the Reach row. */
+export function reachedBy(server: ReachServer, reach: ReachData): string[] {
+  const names = new Map(reach.clients.map((client) => [client.id, client.name]));
+  return [
+    ...(server.default ? ["the default access"] : []),
+    ...server.clients.map((id) => names.get(id) ?? id),
+    ...server.folders.map((path) => `folder ${path}`),
+  ];
 }

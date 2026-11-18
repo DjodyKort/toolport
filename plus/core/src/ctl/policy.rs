@@ -15,8 +15,11 @@ use super::agents;
 use super::attention;
 use super::auth;
 use super::catalog;
+use super::client_direct;
+use super::client_reach;
 use super::context;
 use super::flags::{switch, value, Flag, Spec};
+use super::launch_profile;
 use super::library;
 use super::library_select;
 use super::mcp;
@@ -383,6 +386,21 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&server::RESTART])
         .args(&[req("server")])
         .skip("asks every gateway to restart a server; its --dry-run is a golden step"),
+    row("client direct add", W)
+        .dry()
+        .spec(&[&client_direct::WRITE])
+        .args(&[req("server")])
+        .requires(&["--client"])
+        .skip("writes a client file; its --dry-run is a golden step"),
+    row("client direct rm", D)
+        .dry()
+        .spec(&[&client_direct::WRITE])
+        .args(&[req("server")])
+        .requires(&["--client"])
+        .skip("removes a client entry; its --dry-run is a golden step"),
+    row("client direct ls", R).spec(&[&client_direct::READ]),
+    row("client direct check", R).spec(&[&client_direct::READ]),
+    row("client reach", R).spec(&[&client_reach::REACH]),
     row("auth statusline", R),
     row("auth hook", R),
     row("auth probe", R).needs(&[Needs::Network]).spec(&[&auth::PROBE]),
@@ -481,6 +499,23 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&memory::RETENTION])
         .smoke(&[]),
+    row("context launch-profile ls", R).spec(&[&launch_profile::LS]),
+    row("context launch-profile add", W)
+        .dry()
+        .spec(&[&launch_profile::ADD])
+        .args(&[req("name")])
+        .skip("binds a client id in the registry and writes a file; its --dry-run is a golden step"),
+    row("context launch-profile rm", D)
+        .dry()
+        .spec(&[&launch_profile::RM])
+        .args(&[req("name")])
+        .skip("removes a binding and a file; its --dry-run is a golden step"),
+    row("context launch-profile policy", W)
+        .dry()
+        .spec(&[&launch_profile::POLICY])
+        .args(&[req("name")])
+        .requires(&["--cwd"])
+        .skip("writes a folder's settings; its --dry-run is a golden step"),
     row("plugins off", W)
         .dry()
         .spec(&[&plugins::OFF])
@@ -1093,6 +1128,11 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("servers_update_config", W, "server edit"),
     maps("servers_set_mode", W, "server mode"),
     maps("servers_uninstall", D, "server uninstall"),
+    maps("clients_reach", R, "client reach"),
+    maps("client_direct_ls", R, "client direct ls"),
+    maps("client_direct_check", R, "client direct check"),
+    maps("client_direct_add", W, "client direct add").on(),
+    maps("client_direct_rm", D, "client direct rm").on(),
     maps("servers_restart", W, "server restart").on(),
     maps("servers_repo_status", R, "server repo status"),
     maps("servers_auth", W, "auth login"),
@@ -1101,6 +1141,20 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("context_bundle_apply", W, "context bundle apply").param(),
     maps("context_bundle_undo", W, "context bundle undo").param(),
     maps("context_leave_out", W, "context leave-out").on(),
+    maps("context_launch_profile_ls", R, "context launch-profile ls"),
+    maps(
+        "context_launch_profile_add",
+        W,
+        "context launch-profile add",
+    )
+    .on(),
+    maps("context_launch_profile_rm", D, "context launch-profile rm").on(),
+    maps(
+        "context_launch_profile_policy",
+        W,
+        "context launch-profile policy",
+    )
+    .on(),
     maps("context_loads", R, "context loads"),
     maps("memory_ls", R, "memory ls"),
     maps("memory_status", R, "memory status"),

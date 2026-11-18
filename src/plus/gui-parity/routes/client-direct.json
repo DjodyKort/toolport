@@ -1,0 +1,6 @@
+{
+  "title": "Client direct entries",
+  "status": "built",
+  "page": "view:clients",
+  "component": "src/plus/clients/slots.tsx"
+}
