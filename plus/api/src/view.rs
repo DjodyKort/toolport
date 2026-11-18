@@ -47,6 +47,10 @@ pub trait RegistryView {
 
     /// What `plus.directEntries` records: client id, then entry name.
     fn direct_entries(&self) -> Result<DirectEntries, String>;
+
+    /// A client's own discovery-mode override (`full`, `lazy` or `grouped`); `None` inherits the
+    /// global mode.
+    fn client_discovery(&self, client_id: &str) -> Option<String>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -108,6 +112,17 @@ pub trait RegistryTx: RegistryView {
     ) -> Result<(), String>;
 
     fn set_selfmcp_record(&mut self, record: Option<SelfMcpRecord>) -> Result<(), String>;
+
+    /// Binds a client id to an access set through upstream's `set_client_scope`; `None` removes
+    /// the binding, so the client falls back to `TOOLPORT_PROFILE` and then the default access.
+    fn set_client_scope(
+        &mut self,
+        client_id: &str,
+        access_set_id: Option<&str>,
+    ) -> Result<(), String>;
+
+    /// Pins a client's discovery mode (`full`, `lazy`, `grouped`); `None` clears the override.
+    fn set_client_discovery(&mut self, client_id: &str, mode: Option<&str>) -> Result<(), String>;
 
     /// Adds a server through upstream's own add and returns its id. Upstream switches the new
     /// server on and lists it in the default access set when it needs no credential.

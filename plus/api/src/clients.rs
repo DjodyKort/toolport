@@ -151,6 +151,9 @@ pub trait ClientsHost {
     /// The installed `toolportctl` a launcher entry runs; `None` when none can be found.
     fn launcher_command(&self) -> Option<String>;
 
+    /// The `toolport-gateway` a client entry runs; `None` when none can be found.
+    fn gateway_command(&self) -> Option<String>;
+
     /// Non-secret variables a launcher entry carries so it finds the same data directory.
     fn launcher_env(&self) -> BTreeMap<String, String>;
 
@@ -165,6 +168,7 @@ pub trait ClientsHost {
 pub struct MemoryClients {
     pub clients: RefCell<Vec<ClientInfo>>,
     pub launcher: Option<String>,
+    pub gateway: Option<String>,
     pub env: BTreeMap<String, String>,
     pub writes: RefCell<Vec<(String, String, Option<EntrySpec>)>>,
     pub launches: BTreeMap<String, Result<LaunchCommand, String>>,
@@ -264,6 +268,10 @@ impl ClientsHost for MemoryClients {
 
     fn launcher_command(&self) -> Option<String> {
         self.launcher.clone()
+    }
+
+    fn gateway_command(&self) -> Option<String> {
+        self.gateway.clone()
     }
 
     fn launcher_env(&self) -> BTreeMap<String, String> {

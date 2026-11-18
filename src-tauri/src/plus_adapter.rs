@@ -188,6 +188,11 @@ macro_rules! registry_view {
             fn scope_reach(&self) -> Vec<ScopeReach> {
                 view_scope_reach(self.$registry())
             }
+            fn client_discovery(&self, client_id: &str) -> Option<String> {
+                self.$registry()
+                    .client_discovery_mode(client_id)
+                    .map(String::from)
+            }
             fn direct_entries(&self) -> Result<toolport_plus_api::view::DirectEntries, String> {
                 Ok(RegistryPlus::extract(&self.$registry().unknown_fields)?
                     .direct_entries
@@ -295,6 +300,20 @@ impl RegistryTx for TxView<'_> {
         included: bool,
     ) -> Result<(), String> {
         self.0.set_access_server(access_set_id, server_id, included)
+    }
+
+    fn set_client_scope(
+        &mut self,
+        client_id: &str,
+        access_set_id: Option<&str>,
+    ) -> Result<(), String> {
+        self.0.set_client_scope(client_id, access_set_id);
+        Ok(())
+    }
+
+    fn set_client_discovery(&mut self, client_id: &str, mode: Option<&str>) -> Result<(), String> {
+        self.0.set_client_discovery(client_id, mode);
+        Ok(())
     }
 
     fn set_selfmcp_record(&mut self, record: Option<SelfMcpRecord>) -> Result<(), String> {
@@ -1529,6 +1548,13 @@ impl ClientsHost for HostAdapter {
                     ClientWriteError::Failed(error)
                 }
             })
+    }
+
+    fn gateway_command(&self) -> Option<String> {
+        crate::clients::resolve_gateway_path_for_launch()
+            .ok()
+            .flatten()
+            .map(|path| path.to_string_lossy().into_owned())
     }
 
     fn launcher_command(&self) -> Option<String> {

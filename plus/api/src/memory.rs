@@ -36,6 +36,8 @@ pub struct MemoryRegistry {
     pub client_scopes: RefCell<BTreeMap<String, String>>,
     /// `folder_profiles`: folder path and the stored set reference, in registry order.
     pub folder_routes: RefCell<Vec<(String, String)>>,
+    /// `client_discovery`: client id to its pinned mode.
+    pub client_discovery: RefCell<BTreeMap<String, String>>,
     /// Where `registry_path` points; the data dir of tests that write files next to it.
     pub path: Option<PathBuf>,
 }
@@ -49,6 +51,7 @@ pub struct MemoryState {
     pub client_access_sets: Vec<String>,
     pub client_scopes: BTreeMap<String, String>,
     pub folder_routes: Vec<(String, String)>,
+    pub client_discovery: BTreeMap<String, String>,
     pub unknown_fields: Map<String, Value>,
 }
 
@@ -105,6 +108,10 @@ impl RegistryView for MemoryState {
 
     fn selfmcp_record(&self) -> Result<Option<SelfMcpRecord>, String> {
         Ok(RegistryPlus::extract(&self.unknown_fields)?.selfmcp)
+    }
+
+    fn client_discovery(&self, client_id: &str) -> Option<String> {
+        self.client_discovery.get(client_id).cloned()
     }
 }
 
@@ -246,6 +253,42 @@ impl RegistryTx for MemoryState {
 
     fn set_selfmcp_record(&mut self, record: Option<SelfMcpRecord>) -> Result<(), String> {
         plus_ops::set_selfmcp(&mut self.unknown_fields, record.as_ref())
+    }
+
+    fn set_client_scope(
+        &mut self,
+        client_id: &str,
+        access_set_id: Option<&str>,
+    ) -> Result<(), String> {
+        match access_set_id.map(str::trim).filter(|set| !set.is_empty()) {
+            Some(reference) => {
+                let stored = self
+                    .access_sets
+                    .iter()
+                    .find(|set| set.id == reference || set.name.eq_ignore_ascii_case(reference))
+                    .map_or(reference.to_string(), |set| set.id.clone());
+                self.client_scopes.insert(client_id.to_string(), stored);
+            }
+            None => {
+                self.client_scopes.remove(client_id);
+            }
+        }
+        Ok(())
+    }
+
+    fn set_client_discovery(&mut self, client_id: &str, mode: Option<&str>) -> Result<(), String> {
+        match mode
+            .map(|mode| mode.trim().to_ascii_lowercase())
+            .filter(|mode| matches!(mode.as_str(), "full" | "lazy" | "grouped"))
+        {
+            Some(mode) => {
+                self.client_discovery.insert(client_id.to_string(), mode);
+            }
+            None => {
+                self.client_discovery.remove(client_id);
+            }
+        }
+        Ok(())
     }
 
     fn add_server(&mut self, spec: &ServerSpec) -> Result<String, String> {
@@ -417,6 +460,7 @@ impl MemoryRegistry {
             client_access_sets: self.client_access_sets.borrow().clone(),
             client_scopes: self.client_scopes.borrow().clone(),
             folder_routes: self.folder_routes.borrow().clone(),
+            client_discovery: self.client_discovery.borrow().clone(),
             unknown_fields: self.unknown_fields.borrow().clone(),
         }
     }
@@ -475,6 +519,8 @@ impl RegistryAccess for MemoryRegistry {
         edit(&mut state)?;
         *self.servers.borrow_mut() = state.servers;
         *self.access_sets.borrow_mut() = state.access_sets;
+        *self.client_scopes.borrow_mut() = state.client_scopes;
+        *self.client_discovery.borrow_mut() = state.client_discovery;
         *self.unknown_fields.borrow_mut() = state.unknown_fields;
         Ok(())
     }
@@ -1377,6 +1423,9 @@ impl crate::clients::ClientsHost for MemoryHost {
     ) -> Result<crate::clients::EntryWrite, crate::clients::ClientWriteError> {
         self.clients
             .write_entry(client_id, name, spec, expect_revision)
+    }
+    fn gateway_command(&self) -> Option<String> {
+        self.clients.gateway_command()
     }
     fn launcher_command(&self) -> Option<String> {
         self.clients.launcher_command()

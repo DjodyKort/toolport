@@ -142,7 +142,7 @@ fn plural(count: usize, one: &str, many: &str) -> String {
     format!("{count} {}", if count == 1 { one } else { many })
 }
 
-fn scope_of(scope: &ScopeReach, set_names: &BTreeMap<String, String>) -> Scope {
+pub(crate) fn scope_of(scope: &ScopeReach, set_names: &BTreeMap<String, String>) -> Scope {
     Scope {
         set_name: scope
             .set_id
@@ -369,61 +369,78 @@ fn findings_of(
         });
     }
     for folder in folders.iter().filter(|f| !f.scope.dangling) {
-        let folder_set: BTreeSet<&String> = folder.scope.server_ids.iter().collect();
-        let set_name = folder
-            .scope
-            .set_name
-            .clone()
-            .unwrap_or_else(|| "its access set".to_string());
         for client in clients
             .iter()
             .filter(|c| c.own_set && !c.scope.dangling && c.scope.set_id != folder.scope.set_id)
         {
-            let own: BTreeSet<&String> = client.scope.server_ids.iter().collect();
-            let hidden: Vec<String> = own
-                .difference(&folder_set)
-                .map(|id| (*id).clone())
-                .collect();
-            let added: Vec<String> = folder_set
-                .difference(&own)
-                .map(|id| (*id).clone())
-                .collect();
-            if hidden.is_empty() && added.is_empty() {
-                continue;
-            }
-            let mut parts = Vec::new();
-            if !hidden.is_empty() {
-                parts.push(format!(
-                    "hides {} its own set lists ({})",
-                    plural(hidden.len(), "server", "servers"),
-                    names_of(servers, &hidden)
-                ));
-            }
-            if !added.is_empty() {
-                parts.push(format!(
-                    "adds {} its own set leaves out ({})",
-                    plural(added.len(), "server", "servers"),
-                    names_of(servers, &added)
-                ));
-            }
-            let mut touched = hidden;
-            touched.extend(added);
-            findings.push(Finding {
-                kind: FindingKind::FolderOutranks,
-                server: None,
-                client: Some(client.id.clone()),
-                folder: Some(folder.path.clone()),
-                servers: touched,
-                text: format!(
-                    "In {} the gateway uses {set_name}, not {}'s own set: it {}. {FOLDER_RULE}",
-                    folder.path,
-                    client.name,
-                    parts.join(" and ")
-                ),
-            });
+            findings.extend(folder_outranks(
+                servers,
+                &client.id,
+                &client.name,
+                &client.scope,
+                folder,
+            ));
         }
     }
     findings
+}
+
+/// The finding for a client with its own set when a folder mapping decides instead; `None` when
+/// the folder's set reaches the same servers.
+pub fn folder_outranks(
+    servers: &[ServerRecord],
+    client_id: &str,
+    client_name: &str,
+    own_scope: &Scope,
+    folder: &FolderRow,
+) -> Option<Finding> {
+    let folder_set: BTreeSet<&String> = folder.scope.server_ids.iter().collect();
+    let set_name = folder
+        .scope
+        .set_name
+        .clone()
+        .unwrap_or_else(|| "its access set".to_string());
+    let own: BTreeSet<&String> = own_scope.server_ids.iter().collect();
+    let hidden: Vec<String> = own
+        .difference(&folder_set)
+        .map(|id| (*id).clone())
+        .collect();
+    let added: Vec<String> = folder_set
+        .difference(&own)
+        .map(|id| (*id).clone())
+        .collect();
+    if hidden.is_empty() && added.is_empty() {
+        return None;
+    }
+    let mut parts = Vec::new();
+    if !hidden.is_empty() {
+        parts.push(format!(
+            "hides {} its own set lists ({})",
+            plural(hidden.len(), "server", "servers"),
+            names_of(servers, &hidden)
+        ));
+    }
+    if !added.is_empty() {
+        parts.push(format!(
+            "adds {} its own set leaves out ({})",
+            plural(added.len(), "server", "servers"),
+            names_of(servers, &added)
+        ));
+    }
+    let mut touched = hidden;
+    touched.extend(added);
+    Some(Finding {
+        kind: FindingKind::FolderOutranks,
+        server: None,
+        client: Some(client_id.to_string()),
+        folder: Some(folder.path.clone()),
+        servers: touched,
+        text: format!(
+            "In {} the gateway uses {set_name}, not {client_name}'s own set: it {}. {FOLDER_RULE}",
+            folder.path,
+            parts.join(" and ")
+        ),
+    })
 }
 
 fn scope_value(scope: &Scope) -> Value {
