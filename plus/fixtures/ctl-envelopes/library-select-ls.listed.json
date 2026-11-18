@@ -1,0 +1,23 @@
+{
+  "argv": ["library", "select", "ls"],
+  "envelope": {
+    "command": "library select ls",
+    "data": {
+      "offers": [],
+      "sources": [
+        {
+          "new": 5,
+          "on": 1,
+          "ref": null,
+          "removed": 0,
+          "slice": "picks-selected@toolport-selections",
+          "source": "picks",
+          "total": 6
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

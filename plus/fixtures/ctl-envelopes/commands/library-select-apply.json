@@ -1,0 +1,65 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": ["--plan"],
+      "effect": "Hash of the plan to apply, as printed by library select plan (required)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--plan-hash",
+      "repeatable": false,
+      "required": true,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Compare with the local clone instead of fetching the latest version",
+      "escalates": false,
+      "hidden": false,
+      "name": "--no-fetch",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Also switch off the whole plugin that is installed beside the chosen items",
+      "escalates": false,
+      "hidden": false,
+      "name": "--switch",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "library",
+  "id": "library select apply",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": ["network"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "source",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["library", "select", "apply"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Apply a plan: generate the slice plugin of the chosen items and switch it on (<source>, --plan-hash <hash>, --no-fetch, --switch)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

@@ -111,6 +111,29 @@
       },
       {
         "enabled": false,
+        "id": "selective-update-check",
+        "kind": "script",
+        "lastRun": null,
+        "nextRun": null,
+        "refreshes": [],
+        "title": "Check chosen items for updates",
+        "triggers": {
+          "cli": true,
+          "manual": true,
+          "onAuthFailure": [],
+          "schedule": {
+            "autoRun": true,
+            "cron": "0 6 * * *"
+          },
+          "selfMcp": {
+            "approval": "every-run",
+            "enabled": false
+          }
+        },
+        "waiting": false
+      },
+      {
+        "enabled": false,
         "id": "skills-auto-sync",
         "kind": "script",
         "lastRun": null,

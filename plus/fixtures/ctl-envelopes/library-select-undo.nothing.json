@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "select", "undo", "picks"],
+  "envelope": {
+    "command": "library select undo",
+    "error": {
+      "code": "not_found",
+      "message": "nothing to undo for picks"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

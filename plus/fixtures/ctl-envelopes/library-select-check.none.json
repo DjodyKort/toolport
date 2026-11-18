@@ -1,0 +1,15 @@
+{
+  "argv": ["library", "select", "check", "--no-fetch"],
+  "envelope": {
+    "command": "library select check",
+    "data": {
+      "applied": false,
+      "checkedAt": "<TIME>",
+      "sources": [],
+      "waiting": 0
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

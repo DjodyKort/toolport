@@ -1,0 +1,5 @@
+{
+  "route": "library-later",
+  "status": "planned",
+  "summary": "Choose single skills, agents, commands, hooks and rules of a tap or plugin, review the update plan and keep the choice across updates (library select ls|set|plan|apply|undo|check; library_select_ls, library_select_plan)"
+}

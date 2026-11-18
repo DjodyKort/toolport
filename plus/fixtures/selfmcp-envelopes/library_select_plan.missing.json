@@ -1,0 +1,12 @@
+{
+  "arguments": {},
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "missing required argument: source"
+    }
+  },
+  "text": "invalid_arguments: missing required argument: source",
+  "tool": "library_select_plan"
+}

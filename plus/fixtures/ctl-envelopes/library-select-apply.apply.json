@@ -1,0 +1,126 @@
+{
+  "argv": [
+    "library",
+    "select",
+    "apply",
+    "picks",
+    "--plan-hash",
+    "sha256:1ec014b1a33f82fe"
+  ],
+  "envelope": {
+    "command": "library select apply",
+    "data": {
+      "changes": [
+        {
+          "action": "declare",
+          "key": "extraKnownMarketplaces.toolport-selections",
+          "path": "<WORLD>/home/.claude/settings.json",
+          "scope": "user"
+        },
+        {
+          "action": "enable",
+          "key": "enabledPlugins.picks-selected@toolport-selections",
+          "path": "<WORLD>/home/.claude/settings.json",
+          "scope": "user"
+        }
+      ],
+      "checked": true,
+      "conflicts": [],
+      "cwd": null,
+      "diffs": {
+        "added": [
+          {
+            "id": "code-review",
+            "kind": "skill"
+          },
+          {
+            "id": "reviewer",
+            "kind": "agent"
+          },
+          {
+            "id": "PostToolUse:Write|Edit",
+            "kind": "hook"
+          }
+        ],
+        "changed": [],
+        "dropped": [],
+        "fresh": [],
+        "gone": [],
+        "retick": [],
+        "rules": []
+      },
+      "dryRun": false,
+      "fetchError": null,
+      "id": "picks",
+      "offer": null,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "skill:code-review joins picks-selected@toolport-selections",
+            "op": "add"
+          },
+          {
+            "detail": "agent:reviewer joins picks-selected@toolport-selections",
+            "op": "add"
+          },
+          {
+            "detail": "hook:PostToolUse:Write|Edit joins picks-selected@toolport-selections",
+            "op": "add"
+          },
+          {
+            "detail": "declare toolport-selections",
+            "diff": {
+              "after": "{\n  \"toolport-selections\": {\n    \"source\": {\n      \"path\": \"<WORLD>/data/plus/selective/marketplace\",\n      \"source\": \"directory\"\n    }\n  }\n}",
+              "before": ""
+            },
+            "keys": ["extraKnownMarketplaces"],
+            "op": "merge",
+            "path": "<WORLD>/home/.claude/settings.json"
+          },
+          {
+            "detail": "enable picks-selected@toolport-selections",
+            "diff": {
+              "after": "{\n  \"picks-selected@toolport-selections\": true\n}",
+              "before": ""
+            },
+            "keys": ["enabledPlugins"],
+            "op": "merge",
+            "path": "<WORLD>/home/.claude/settings.json"
+          },
+          {
+            "detail": "Run /reload-plugins in running Claude Code sessions, or restart them, to load the change",
+            "op": "note"
+          }
+        ],
+        "summary": "Load the chosen items of picks through picks-selected@toolport-selections: 3 of 6 item(s) on",
+        "undo": "toolportctl library select undo picks",
+        "warnings": [
+          "ticked hooks run commands in every session once the plan is applied"
+        ]
+      },
+      "planHash": "sha256:1ec014b1a33f82fe",
+      "ref": {
+        "latest": "78b20008ec7b986019384f2adc6d00b1fa08c506",
+        "pinned": null
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "extraKnownMarketplaces.toolport-selections in <WORLD>/home/.claude/settings.json",
+          "enabledPlugins.picks-selected@toolport-selections in <WORLD>/home/.claude/settings.json"
+        ],
+        "undo": "toolportctl library select undo picks"
+      },
+      "scope": "user",
+      "slice": "picks-selected@toolport-selections",
+      "source": "picks",
+      "waiting": false,
+      "warnings": ["claude was not found, so the generated marketplace was not validated"]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

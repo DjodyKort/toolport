@@ -1,0 +1,54 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Compare with the local clone instead of fetching the latest version",
+      "escalates": false,
+      "hidden": false,
+      "name": "--no-fetch",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Also switch off the whole plugin that is installed beside the chosen items",
+      "escalates": false,
+      "hidden": false,
+      "name": "--switch",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "library",
+  "id": "library select plan",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": ["network"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "source",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["library", "select", "plan"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Fetch the source and show what applying would change, per item; writes nothing (<source>, --no-fetch, --switch)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["library_select_plan"]
+}

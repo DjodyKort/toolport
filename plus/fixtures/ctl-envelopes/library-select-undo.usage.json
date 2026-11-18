@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "select", "undo"],
+  "envelope": {
+    "command": "library select undo",
+    "error": {
+      "code": "usage",
+      "message": "missing source\nusage: library select undo <source>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

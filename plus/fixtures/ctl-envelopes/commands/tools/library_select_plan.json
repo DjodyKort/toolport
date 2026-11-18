@@ -1,0 +1,7 @@
+{
+  "command": "library select plan",
+  "dryRun": "none",
+  "name": "library_select_plan",
+  "tier": "write",
+  "toolTier": 2
+}

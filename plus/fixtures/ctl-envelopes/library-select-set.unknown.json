@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "select", "set", "nope", "--on", "x"],
+  "envelope": {
+    "command": "library select set",
+    "error": {
+      "code": "not_found",
+      "message": "Tap 'nope' not found"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,67 @@
+{
+  "arguments": {
+    "source": "picks"
+  },
+  "isError": false,
+  "result": {
+    "items": [
+      {
+        "hash": "sha256:0217b9c1a6e743c2",
+        "id": "code-review",
+        "inSlice": false,
+        "kind": "skill",
+        "state": "new"
+      },
+      {
+        "hash": "sha256:3b81926e493a0011",
+        "id": "tdd-workflow",
+        "inSlice": false,
+        "kind": "skill",
+        "state": "new"
+      },
+      {
+        "hash": "sha256:70781a32a6ee403e",
+        "id": "reviewer",
+        "inSlice": false,
+        "kind": "agent",
+        "state": "new"
+      },
+      {
+        "hash": "sha256:cbbba011fe934901",
+        "id": "deploy",
+        "inSlice": false,
+        "kind": "command",
+        "state": "new"
+      },
+      {
+        "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/format.sh",
+        "event": "PostToolUse",
+        "hash": "sha256:e27d1dcc2ee00749",
+        "id": "PostToolUse:Write|Edit",
+        "inSlice": false,
+        "kind": "hook",
+        "matcher": "Write|Edit",
+        "state": "new"
+      },
+      {
+        "hash": "sha256:54b78f66ed0e3423",
+        "id": "style",
+        "inSlice": false,
+        "kind": "rule",
+        "state": "new"
+      }
+    ],
+    "new": 6,
+    "offer": null,
+    "on": 0,
+    "recorded": false,
+    "ref": null,
+    "removed": 0,
+    "slice": "picks-selected@toolport-selections",
+    "source": "picks",
+    "tap": "picks",
+    "total": 6,
+    "warnings": []
+  },
+  "tool": "library_select_ls"
+}

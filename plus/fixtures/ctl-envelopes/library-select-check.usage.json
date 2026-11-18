@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "select", "check", "picks"],
+  "envelope": {
+    "command": "library select check",
+    "error": {
+      "code": "usage",
+      "message": "unexpected argument: picks\nusage: library select check [--no-fetch]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

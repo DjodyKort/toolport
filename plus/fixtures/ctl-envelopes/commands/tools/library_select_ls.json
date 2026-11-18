@@ -1,0 +1,7 @@
+{
+  "command": "library select ls",
+  "dryRun": "none",
+  "name": "library_select_ls",
+  "tier": "read",
+  "toolTier": 1
+}

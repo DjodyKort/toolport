@@ -1,0 +1,77 @@
+{
+  "arguments": {
+    "source": "picks"
+  },
+  "isError": false,
+  "result": {
+    "changes": [],
+    "checked": true,
+    "conflicts": [],
+    "cwd": null,
+    "diffs": {
+      "added": [],
+      "changed": [],
+      "dropped": [],
+      "fresh": [
+        {
+          "id": "code-review",
+          "kind": "skill"
+        },
+        {
+          "id": "tdd-workflow",
+          "kind": "skill"
+        },
+        {
+          "id": "reviewer",
+          "kind": "agent"
+        },
+        {
+          "id": "deploy",
+          "kind": "command"
+        },
+        {
+          "id": "PostToolUse:Write|Edit",
+          "kind": "hook"
+        },
+        {
+          "id": "style",
+          "kind": "rule"
+        }
+      ],
+      "gone": [],
+      "retick": [],
+      "rules": []
+    },
+    "dryRun": true,
+    "fetchError": null,
+    "id": "picks",
+    "offer": null,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "6 new item(s) in the source stay off: skill:code-review, skill:tdd-workflow, agent:reviewer, command:deploy, hook:PostToolUse:Write|Edit, rule:style",
+          "op": "note"
+        },
+        {
+          "detail": "Run /reload-plugins in running Claude Code sessions, or restart them, to load the change",
+          "op": "note"
+        }
+      ],
+      "summary": "Load the chosen items of picks through picks-selected@toolport-selections: 0 of 6 item(s) on",
+      "undo": "toolportctl library select undo picks",
+      "warnings": []
+    },
+    "planHash": "sha256:ecebef4aa8c9d21b",
+    "ref": {
+      "latest": "78b20008ec7b986019384f2adc6d00b1fa08c506",
+      "pinned": null
+    },
+    "result": null,
+    "scope": "user",
+    "slice": "picks-selected@toolport-selections",
+    "source": "picks",
+    "waiting": true
+  },
+  "tool": "library_select_plan"
+}

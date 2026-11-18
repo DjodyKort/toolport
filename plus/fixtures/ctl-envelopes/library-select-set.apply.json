@@ -1,0 +1,32 @@
+{
+  "argv": [
+    "library",
+    "select",
+    "set",
+    "picks",
+    "--on",
+    "code-review,agent:reviewer,deploy,style",
+    "--tick-hook",
+    "PostToolUse:Write|Edit"
+  ],
+  "envelope": {
+    "command": "library select set",
+    "data": {
+      "changed": [
+        "skill:code-review on",
+        "agent:reviewer on",
+        "command:deploy on",
+        "rule:style on",
+        "hook:PostToolUse:Write|Edit ticked"
+      ],
+      "dryRun": false,
+      "next": "toolportctl library select plan picks",
+      "on": 5,
+      "source": "picks",
+      "total": 6
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

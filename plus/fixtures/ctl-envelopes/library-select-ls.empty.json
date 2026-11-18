@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "select", "ls"],
+  "envelope": {
+    "command": "library select ls",
+    "data": {
+      "offers": [],
+      "sources": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

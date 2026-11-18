@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "source": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "Tap 'nope' not found"
+    }
+  },
+  "text": "not_found: Tap 'nope' not found",
+  "tool": "library_select_ls"
+}

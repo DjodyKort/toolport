@@ -1,0 +1,76 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Comma list of items to turn on: name or kind:name (hooks are ticked with --tick-hook)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--on",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Comma list of items to turn off",
+      "escalates": false,
+      "hidden": false,
+      "name": "--off",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Comma list of hooks to turn on after reading their command; a changed command needs this again",
+      "escalates": false,
+      "hidden": false,
+      "name": "--tick-hook",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Report the change and write nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "library",
+  "id": "library select set",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "source",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["library", "select", "set"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Record which items of a tap or plugin are on or off; nothing is loaded until a plan is applied (<source>, --on, --off, --tick-hook, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

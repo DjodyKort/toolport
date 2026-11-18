@@ -1,0 +1,31 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "library",
+  "id": "library select ls",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "source",
+      "required": false,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["library", "select", "ls"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List the sources that have a selection, or the items of one source with their state (<source>)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["library_select_ls"]
+}

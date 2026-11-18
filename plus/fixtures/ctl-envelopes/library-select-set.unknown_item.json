@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "select", "set", "picks", "--on", "nope"],
+  "envelope": {
+    "command": "library select set",
+    "error": {
+      "code": "not_found",
+      "message": "no item 'nope' in this source; `library select ls <source>` lists them"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

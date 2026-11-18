@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "select", "set", "picks"],
+  "envelope": {
+    "command": "library select set",
+    "error": {
+      "code": "usage",
+      "message": "nothing to set: pass --on, --off or --tick-hook\nusage: library select set <source> [--on a,b] [--off c] [--tick-hook h] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}
