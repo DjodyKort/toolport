@@ -14,6 +14,7 @@
 use super::agents;
 use super::auth;
 use super::client_direct;
+use super::client_reach;
 use super::context;
 use super::flags::{switch, value, Flag, Spec};
 use super::library;
@@ -372,6 +373,7 @@ pub(super) const ROWS: &[Row] = &[
         .skip("removes a client entry; its --dry-run is a golden step"),
     row("client direct ls", R).spec(&[&client_direct::READ]),
     row("client direct check", R).spec(&[&client_direct::READ]),
+    row("client reach", R).spec(&[&client_reach::REACH]),
     row("auth statusline", R),
     row("auth hook", R),
     row("auth probe", R).needs(&[Needs::Network]).spec(&[&auth::PROBE]),
@@ -914,6 +916,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("servers_update_config", W, "server edit"),
     maps("servers_set_mode", W, "server mode"),
     maps("servers_uninstall", D, "server uninstall"),
+    maps("clients_reach", R, "client reach"),
     maps("client_direct_ls", R, "client direct ls"),
     maps("client_direct_check", R, "client direct check"),
     maps("client_direct_add", W, "client direct add").on(),

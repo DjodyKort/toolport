@@ -1,0 +1,95 @@
+{
+  "argv": ["client", "reach"],
+  "envelope": {
+    "command": "client reach",
+    "data": {
+      "accessRows": [
+        {
+          "action": {
+            "command": ["toolportctl", "client", "reach"],
+            "label": "Review"
+          },
+          "detail": "beta is on, but neither the default access, a client's own set nor a folder mapping lists it. Add it to a set, or switch it off.",
+          "id": "access:unreached:srv-beta",
+          "title": "1 server no access set reaches"
+        }
+      ],
+      "accessSets": [
+        {
+          "clients": [],
+          "default": true,
+          "folders": [],
+          "id": "default",
+          "listed": ["srv-alpha"],
+          "name": "Default",
+          "reached": ["srv-alpha"]
+        },
+        {
+          "clients": ["claude-code"],
+          "default": false,
+          "folders": [],
+          "id": "focus",
+          "listed": [],
+          "name": "Focus",
+          "reached": []
+        }
+      ],
+      "clients": [
+        {
+          "accessSet": "focus",
+          "accessSetName": "Focus",
+          "gateway": false,
+          "id": "claude-code",
+          "missing": false,
+          "name": "Claude Code",
+          "ownSet": true,
+          "servers": []
+        }
+      ],
+      "defaultAccess": {
+        "accessSet": "default",
+        "accessSetName": "Default",
+        "missing": false,
+        "servers": ["srv-alpha"]
+      },
+      "findings": [
+        {
+          "client": null,
+          "folder": null,
+          "kind": "unreached",
+          "server": "srv-beta",
+          "servers": ["srv-beta"],
+          "text": "No access set reaches beta: the default access, the clients' own sets and the folder mappings all leave it out."
+        }
+      ],
+      "folders": [],
+      "servers": [
+        {
+          "clients": [],
+          "default": true,
+          "direct": [],
+          "enabled": true,
+          "folders": [],
+          "id": "srv-alpha",
+          "listedIn": ["default"],
+          "name": "alpha",
+          "unreached": false
+        },
+        {
+          "clients": [],
+          "default": false,
+          "direct": [],
+          "enabled": true,
+          "folders": [],
+          "id": "srv-beta",
+          "listedIn": [],
+          "name": "beta",
+          "unreached": true
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

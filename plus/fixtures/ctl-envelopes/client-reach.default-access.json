@@ -1,0 +1,56 @@
+{
+  "argv": ["client", "reach"],
+  "envelope": {
+    "command": "client reach",
+    "data": {
+      "accessRows": [],
+      "accessSets": [
+        {
+          "clients": [],
+          "default": true,
+          "folders": [],
+          "id": "default",
+          "listed": ["srv-alpha"],
+          "name": "Default",
+          "reached": ["srv-alpha"]
+        }
+      ],
+      "clients": [],
+      "defaultAccess": {
+        "accessSet": "default",
+        "accessSetName": "Default",
+        "missing": false,
+        "servers": ["srv-alpha"]
+      },
+      "findings": [],
+      "folders": [],
+      "servers": [
+        {
+          "clients": [],
+          "default": true,
+          "direct": [],
+          "enabled": true,
+          "folders": [],
+          "id": "srv-alpha",
+          "listedIn": ["default"],
+          "name": "alpha",
+          "unreached": false
+        },
+        {
+          "clients": [],
+          "default": false,
+          "direct": [],
+          "enabled": false,
+          "folders": [],
+          "id": "srv-beta",
+          "listedIn": [],
+          "name": "beta",
+          "unreached": false
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

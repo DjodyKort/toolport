@@ -1,0 +1,48 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Only this server, by id or name",
+      "escalates": false,
+      "hidden": false,
+      "name": "--server",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Only this client, as client reach shows its id",
+      "escalates": false,
+      "hidden": false,
+      "name": "--client",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "client",
+  "id": "client reach",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["client", "reach"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Show which access sets, clients and folders reach each server, and the servers nothing reaches [--server <id|name>] [--client <id>]",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["clients_reach"]
+}

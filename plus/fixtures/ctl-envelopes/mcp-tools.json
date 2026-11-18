@@ -1993,6 +1993,27 @@
           "tier": 3
         },
         {
+          "description": "Show which access sets, clients and folder mappings reach each server, the servers no access set reaches, and where a folder mapping outranks a client's own set",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "clients_reach",
+          "params": [
+            {
+              "description": "Only this server, by id or name",
+              "name": "name",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Limit to one client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
           "description": "List the direct client entries Toolport wrote, with their state: ok, stale, customized, missing, orphan, unrecorded or relocated",
           "dryRunDefault": false,
           "gate": "none",

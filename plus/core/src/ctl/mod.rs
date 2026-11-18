@@ -9,6 +9,7 @@
 mod agents;
 mod auth;
 mod client_direct;
+mod client_reach;
 mod commands;
 mod commands_json;
 pub(crate) mod compression;
@@ -161,6 +162,11 @@ pub const COMMANDS: &[Command] = &[
         &["client", "direct", "check"],
         "Check direct client entries against what Toolport wrote; exits 1 when one drifted [--client <id>]",
         client_direct::check,
+    ),
+    cmd(
+        &["client", "reach"],
+        "Show which access sets, clients and folders reach each server, and the servers nothing reaches [--server <id|name>] [--client <id>]",
+        client_reach::run,
     ),
     cmd(
         &["auth", "statusline"],

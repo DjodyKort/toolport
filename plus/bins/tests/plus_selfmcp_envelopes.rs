@@ -755,6 +755,20 @@ const CASES: &[Case] = &[
         ],
     ),
     prepared(
+        "clients_reach",
+        folder_routing_world,
+        &[
+            read("folder_outranks", "clients_reach", "{}"),
+            read("one_server", "clients_reach", r#"{"name":"beta"}"#),
+            fails(
+                "unknown_server",
+                "not_found",
+                "clients_reach",
+                r#"{"name":"nope"}"#,
+            ),
+        ],
+    ),
+    prepared(
         "client_direct_ls",
         claude_code_home,
         &[
@@ -1698,6 +1712,22 @@ fn claude_code_home(world: &World) {
         r#"{"theme": "dark", "mcpServers": {"legacy-lint": {"command": "lint", "args": []}}}"#,
     )
     .unwrap();
+}
+
+fn folder_routing_world(world: &World) {
+    let mut registry = world.registry();
+    registry["version"] = serde_json::json!(3);
+    registry["servers"][0]["enabled"] = serde_json::json!(true);
+    registry["servers"][1]["enabled"] = serde_json::json!(true);
+    registry["defaultAccessProfileId"] = serde_json::json!("default");
+    registry["profiles"] = serde_json::json!([
+        {"id": "default", "name": "Default", "enabledServerIds": ["srv-alpha"]},
+        {"id": "focus", "name": "Focus", "enabledServerIds": ["srv-alpha"]},
+        {"id": "wide", "name": "Wide", "enabledServerIds": ["srv-alpha", "srv-beta"]},
+    ]);
+    registry["clientScopes"] = serde_json::json!({"claude-code": "focus"});
+    registry["folderProfiles"] = serde_json::json!([{"path": "/work/proj", "profile": "wide"}]);
+    world.write_registry(&registry);
 }
 
 fn sources_home(world: &World) {

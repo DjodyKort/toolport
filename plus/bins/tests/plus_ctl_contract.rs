@@ -152,6 +152,23 @@ fn explicit_default_access(world: &World) {
     world.write_registry(&registry);
 }
 
+fn folder_routing(world: &World) {
+    let mut registry = world.registry();
+    registry["profiles"] = json!([
+        {"id": "default", "name": "Default", "enabledServerIds": ["srv-alpha"]},
+        {"id": "focus", "name": "Focus", "enabledServerIds": ["srv-alpha"]},
+        {"id": "wide", "name": "Wide", "enabledServerIds": ["srv-alpha", "srv-beta"]},
+    ]);
+    registry["folderProfiles"] = json!([{"path": "/work/proj", "profile": "wide"}]);
+    world.write_registry(&registry);
+}
+
+fn a_set_that_was_deleted(world: &World) {
+    let mut registry = world.registry();
+    registry["clientScopes"] = json!({"claude-code": "gone"});
+    world.write_registry(&registry);
+}
+
 fn opt_alpha_into_the_stdio_probe(world: &World) {
     let mut registry = world.registry();
     registry["servers"][0]["plus"] = json!({"authProbe": {"kind": "stdio"}});
@@ -671,6 +688,43 @@ const CASES: &[Case] = &[
                 ],
             ),
             usage("usage", &["server", "edit"]),
+        ],
+    ),
+    case(
+        "client reach",
+        &[
+            read("default-access", &["client", "reach"]),
+            hook("explicit-access-sets", explicit_default_access),
+            read("narrow-sets", &["client", "reach"]),
+            read("one-server", &["client", "reach", "--server", "beta"]),
+            read(
+                "one-client",
+                &["client", "reach", "--client", "claude-code"],
+            ),
+            hook("map-a-folder", folder_routing),
+            read("folder-outranks", &["client", "reach"]),
+            hook("delete-the-set", a_set_that_was_deleted),
+            read("deleted-set", &["client", "reach"]),
+            hook("home", claude_code_home),
+            setup(
+                "add",
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
+            setup(
+                "uninstall",
+                &["server", "uninstall", "alpha", "--keep-clients"],
+            ),
+            read("kept-direct-entry", &["client", "reach"]),
+            read("unknown-server", &["client", "reach", "--server", "nope"]).exit(1),
+            read("unknown-client", &["client", "reach", "--client", "nope"]).exit(1),
+            usage("usage", &["client", "reach", "alpha"]),
         ],
     ),
     case(

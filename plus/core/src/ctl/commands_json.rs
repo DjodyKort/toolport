@@ -325,6 +325,8 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("client direct rm", m("--plan-hash", Str, "Apply only when the plan still has this hash")),
     ("client direct ls", m("--client", Str, "Only this client")),
     ("client direct check", m("--client", Str, "Only this client")),
+    ("client reach", m("--server", Str, "Only this server, by id or name")),
+    ("client reach", m("--client", Str, "Only this client, as client reach shows its id")),
     ("server uninstall", m("--dry-run", Bool, "Show what would be removed and change nothing")),
     ("server uninstall", m("--keep-clients", Bool, "Leave the direct client entries Toolport wrote for the server in place")),
     ("server uninstall", m("--keep-secrets", Bool, "Leave the server's vault entries in place")),

@@ -2,8 +2,8 @@ use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
 use super::{
-    backend, clients, compression, content, context, library, servers, skills, sources, tasks,
-    ToolError,
+    backend, clients, compression, content, context, library, reach, servers, skills, sources,
+    tasks, ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -907,6 +907,17 @@ pub const TOOLS: &[ToolDef] = &[
         "Choose whether a server's tools are listed to clients that get the full tool list (auto) or only found through toolport_search_tools and called by name (search)",
         [NAME, p("mode", Ty::Str, true, "auto or search")],
         servers::set_mode
+    ),
+    tool!(
+        "clients_reach",
+        1,
+        None,
+        "Show which access sets, clients and folder mappings reach each server, the servers no access set reaches, and where a folder mapping outranks a client's own set",
+        [
+            p("name", Ty::Str, false, "Only this server, by id or name"),
+            CLIENT
+        ],
+        reach::run
     ),
     tool!(
         "client_direct_ls",

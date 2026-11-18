@@ -1,0 +1,13 @@
+{
+  "argv": ["client", "reach", "alpha"],
+  "envelope": {
+    "command": "client reach",
+    "error": {
+      "code": "usage",
+      "message": "usage: client reach [--server <id|name>] [--client <id>]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}
