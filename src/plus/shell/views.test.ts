@@ -8,8 +8,8 @@ import {
 } from "./views";
 
 describe("plus views", () => {
-  it("test01_the_group_adds_library_context_and_tasks_after_upstreams_six", () => {
-    expect([...PLUS_VIEWS]).toEqual(["library", "context", "tasks"]);
+  it("test01_the_group_adds_library_context_tasks_and_spend_after_upstreams_six", () => {
+    expect([...PLUS_VIEWS]).toEqual(["library", "context", "tasks", "spend"]);
     for (const view of [
       "servers",
       "clients",
@@ -26,6 +26,7 @@ describe("plus views", () => {
     expect(PLUS_SCREENS.library.slice).toBe("S4");
     expect(PLUS_SCREENS.context.slice).toBe("S5");
     expect(PLUS_SCREENS.tasks.slice).toBe("S6");
+    expect(PLUS_SCREENS.spend.slice).toBe("S10");
     expect(PLUS_SCREENS.tasks.subtitle).toBe("Named jobs Toolport can run for you");
   });
 

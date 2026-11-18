@@ -1,0 +1,13 @@
+{
+  "argv": ["spend", "setup", "undo", "--delete-data"],
+  "envelope": {
+    "command": "spend setup undo",
+    "error": {
+      "code": "usage",
+      "message": "--delete-data deletes the collected events and daily totals for good: add --yes, or --dry-run to look first"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["spend", "export-csv", "--range", "year"],
+  "envelope": {
+    "command": "spend export-csv",
+    "error": {
+      "code": "usage",
+      "message": "unknown range 'year' (have: today, 7d, 30d)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

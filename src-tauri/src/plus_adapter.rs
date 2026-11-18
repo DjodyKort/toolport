@@ -677,6 +677,17 @@ impl HostEnv for HostAdapter {
         std::env::set_var("TOOLPORT_DATA_DIR", dir);
     }
 
+    fn now_unix(&self) -> i64 {
+        std::env::var("TOOLPORT_PLUS_NOW")
+            .ok()
+            .and_then(|text| text.parse().ok())
+            .unwrap_or_else(|| {
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0, |elapsed| elapsed.as_secs() as i64)
+            })
+    }
+
     fn seam_live(&self) -> bool {
         "https://toolport.app/"
             .parse()
@@ -719,6 +730,16 @@ impl toolport_plus_api::SettingsStore for HostAdapter {
         key: &str,
     ) -> Result<(), String> {
         crate::clients::write_settings_key(path, original, root, key)
+    }
+}
+
+impl toolport_plus_api::SavingsAccess for HostAdapter {
+    fn catalog_sessions(&self) -> Result<Vec<Value>, String> {
+        crate::savings::try_entries().map_err(|e| e.to_string())
+    }
+
+    fn catalog_summary(&self) -> Result<Value, String> {
+        crate::savings::try_summary().map_err(|e| e.to_string())
     }
 }
 

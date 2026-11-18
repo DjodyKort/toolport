@@ -965,6 +965,8 @@ pub struct MemoryHost {
     pub activity: RefCell<BTreeMap<String, i64>>,
     /// Makes `ServerActivity` fail with this message.
     pub activity_error: RefCell<Option<String>>,
+    /// What `SavingsAccess::catalog_sessions` returns.
+    pub savings_rows: Vec<Value>,
 }
 
 /// What the sync seam of a test host answers.
@@ -973,6 +975,16 @@ pub struct MemorySync {
     pub passphrase: RefCell<Option<String>>,
     pub keyring_locked: Cell<bool>,
     pub upstream_active: Cell<bool>,
+}
+
+impl crate::SavingsAccess for MemoryHost {
+    fn catalog_sessions(&self) -> Result<Vec<Value>, String> {
+        Ok(self.savings_rows.clone())
+    }
+
+    fn catalog_summary(&self) -> Result<Value, String> {
+        Ok(Value::Object(Map::new()))
+    }
 }
 
 impl crate::SettingsStore for MemoryHost {

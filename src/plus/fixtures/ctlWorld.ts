@@ -15,6 +15,7 @@ import { createLibraryWorld, type LibraryWorldOptions } from "./libraryWorld";
 import { createSetupWorld } from "./setupWorld";
 import { createSyncWorld, type SyncWorldOptions } from "./syncWorld";
 import { createServerWorld, type ServerWorldOptions } from "./serverWorld";
+import { createSpendWorld, type SpendWorldOptions } from "./spendWorld";
 import { createTaskWorld, type TaskWorldOptions } from "./taskWorld";
 import type {
   AccessSetStanding,
@@ -76,6 +77,8 @@ export interface WorldOptions {
   reach?: ReachWorldOptions;
   /** The launch profiles `context launch-profile` lists and the folder mappings that outrank them. */
   launchProfiles?: LaunchProfileWorldOptions;
+  /** The Spend page's collecting state, report and setup plan. */
+  spend?: SpendWorldOptions;
 }
 
 /** A small in-memory toolportctl: enough state for install, uninstall and doctor to answer the way
@@ -98,6 +101,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
     options.launchProfiles ?? {},
     () => serverWorld.sets,
   );
+  const spendWorld = createSpendWorld(options.spend);
   const defaultAccess = accessSets[0] ?? null;
   const doctorMode = options.doctor ?? "ok";
   let state: SelfMcpState = options.self ?? "missing";
@@ -329,6 +333,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
     memory: memoryWorld,
     catalog: catalogWorld,
     direct: directWorld,
+    spend: spendWorld,
     run(argv: string[], stdin?: string): CtlReply {
       const key = argv.filter((a) => a !== "--json");
       const [first, second] = key;
@@ -351,6 +356,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "sync") return syncWorld.run(key, stdin);
       if (first === "client" && second === "direct") return directWorld.run(key);
       if (first === "client" && second === "reach") return reachWorld.run(key);
+      if (first === "spend") return spendWorld.run(key);
       if (["skills", "library", "sources", "agents", "styles"].includes(first ?? ""))
         return libraryWorld.run(key);
       if (first === "mcp") {

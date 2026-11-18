@@ -1,0 +1,25 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "spend",
+  "id": "spend status",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["spend", "status"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Show whether collection is on, the receiver, the last event and the store against its caps",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["spend_status"]
+}

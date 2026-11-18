@@ -1,0 +1,6 @@
+{
+  "route": "spend-settings",
+  "status": "built",
+  "summary": "Port, retention days, size cap and the Show cost switch in Settings > Toolport+ > Spend (spend config set)",
+  "test": "src/plus/spend/SpendSettings.test.tsx"
+}

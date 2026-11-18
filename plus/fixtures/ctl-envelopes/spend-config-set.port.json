@@ -1,0 +1,18 @@
+{
+  "argv": ["spend", "config", "set", "--port", "4999"],
+  "envelope": {
+    "command": "spend config set",
+    "data": {
+      "changed": true,
+      "enabled": false,
+      "maxMb": 32,
+      "port": 4999,
+      "portChanged": true,
+      "retentionDays": 14,
+      "showCost": false
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

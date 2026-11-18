@@ -22,6 +22,7 @@ mod servers;
 mod setup;
 mod skills;
 mod sources;
+mod spend;
 mod sync;
 mod tasks;
 

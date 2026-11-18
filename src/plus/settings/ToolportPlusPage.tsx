@@ -28,6 +28,8 @@ import { RegistryIndexCard } from "./RegistryIndexCard";
 import { SelfManagement } from "./SelfManagement";
 import { bridgeDown, errorText, useOverview } from "./useCtl";
 
+const SpendSettings = lazy(() => import("../spend/SpendSettings"));
+
 const LEAD_ICON: Record<LeadVariant, React.ReactNode> = {
   danger: <TriangleAlert />,
   warning: <TriangleAlert />,
@@ -215,6 +217,13 @@ export default function ToolportPlusPage({
         <SectionHeader>Attention</SectionHeader>
         <Suspense fallback={<SkeletonRows label="Loading attention" />}>
           <AttentionManage />
+        </Suspense>
+      </section>
+
+      <section aria-label="Spend">
+        <SectionHeader>Spend</SectionHeader>
+        <Suspense fallback={<SkeletonRows label="Loading the Spend settings" />}>
+          <SpendSettings />
         </Suspense>
       </section>
 

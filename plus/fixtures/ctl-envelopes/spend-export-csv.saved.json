@@ -1,0 +1,14 @@
+{
+  "argv": ["spend", "export-csv", "--range", "30d", "--out", "{base}/spend.csv"],
+  "envelope": {
+    "command": "spend export-csv",
+    "data": {
+      "bytes": 369,
+      "out": "<WORLD>/spend.csv",
+      "rows": 3
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

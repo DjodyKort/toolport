@@ -20,6 +20,7 @@ pub mod secrets;
 pub mod servers;
 pub mod settings;
 pub mod setup;
+pub mod spend;
 pub mod tasks;
 pub mod view;
 
@@ -47,6 +48,7 @@ pub use servers::{
 };
 pub use settings::SettingsStore;
 pub use setup::{AddedServer, SetupHost, StaticSecret, UpdatedServer};
+pub use spend::SavingsAccess;
 pub use tasks::{
     FakeTaskHost, ProcessOutcome, ProcessSpec, RunApproval, RunDecision, SharedClockTaskHost,
     TaskHost,
@@ -202,6 +204,7 @@ pub trait Host:
     + ContextHost
     + SettingsStore
     + SetupHost
+    + SavingsAccess
     + TaskHost
 {
 }
@@ -220,6 +223,7 @@ impl<
             + ContextHost
             + SettingsStore
             + SetupHost
+            + SavingsAccess
             + TaskHost,
     > Host for T
 {

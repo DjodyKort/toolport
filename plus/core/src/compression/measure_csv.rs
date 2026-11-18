@@ -23,7 +23,7 @@ struct Question<'a> {
     cannot_tell: &'a str,
 }
 
-fn cell(text: &str) -> String {
+pub(crate) fn cell(text: &str) -> String {
     let guarded = if text.starts_with(['=', '+', '-', '@', '\t', '\r']) {
         format!("'{text}")
     } else {

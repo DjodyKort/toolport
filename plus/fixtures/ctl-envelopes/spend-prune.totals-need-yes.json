@@ -1,0 +1,13 @@
+{
+  "argv": ["spend", "prune", "--totals"],
+  "envelope": {
+    "command": "spend prune",
+    "error": {
+      "code": "usage",
+      "message": "--totals deletes the daily totals for good: add --yes, or --dry-run to look first"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

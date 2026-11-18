@@ -277,6 +277,18 @@ fn setup_home(world: &World) {
     setup_world::setup_home(world);
 }
 
+fn spend_data(world: &World) {
+    common::spend_world::build(world);
+}
+
+fn spend_settings_conflict(world: &World) {
+    common::spend_world::settings_with_a_conflict(world);
+}
+
+fn spend_settings_plain(world: &World) {
+    common::spend_world::settings_without_env(world);
+}
+
 fn sources_home(world: &World) {
     common::sources_world::build_in(&world.base);
 }
@@ -323,6 +335,8 @@ const OFF_PORT_PROXY: &[&str] = &[
 
 const PIPED_TASK: &str = r#"{"id":"piped-cleanup","title":"Cleanup from stdin","description":"","enabled":true,"requires":{"servers":[],"commands":["echo"]},"writesSecrets":[],"steps":[{"id":"say","title":"Say hello","type":"exec","program":"echo","args":["clean"]}],"triggers":{"manual":true,"cli":true,"selfMcp":{"enabled":false,"approval":"every-run"},"schedule":null,"onAuthFailure":[]},"createdFrom":{"kind":"manual"}}"#;
 const PIPED_EDIT: &str = r#"{"id":"nightly-report","title":"Nightly report (from stdin)","description":"","enabled":true,"requires":{"servers":[],"commands":["echo"]},"writesSecrets":[],"steps":[{"id":"say","title":"Say hello","type":"exec","program":"echo","args":["report"]}],"triggers":{"manual":true,"cli":false,"selfMcp":{"enabled":false,"approval":"every-run"},"schedule":{"cron":"0 3 * * *","autoRun":true},"onAuthFailure":[]},"createdFrom":null}"#;
+
+const SPEND_CLOCK: &[(&str, &str)] = &[("TOOLPORT_PLUS_NOW", common::spend_world::NOW_SECONDS)];
 
 const CASES: &[Case] = &[
     case(
@@ -476,6 +490,236 @@ const CASES: &[Case] = &[
             apply("stale_days_range", &["attention", "set", "stale-days", "0"]).exit(2),
             apply("unknown", &["attention", "set", "check.nothing", "on"]).exit(2),
             usage("usage", &["attention", "set", "notify"]),
+        ],
+    ),
+    case(
+        "spend status",
+        &[
+            hook("settings", spend_settings_plain),
+            read("off", &["spend", "status"]).env(SPEND_CLOCK),
+            hook("data", spend_data),
+            read("with-data", &["spend", "status"]).env(SPEND_CLOCK),
+            setup("turn-on", &["spend", "setup", "apply"]).env(SPEND_CLOCK),
+            read("on", &["spend", "status"]).env(SPEND_CLOCK),
+            usage("usage", &["spend", "status", "extra"]),
+        ],
+    ),
+    case(
+        "spend receiver status",
+        &[
+            hook("settings", spend_settings_plain),
+            read("off", &["spend", "receiver", "status"]).env(SPEND_CLOCK),
+            setup("turn-on", &["spend", "setup", "apply"]).env(SPEND_CLOCK),
+            read("on", &["spend", "receiver", "status"]).env(SPEND_CLOCK),
+        ],
+    ),
+    case(
+        "spend summary",
+        &[
+            read("empty", &["spend", "summary"]).env(SPEND_CLOCK),
+            hook("data", spend_data),
+            read("default", &["spend", "summary"]).env(SPEND_CLOCK),
+            read("today", &["spend", "summary", "--range", "today"]).env(SPEND_CLOCK),
+            read(
+                "month-project",
+                &[
+                    "spend",
+                    "summary",
+                    "--range",
+                    "30d",
+                    "--project",
+                    "/work/alpha",
+                ],
+            )
+            .env(SPEND_CLOCK),
+            read(
+                "month-model",
+                &[
+                    "spend",
+                    "summary",
+                    "--range",
+                    "30d",
+                    "--model",
+                    "claude-haiku-4",
+                ],
+            )
+            .env(SPEND_CLOCK),
+            read(
+                "month-task",
+                &[
+                    "spend",
+                    "summary",
+                    "--range",
+                    "30d",
+                    "--task",
+                    "Interactive",
+                ],
+            )
+            .env(SPEND_CLOCK),
+            usage("bad-range", &["spend", "summary", "--range", "year"]).env(SPEND_CLOCK),
+        ],
+    ),
+    case(
+        "spend export-csv",
+        &[
+            hook("data", spend_data),
+            read("month", &["spend", "export-csv", "--range", "30d"]).env(SPEND_CLOCK),
+            apply(
+                "saved",
+                &[
+                    "spend",
+                    "export-csv",
+                    "--range",
+                    "30d",
+                    "--out",
+                    "{base}/spend.csv",
+                ],
+            )
+            .env(SPEND_CLOCK),
+            usage("bad-range", &["spend", "export-csv", "--range", "year"]).env(SPEND_CLOCK),
+        ],
+    ),
+    case(
+        "spend prune",
+        &[
+            hook("data", spend_data),
+            read("dry-run", &["spend", "prune", "--dry-run"]).env(SPEND_CLOCK),
+            apply("prune", &["spend", "prune"]).env(SPEND_CLOCK),
+            read("again", &["spend", "prune", "--dry-run"]).env(SPEND_CLOCK),
+            usage("totals-need-yes", &["spend", "prune", "--totals"]).env(SPEND_CLOCK),
+            apply("totals", &["spend", "prune", "--totals", "--yes"]).env(SPEND_CLOCK),
+        ],
+    ),
+    case(
+        "spend config set",
+        &[
+            hook("data", spend_data),
+            apply(
+                "save",
+                &[
+                    "spend",
+                    "config",
+                    "set",
+                    "--retention-days",
+                    "14",
+                    "--max-mb",
+                    "32",
+                    "--show-cost",
+                    "off",
+                ],
+            )
+            .env(SPEND_CLOCK),
+            apply("port", &["spend", "config", "set", "--port", "4999"]).env(SPEND_CLOCK),
+            usage(
+                "retention-out-of-range",
+                &["spend", "config", "set", "--retention-days", "3"],
+            )
+            .env(SPEND_CLOCK),
+            usage(
+                "show-cost-word",
+                &["spend", "config", "set", "--show-cost", "maybe"],
+            )
+            .env(SPEND_CLOCK),
+        ],
+    ),
+    case(
+        "spend setup plan",
+        &[
+            hook("settings", spend_settings_conflict),
+            read("conflict", &["spend", "setup", "plan"]).env(SPEND_CLOCK),
+            read("port", &["spend", "setup", "plan", "--port", "4999"]).env(SPEND_CLOCK),
+            read(
+                "overwrite",
+                &[
+                    "spend",
+                    "setup",
+                    "plan",
+                    "--overwrite",
+                    "OTEL_METRICS_EXPORTER",
+                ],
+            )
+            .env(SPEND_CLOCK),
+            usage("low-port", &["spend", "setup", "plan", "--port", "80"]).env(SPEND_CLOCK),
+            read(
+                "profile",
+                &["spend", "setup", "plan", "--profile", "{home}/.claude"],
+            )
+            .env(SPEND_CLOCK),
+            usage(
+                "unknown-profile",
+                &["spend", "setup", "plan", "--profile", "{home}/elsewhere"],
+            )
+            .env(SPEND_CLOCK),
+        ],
+    ),
+    case(
+        "spend setup apply",
+        &[
+            hook("settings", spend_settings_conflict),
+            read("dry-run", &["spend", "setup", "apply", "--dry-run"]).env(SPEND_CLOCK),
+            apply("conflict", &["spend", "setup", "apply"]).env(SPEND_CLOCK),
+            apply(
+                "overwrite",
+                &[
+                    "spend",
+                    "setup",
+                    "apply",
+                    "--overwrite",
+                    "OTEL_METRICS_EXPORTER",
+                ],
+            )
+            .env(SPEND_CLOCK),
+            read("again", &["spend", "setup", "apply", "--dry-run"]).env(SPEND_CLOCK),
+        ],
+    ),
+    case(
+        "spend setup undo",
+        &[
+            hook("settings", spend_settings_conflict),
+            read("nothing-to-undo", &["spend", "setup", "undo", "--dry-run"]).env(SPEND_CLOCK),
+            setup(
+                "turn-on",
+                &[
+                    "spend",
+                    "setup",
+                    "apply",
+                    "--overwrite",
+                    "all",
+                    "--port",
+                    "4999",
+                ],
+            )
+            .env(SPEND_CLOCK),
+            read("dry-run", &["spend", "setup", "undo", "--dry-run"]).env(SPEND_CLOCK),
+            hook("data", spend_data),
+            read(
+                "dry-run-delete-data",
+                &["spend", "setup", "undo", "--delete-data", "--dry-run"],
+            )
+            .env(SPEND_CLOCK),
+            usage(
+                "delete-data-needs-yes",
+                &["spend", "setup", "undo", "--delete-data"],
+            )
+            .env(SPEND_CLOCK),
+            usage(
+                "unknown-profile",
+                &["spend", "setup", "undo", "--profile", "{home}/elsewhere"],
+            )
+            .env(SPEND_CLOCK),
+            apply("undo", &["spend", "setup", "undo"]).env(SPEND_CLOCK),
+            apply("undo-again", &["spend", "setup", "undo"]).env(SPEND_CLOCK),
+            setup(
+                "turn-on-again",
+                &["spend", "setup", "apply", "--overwrite", "all"],
+            )
+            .env(SPEND_CLOCK),
+            apply(
+                "undo-delete-data",
+                &["spend", "setup", "undo", "--delete-data", "--yes"],
+            )
+            .env(SPEND_CLOCK),
+            read("data-gone", &["spend", "status"]).env(SPEND_CLOCK),
         ],
     ),
     case(

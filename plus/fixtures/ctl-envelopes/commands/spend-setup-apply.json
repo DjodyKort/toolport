@@ -1,0 +1,70 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Port the receiver listens on (default 4318)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--port",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "An env key that already holds another value and may be overwritten, or all; repeat for more",
+      "escalates": false,
+      "hidden": false,
+      "name": "--overwrite",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "A Claude Code settings file or its folder; repeat for more (default: every detected profile)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--profile",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "spend",
+  "id": "spend setup apply",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["spend", "setup", "apply"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Write the OTel env keys after a plan and turn collection on (--port, --overwrite, --profile, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

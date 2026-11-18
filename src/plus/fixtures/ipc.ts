@@ -2,6 +2,7 @@ import type { CtlEnvelope, CtlResult } from "../bridge/ctl";
 import { setClock } from "../tasks/clock";
 import type { HooksScenario, MeasureScenario } from "./compressionWorld";
 import { FIXTURE_NOW, type TaskWorldOptions } from "./taskWorld";
+import { SPEND_NOW, type SpendScenario, type SpendWorldOptions } from "./spendWorld";
 import {
   fixtureServers,
   type LoginSeed,
@@ -121,6 +122,15 @@ function loginWorld(params: URLSearchParams) {
   };
 }
 
+const SPEND_SCENARIOS: SpendScenario[] = [
+  "healthy",
+  "never",
+  "off",
+  "waiting",
+  "computing",
+  "cannot-listen",
+];
+
 const HOOK_SCENARIOS = [
   "adopt",
   "on",
@@ -176,6 +186,7 @@ export function plusFixtureFromSearch(search: string) {
     tasks: tasksFromSearch(params),
     library: libraryFromSearch(params),
     attention: attentionFromSearch(params),
+    spend: spendFromSearch(params),
   });
 }
 
@@ -207,6 +218,32 @@ function libraryFromSearch(params: URLSearchParams): LibraryWorldOptions {
     secret: params.has("plus-library-secret"),
     dirty: params.has("plus-library-dirty"),
     auto: LIBRARY_AUTO.includes(auto) ? (auto as LibraryAuto) : "off",
+  };
+}
+
+/** `?plus-spend=healthy|never|off|waiting|computing|cannot-listen` picks the state of the Spend
+ * page at its fixed time (Wednesday 18 November 2026, 14:30 in Amsterdam); `plus-spend-stale`,
+ * `-mcp-error` and `-conflict` add one more thing that is wrong, `plus-spend-no-cost` switches
+ * dollar figures off. */
+function spendFromSearch(params: URLSearchParams): SpendWorldOptions {
+  const scenario = params.get("plus-spend") ?? "";
+  if (scenario === "") return {};
+  setClock(SPEND_NOW);
+  return {
+    scenario: SPEND_SCENARIOS.includes(scenario as SpendScenario)
+      ? (scenario as SpendScenario)
+      : "healthy",
+    stale: params.has("plus-spend-stale"),
+    mcpError: params.has("plus-spend-mcp-error"),
+    conflict: params.has("plus-spend-conflict"),
+    hideCost: params.has("plus-spend-no-cost"),
+    applyError: params.has("plus-spend-apply-error")
+      ? "settings.json is read-only"
+      : undefined,
+    busyPorts: params.has("plus-spend-busy")
+      ? params.getAll("plus-spend-busy").map(Number)
+      : undefined,
+    oldEventsFile: params.has("plus-spend-old-file"),
   };
 }
 

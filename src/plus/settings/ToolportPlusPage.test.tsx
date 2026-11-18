@@ -228,6 +228,18 @@ describe("Settings > Toolport+", () => {
     expect(within(dialog).getByLabelText("Output")).toHaveTextContent('"serverCount": 3');
   });
 
+  it("test13_a_spend_section_holds_the_spend_settings_between_installation_and_commands", async () => {
+    resetPlusFixture({ self: "enabled" });
+    renderPage();
+    const spend = await screen.findByRole("region", { name: "Spend" });
+    expect(await within(spend).findByRole("switch", { name: "Show cost" })).toBeChecked();
+    const regions = screen
+      .getAllByRole("region")
+      .map((r) => r.getAttribute("aria-label"));
+    expect(regions.indexOf("Spend")).toBeGreaterThan(regions.indexOf("Installation"));
+    expect(regions.indexOf("Spend")).toBeLessThan(regions.indexOf("Commands"));
+  });
+
   it("test20_memory_overview_lists_the_repositories_in_its_own_section", async () => {
     resetPlusFixture({ self: "enabled" });
     renderPage();

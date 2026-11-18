@@ -1,0 +1,59 @@
+{
+  "baseTier": "destructive",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Show what would be removed and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Also delete the daily totals that survive pruning; needs --yes",
+      "escalates": false,
+      "hidden": false,
+      "name": "--totals",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Confirm deleting the daily totals",
+      "escalates": false,
+      "hidden": false,
+      "name": "--yes",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "spend",
+  "id": "spend prune",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["spend", "prune"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Remove events past the retention and size caps, keeping the daily totals (--dry-run, --totals --yes)",
+  "surface": "screen",
+  "tier": "destructive",
+  "tools": []
+}

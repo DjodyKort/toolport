@@ -36,6 +36,7 @@ pub mod servers;
 pub mod setup;
 pub mod skills;
 pub mod sources;
+pub mod spend;
 pub mod status;
 pub mod sync;
 pub mod tasks;

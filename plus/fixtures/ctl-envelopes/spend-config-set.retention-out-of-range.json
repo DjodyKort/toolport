@@ -1,0 +1,13 @@
+{
+  "argv": ["spend", "config", "set", "--retention-days", "3"],
+  "envelope": {
+    "command": "spend config set",
+    "error": {
+      "code": "usage",
+      "message": "retention must be 7 to 90 days"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

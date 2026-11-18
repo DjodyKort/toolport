@@ -1,0 +1,28 @@
+{
+  "argv": [
+    "spend",
+    "config",
+    "set",
+    "--retention-days",
+    "14",
+    "--max-mb",
+    "32",
+    "--show-cost",
+    "off"
+  ],
+  "envelope": {
+    "command": "spend config set",
+    "data": {
+      "changed": true,
+      "enabled": false,
+      "maxMb": 32,
+      "port": 4318,
+      "portChanged": false,
+      "retentionDays": 14,
+      "showCost": false
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -11,6 +11,7 @@ pub mod oauth_mock;
 pub mod server_repo_world;
 pub mod setup_world;
 pub mod sources_world;
+pub mod spend_world;
 pub mod taps_world;
 pub mod tasks_world;
 pub mod world;

@@ -1,0 +1,70 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "A Claude Code settings file or its folder; repeat for more (default: every profile Toolport set up)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--profile",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Also delete the collected events and daily totals; needs --yes and every profile undone",
+      "escalates": false,
+      "hidden": false,
+      "name": "--delete-data",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Confirm deleting the collected data",
+      "escalates": false,
+      "hidden": false,
+      "name": "--yes",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Show what would be undone and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "spend",
+  "id": "spend setup undo",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["spend", "setup", "undo"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Remove the env keys Toolport wrote and turn collection off; --delete-data --yes also deletes the collected data (--profile, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

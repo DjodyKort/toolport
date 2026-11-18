@@ -1,0 +1,13 @@
+{
+  "argv": ["spend", "setup", "undo", "--profile", "{home}/elsewhere"],
+  "envelope": {
+    "command": "spend setup undo",
+    "error": {
+      "code": "usage",
+      "message": "no Claude Code profile '<WORLD>/home/elsewhere'"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

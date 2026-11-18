@@ -1,0 +1,152 @@
+{
+  "argv": ["spend", "summary"],
+  "envelope": {
+    "command": "spend summary",
+    "data": {
+      "byDay": [],
+      "byModel": [],
+      "byProject": [],
+      "byTask": [],
+      "cacheShare": {
+        "badge": "Measured",
+        "value": 0.0
+      },
+      "mcpPart": {
+        "compression": {
+          "badge": "Counted",
+          "calls": 0,
+          "firstCall": null,
+          "hooks": 0,
+          "lastCall": null,
+          "note": "Counts hook calls, latency and how often the hook answered. It cannot see the size of the tool output a rewrite later saves; that needs the billed measurement in `compression verify`.",
+          "tokensCut": null
+        },
+        "firstRequest": null,
+        "note": "Upstream's saved tokens cover tool-definition exposure only and are never added to spend",
+        "savedTokens": 0,
+        "shareOfInputTokens": {
+          "badge": "Estimate",
+          "value": null
+        },
+        "state": "empty",
+        "toolDefinitions": {
+          "badge": "Counted",
+          "exposedTokens": 0,
+          "fullTokens": 0,
+          "medianExposedTokens": 0,
+          "medianFullTokens": 0,
+          "sessions": 0,
+          "tokenizer": "cl100k_base"
+        }
+      },
+      "model": null,
+      "notes": ["Spend is never added to upstream's saved-tokens number"],
+      "previous": {
+        "costDelta": null,
+        "tokensDelta": null
+      },
+      "project": null,
+      "range": "7d",
+      "since": "<masked>",
+      "sources": {
+        "estimatedShare": 0.0,
+        "otelSessions": 0,
+        "transcriptSessions": 0
+      },
+      "stale": null,
+      "status": {
+        "enabled": false,
+        "lastEvent": null,
+        "profilesSetUp": 0,
+        "receiver": {
+          "address": "127.0.0.1:<PORT>",
+          "dropped": 0,
+          "error": null,
+          "events": 0,
+          "listening": false,
+          "owner": null,
+          "rejected": 0,
+          "requests": 0
+        },
+        "setup": [],
+        "showCost": true,
+        "state": "off",
+        "store": {
+          "bytes": 0,
+          "dailyLines": 0,
+          "events": 0,
+          "maxBytes": 67108864,
+          "oldest": null,
+          "retentionDays": 30,
+          "skippedLines": 0
+        },
+        "transcripts": {
+          "done": 0,
+          "files": 0
+        }
+      },
+      "task": null,
+      "tiles": {
+        "30d": {
+          "cost": {
+            "badge": "Estimate",
+            "estimatedUsd": 0.0,
+            "usd": 0.0
+          },
+          "costDelta": null,
+          "days": 30,
+          "estimatedDays": 0,
+          "previousUsd": 0.0,
+          "tokens": 0
+        },
+        "7d": {
+          "cost": {
+            "badge": "Estimate",
+            "estimatedUsd": 0.0,
+            "usd": 0.0
+          },
+          "costDelta": null,
+          "days": 7,
+          "estimatedDays": 0,
+          "previousUsd": 0.0,
+          "tokens": 0
+        },
+        "today": {
+          "cost": {
+            "badge": "Estimate",
+            "estimatedUsd": 0.0,
+            "usd": 0.0
+          },
+          "costDelta": null,
+          "days": 1,
+          "estimatedDays": 0,
+          "previousUsd": 0.0,
+          "tokens": 0
+        }
+      },
+      "totals": {
+        "cost": {
+          "badge": "Estimate",
+          "estimatedUsd": 0.0,
+          "usd": 0.0
+        },
+        "key": "total",
+        "requests": 0,
+        "sessions": 0,
+        "share": 0.0,
+        "tokens": {
+          "badge": "Measured",
+          "cacheCreation": 0,
+          "cacheRead": 0,
+          "fromTranscript": 0,
+          "input": 0,
+          "output": 0,
+          "total": 0
+        }
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -20,7 +20,7 @@ function row(
 }
 
 describe("PlusNavGroup", () => {
-  it("test01_lists_library_context_and_tasks_under_the_claude_label", () => {
+  it("test01_lists_library_context_tasks_and_spend_under_the_claude_label", () => {
     render(<PlusNavGroup view="servers" onSelectView={vi.fn()} row={row} />);
     const group = screen.getByRole("navigation", { name: "Claude" });
     expect(group).toBeInTheDocument();
@@ -28,6 +28,7 @@ describe("PlusNavGroup", () => {
       "Library",
       "Context",
       "Tasks",
+      "Spend",
     ]);
   });
 

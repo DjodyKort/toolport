@@ -1,0 +1,7 @@
+{
+  "command": "spend setup plan",
+  "dryRun": "none",
+  "name": "spend_setup_plan",
+  "tier": "read",
+  "toolTier": 1
+}

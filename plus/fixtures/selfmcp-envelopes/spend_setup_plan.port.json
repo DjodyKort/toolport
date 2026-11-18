@@ -1,0 +1,55 @@
+{
+  "arguments": {
+    "port": "4999"
+  },
+  "isError": false,
+  "result": {
+    "conflicts": 1,
+    "contentFlags": "never written",
+    "endpoint": "http://127.0.0.1:<PORT>",
+    "note": "Keys that already hold another value stay as they are unless you choose to overwrite them; collection will not work until they match",
+    "port": 4999,
+    "profiles": [
+      {
+        "conflicts": 1,
+        "entries": [
+          {
+            "action": "add",
+            "current": null,
+            "key": "CLAUDE_CODE_ENABLE_TELEMETRY",
+            "wanted": "1"
+          },
+          {
+            "action": "conflict",
+            "current": "prometheus",
+            "key": "OTEL_METRICS_EXPORTER",
+            "wanted": "otlp"
+          },
+          {
+            "action": "add",
+            "current": null,
+            "key": "OTEL_LOGS_EXPORTER",
+            "wanted": "otlp"
+          },
+          {
+            "action": "add",
+            "current": null,
+            "key": "OTEL_EXPORTER_OTLP_PROTOCOL",
+            "wanted": "http/json"
+          },
+          {
+            "action": "add",
+            "current": null,
+            "key": "OTEL_EXPORTER_OTLP_ENDPOINT",
+            "wanted": "http://127.0.0.1:<PORT>"
+          }
+        ],
+        "exists": true,
+        "profile": "<WORLD>/home/.claude/settings.json",
+        "writes": 4
+      }
+    ],
+    "writes": 4
+  },
+  "tool": "spend_setup_plan"
+}

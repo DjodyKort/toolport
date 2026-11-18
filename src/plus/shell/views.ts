@@ -1,9 +1,9 @@
-import { BookOpen, Gauge, ListTodo, type LucideIcon } from "lucide-react";
+import { BookOpen, Coins, Gauge, ListTodo, type LucideIcon } from "lucide-react";
 import { msg, type SourceMessage } from "@/lib/i18n";
 import type { View } from "@/lib/types";
 
 /** Views the "Claude" group adds after upstream's six sidebar entries. */
-export const PLUS_VIEWS = ["library", "context", "tasks"] as const;
+export const PLUS_VIEWS = ["library", "context", "tasks", "spend"] as const;
 export type PlusView = (typeof PLUS_VIEWS)[number];
 
 /** Upstream pages the fork adds rows to; the parity manifest names them as `view:<id>` too. */
@@ -53,6 +53,15 @@ export const PLUS_SCREENS: Record<PlusView, PlusScreen> = {
     subtitle: "Named jobs Toolport can run for you",
     slice: "S6",
     what: "Run named jobs on a schedule or on demand, and read their history.",
+  },
+  spend: {
+    view: "spend",
+    label: msg("Spend"),
+    icon: Coins,
+    title: "Spend",
+    subtitle: "What Claude Code used on this machine, and what the MCP part of it was",
+    slice: "S10",
+    what: "See what Claude Code used by day, project, model and task, and what the MCP part of it was.",
   },
 };
 

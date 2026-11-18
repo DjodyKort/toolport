@@ -2361,6 +2361,40 @@ const CASES: &[Case] = &[
     ),
     // compression
     case(
+        "spend_status",
+        &[
+            read("off", "spend_status", "{}"),
+            hook("data", spend_data),
+            read("with_data", "spend_status", "{}"),
+        ],
+    ),
+    case(
+        "spend_summary",
+        &[
+            read("empty", "spend_summary", "{}"),
+            hook("data", spend_data),
+            read(
+                "model_and_task",
+                "spend_summary",
+                r#"{"range":"30d","model":"claude-sonnet-4","task":"Interactive"}"#,
+            ),
+            fails(
+                "bad_range",
+                "invalid_arguments",
+                "spend_summary",
+                r#"{"range":"year"}"#,
+            ),
+        ],
+    ),
+    case(
+        "spend_setup_plan",
+        &[
+            hook("settings", spend_settings),
+            read("plan", "spend_setup_plan", "{}"),
+            read("port", "spend_setup_plan", r#"{"port":"4999"}"#),
+        ],
+    ),
+    case(
         "compression_status",
         &[
             read("fresh", "compression_status", "{}"),
@@ -2723,6 +2757,14 @@ fn folder_routing_world(world: &World) {
     registry["clientScopes"] = serde_json::json!({"claude-code": "focus"});
     registry["folderProfiles"] = serde_json::json!([{"path": "/work/proj", "profile": "wide"}]);
     world.write_registry(&registry);
+}
+
+fn spend_data(world: &World) {
+    common::spend_world::build(world);
+}
+
+fn spend_settings(world: &World) {
+    common::spend_world::settings_with_a_conflict(world);
 }
 
 fn sources_home(world: &World) {

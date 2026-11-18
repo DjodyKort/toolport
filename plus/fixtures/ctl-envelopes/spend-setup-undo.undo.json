@@ -1,0 +1,25 @@
+{
+  "argv": ["spend", "setup", "undo"],
+  "envelope": {
+    "command": "spend setup undo",
+    "data": {
+      "enabled": false,
+      "profiles": [
+        {
+          "keptChanged": [],
+          "profile": "<WORLD>/home/.claude/settings.json",
+          "restored": [
+            "CLAUDE_CODE_ENABLE_TELEMETRY",
+            "OTEL_EXPORTER_OTLP_ENDPOINT",
+            "OTEL_EXPORTER_OTLP_PROTOCOL",
+            "OTEL_LOGS_EXPORTER",
+            "OTEL_METRICS_EXPORTER"
+          ]
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

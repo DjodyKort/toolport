@@ -1,0 +1,20 @@
+{
+  "argv": ["spend", "prune", "--totals", "--yes"],
+  "envelope": {
+    "command": "spend prune",
+    "data": {
+      "dryRun": false,
+      "foldedDays": 0,
+      "keptBytes": 1293,
+      "keptEvents": 10,
+      "maxBytes": 67108864,
+      "removedBytes": 0,
+      "removedEvents": 0,
+      "retentionDays": 30,
+      "totalsDeleted": true
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,71 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Port the receiver listens on (1024 or higher)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--port",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "Days to keep events, 7 to 90",
+      "escalates": false,
+      "hidden": false,
+      "name": "--retention-days",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "Size cap of the event store in MB, 16 to 256",
+      "escalates": false,
+      "hidden": false,
+      "name": "--max-mb",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "choices": ["on", "off"],
+      "effect": "Show dollar figures; off shows tokens only",
+      "escalates": false,
+      "hidden": false,
+      "name": "--show-cost",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    }
+  ],
+  "group": "spend",
+  "id": "spend config set",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["spend", "config", "set"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Change the Spend settings: port, retention days, size cap, show cost (--port, --retention-days, --max-mb, --show-cost)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

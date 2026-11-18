@@ -1,0 +1,25 @@
+{
+  "id": "spend-weekly-measure",
+  "title": "Measure the context once a week",
+  "description": "Sends one tiny request through Claude Code every Monday morning to measure what a session starts with, so the Spend page can show how that number drifts. It spends a few model tokens each week, uses the haiku model and measures one folder: the folder this task runs in.",
+  "enabled": false,
+  "requires": { "servers": [], "commands": ["toolportctl", "claude"] },
+  "writesSecrets": [],
+  "steps": [
+    {
+      "id": "measure",
+      "title": "Measure the context",
+      "type": "exec",
+      "program": "toolportctl",
+      "args": ["context", "measure", "--model", "haiku", "--yes"]
+    }
+  ],
+  "triggers": {
+    "manual": true,
+    "cli": true,
+    "selfMcp": { "enabled": false, "approval": "every-run" },
+    "schedule": { "cron": "0 9 * * 1", "autoRun": true },
+    "onAuthFailure": []
+  },
+  "createdFrom": { "kind": "manual" }
+}
