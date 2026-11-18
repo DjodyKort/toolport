@@ -123,6 +123,7 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("skills lint", m("--name", Str, "Lint only this skill (repeatable)").repeats()),
     ("attention ls", m("--hidden", Bool, "Also list the rows a snooze, skip or dismissal keeps out, with what hides them")),
     ("attention ls", m("--level", Choice(&["needs-you", "look", "fyi"]), "Only rows of this level")),
+    ("attention notify", m("--test", Bool, "Show a test notification from the running app")),
     ("attention snooze", m("--for", Str, "How long to hide the row, for example 1h, 2d or 90m (default 1d)")),
     ("attention snooze", m("--until", Str, "When the snooze ends, as a timestamp with an offset or a date (UTC)")),
     ("attention snooze", m("--dry-run", Bool, "Report the change and write nothing")),

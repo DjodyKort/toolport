@@ -2,6 +2,7 @@ use toolport_plus_api::{FakeNotifier, MemoryHost};
 
 use super::notify::{self, TEST_TITLE};
 use super::store::{Store, NOTIFY_WINDOW_SECS};
+use super::test_toast;
 use super::tests::{host, secret_server, Dir, NOW};
 
 fn data(dir: &Dir) -> std::path::PathBuf {
@@ -210,4 +211,87 @@ fn test59_the_test_notification_says_it_is_a_test() {
     let notifier = FakeNotifier::default();
     notify::test(&notifier).unwrap();
     assert_eq!(notifier.sent.borrow()[0].0, TEST_TITLE);
+}
+
+fn asked_in_thread(
+    base: std::path::PathBuf,
+    now: i64,
+) -> std::thread::JoinHandle<Result<(), String>> {
+    std::thread::spawn(move || {
+        test_toast::ask_at(&base, now, std::time::Duration::from_secs(5))
+            .map(|_| ())
+            .map_err(|e| e.message)
+    })
+}
+
+fn answer_when_asked(host: &MemoryHost, notifier: &FakeNotifier) {
+    for _ in 0..100 {
+        if test_toast::answer(host, notifier) {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    panic!("no request arrived");
+}
+
+#[test]
+fn test60_a_test_request_from_the_command_line_shows_a_notification_in_the_app() {
+    let dir = Dir::new("toast-ok");
+    let host = host(&dir, Vec::new());
+    let notifier = FakeNotifier::default();
+    let asked = asked_in_thread(data(&dir), NOW);
+    answer_when_asked(&host, &notifier);
+    assert_eq!(asked.join().unwrap(), Ok(()));
+    assert_eq!(notifier.sent.borrow()[0].0, TEST_TITLE);
+}
+
+#[test]
+fn test61_a_refused_test_notification_tells_the_command_line_why() {
+    let dir = Dir::new("toast-refused");
+    let host = host(&dir, Vec::new());
+    let notifier = FakeNotifier::default();
+    *notifier.refuse.borrow_mut() = Some("notifications are blocked".into());
+    let asked = asked_in_thread(data(&dir), NOW);
+    answer_when_asked(&host, &notifier);
+    assert_eq!(
+        asked.join().unwrap(),
+        Err("notifications are blocked".into())
+    );
+}
+
+#[test]
+fn test62_without_a_running_app_the_test_fails_and_leaves_no_request_behind() {
+    let dir = Dir::new("toast-none");
+    let error =
+        test_toast::ask_at(&data(&dir), NOW, std::time::Duration::from_millis(300)).unwrap_err();
+    assert_eq!(error.code(), "app_not_running");
+    let host = host(&dir, Vec::new());
+    assert!(!test_toast::answer(&host, &FakeNotifier::default()));
+}
+
+#[test]
+fn test63_a_request_older_than_thirty_seconds_is_dropped_not_shown_late() {
+    let dir = Dir::new("toast-stale");
+    let host = host(&dir, Vec::new());
+    let notifier = FakeNotifier::default();
+    let asked = asked_in_thread(data(&dir), NOW - 120);
+    std::thread::sleep(std::time::Duration::from_millis(400));
+    assert!(!test_toast::answer(&host, &notifier));
+    assert!(notifier.sent.borrow().is_empty());
+    drop(asked);
+}
+
+#[test]
+fn test64_switching_notifications_off_forgets_what_was_known_so_the_next_pass_is_silent() {
+    let dir = Dir::new("notify-forget");
+    let host = host(&dir, vec![secret_server("alpha", true)]);
+    switched_on(&dir, &[]);
+    let notifier = FakeNotifier::default();
+    notify::pass(&host, &notifier).unwrap();
+    assert!(Store::read(&data(&dir)).unwrap().announced.is_some());
+    let mut store = Store::read(&data(&dir)).unwrap();
+    store.settings.notify.enabled = false;
+    store.write(&data(&dir)).unwrap();
+    assert!(notify::pass(&host, &notifier).unwrap().is_none());
+    assert!(Store::read(&data(&dir)).unwrap().announced.is_none());
 }

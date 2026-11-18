@@ -26,6 +26,7 @@ pub(super) const SNOOZE: Spec = plain(
 );
 pub(super) const HIDE: Spec = plain(&[switch("--dry-run")], Operands::Collect);
 pub(super) const ONE: Spec = plain(&[], Operands::Collect);
+pub(super) const NOTIFY: Spec = plain(&[switch("--test")], Operands::Reject);
 pub(super) const NONE: Spec = plain(&[], Operands::Reject);
 
 fn id_of(flags: &super::flags::Flags, usage: &str) -> Result<String, CtlError> {
@@ -164,5 +165,19 @@ pub fn set(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     Ok(Output::new(
         json!({"key": key, "on": on, "settings": data}),
         format!("{key} is {state}"),
+    ))
+}
+
+pub fn notify(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let flags = NOTIFY.parse(rest)?;
+    if !flags.on("--test") {
+        return Err(CtlError::usage(
+            "usage: toolportctl attention notify --test",
+        ));
+    }
+    let data = attention::test_toast::request(host, attention::test_toast::DEFAULT_WAIT)?;
+    Ok(Output::new(
+        data,
+        "Sent a test notification from the Toolport+ app".to_string(),
     ))
 }

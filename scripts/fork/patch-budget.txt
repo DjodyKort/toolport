@@ -35,8 +35,10 @@
 38	src-tauri/src/bin/toolport-gateway.rs
 # desktop.rs, 6 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
 # plus_ctl commands (D-060) and hands every other command on (4); seam::app_started() at the start of
-# run() starts the task scheduler thread of the desktop app, the always-on tick of D-128 (2).
-6	src-tauri/src/desktop.rs
+# run() starts the task scheduler thread of the desktop app, the always-on tick of D-128 (2);
+# seam::app_ready(handle) in the setup closure starts the notifier thread of the attention list,
+# which needs the AppHandle that app_started() runs too early to have (1).
+7	src-tauri/src/desktop.rs
 # downstream.rs, 29 changed lines:
 #   1: `is_download_launcher` asks seam::is_uv_download_launcher for the `uv` arm, so `uv run` and
 #      `uv tool run` get the launcher connect budget and the desktop's background pre-warm.

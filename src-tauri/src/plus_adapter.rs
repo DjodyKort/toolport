@@ -2782,6 +2782,12 @@ mod tests {
     }
 }
 
+#[cfg(feature = "desktop")]
+#[path = "plus_adapter_notifier.rs"]
+mod notifier;
+#[cfg(feature = "desktop")]
+pub(crate) use notifier::AppNotifier;
+
 #[cfg(test)]
 #[path = "plus_adapter_oauth_tests.rs"]
 mod oauth_tests;

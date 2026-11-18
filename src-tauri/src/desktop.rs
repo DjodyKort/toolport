@@ -4915,6 +4915,7 @@ pub fn run() {
         })
         .setup(|app| {
             let handle = app.handle();
+            crate::seam::app_ready(handle);
 
             // AppImage launch-at-login: if a previous session registered the
             // ephemeral FUSE mount, rewrite Exec to $APPIMAGE (SBS-844).

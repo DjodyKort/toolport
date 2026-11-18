@@ -505,6 +505,11 @@ pub const COMMANDS: &[Command] = &[
         attention::settings,
     ),
     cmd(
+        &["attention", "notify"],
+        "Show a test notification from the running app (--test)",
+        attention::notify,
+    ),
+    cmd(
         &["attention", "set"],
         "Switch a check or a notification on or off (<notify|check.name|notify.name> <on|off>)",
         attention::set,

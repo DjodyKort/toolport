@@ -1,0 +1,25 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "attention",
+  "id": "attention notify",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["attention", "notify"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Show a test notification from the running app (--test)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

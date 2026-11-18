@@ -1,6 +1,8 @@
 //! The notifier pass: which needs-you rows are news, and what to say about them. It runs in the
 //! app process, which owns the [`Notifier`]; the list it reads is the one the bell shows.
 
+use std::time::{Duration, Instant};
+
 use serde_json::{json, Value};
 use toolport_plus_api::{Host, Notifier};
 
@@ -165,4 +167,51 @@ pub fn run(host: &dyn Host, notifier: &dyn Notifier) -> Result<Report, OpError> 
 
 pub fn test(notifier: &dyn Notifier) -> Result<(), String> {
     notifier.notify(TEST_TITLE, "This is what a row that needs you looks like.")
+}
+
+/// How often the app looks for news, and how often for a test request from the command line.
+const PASS_EVERY: Duration = Duration::from_secs(60);
+const REQUEST_EVERY: Duration = Duration::from_secs(2);
+const FIRST_PASS_AFTER: Duration = Duration::from_secs(20);
+
+/// One scheduled pass. While the master switch is off nothing is computed and what was known is
+/// forgotten, so switching it on starts with a silent first pass instead of announcing rows that
+/// appeared in the meantime.
+pub fn pass(host: &dyn Host, notifier: &dyn Notifier) -> Result<Option<Report>, OpError> {
+    let base = host
+        .data_dir()
+        .ok_or_else(|| OpError::failed("no_data_dir", "data directory could not be resolved"))?;
+    let mut store = Store::read(&base).map_err(|e| OpError::failed("attention_store", e))?;
+    if store.settings.notify.enabled {
+        return run(host, notifier).map(Some);
+    }
+    if store.announced.take().is_some() {
+        store
+            .write(&base)
+            .map_err(|e| OpError::failed("attention_store", e))?;
+    }
+    Ok(None)
+}
+
+/// The app's notifier thread: answers test requests and runs a pass every minute.
+pub fn spawn<H, N>(host: H, notifier: N)
+where
+    H: Host + Send + 'static,
+    N: Notifier + Send + 'static,
+{
+    let _ = std::thread::Builder::new()
+        .name("attention-notifier".into())
+        .spawn(move || {
+            let mut next_pass = Instant::now() + FIRST_PASS_AFTER;
+            loop {
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    super::test_toast::answer(&host, &notifier);
+                    if Instant::now() >= next_pass {
+                        next_pass = Instant::now() + PASS_EVERY;
+                        let _ = pass(&host, &notifier);
+                    }
+                }));
+                std::thread::sleep(REQUEST_EVERY);
+            }
+        });
 }

@@ -16,6 +16,7 @@ mod model;
 pub mod notify;
 pub mod ops;
 pub mod store;
+pub mod test_toast;
 pub mod updates;
 
 use std::cmp::Reverse;

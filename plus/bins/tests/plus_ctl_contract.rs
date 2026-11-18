@@ -348,6 +348,13 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "attention notify",
+        &[
+            hook("busy-world", attention_home),
+            usage("usage", &["attention", "notify"]),
+        ],
+    ),
+    case(
         "attention set",
         &[
             hook("busy-world", attention_home),

@@ -121,6 +121,19 @@ pub(crate) fn app_started() {
     toolport_plus::tasks::schedule::spawn_app_ticker(crate::plus_adapter::HostAdapter);
 }
 
+/// The app window exists: starts the thread that notifies about the rows that need the person,
+/// which needs the handle to show a notification and to ask whether the window has the focus.
+#[cfg(feature = "desktop")]
+pub(crate) fn app_ready(handle: &tauri::AppHandle) {
+    #[cfg(feature = "plus")]
+    toolport_plus::attention::notify::spawn(
+        crate::plus_adapter::HostAdapter,
+        crate::plus_adapter::AppNotifier::new(handle.clone()),
+    );
+    #[cfg(not(feature = "plus"))]
+    let _ = handle;
+}
+
 /// Takes the tools of servers whose mode is `search` out of the surface a Full tools/list sends.
 /// Leaves `surface` as it is, and parses nothing, when the list is not a Full one or no server
 /// has that mode. `owner_of` names the server behind an exposed tool and `helpers` builds the
