@@ -3,9 +3,11 @@
 //! the attention list's update rows.
 
 pub mod discover;
+pub mod peers;
 pub mod screen;
 pub mod state;
 pub mod store;
+pub mod switch;
 pub mod update;
 
 #[cfg(test)]

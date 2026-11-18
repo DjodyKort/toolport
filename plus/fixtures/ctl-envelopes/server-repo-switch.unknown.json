@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "repo", "switch", "ghost"],
+  "envelope": {
+    "command": "server repo switch",
+    "error": {
+      "code": "not_found",
+      "message": "no server 'ghost'"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

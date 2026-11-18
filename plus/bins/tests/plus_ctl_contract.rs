@@ -26,7 +26,7 @@ use common::compression::{
 };
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
-use common::server_repo_world::{server_repo, server_repo_dirty};
+use common::server_repo_world::{server_repo, server_repo_dirty, server_repo_peers};
 use common::setup_world::{self, PASSPHRASE};
 use common::taps_world;
 use common::tasks_world::{scheduler_extras, tasks_home};
@@ -957,6 +957,54 @@ const CASES: &[Case] = &[
                     "--no-restart",
                 ],
             ),
+        ],
+    ),
+    case(
+        "server repo switch",
+        &[
+            hook("repo-world", server_repo),
+            hook("peers", server_repo_peers),
+            apply(
+                "plan_not_fetched",
+                &["server", "repo", "switch", "gamma", "--dry-run"],
+            ),
+            apply(
+                "plan",
+                &["server", "repo", "switch", "gamma", "--dry-run", "--fetch"],
+            ),
+            apply(
+                "switch",
+                &[
+                    "server",
+                    "repo",
+                    "switch",
+                    "gamma",
+                    "--fetch",
+                    "--no-restart",
+                ],
+            ),
+            read(
+                "undo_preview",
+                &["server", "repo", "switch", "gamma", "--undo", "--dry-run"],
+            ),
+            apply(
+                "undo",
+                &[
+                    "server",
+                    "repo",
+                    "switch",
+                    "gamma",
+                    "--undo",
+                    "--no-restart",
+                ],
+            ),
+            apply("unknown", &["server", "repo", "switch", "ghost"]).exit(1),
+            apply(
+                "unknown_machine",
+                &["server", "repo", "switch", "gamma", "--machine", "ghost"],
+            )
+            .exit(1),
+            usage("usage", &["server", "repo", "switch"]),
         ],
     ),
     case(
@@ -2302,6 +2350,16 @@ const CASES: &[Case] = &[
                 "unattended-apply",
                 &["sync", "pull", "--unattended", "--apply", "--plan", "x"],
             ),
+        ],
+    ),
+    case(
+        "sync repos",
+        &[
+            hook("repo-world", server_repo),
+            read("nothing_published", &["sync", "repos"]),
+            hook("peers", server_repo_peers),
+            read("compared", &["sync", "repos"]),
+            usage("usage", &["sync", "repos", "extra"]),
         ],
     ),
     case("sync undo", &[read("nothing", &["sync", "undo"]).exit(1)]),

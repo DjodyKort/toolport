@@ -1397,6 +1397,14 @@ pub const TOOLS: &[ToolDef] = &[
         sync::plan
     ),
     tool!(
+        "sync_repos",
+        1,
+        None,
+        "The git checkouts of local servers: what this machine publishes through sync and what the other machines published, with whether each is the same, newer, older or diverged from this machine's and whether it is pushed. Reads local files and git only; switching or pulling a branch is done by a person",
+        [],
+        sync::repos
+    ),
+    tool!(
         "tasks_list",
         1,
         None,

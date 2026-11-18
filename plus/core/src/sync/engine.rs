@@ -11,6 +11,7 @@ use serde_json::{json, Value};
 use super::config::{
     self, Config, LastApply, LastRun, State, TransportCfg, DEFAULT_BRANCH, FILE_NAME, SYNC_PARTS,
 };
+use super::peers::{self, Peers};
 use super::transport::{self, Transport};
 use crate::op::OpError;
 use crate::setup::export::{self, Options};
@@ -363,6 +364,18 @@ fn agreed_rows(
         .collect())
 }
 
+/// The records other machines published, from the file on the remote, so this push keeps them.
+/// A file this passphrase does not open carries nothing: the other machines publish again.
+fn carried_records(remote_file: &Path, pass: &str, scratch: &Scratch) -> Vec<(String, Value)> {
+    let plain = scratch.file("carry.zip");
+    if unseal(remote_file, pass, &plain).is_err() {
+        return Vec::new();
+    }
+    inspect::open(&plain)
+        .map(|mut opened| peers::records_of(&mut opened, &export::machine_name()))
+        .unwrap_or_default()
+}
+
 /// `sync push`: seals this machine's parts as a whole and puts the file on the transport,
 /// provided nobody else pushed since this machine last pulled.
 pub fn push(ctx: &Ctx<'_>, opts: &PushOptions, git: &dyn GitRunner) -> Result<Value, OpError> {
@@ -407,6 +420,9 @@ pub fn push(ctx: &Ctx<'_>, opts: &PushOptions, git: &dyn GitRunner) -> Result<Va
         return Ok(data);
     }
     let pass = passphrase_of(ctx, false)?;
+    if parts.contains(&PartId::ServerRepos) && remote.is_some() {
+        export_opts.peer_records = carried_records(&remote_file, &pass, &scratch);
+    }
     let mut data = export::run(ctx, &export_opts, Some(&pass))?;
     let sealed = scratch.file("push.tpsync");
     let plain = scratch.file("push.zip");
@@ -536,7 +552,12 @@ pub fn pull(ctx: &Ctx<'_>, opts: &PullOptions, git: &dyn GitRunner) -> Result<Va
     }
     let plain = scratch.file("remote.zip");
     unseal(&sealed, &pass, &plain)?;
-    let manifest = inspect::open(&plain)?.manifest;
+    let mut opened = inspect::open(&plain)?;
+    let manifest = opened.manifest.clone();
+    let records = parts
+        .contains(&PartId::ServerRepos)
+        .then(|| peers::records_of(&mut opened, &export::machine_name()));
+    drop(opened);
     let mut data = restore::run(
         ctx,
         &RestoreOptions {
@@ -549,6 +570,15 @@ pub fn pull(ctx: &Ctx<'_>, opts: &PullOptions, git: &dyn GitRunner) -> Result<Va
             baseline: Some(state.baseline()),
         },
     )?;
+    if let Some(records) = records {
+        Peers {
+            revision: Some(revision.clone()),
+            seen_at: ctx.host.now_unix(),
+            machines: peers::typed(&records),
+        }
+        .write(&ctx.data_dir)
+        .map_err(failed)?;
+    }
     data["revision"] = json!(revision);
     data["remote"] = json!({
         "machine": manifest["machine"],

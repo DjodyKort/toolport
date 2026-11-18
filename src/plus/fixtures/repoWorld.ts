@@ -23,6 +23,8 @@ export interface RepoSeed {
   blocked?: string;
   /** The next fetch fails with this reason. */
   fetchFails?: string;
+  /** Another machine is on this branch; a switch checks it out. */
+  other?: { machine: string; branch: string; head: string; pushed?: boolean };
 }
 
 interface Applied {
@@ -33,8 +35,12 @@ interface Applied {
   commits: Array<{ id: string; subject: string }>;
 }
 
-interface Repo extends Required<Omit<RepoSeed, "remembered" | "fetchFails" | "blocked">> {
+interface Repo extends Required<
+  Omit<RepoSeed, "remembered" | "fetchFails" | "other" | "blocked">
+> {
   blocked: string | null;
+  other: RepoSeed["other"] | null;
+  switched: { from: string; fromHead: string } | null;
   remembered: string | null;
   fetchFails: string | null;
   applied: Applied | null;
@@ -104,6 +110,8 @@ export function createRepoWorld(
         remembered: seed.remembered ?? null,
         fetchFails: seed.fetchFails ?? null,
         blocked: seed.blocked ?? null,
+        other: seed.other ?? null,
+        switched: null,
         applied: null,
       },
     ]),
@@ -337,6 +345,108 @@ export function createRepoWorld(
         repo.behind = applied.behind;
         repo.applied = null;
         return done(server.id, server.name, repo, applied, argv, true);
+      }
+      if (verb === "switch") {
+        const other = repo.other;
+        if (!other)
+          return fail(
+            "not_found",
+            `no other machine has published another branch of ${server.name}`,
+          );
+        const refusal =
+          repo.dirty > 0
+            ? {
+                code: "dirty",
+                message: `local changes in ${repo.dirty} tracked file(s) block switching; commit or stash them yourself`,
+              }
+            : other.pushed === false
+              ? {
+                  code: "not_pushed",
+                  message: `${other.machine}'s commits are on no remote, so this machine cannot install them; push them from there first`,
+                }
+              : null;
+        if (argv.includes("--undo")) {
+          if (!repo.switched)
+            return fail("not_found", `no branch switch of ${server.name} to take back`);
+          const back = repo.switched;
+          repo.switched = null;
+          const to = repo.branch;
+          repo.branch = back.from;
+          repo.head = back.fromHead;
+          return {
+            ok: true,
+            data: {
+              applied: true,
+              server: server.name,
+              id: server.id,
+              root: repo.root,
+              branch: back.from,
+              from: other.head,
+              to: back.fromHead,
+              build: null,
+              restart: null,
+              warnings: [],
+              undo: `toolportctl server repo switch ${server.name}`,
+              fromBranch: to ?? "",
+            },
+          };
+        }
+        const hash = `sha256:switch${short(repo.head)}${other.branch}`;
+        if (argv.includes("--dry-run"))
+          return {
+            ok: true,
+            data: {
+              plan: {
+                server: server.name,
+                id: server.id,
+                root: repo.root,
+                fromBranch: repo.branch,
+                fromHead: repo.head,
+                toBranch: other.branch,
+                toHead: other.head,
+                machine: other.machine,
+                createsBranch: true,
+                build: { command: repo.remembered, remembered: repo.remembered !== null },
+                refusal,
+                planHash: hash,
+              },
+            },
+          };
+        if (refusal)
+          return fail("switch_refused", refusal.message, { reason: refusal.code });
+        const given = flagValue(argv, "--plan-hash");
+        if (given && given !== hash)
+          return fail(
+            "conflict",
+            "the plan has changed since it was reviewed; review it again",
+            {
+              planHash: hash,
+            },
+          );
+        const from = repo.branch ?? "";
+        repo.switched = { from, fromHead: repo.head };
+        repo.branch = other.branch;
+        repo.head = other.head;
+        return {
+          ok: true,
+          data: {
+            applied: true,
+            server: server.name,
+            id: server.id,
+            root: repo.root,
+            branch: other.branch,
+            from: repo.switched.fromHead,
+            to: other.head,
+            build: null,
+            restart: {
+              status: "restarted",
+              detail: `Restarted ${server.name} in 1 gateway process`,
+            },
+            warnings: [],
+            undo: `toolportctl server repo switch ${server.name} --undo`,
+            fromBranch: from,
+          },
+        };
       }
       return fail("usage", `unsupported in the fixture: server repo ${verb}`);
     },

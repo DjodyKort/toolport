@@ -1,0 +1,6 @@
+{
+  "route": "servers",
+  "status": "built",
+  "summary": "Check out the branch another machine is on when the work tree is clean: the plan, then one switch with the build and a restart, and an Undo (server repo switch)",
+  "test": "src/plus/servers/RepoSwitchDialog.test.tsx"
+}

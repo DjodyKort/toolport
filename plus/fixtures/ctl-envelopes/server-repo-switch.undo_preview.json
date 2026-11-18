@@ -1,0 +1,20 @@
+{
+  "argv": ["server", "repo", "switch", "gamma", "--undo", "--dry-run"],
+  "envelope": {
+    "command": "server repo switch",
+    "data": {
+      "plan": {
+        "fromBranch": "feature",
+        "id": "srv-gamma",
+        "refusal": null,
+        "removesBranch": true,
+        "root": "<WORLD>/gamma-work",
+        "server": "gamma",
+        "toBranch": "main"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -3132,6 +3132,14 @@
           "tier": 1
         },
         {
+          "description": "The git checkouts of local servers: what this machine publishes through sync and what the other machines published, with whether each is the same, newer, older or diverged from this machine's and whether it is pushed. Reads local files and git only; switching or pulling a branch is done by a person",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "sync_repos",
+          "params": [],
+          "tier": 1
+        },
+        {
           "description": "List the tasks (named, repeatable jobs of steps) with their triggers, last run, next scheduled run and whether a run waits for the person. Disabled drafts only with all",
           "dryRunDefault": false,
           "gate": "none",

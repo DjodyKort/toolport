@@ -1219,3 +1219,242 @@ fn test39_the_command_line_refuses_a_secret_in_every_form_and_prints_none_of_it(
         "{all}"
     );
 }
+
+mod peers_tests {
+    use super::*;
+    use crate::attention::feed_repo_heads;
+    use crate::servers::repo::peers::{unpublished, views, Relation};
+    use crate::servers::repo::switch;
+    use crate::setup::repo_heads::MachineHeads;
+    use crate::sync::config::{Config, TransportCfg};
+    use crate::sync::peers::Peers;
+    use toolport_plus_api::ServerRepoHead;
+
+    fn theirs(world: &World, branch: &str, head: &str, pushed: bool) -> ServerRepoHead {
+        ServerRepoHead {
+            server: "alpha".into(),
+            remote: state::read(&world.work).url.unwrap_or_default(),
+            branch: branch.into(),
+            head: head.into(),
+            pushed,
+            extra: Default::default(),
+        }
+    }
+
+    fn publish(world: &World, heads: Vec<ServerRepoHead>) {
+        Peers {
+            revision: Some("r1".into()),
+            seen_at: 1,
+            machines: vec![MachineHeads {
+                machine: "laptop".into(),
+                made_at: "2026-11-18T10:00:00Z".into(),
+                heads,
+            }],
+        }
+        .write(&world.data)
+        .unwrap();
+    }
+
+    fn rows(world: &World, host: &MemoryHost) -> (Vec<crate::attention::Item>, Vec<Relation>) {
+        let found = repos(host).unwrap();
+        let peers = Peers::read(&world.data);
+        let compared = views(&found, &peers);
+        let relations = compared.iter().map(|v| v.relation).collect();
+        (feed_repo_heads::items(&compared, &[]), relations)
+    }
+
+    fn feature_on_remote(world: &World) -> String {
+        git(&world.other, &["checkout", "-q", "-b", "feature"]);
+        std::fs::write(world.other.join("f.txt"), "f").unwrap();
+        git(&world.other, &["add", "."]);
+        git(&world.other, &["commit", "-q", "-m", "feature work"]);
+        git(&world.other, &["push", "-q", "origin", "feature"]);
+        git(&world.other, &["rev-parse", "HEAD"])
+    }
+
+    #[test]
+    fn test70_another_branch_that_is_pushed_offers_the_switch_and_names_both() {
+        let world = World::new("peer-branch");
+        let host = world.alpha();
+        let head = feature_on_remote(&world);
+        world.fetch();
+        publish(&world, vec![theirs(&world, "feature", &head, true)]);
+        let (rows, _) = rows(&world, &host);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(
+            rows[0].title,
+            format!(
+                "alpha: laptop is on feature at {}, you are on main",
+                &head[..8]
+            )
+        );
+        let action = rows[0].action.as_ref().unwrap();
+        assert_eq!(action.label, "Switch branch");
+        assert_eq!(action.command.as_ref().unwrap()[3], "switch");
+        assert!(rows[0].skippable());
+    }
+
+    #[test]
+    fn test71_a_head_that_is_not_pushed_cannot_be_installed_and_says_so() {
+        let world = World::new("peer-unpushed");
+        let host = world.alpha();
+        let head = feature_on_remote(&world);
+        world.fetch();
+        publish(&world, vec![theirs(&world, "feature", &head, false)]);
+        let (rows, _) = rows(&world, &host);
+        assert!(rows[0].detail.contains("cannot install them"));
+        assert!(rows[0].action.as_ref().unwrap().command.is_none());
+    }
+
+    #[test]
+    fn test72_a_newer_pushed_head_on_the_same_branch_offers_a_pull_that_fetches_first() {
+        let world = World::new("peer-newer");
+        let host = world.alpha();
+        world.upstream_commit("two.txt", "two");
+        world.fetch();
+        let head = git(&world.other, &["rev-parse", "HEAD"]);
+        publish(&world, vec![theirs(&world, "main", &head, true)]);
+        let (rows, relations) = rows(&world, &host);
+        assert_eq!(relations, [Relation::Newer(1)]);
+        let command = rows[0].action.as_ref().unwrap().command.clone().unwrap();
+        assert!(
+            command.contains(&"--fetch".to_string()) && command.contains(&"update".to_string())
+        );
+        assert!(rows[0].detail.starts_with("1 commit ahead"));
+    }
+
+    #[test]
+    fn test73_a_commit_this_checkout_lacks_asks_for_a_fetch_before_judging() {
+        let world = World::new("peer-unknown");
+        let host = world.alpha();
+        world.upstream_commit("two.txt", "two");
+        let head = git(&world.other, &["rev-parse", "HEAD"]);
+        publish(&world, vec![theirs(&world, "main", &head, true)]);
+        let (rows, relations) = rows(&world, &host);
+        assert_eq!(relations, [Relation::Unknown]);
+        assert!(rows[0].detail.contains("has not fetched that commit"));
+    }
+
+    #[test]
+    fn test74_the_same_head_or_an_older_one_raises_no_row_and_a_diverged_one_asks_for_a_person() {
+        let world = World::new("peer-calm");
+        let host = world.alpha();
+        let first = world.head();
+        publish(&world, vec![theirs(&world, "main", &first, true)]);
+        assert!(rows(&world, &host).0.is_empty());
+        world.local_commit("mine.txt", "mine");
+        let (none, relations) = rows(&world, &host);
+        assert_eq!(relations, [Relation::Older]);
+        assert!(none.is_empty());
+        world.upstream_commit("two.txt", "two");
+        world.fetch();
+        let head = git(&world.other, &["rev-parse", "HEAD"]);
+        publish(&world, vec![theirs(&world, "main", &head, true)]);
+        let (rows, relations) = rows(&world, &host);
+        assert_eq!(relations, [Relation::Diverged]);
+        assert!(rows[0].action.as_ref().unwrap().command.is_none());
+    }
+
+    #[test]
+    fn test75_a_server_with_another_remote_is_not_compared() {
+        let world = World::new("peer-remote");
+        let host = world.alpha();
+        let mut other = theirs(&world, "feature", &world.head(), true);
+        other.remote = "https://git.example.invalid/else/entirely.git".into();
+        publish(&world, vec![other]);
+        assert!(rows(&world, &host).0.is_empty());
+    }
+
+    #[test]
+    fn test76_commits_on_no_remote_warn_only_while_the_part_is_published() {
+        let world = World::new("unpublished");
+        let host = world.alpha();
+        world.local_commit("mine.txt", "mine");
+        assert_eq!(unpublished(&repos(&host).unwrap()[0]), 1);
+        let id = |snapshot: &crate::attention::Snapshot| {
+            snapshot
+                .items
+                .iter()
+                .any(|i| i.id.starts_with("updates:unpublished:alpha"))
+        };
+        assert!(!id(&crate::attention::snapshot(&host)));
+        let config = Config::new(TransportCfg::Folder {
+            path: "/nowhere".into(),
+        });
+        let path = world.data.join("plus").join("sync");
+        std::fs::create_dir_all(&path).unwrap();
+        std::fs::write(
+            path.join("config.json"),
+            serde_json::to_string(&config).unwrap(),
+        )
+        .unwrap();
+        let snapshot = crate::attention::snapshot(&host);
+        let row = snapshot
+            .items
+            .iter()
+            .find(|i| i.id.starts_with("updates:unpublished:alpha"))
+            .unwrap();
+        assert_eq!(
+            row.title,
+            "1 commit of alpha is on no remote; your other machine cannot see them"
+        );
+    }
+
+    fn args(key: &str) -> UpdateArgs {
+        let mut args = UpdateArgs::new(key);
+        args.restart = RestartChoice::Skip;
+        args.no_build = true;
+        args
+    }
+
+    #[test]
+    fn test77_switching_checks_the_other_branch_out_and_undo_goes_back_and_drops_it() {
+        let world = World::new("switch");
+        let host = world.alpha();
+        let head = feature_on_remote(&world);
+        publish(&world, vec![theirs(&world, "feature", &head, true)]);
+        let unfetched = switch::plan(&host, &args("alpha")).unwrap();
+        assert_eq!(unfetched.refusal.as_ref().unwrap().code, "not_fetched");
+        let mut with_fetch = args("alpha");
+        with_fetch.fetch = true;
+        let plan = switch::plan(&host, &with_fetch).unwrap();
+        assert!(plan.refusal.is_none() && plan.creates);
+        let mut apply = args("alpha");
+        apply.plan_hash = Some(plan.hash.clone());
+        let (done, from) = switch::apply(&host, &apply).unwrap();
+        assert_eq!((from.as_str(), done.branch.as_str()), ("main", "feature"));
+        assert_eq!(git(&world.work, &["branch", "--show-current"]), "feature");
+        assert_eq!(world.head(), head);
+        let back = switch::back(&host, &args("alpha")).unwrap();
+        assert_eq!(back.branch, "main");
+        assert_eq!(git(&world.work, &["branch", "--show-current"]), "main");
+        assert!(!git(&world.work, &["branch", "--list", "feature"]).contains("feature"));
+    }
+
+    #[test]
+    fn test78_switching_refuses_local_changes_an_unpushed_head_and_a_stale_plan() {
+        let world = World::new("switch-refuse");
+        let host = world.alpha();
+        let head = feature_on_remote(&world);
+        world.fetch();
+        publish(&world, vec![theirs(&world, "feature", &head, true)]);
+        std::fs::write(world.work.join("README.md"), "edited").unwrap();
+        let plan = switch::plan(&host, &args("alpha")).unwrap();
+        assert_eq!(plan.refusal.as_ref().unwrap().code, "dirty");
+        let error = switch::apply(&host, &args("alpha")).unwrap_err();
+        assert_eq!(error.details.unwrap()["reason"], "dirty");
+        assert_eq!(git(&world.work, &["branch", "--show-current"]), "main");
+        git(&world.work, &["checkout", "-q", "--", "README.md"]);
+        publish(&world, vec![theirs(&world, "feature", &head, false)]);
+        let plan = switch::plan(&host, &args("alpha")).unwrap();
+        assert_eq!(plan.refusal.as_ref().unwrap().code, "not_pushed");
+        publish(&world, vec![theirs(&world, "feature", &head, true)]);
+        let mut stale = args("alpha");
+        stale.plan_hash = Some("0123456789ab".into());
+        assert!(switch::apply(&host, &stale)
+            .unwrap_err()
+            .message
+            .contains("plan has changed"));
+        assert_eq!(git(&world.work, &["branch", "--show-current"]), "main");
+    }
+}

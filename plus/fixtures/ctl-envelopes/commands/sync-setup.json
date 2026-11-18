@@ -38,7 +38,7 @@
     },
     {
       "aliases": [],
-      "effect": "Which parts sync: servers, access, tasks, settings, claudeUser, memory, secrets (default servers, access, tasks, settings)",
+      "effect": "Which parts sync: servers, access, tasks, settings, claudeUser, memory, secrets, serverRepos (default servers, access, tasks, settings, serverRepos)",
       "escalates": false,
       "hidden": false,
       "name": "--parts",

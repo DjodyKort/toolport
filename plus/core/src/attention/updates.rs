@@ -103,6 +103,8 @@ pub fn inputs(base: &Path, store: &Store) -> UpdateInputs {
             .filter_map(|(name, check)| Some((name.clone(), check.error.clone()?)))
             .collect(),
         checked: store.updates.sources.len(),
+        peers: Vec::new(),
+        unpublished: Vec::new(),
     }
 }
 

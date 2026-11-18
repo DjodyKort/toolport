@@ -5,9 +5,18 @@
 
 pub mod config;
 pub mod engine;
+pub mod peers;
+pub mod repos;
 pub mod transport;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_repos;
 
 pub use engine::{pull, push, setup, status, undo};
+
+pub fn publishing(host: &dyn toolport_plus_api::Host) -> bool {
+    host.data_dir()
+        .is_some_and(|base| config::publishes_repos(&base))
+}

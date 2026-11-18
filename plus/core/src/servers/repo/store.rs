@@ -30,12 +30,29 @@ pub struct Applied {
     pub build: Option<String>,
 }
 
+/// A branch switch that `server repo switch --undo` can still take back.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Switched {
+    pub root: String,
+    pub from_branch: String,
+    pub from_head: String,
+    pub to_branch: String,
+    pub to_head: String,
+    /// The target did not exist as a local branch; the switch made it, and undo removes it again.
+    pub created: bool,
+    pub at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub build: Option<String>,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RepoStore {
     #[serde(default)]
     pub builds: BTreeMap<String, Build>,
     #[serde(default)]
     pub applied: BTreeMap<String, Applied>,
+    #[serde(default)]
+    pub switched: BTreeMap<String, Switched>,
     #[serde(flatten)]
     pub extra: Map<String, Value>,
 }

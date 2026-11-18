@@ -9,6 +9,7 @@
 
 pub mod feed_credentials;
 pub mod feed_library;
+pub mod feed_repo_heads;
 pub mod feed_tasks;
 pub mod feed_updates;
 mod gather;

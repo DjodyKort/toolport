@@ -1,0 +1,22 @@
+{
+  "argv": ["server", "repo", "switch", "gamma", "--undo", "--no-restart"],
+  "envelope": {
+    "command": "server repo switch",
+    "data": {
+      "applied": true,
+      "branch": "main",
+      "build": null,
+      "from": "f2154560fc20b76468ca2eab7511818eefd4fb87",
+      "id": "srv-gamma",
+      "restart": null,
+      "root": "<WORLD>/gamma-work",
+      "server": "gamma",
+      "to": "86846020f965369a54fc0d28358325928001cfbd",
+      "undo": "toolportctl server repo switch gamma",
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

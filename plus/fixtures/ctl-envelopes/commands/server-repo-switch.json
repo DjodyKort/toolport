@@ -1,0 +1,142 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Show the switch and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Go back to the branch the last switch left, when nothing has moved since",
+      "escalates": false,
+      "hidden": false,
+      "name": "--undo",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Fetch the tracked remote first, so the branch the other machine pushed is here",
+      "escalates": false,
+      "hidden": false,
+      "name": "--fetch",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "The machine whose branch to switch to (default: the one that published most recently on another branch)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--machine",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "The hash of the reviewed plan; the switch stops when the plan has changed",
+      "escalates": false,
+      "hidden": false,
+      "name": "--plan-hash",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "The command to run in the checkout after the switch (stops after 2 minutes); it is remembered for this server while its text stays the same",
+      "escalates": false,
+      "hidden": false,
+      "name": "--build",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Change the files only, even when a build command is remembered",
+      "escalates": false,
+      "hidden": false,
+      "name": "--no-build",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Restart even when a call is running; the call ends",
+      "escalates": false,
+      "hidden": false,
+      "name": "--restart-now",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Do not restart the server",
+      "escalates": false,
+      "hidden": false,
+      "name": "--no-restart",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Seconds to wait for the gateways' answers to the restart",
+      "escalates": false,
+      "hidden": false,
+      "name": "--wait",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    }
+  ],
+  "group": "server",
+  "id": "server repo switch",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "server",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["server", "repo", "switch"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Check out the branch another machine is on, when the work tree is clean: <server> [--machine <name>] [--fetch] [--dry-run] [--plan-hash] [--build|--no-build] [--restart-now|--no-restart], or --undo",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

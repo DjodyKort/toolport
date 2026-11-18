@@ -1,0 +1,41 @@
+{
+  "argv": ["sync", "repos"],
+  "envelope": {
+    "command": "sync repos",
+    "data": {
+      "machine": "<masked>",
+      "mine": [
+        {
+          "branch": "main",
+          "head": "<masked>",
+          "pushed": true,
+          "remote": "<WORLD>/gamma-remote.git",
+          "server": "gamma",
+          "unpublished": 0
+        }
+      ],
+      "others": [
+        {
+          "heads": [
+            {
+              "branch": "feature",
+              "head": "<masked>",
+              "pushed": true,
+              "relation": "newer",
+              "remote": "<WORLD>/gamma-remote.git",
+              "sameBranch": false,
+              "server": "gamma"
+            }
+          ],
+          "machine": "<masked>",
+          "madeAt": "<TIME>"
+        }
+      ],
+      "publishing": false,
+      "seenAt": "<TIME>"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -238,11 +238,14 @@ export default function RepoUpdateDialog({
   open,
   onOpenChange,
   onChanged,
+  fetch = false,
 }: {
   serverName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onChanged?: () => void;
+  /** Fetch the tracked remote before the first plan: the row is about a commit pushed elsewhere. */
+  fetch?: boolean;
 }) {
   const [stage, setStage] = useState<Stage>({ kind: "loading" });
   const [run, setRun] = useState(false);
@@ -250,7 +253,7 @@ export default function RepoUpdateDialog({
 
   useEffect(() => {
     let alive = true;
-    repoPlan(serverName).then(
+    repoPlan(serverName, undefined, fetch).then(
       ({ plan }) => {
         if (!alive) return;
         setRun(plan.build.command !== null);
@@ -262,7 +265,7 @@ export default function RepoUpdateDialog({
     return () => {
       alive = false;
     };
-  }, [serverName]);
+  }, [serverName, fetch]);
 
   const choice = (plan: RepoPlan): RepoBuildChoice => {
     const text = command.trim();

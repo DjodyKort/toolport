@@ -139,6 +139,10 @@ impl Part {
     }
 }
 
+pub fn server_repos_part(b: &Build<'_>) -> Part {
+    super::repo_heads::part(b)
+}
+
 /// What the part builders share for one run.
 pub struct Build<'a> {
     pub ctx: &'a Ctx<'a>,

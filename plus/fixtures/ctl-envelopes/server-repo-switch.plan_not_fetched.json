@@ -1,0 +1,28 @@
+{
+  "argv": ["server", "repo", "switch", "gamma", "--dry-run"],
+  "envelope": {
+    "command": "server repo switch",
+    "data": {
+      "plan": {
+        "build": {
+          "command": null,
+          "remembered": false
+        },
+        "createsBranch": true,
+        "fromBranch": "main",
+        "fromHead": "86846020f965369a54fc0d28358325928001cfbd",
+        "id": "srv-gamma",
+        "machine": "<masked>",
+        "planHash": "sha256:7772a977fa8898ee",
+        "refusal": null,
+        "root": "<WORLD>/gamma-work",
+        "server": "gamma",
+        "toBranch": "feature",
+        "toHead": "f2154560fc20b76468ca2eab7511818eefd4fb87"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

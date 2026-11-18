@@ -1,0 +1,7 @@
+{
+  "command": "sync repos",
+  "dryRun": "none",
+  "name": "sync_repos",
+  "tier": "read",
+  "toolTier": 1
+}

@@ -36,6 +36,8 @@ pub struct UpdateInputs {
     pub failures: Vec<(String, String)>,
     /// How many sources the last pass looked at; a pass that reached none says nothing is wrong.
     pub checked: usize,
+    pub peers: Vec<crate::servers::repo::peers::PeerView>,
+    pub unpublished: Vec<super::feed_repo_heads::Unpublished>,
 }
 
 fn plural(count: u64) -> String {
@@ -188,6 +190,10 @@ pub fn items(inputs: &UpdateInputs) -> Vec<Item> {
         .filter(|tap| tap.behind > 0 && tap.upstream_head.is_some())
         .map(tap_row)
         .chain(inputs.servers.iter().filter_map(repo_row))
+        .chain(super::feed_repo_heads::items(
+            &inputs.peers,
+            &inputs.unpublished,
+        ))
         .chain(unreachable(inputs))
         .collect()
 }

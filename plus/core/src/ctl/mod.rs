@@ -154,6 +154,11 @@ pub const COMMANDS: &[Command] = &[
         server_repo::update,
     ),
     cmd(
+        &["server", "repo", "switch"],
+        "Check out the branch another machine is on, when the work tree is clean: <server> [--machine <name>] [--fetch] [--dry-run] [--plan-hash] [--build|--no-build] [--restart-now|--no-restart], or --undo",
+        server_repo::switch_branch,
+    ),
+    cmd(
         &["server", "repo", "undo"],
         "Move a server's checkout back to before the last update when nothing else moved it: <server> [--dry-run]",
         server_repo::undo,
@@ -949,6 +954,11 @@ pub const COMMANDS: &[Command] = &[
         &["sync", "plan"],
         "The same plan as sync pull without any way to apply it (--take)",
         sync::plan,
+    ),
+    cmd(
+        &["sync", "repos"],
+        "The server checkouts this machine publishes and the ones the other machines published, with how each compares to yours",
+        sync::repos,
     ),
     cmd(
         &["sync", "undo"],

@@ -20,7 +20,7 @@ use common::catalog_world;
 use common::client::Client;
 use common::compression;
 use common::library_world::{self, library_home};
-use common::server_repo_world::server_repo;
+use common::server_repo_world::{server_repo, server_repo_with_peers};
 use common::taps_world;
 use common::tasks_world::{scheduler_home, tasks_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
@@ -1884,6 +1884,11 @@ const CASES: &[Case] = &[
     ),
     case("sync_status", &[read("unconfigured", "sync_status", "{}")]),
     case("sync_plan", &[read("unconfigured", "sync_plan", "{}")]),
+    prepared(
+        "sync_repos",
+        server_repo_with_peers,
+        &[read("compared", "sync_repos", "{}")],
+    ),
     case(
         "skills_bundle",
         &[
