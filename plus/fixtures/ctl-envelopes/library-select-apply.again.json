@@ -36,7 +36,7 @@
           "ticked hooks run commands in every session once the plan is applied"
         ]
       },
-      "planHash": "sha256:60943bc78dac2d7c",
+      "planHash": "<masked>",
       "policy": {
         "blocked": null,
         "hooksOff": null

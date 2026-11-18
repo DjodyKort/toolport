@@ -18,7 +18,7 @@
         "from": "fab65b24170eb5d491fa9ad78d358f61054f8a4d",
         "id": "srv-gamma",
         "inFlight": null,
-        "planHash": "sha256:5894cf3bb1506efe",
+        "planHash": "<masked>",
         "refusal": {
           "code": "dirty",
           "message": "local changes in 1 tracked file(s) block the update; commit or stash them yourself"

@@ -10,7 +10,7 @@
   "envelope": {
     "command": "library select apply",
     "data": {
-      "planHash": "sha256:1ec014b1a33f82fe"
+      "planHash": "<masked>"
     },
     "error": {
       "code": "conflict",

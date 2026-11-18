@@ -2424,6 +2424,147 @@
           "tier": 3
         },
         {
+          "description": "Show which access sets, clients and folder mappings reach each server, the servers no access set reaches, and where a folder mapping outranks a client's own set",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "clients_reach",
+          "params": [
+            {
+              "description": "Only this server, by id or name",
+              "name": "name",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Limit to one client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "List the direct client entries Toolport wrote, with their state: ok, stale, customized, missing, orphan, unrecorded or relocated",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "client_direct_ls",
+          "params": [
+            {
+              "description": "Limit to one client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Check the direct client entries against what Toolport wrote and report whether all are in sync",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "client_direct_check",
+          "params": [
+            {
+              "description": "Limit to one client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Give one client a direct entry for one server, outside the gateway; stdio servers get a launcher entry that holds no secret, remote servers their address only. dry_run is on by default and returns the plan with its hash (apply with dry_run=false, plan_hash and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "client_direct_add",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Client id, as client_direct_ls shows",
+              "name": "client",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Replace or remove an entry Toolport did not write or that was edited since",
+              "name": "force",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Hash of the plan dry_run returned; the write is refused when the plan changed since",
+              "name": "plan_hash",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Remove a direct client entry Toolport wrote and its record; dry_run is on by default and returns the plan with its hash (apply with dry_run=false, plan_hash and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "client_direct_rm",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Client id, as client_direct_ls shows",
+              "name": "client",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Replace or remove an entry Toolport did not write or that was edited since",
+              "name": "force",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Hash of the plan dry_run returned; the write is refused when the plan changed since",
+              "name": "plan_hash",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
           "description": "Remove a server and its vault entries",
           "dryRunDefault": false,
           "gate": "always",
@@ -2852,6 +2993,120 @@
           "name": "sessions_retention",
           "params": [],
           "tier": 1
+        },
+        {
+          "description": "List the launch profiles: each is a named start of Claude Code with its own client id claude-code-<name> bound to an access set, with its state, the command that starts it and the folder mappings that would outrank it. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "context_launch_profile_ls",
+          "params": [
+            {
+              "description": "Only this profile",
+              "name": "name",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "The folder the launch starts in; narrows the folder warnings to the mappings that cover it",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Add or change a launch profile: bind the client id claude-code-<name> to an access set in the registry, copy Claude Code's discovery override to it and write mcp.json with one gateway entry. dry_run is on by default and returns the plan, including a warning when a folder mapping outranks the profile (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "context_launch_profile_add",
+          "params": [
+            {
+              "description": "Profile name, lower case letters, digits and hyphens",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Access set by name or id; required for a new profile",
+              "name": "set",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Whether context_launch_profile_policy may render deniedMcpServers for this profile; off by default",
+              "name": "deny_direct",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Remove a launch profile: its registry binding, discovery override, mcp.json, record and any rendered deniedMcpServers keys. dry_run is on by default and returns the plan (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "context_launch_profile_rm",
+          "params": [
+            {
+              "description": "Profile name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
+          "description": "Write deniedMcpServers into a folder's git-ignored .claude/settings.local.json for the Claude Code direct entries a profile's access set leaves out, when the profile's deny_direct switch is on; with the switch off it removes what it wrote. Unverified against a real Claude Code launch. dry_run is on by default",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "context_launch_profile_policy",
+          "params": [
+            {
+              "description": "Profile name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Folder where Claude Code starts; nothing is written above it",
+              "name": "cwd",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
         },
         {
           "description": "List the instruction files a Claude Code session in a folder loads (CLAUDE.md files, rules, imports, auto memory index) with an estimated token cost, which are left out and by whom, and the folder's calibration factor from its last measurement. With measured=true the rows the last measured run's InstructionsLoaded log confirms are marked loaded, absent or mismatch. Skills, plugins, agents and tools are not rows. Read only",
