@@ -285,6 +285,11 @@ impl RegistryTx for MemoryState {
         Ok(())
     }
 
+    fn set_serial(&mut self, server_id: &str, enabled: bool) -> Result<(), String> {
+        self.server_mut(server_id)?.fork.serial = enabled.then_some(true);
+        Ok(())
+    }
+
     fn set_declare_client_capabilities(
         &mut self,
         server_id: &str,

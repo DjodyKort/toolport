@@ -70,6 +70,7 @@ describe("the server envelope types match the Rust goldens", () => {
         "mode",
         "name",
         "requestTimeoutMs",
+        "serial",
         "source",
         "toolBudgets",
         "transport",

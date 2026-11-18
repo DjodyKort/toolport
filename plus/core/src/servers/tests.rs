@@ -568,3 +568,21 @@ fn test18_a_tool_budget_text_is_seconds_or_default() {
         assert!(parse_tool_budget(refused).is_err(), "{refused}");
     }
 }
+
+#[test]
+fn test20_serial_is_switched_on_and_off_and_shown_in_the_info() {
+    let host = host_with(vec![base("srv-a", "a", "stdio")]);
+    let serial = |on| Patch {
+        serial: Some(on),
+        ..Default::default()
+    };
+    update(&host, "srv-a", &serial(true), &[]).unwrap();
+    assert_eq!(stored(&host, "srv-a").fork.serial, Some(true));
+    let all = vec![stored(&host, "srv-a")];
+    assert_eq!(
+        info_value(&all[0], &[], &all, false).unwrap()["serial"],
+        json!(true)
+    );
+    update(&host, "srv-a", &serial(false), &[]).unwrap();
+    assert_eq!(stored(&host, "srv-a").fork.serial, None);
+}

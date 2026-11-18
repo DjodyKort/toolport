@@ -677,6 +677,16 @@ const CASES: &[Case] = &[
                     "job_wait=default",
                 ],
             ),
+            apply("serial", &["server", "edit", "gamma", "--serial"]),
+            read("serial-info", &["server", "info", "gamma"]),
+            usage(
+                "serial-conflict",
+                &["server", "edit", "gamma", "--serial", "--no-serial"],
+            ),
+            apply(
+                "serial-removed",
+                &["server", "edit", "gamma", "--no-serial"],
+            ),
             usage("usage", &["server", "edit"]),
         ],
     ),

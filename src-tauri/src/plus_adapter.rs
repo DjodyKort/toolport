@@ -265,6 +265,10 @@ impl RegistryTx for TxView<'_> {
         })
     }
 
+    fn set_serial(&mut self, server_id: &str, enabled: bool) -> Result<(), String> {
+        self.fork_fields(server_id, |fields| fields.serial = enabled.then_some(true))
+    }
+
     fn set_declare_client_capabilities(
         &mut self,
         server_id: &str,

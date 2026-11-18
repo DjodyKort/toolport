@@ -33,6 +33,7 @@
       "mode": "search",
       "name": "alpha",
       "requestTimeoutMs": null,
+      "serial": false,
       "source": null,
       "toolBudgets": {},
       "transport": "stdio",

@@ -15,7 +15,7 @@ use crate::servers::{self, mode, Patch, ServerError, UninstallArgs};
 
 type Outcome = Result<Value, ToolError>;
 
-const CONFIG_KEYS: [&str; 11] = [
+const CONFIG_KEYS: [&str; 12] = [
     "command",
     "args",
     "env",
@@ -27,6 +27,7 @@ const CONFIG_KEYS: [&str; 11] = [
     "forwardInstructions",
     "maxRequestTimeoutMs",
     "toolBudgets",
+    "serial",
 ];
 
 fn invalid(message: impl Into<String>) -> ToolError {
@@ -280,6 +281,7 @@ fn patch_from(
         forward_instructions: config_switch(cfg, "forwardInstructions")?,
         max_request_timeout_ms: config_call_limit(cfg)?,
         tool_budgets: config_tool_budgets(cfg)?,
+        serial: config_switch(cfg, "serial")?,
     })
 }
 

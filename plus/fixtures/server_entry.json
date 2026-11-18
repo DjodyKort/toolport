@@ -18,6 +18,7 @@
   "declareClientCapabilities": true,
   "maxRequestTimeoutMs": 600000,
   "toolBudgets": { "job_wait": 600, "quick": 1.5 },
+  "serial": true,
   "serverMode": "search",
   "fieldFromNewerUpstream": { "nested": [1, 2, 3] }
 }

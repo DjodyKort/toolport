@@ -103,6 +103,9 @@ pub struct ForkServerFields {
     /// Seconds a call to a tool may run, by the tool's own name; wins over the budget in its listing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_budgets: Option<BTreeMap<String, Number>>,
+    /// The gateway sends this server one call at a time, in the order they arrived.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub serial: Option<bool>,
     /// How the gateway lists the server's tools: `auto` or `search` (see
     /// `toolport_plus::servers::mode`). Absent means `auto`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -121,7 +124,7 @@ impl ForkServerFields {
     pub const SERVER_MODE_KEY: &'static str = "serverMode";
 
     /// The registry keys these fields occupy on a server entry.
-    pub const KEYS: [&'static str; 9] = [
+    pub const KEYS: [&'static str; 10] = [
         "plus",
         "mcpmSource",
         "mcpmOauth",
@@ -130,6 +133,7 @@ impl ForkServerFields {
         "declareClientCapabilities",
         "maxRequestTimeoutMs",
         "toolBudgets",
+        "serial",
         Self::SERVER_MODE_KEY,
     ];
 
@@ -360,6 +364,7 @@ mod tests {
             declare_client_capabilities: Some(true),
             max_request_timeout_ms: Some(1),
             tool_budgets: Some(BTreeMap::from([("sleep".to_string(), Number::from(2))])),
+            serial: Some(true),
             server_mode: Some("search".into()),
         };
         let Value::Object(written) = serde_json::to_value(&full).unwrap() else {

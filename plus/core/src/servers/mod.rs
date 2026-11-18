@@ -60,6 +60,7 @@ pub struct Patch {
     pub inherit_env: Option<bool>,
     pub declare_client_capabilities: Option<bool>,
     pub forward_instructions: Option<bool>,
+    pub serial: Option<bool>,
     /// `Some(None)` removes the limit, so the default applies.
     pub max_request_timeout_ms: Option<Option<u64>>,
     /// Seconds per original tool name; `None` removes that tool's entry.
@@ -287,6 +288,10 @@ fn apply_switches(
 ) -> Result<(), ServerError> {
     if let Some(on) = patch.forward_instructions {
         tx.set_forward_instructions(server_id, on)
+            .map_err(ServerError::Rejected)?;
+    }
+    if let Some(on) = patch.serial {
+        tx.set_serial(server_id, on)
             .map_err(ServerError::Rejected)?;
     }
     if let Some(on) = patch.declare_client_capabilities {
@@ -557,6 +562,7 @@ pub fn info_value(
         "disabledTools": server.strings("disabledTools"),
         "declareClientCapabilities": server.fork.declare_client_capabilities.unwrap_or(false),
         "forwardInstructions": server.fork.forward_instructions.unwrap_or(false),
+        "serial": server.fork.serial.unwrap_or(false),
         "mode": mode::normalize(server.fork.server_mode.as_deref()),
         "maxRequestTimeoutMs": server.fork.max_request_timeout_ms,
         "toolBudgets": server.fork.tool_budgets.clone().unwrap_or_default(),
