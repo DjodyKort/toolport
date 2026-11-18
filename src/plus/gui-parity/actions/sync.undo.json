@@ -1,5 +1,5 @@
 {
-  "route": "setup",
+  "route": "setup-sync",
   "status": "planned",
   "summary": "Undo the last applied sync pull and offer its changes again (sync undo)"
 }

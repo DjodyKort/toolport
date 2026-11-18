@@ -1,5 +1,5 @@
 {
-  "route": "setup",
+  "route": "setup-sync",
   "status": "planned",
   "summary": "Plan the other machine's file first, then apply it with the plan hash; rows both machines changed keep this machine's until taken (sync pull, sync plan; sync_plan)"
 }

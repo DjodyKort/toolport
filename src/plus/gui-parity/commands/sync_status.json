@@ -1,5 +1,5 @@
 {
-  "route": "setup",
+  "route": "setup-sync",
   "action": "sync.status",
   "surface": "screen"
 }
