@@ -75,6 +75,12 @@ impl RegistryView for MemoryState {
         self.client_access_sets.clone()
     }
 
+    fn direct_entries(&self) -> Result<crate::view::DirectEntries, String> {
+        Ok(RegistryPlus::extract(&self.unknown_fields)?
+            .direct_entries
+            .unwrap_or_default())
+    }
+
     fn selfmcp_record(&self) -> Result<Option<SelfMcpRecord>, String> {
         Ok(RegistryPlus::extract(&self.unknown_fields)?.selfmcp)
     }

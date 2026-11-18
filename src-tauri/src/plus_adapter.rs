@@ -121,6 +121,11 @@ macro_rules! registry_view {
             fn selfmcp_record(&self) -> Result<Option<SelfMcpRecord>, String> {
                 view_selfmcp_record(self.$registry())
             }
+            fn direct_entries(&self) -> Result<toolport_plus_api::view::DirectEntries, String> {
+                Ok(RegistryPlus::extract(&self.$registry().unknown_fields)?
+                    .direct_entries
+                    .unwrap_or_default())
+            }
         }
     };
 }

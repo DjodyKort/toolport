@@ -1,0 +1,7 @@
+{
+  "command": "client direct ls",
+  "dryRun": "none",
+  "name": "client_direct_ls",
+  "tier": "read",
+  "toolTier": 1
+}

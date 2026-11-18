@@ -1,0 +1,13 @@
+{
+  "argv": ["client", "direct", "add", "alpha", "--client", "no-such-client", "--dry-run"],
+  "envelope": {
+    "command": "client direct add",
+    "error": {
+      "code": "not_found",
+      "message": "client 'no-such-client' is not supported; available clients: claude-desktop, cursor, droid, crush, anythingllm, vscode, amp, windsurf, devin-cli, opencode, kilo-code, grok, codex, github-copilot-cli, antigravity, claude-code, gemini-cli, qwen-code, junie, cline, roo-code, warp, amazon-q, kiro, auggie, kimi-code, deepseek-harness, reasonix, codewhale, openclaw, openhands, nanobot, zcode, command-code, tabnine, tabnine-cli, zed, lm-studio, jan, boltai, pi, omp, goose, hermes, continue, witsy"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,76 @@
+{
+  "baseTier": "destructive",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Client id, as client direct ls shows",
+      "escalates": false,
+      "hidden": false,
+      "name": "--client",
+      "repeatable": false,
+      "required": true,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Remove an entry Toolport wrote that was edited since",
+      "escalates": false,
+      "hidden": false,
+      "name": "--force",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the plan and its hash and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Apply only when the plan still has this hash",
+      "escalates": false,
+      "hidden": false,
+      "name": "--plan-hash",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "client",
+  "id": "client direct rm",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "server",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["client", "direct", "rm"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Remove a direct entry Toolport wrote <server> --client <id> [--force] [--dry-run] [--plan-hash <hash>]",
+  "surface": "screen",
+  "tier": "destructive",
+  "tools": ["client_direct_rm"]
+}

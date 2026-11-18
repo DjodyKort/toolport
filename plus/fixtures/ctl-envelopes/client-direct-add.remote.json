@@ -1,0 +1,58 @@
+{
+  "argv": ["client", "direct", "add", "beta", "--client", "claude-code"],
+  "envelope": {
+    "command": "client direct add",
+    "data": {
+      "action": "added",
+      "changed": true,
+      "client": "claude-code",
+      "clientName": "Claude Code",
+      "dryRun": false,
+      "entry": "beta",
+      "path": "<WORLD>/home/.claude.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "add the entry 'beta' and leave every other entry alone",
+            "diff": {
+              "after": "+ \"beta\": {\"type\":\"http\",\"url\":\"https://example.invalid/mcp\"}",
+              "before": "(absent)"
+            },
+            "keys": ["entry"],
+            "op": "merge",
+            "path": "<WORLD>/home/.claude.json"
+          },
+          {
+            "detail": "record 'beta' under plus.directEntries.claude-code in the registry",
+            "op": "note"
+          },
+          {
+            "detail": "a backup of the client file is made first; the write goes through the client's own lock and conflict check",
+            "op": "note"
+          }
+        ],
+        "summary": "Give Claude Code a direct entry 'beta' for beta",
+        "undo": "toolportctl client direct rm srv-beta --client claude-code",
+        "warnings": [
+          "A direct entry bypasses the Toolport gateway: its tools are not covered by access sets, approvals or lazy discovery. Toolport writes no credentials into the client: the client signs in to the server by itself."
+        ]
+      },
+      "planHash": "<masked>",
+      "remote": {
+        "url": "https://example.invalid/mcp"
+      },
+      "result": {
+        "applied": true,
+        "backups": ["<WORLD>/data/backups/claude-code/<STAMP>-.claude.json"],
+        "changed": ["<WORLD>/home/.claude.json", "registry: plus.directEntries"],
+        "undo": "toolportctl client direct rm srv-beta --client claude-code"
+      },
+      "server": "srv-beta",
+      "serverName": "beta"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

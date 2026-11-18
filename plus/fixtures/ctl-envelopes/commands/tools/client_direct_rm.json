@@ -1,0 +1,7 @@
+{
+  "command": "client direct rm",
+  "dryRun": "default-on",
+  "name": "client_direct_rm",
+  "tier": "destructive",
+  "toolTier": 4
+}

@@ -1,0 +1,28 @@
+{
+  "argv": ["client", "direct", "check"],
+  "envelope": {
+    "command": "client direct check",
+    "data": {
+      "entries": [
+        {
+          "action": "rewrite or forget",
+          "client": "claude-code",
+          "clientName": "Claude Code",
+          "entry": "alpha",
+          "path": "<WORLD>/home/.claude.json",
+          "server": "srv-alpha",
+          "serverName": "alpha",
+          "state": "missing"
+        }
+      ],
+      "healthy": false
+    },
+    "error": {
+      "code": "unhealthy",
+      "message": "one or more checks failed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

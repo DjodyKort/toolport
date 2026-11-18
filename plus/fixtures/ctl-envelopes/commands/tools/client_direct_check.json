@@ -1,0 +1,7 @@
+{
+  "command": "client direct check",
+  "dryRun": "none",
+  "name": "client_direct_check",
+  "tier": "read",
+  "toolTier": 1
+}

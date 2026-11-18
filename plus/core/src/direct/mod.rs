@@ -113,17 +113,26 @@ pub fn list_text(rows: &[Row]) -> String {
     rows.iter().map(Row::line).collect::<Vec<_>>().join("\n")
 }
 
+fn read_view(host: &dyn Host) -> Result<Option<Box<dyn toolport_plus_api::RegistryView>>, OpError> {
+    host.read_view()
+        .map_err(|error| OpError::failed("registry_error", error))
+}
+
 fn records(host: &dyn Host) -> Result<Vec<(String, String, DirectEntry)>, OpError> {
-    let plus = host
-        .plus_data()
+    let Some(view) = read_view(host)? else {
+        return Ok(Vec::new());
+    };
+    let entries = view
+        .direct_entries()
         .map_err(|error| OpError::failed("registry_error", error))?;
-    let mut rows = Vec::new();
-    for (client, entries) in plus.direct_entries.unwrap_or_default() {
-        for (entry, record) in entries {
-            rows.push((client.clone(), entry, record));
-        }
-    }
-    Ok(rows)
+    Ok(entries
+        .into_iter()
+        .flat_map(|(client, entries)| {
+            entries
+                .into_iter()
+                .map(move |(entry, record)| (client.clone(), entry, record))
+        })
+        .collect())
 }
 
 fn basename_stem(command: &str) -> String {
@@ -252,8 +261,12 @@ pub fn list(host: &dyn Host, client: Option<&str>) -> Result<Vec<Row>, OpError> 
 }
 
 fn read_servers(host: &dyn Host) -> Result<Vec<ServerRecord>, OpError> {
-    host.list_servers()
-        .map_err(|error| OpError::failed("registry_error", error))
+    match read_view(host)? {
+        Some(view) => view
+            .servers()
+            .map_err(|error| OpError::failed("registry_error", error)),
+        None => Ok(Vec::new()),
+    }
 }
 
 fn find_server<'a>(servers: &'a [ServerRecord], key: &str) -> Option<&'a ServerRecord> {

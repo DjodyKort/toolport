@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "client",
+    "direct",
+    "add",
+    "alpha",
+    "--client",
+    "claude-code",
+    "--plan-hash",
+    "0000000000000000",
+    "--force"
+  ],
+  "envelope": {
+    "command": "client direct add",
+    "error": {
+      "code": "conflict",
+      "message": "the plan changed since it was shown (the client file or the server differs); run it with --dry-run again"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

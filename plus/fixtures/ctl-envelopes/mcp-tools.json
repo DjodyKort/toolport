@@ -1993,6 +1993,126 @@
           "tier": 3
         },
         {
+          "description": "List the direct client entries Toolport wrote, with their state: ok, stale, customized, missing, orphan, unrecorded or relocated",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "client_direct_ls",
+          "params": [
+            {
+              "description": "Limit to one client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Check the direct client entries against what Toolport wrote and report whether all are in sync",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "client_direct_check",
+          "params": [
+            {
+              "description": "Limit to one client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Give one client a direct entry for one server, outside the gateway; stdio servers get a launcher entry that holds no secret, remote servers their address only. dry_run is on by default and returns the plan with its hash (apply with dry_run=false, plan_hash and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "client_direct_add",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Client id, as client_direct_ls shows",
+              "name": "client",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Replace or remove an entry Toolport did not write or that was edited since",
+              "name": "force",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Hash of the plan dry_run returned; the write is refused when the plan changed since",
+              "name": "plan_hash",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Remove a direct client entry Toolport wrote and its record; dry_run is on by default and returns the plan with its hash (apply with dry_run=false, plan_hash and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "client_direct_rm",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Client id, as client_direct_ls shows",
+              "name": "client",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Replace or remove an entry Toolport did not write or that was edited since",
+              "name": "force",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Hash of the plan dry_run returned; the write is refused when the plan changed since",
+              "name": "plan_hash",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
           "description": "Remove a server and its vault entries",
           "dryRunDefault": false,
           "gate": "always",

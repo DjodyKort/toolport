@@ -1,0 +1,7 @@
+{
+  "command": "client direct add",
+  "dryRun": "default-on",
+  "name": "client_direct_add",
+  "tier": "write",
+  "toolTier": 3
+}

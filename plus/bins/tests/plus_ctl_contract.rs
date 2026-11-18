@@ -158,6 +158,22 @@ fn opt_alpha_into_the_stdio_probe(world: &World) {
     world.write_registry(&registry);
 }
 
+fn claude_code_home(world: &World) {
+    std::fs::write(
+        world.home.join(".claude.json"),
+        r#"{"theme": "dark", "mcpServers": {"legacy-lint": {"command": "lint", "args": []}}}"#,
+    )
+    .unwrap();
+}
+
+fn edit_the_client_file(world: &World) {
+    std::fs::write(
+        world.home.join(".claude.json"),
+        r#"{"theme": "light", "mcpServers": {}}"#,
+    )
+    .unwrap();
+}
+
 fn context_files(world: &World) {
     world.context_files();
 }
@@ -655,6 +671,82 @@ const CASES: &[Case] = &[
                 ],
             ),
             usage("usage", &["server", "edit"]),
+        ],
+    ),
+    case(
+        "client direct add",
+        &[
+            hook("home", claude_code_home),
+            read(
+                "plan",
+                &["client", "direct", "add", "alpha", "--client", "claude-code", "--dry-run"],
+            ),
+            apply("apply", &["client", "direct", "add", "alpha", "--client", "claude-code"]),
+            apply("unchanged", &["client", "direct", "add", "alpha", "--client", "claude-code"]),
+            apply("remote", &["client", "direct", "add", "beta", "--client", "claude-code"]),
+            read(
+                "stale-plan",
+                &[
+                    "client", "direct", "add", "alpha", "--client", "claude-code", "--plan-hash",
+                    "0000000000000000", "--force",
+                ],
+            )
+            .exit(1),
+            read(
+                "unsupported",
+                &["client", "direct", "add", "alpha", "--client", "goose", "--dry-run"],
+            )
+            .exit(1),
+            read(
+                "unknown-client",
+                &["client", "direct", "add", "alpha", "--client", "no-such-client", "--dry-run"],
+            )
+            .exit(1),
+            read(
+                "unknown-server",
+                &["client", "direct", "add", "nope", "--client", "claude-code", "--dry-run"],
+            )
+            .exit(1),
+            usage("usage", &["client", "direct", "add", "alpha"]),
+        ],
+    ),
+    case(
+        "client direct rm",
+        &[
+            hook("home", claude_code_home),
+            setup("add", &["client", "direct", "add", "alpha", "--client", "claude-code"]),
+            read(
+                "plan",
+                &["client", "direct", "rm", "alpha", "--client", "claude-code", "--dry-run"],
+            ),
+            apply("apply", &["client", "direct", "rm", "alpha", "--client", "claude-code"]),
+            apply("absent", &["client", "direct", "rm", "alpha", "--client", "claude-code"]),
+            setup("add-again", &["client", "direct", "add", "alpha", "--client", "claude-code"]),
+            hook("edited", edit_the_client_file),
+            apply("forgotten", &["client", "direct", "rm", "alpha", "--client", "claude-code"]),
+            usage("usage", &["client", "direct", "rm", "alpha"]),
+        ],
+    ),
+    case(
+        "client direct ls",
+        &[
+            hook("home", claude_code_home),
+            read("empty", &["client", "direct", "ls"]),
+            setup("add", &["client", "direct", "add", "alpha", "--client", "claude-code"]),
+            read("entries", &["client", "direct", "ls"]),
+            read("one-client", &["client", "direct", "ls", "--client", "claude-code"]),
+            read("unknown-client", &["client", "direct", "ls", "--client", "no-such-client"])
+                .exit(1),
+        ],
+    ),
+    case(
+        "client direct check",
+        &[
+            hook("home", claude_code_home),
+            setup("add", &["client", "direct", "add", "alpha", "--client", "claude-code"]),
+            read("in-sync", &["client", "direct", "check"]),
+            hook("edited", edit_the_client_file),
+            read("drifted", &["client", "direct", "check"]).exit(1),
         ],
     ),
     case(
