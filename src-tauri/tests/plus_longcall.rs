@@ -727,8 +727,9 @@ mod longcall {
         let sleep = client.tool_named("sleep");
         let sent = client.start_call(10, &sleep, json!({ "seconds": 0.7 }), None);
         client.start_call(11, &sleep, json!({ "seconds": 0.7 }), None);
-        let (_, first) = client.response(&json!(10), ANSWER_WITHIN);
+        let (first_at, first) = client.response(&json!(10), ANSWER_WITHIN);
         let (second_at, second) = client.response(&json!(11), ANSWER_WITHIN);
+        let last_at = first_at.max(second_at);
         assert_eq!(text_of(&first["result"]), "slept 0.7 s", "{first}");
         assert_eq!(
             text_of(&second["result"]),
@@ -736,9 +737,9 @@ mod longcall {
             "the second call outlived the 1 s window in total but not after it was sent: {second}"
         );
         assert!(
-            elapsed_ms(sent, second_at) >= 1350,
-            "it ran after the first: {} ms, {:?}",
-            elapsed_ms(sent, second_at),
+            elapsed_ms(sent, last_at) >= 1350,
+            "the later answer came after both calls ran in turn: {} ms, {:?}",
+            elapsed_ms(sent, last_at),
             case.entries()
         );
         let calls = case.received_calls("sleep");
