@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "select", "check", "picks"],
+  "envelope": {
+    "command": "library select check",
+    "error": {
+      "code": "not_found",
+      "message": "picks has no selection; `library select ls` lists the sources that do"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

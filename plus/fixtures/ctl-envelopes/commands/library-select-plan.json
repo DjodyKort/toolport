@@ -24,6 +24,17 @@
       "required": false,
       "sensitive": false,
       "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Download the source's whole history to see whether the pinned commit is still in it; can be large",
+      "escalates": false,
+      "hidden": false,
+      "name": "--deepen",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
     }
   ],
   "group": "library",
@@ -47,7 +58,7 @@
     "flag": null,
     "mode": "none"
   },
-  "summary": "Fetch the source and show what applying would change, per item; writes nothing (<source>, --no-fetch, --switch)",
+  "summary": "Fetch the source and show what applying would change, per item; writes nothing (<source>, --no-fetch, --switch, --deepen)",
   "surface": "screen",
   "tier": "write",
   "tools": ["library_select_plan"]

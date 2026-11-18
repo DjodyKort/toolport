@@ -6,7 +6,8 @@ use super::context::plan_text;
 use super::flags::{switch, value, Spec};
 use super::output::{CtlError, Output};
 use super::skills::enter_paths;
-use super::skills_repo::{no_operands, operand, spec};
+use super::skills_repo::{operand, spec};
+use crate::selective::check::Request;
 use crate::selective::handlers;
 use crate::selective::ops::{Options, SetArgs};
 use serde_json::Value;
@@ -15,11 +16,11 @@ use toolport_plus_api::Host;
 const LS_USAGE: &str = "usage: library select ls [<source>]";
 const SET_USAGE: &str =
     "usage: library select set <source> [--on a,b] [--off c] [--tick-hook h] [--dry-run]";
-const PLAN_USAGE: &str = "usage: library select plan <source> [--no-fetch] [--switch]";
+const PLAN_USAGE: &str = "usage: library select plan <source> [--no-fetch] [--switch] [--deepen]";
 const APPLY_USAGE: &str =
     "usage: library select apply <source> --plan-hash <hash> [--no-fetch] [--switch]";
 const UNDO_USAGE: &str = "usage: library select undo <source>";
-const CHECK_USAGE: &str = "usage: library select check [--no-fetch]";
+const CHECK_USAGE: &str = "usage: library select check [<source>] [--no-fetch] [--deepen]";
 
 pub(super) const LS: Spec = spec(&[], LS_USAGE);
 pub(super) const SET: Spec = spec(
@@ -31,7 +32,10 @@ pub(super) const SET: Spec = spec(
     ],
     SET_USAGE,
 );
-pub(super) const PLAN: Spec = spec(&[switch("--no-fetch"), switch("--switch")], PLAN_USAGE);
+pub(super) const PLAN: Spec = spec(
+    &[switch("--no-fetch"), switch("--switch"), switch("--deepen")],
+    PLAN_USAGE,
+);
 pub(super) const APPLY: Spec = spec(
     &[
         value("--plan-hash").alias(&["--plan"]),
@@ -41,15 +45,29 @@ pub(super) const APPLY: Spec = spec(
     APPLY_USAGE,
 );
 pub(super) const UNDO: Spec = spec(&[], UNDO_USAGE);
-pub(super) const CHECK: Spec = spec(&[switch("--no-fetch")], CHECK_USAGE);
+pub(super) const CHECK: Spec = spec(&[switch("--no-fetch"), switch("--deepen")], CHECK_USAGE);
 
+/// A comma list, in which `\,` is a comma that belongs to the name and `\\` a backslash.
 fn csv(texts: Vec<String>) -> Vec<String> {
-    texts
-        .iter()
-        .flat_map(|t| t.split(','))
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(String::from)
+    let mut out = Vec::new();
+    for text in texts {
+        let mut current = String::new();
+        let mut chars = text.chars();
+        while let Some(c) = chars.next() {
+            match (c, chars.clone().next()) {
+                ('\\', Some(next @ (',' | '\\'))) => {
+                    current.push(next);
+                    chars.next();
+                }
+                (',', _) => out.push(std::mem::take(&mut current)),
+                _ => current.push(c),
+            }
+        }
+        out.push(current);
+    }
+    out.into_iter()
+        .map(|item| item.trim().to_string())
+        .filter(|item| !item.is_empty())
         .collect()
 }
 
@@ -57,6 +75,7 @@ fn options(flags: &super::flags::Flags) -> Options {
     Options {
         fetch: !flags.on("--no-fetch"),
         switch: flags.on("--switch"),
+        deepen: flags.on("--deepen"),
     }
 }
 
@@ -196,8 +215,18 @@ pub fn undo(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
 pub fn check(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let _paths = enter_paths(host, None);
     let flags = CHECK.parse(rest)?;
-    no_operands(&flags, CHECK_USAGE)?;
-    let data = handlers::check(host, !flags.on("--no-fetch"))?;
+    let source = match flags.operands() {
+        [] => None,
+        _ => Some(operand(&flags, "source", CHECK_USAGE)?),
+    };
+    let data = handlers::check(
+        host,
+        Request {
+            fetch: !flags.on("--no-fetch"),
+            source,
+            deepen: flags.on("--deepen"),
+        },
+    )?;
     let mut human = format!("{} source(s) have a plan waiting\n", data["waiting"]);
     for row in data["sources"].as_array().into_iter().flatten() {
         let mark = if row["waiting"] == Value::Bool(true) {
@@ -205,10 +234,43 @@ pub fn check(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
         } else {
             "current"
         };
+        let history = match row["history"]["state"].as_str() {
+            Some("rewritten") => {
+                "  history rewritten: the pinned commit is no longer on the remote"
+            }
+            Some("intact") => "  history intact",
+            Some("unknown") => "  history could not be checked",
+            _ => "",
+        };
         human.push_str(&format!(
-            "  {mark:<8} {}\n",
+            "  {mark:<8} {}{history}\n",
             row["source"].as_str().unwrap_or("")
         ));
     }
     Ok(Output::new(data, human))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::csv;
+
+    fn list(texts: &[&str]) -> Vec<String> {
+        csv(texts.iter().map(|t| t.to_string()).collect())
+    }
+
+    #[test]
+    fn test01_a_comma_list_splits_and_trims_each_value() {
+        assert_eq!(list(&["a, b", "c"]), ["a", "b", "c"]);
+        assert!(list(&[" , "]).is_empty());
+    }
+
+    #[test]
+    fn test02_an_escaped_comma_stays_inside_the_name() {
+        assert_eq!(
+            list(&["hook:PreToolUse:Bash(a\\,b),skill:x"]),
+            ["hook:PreToolUse:Bash(a,b)", "skill:x"]
+        );
+        assert_eq!(list(&["a\\\\,b"]), ["a\\", "b"]);
+        assert_eq!(list(&["a\\b"]), ["a\\b"]);
+    }
 }

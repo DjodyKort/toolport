@@ -779,6 +779,7 @@ pub(super) const ROWS: &[Row] = &[
     row("library select check", W)
         .needs(&[Needs::Network])
         .spec(&[&library_select::CHECK])
+        .args(&[opt("source")])
         .skip("fetches every selected source; it is a golden step"),
     row("skills bundle", W)
         .dry()

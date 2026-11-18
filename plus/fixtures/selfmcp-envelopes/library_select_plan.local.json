@@ -45,6 +45,11 @@
     },
     "dryRun": true,
     "fetchError": null,
+    "history": {
+      "error": null,
+      "pinned": null,
+      "state": "unchecked"
+    },
     "hooks": {
       "hook:PostToolUse:Write|Edit": {
         "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/format.sh",

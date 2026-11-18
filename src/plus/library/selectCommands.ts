@@ -1,5 +1,6 @@
 import { ctlData } from "../bridge/ctl";
 import type {
+  SelectCheckData,
   SelectLsData,
   SelectPlanData,
   SelectSetData,
@@ -7,6 +8,7 @@ import type {
   SelectUndoData,
   SetChanges,
 } from "./selectData";
+import { escapeCommas } from "./selectModel";
 
 const SELECT = ["library", "select"];
 
@@ -20,10 +22,15 @@ export const selectSet = (source: string, changes: SetChanges) =>
     ...SELECT,
     "set",
     source,
-    ...changes.on.flatMap((ref) => ["--on", ref]),
-    ...changes.off.flatMap((ref) => ["--off", ref]),
-    ...changes.tick.flatMap((ref) => ["--tick-hook", ref]),
+    ...changes.on.flatMap((ref) => ["--on", escapeCommas(ref)]),
+    ...changes.off.flatMap((ref) => ["--off", escapeCommas(ref)]),
+    ...changes.tick.flatMap((ref) => ["--tick-hook", escapeCommas(ref)]),
   ]);
+
+/** Downloads the whole history of the source once and records whether the pinned commit is still
+ * in it. Only ever sent from a button the person pressed. */
+export const selectCheckHistory = (source: string) =>
+  ctlData<SelectCheckData>([...SELECT, "check", source, "--deepen"]);
 
 export const selectPlan = (source: string, switchWhole: boolean) =>
   ctlData<SelectPlanData>([

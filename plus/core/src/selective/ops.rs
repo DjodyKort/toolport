@@ -51,6 +51,9 @@ pub struct Options {
     pub fetch: bool,
     /// Also switch off the whole plugin that is installed beside the chosen items.
     pub switch: bool,
+    /// Download the whole history of the source to tell whether the pinned commit is still in it.
+    /// Off unless the person asked for that check: a large repository costs real time and data.
+    pub deepen: bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -150,12 +153,47 @@ fn names(market: &marketplace::Marketplace) -> String {
         .join(", ")
 }
 
+/// Whether the commit a source is pinned to is still in the remote's history.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum History {
+    /// Not asked: only a deepening check can tell.
+    Unchecked,
+    Intact,
+    /// The pinned commit is gone or no longer leads to the remote's head: a force-push.
+    Rewritten,
+    /// The question was asked and could not be answered.
+    Unknown(String),
+}
+
+impl History {
+    pub fn word(&self) -> &'static str {
+        match self {
+            History::Unchecked => "unchecked",
+            History::Intact => "intact",
+            History::Rewritten => "rewritten",
+            History::Unknown(_) => "unknown",
+        }
+    }
+
+    pub fn to_json(&self, pinned: Option<&str>) -> Value {
+        json!({
+            "state": self.word(),
+            "pinned": pinned,
+            "error": match self {
+                History::Unknown(why) => json!(why),
+                _ => Value::Null,
+            },
+        })
+    }
+}
+
 struct Latest {
     root: PathBuf,
     head: String,
     checked: bool,
     error: Option<String>,
     temp: Option<PathBuf>,
+    history: History,
 }
 
 impl Drop for Latest {
@@ -194,10 +232,25 @@ fn local(env: &Env, src: &Src, error: Option<String>) -> Result<Latest, OpError>
         checked: false,
         error,
         temp: None,
+        history: History::Unchecked,
     })
 }
 
-fn fetch(env: &Env, src: &Src, online: bool) -> Result<Latest, OpError> {
+fn history_of(env: &Env, temp: &Path, pinned: &str, head: &str) -> History {
+    if pinned == head {
+        return History::Intact;
+    }
+    if let Err(why) = env.git.deepen(temp) {
+        return History::Unknown(redact(&why));
+    }
+    match env.git.is_ancestor(temp, pinned, head) {
+        Ok(Some(true)) => History::Intact,
+        Ok(Some(false) | None) => History::Rewritten,
+        Err(why) => History::Unknown(redact(&why)),
+    }
+}
+
+fn fetch(env: &Env, src: &Src, online: bool, deepen: Option<&str>) -> Result<Latest, OpError> {
     if !online {
         return local(env, src, None);
     }
@@ -216,6 +269,9 @@ fn fetch(env: &Env, src: &Src, online: bool) -> Result<Latest, OpError> {
     match cloned {
         Ok(head) => Ok(Latest {
             root: join_rel(&temp, &src.rel),
+            history: deepen.map_or(History::Unchecked, |pinned| {
+                history_of(env, &temp, pinned, &head)
+            }),
             head,
             checked: true,
             error: None,
@@ -236,7 +292,7 @@ struct Prepared {
     computed: Computed,
 }
 
-fn prepare(env: &Env, src: &Src, online: bool) -> Result<Prepared, OpError> {
+fn prepare(env: &Env, src: &Src, online: bool, deepen: bool) -> Result<Prepared, OpError> {
     let selections = store::load(&env.base())?;
     let slice = src.slice();
     if let Some((other, _)) = selections
@@ -248,7 +304,12 @@ fn prepare(env: &Env, src: &Src, online: bool) -> Result<Prepared, OpError> {
             "{other} already uses the generated plugin name {slice}; rename one of the taps"
         )));
     }
-    let latest = fetch(env, src, online)?;
+    let pinned = selections
+        .sources
+        .get(&src.key)
+        .and_then(|sel| sel.pinned.as_deref())
+        .filter(|_| deepen);
+    let latest = fetch(env, src, online, pinned)?;
     let discovery = discover::discover(&latest.root);
     let prev = selections.sources.get(&src.key).cloned();
     let computed = plan::compute(prev.as_ref(), &discovery.items, &latest.head, &slice);
@@ -332,6 +393,7 @@ pub fn ls(env: &Env, source: Option<&str>) -> Result<Value, OpError> {
         "source": src.key,
         "tap": src.tap.name,
         "ref": sel.pinned,
+        "history": super::check::recorded_history(&env.base(), &src.key, sel.pinned.as_deref()),
         "slice": slice::plugin_id(&src.slice()),
         "recorded": selections.sources.contains_key(&src.key),
         "on": count(&sel.items, State::On),
@@ -662,6 +724,21 @@ fn build_plan(env: &Env, src: &Src, prepared: &Prepared, opts: Options) -> Resul
             short(&prepared.latest.head)
         ));
     }
+    if prepared.latest.history == History::Rewritten {
+        warnings.push(format!(
+            "the history of {} was rewritten: the pinned commit {} is no longer in it, so the \
+             items are compared with the new head {}",
+            src.key,
+            short(
+                prepared
+                    .prev
+                    .as_ref()
+                    .and_then(|p| p.pinned.as_deref())
+                    .unwrap_or("")
+            ),
+            short(&prepared.latest.head)
+        ));
+    }
     if next
         .items
         .iter()
@@ -725,6 +802,9 @@ fn build_plan(env: &Env, src: &Src, prepared: &Prepared, opts: Options) -> Resul
         },
         "checked": prepared.latest.checked,
         "fetchError": prepared.latest.error,
+        "history": prepared.latest.history.to_json(
+            prepared.prev.as_ref().and_then(|p| p.pinned.as_deref()),
+        ),
         "diffs": diffs,
         "lines": changed_lines_of(env, src, prepared),
         "hooks": hook_commands_of(prepared),
@@ -824,14 +904,14 @@ fn plan_hash(key: &str, prepared: &Prepared, edits: &[Edit]) -> String {
 /// asked to and writes nothing else.
 pub fn plan(env: &Env, source: &str, opts: Options) -> Result<Value, OpError> {
     let src = resolve(env, source)?;
-    let prepared = prepare(env, &src, opts.fetch)?;
+    let prepared = prepare(env, &src, opts.fetch, opts.deepen)?;
     Ok(build_plan(env, &src, &prepared, opts)?.data)
 }
 
 /// One line per source for the scheduled check.
-pub fn summary(env: &Env, source: &str, online: bool) -> Result<Value, OpError> {
+pub fn summary(env: &Env, source: &str, online: bool, deepen: bool) -> Result<Value, OpError> {
     let src = resolve(env, source)?;
-    let prepared = prepare(env, &src, online)?;
+    let prepared = prepare(env, &src, online, deepen)?;
     let built = build_plan(
         env,
         &src,
@@ -839,6 +919,7 @@ pub fn summary(env: &Env, source: &str, online: bool) -> Result<Value, OpError> 
         Options {
             fetch: online,
             switch: false,
+            deepen,
         },
     )?;
     let d = &prepared.computed.diffs;
@@ -854,6 +935,7 @@ pub fn summary(env: &Env, source: &str, online: bool) -> Result<Value, OpError> 
         "checked": prepared.latest.checked,
         "fetchError": prepared.latest.error,
         "waiting": waiting,
+        "history": built.data["history"],
         "latest": prepared.latest.head,
         "changed": d.changed.len(),
         "retick": d.retick.len(),
@@ -975,7 +1057,7 @@ fn changed_lines(edits: &[Edit], settings: &Settings) -> Vec<String> {
 pub fn apply(env: &Env, source: &str, plan_hash: &str, opts: Options) -> Result<Value, OpError> {
     let src = resolve(env, source)?;
     let base = env.base();
-    let prepared = prepare(env, &src, opts.fetch)?;
+    let prepared = prepare(env, &src, opts.fetch, false)?;
     let built = build_plan(env, &src, &prepared, opts)?;
     if built.hash != plan_hash {
         return Err(OpError::conflict(format!(

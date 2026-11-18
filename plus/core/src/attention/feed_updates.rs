@@ -39,10 +39,18 @@ pub struct PackageFacts {
     pub latest: Option<String>,
 }
 
+/// A selected source whose pinned commit is no longer in the remote's history.
+pub struct RewrittenFacts {
+    pub source: String,
+    pub pinned: String,
+    pub latest: String,
+}
+
 pub struct UpdateInputs {
     pub taps: Vec<TapFacts>,
     pub servers: Vec<RepoFacts>,
     pub packages: Vec<PackageFacts>,
+    pub rewritten: Vec<RewrittenFacts>,
     /// Sources the last network pass could not reach, with the reason.
     pub failures: Vec<(String, String)>,
     /// How many sources the last pass looked at; a pass that reached none says nothing is wrong.
@@ -159,6 +167,30 @@ fn repo_row(repo: &RepoFacts) -> Option<Item> {
     })
 }
 
+fn rewritten_row(source: &RewrittenFacts) -> Item {
+    let (pinned, latest) = (short(Some(&source.pinned)), short(Some(&source.latest)));
+    Item {
+        id: format!("updates:history:{}:{pinned}", source.source),
+        urgency: Urgency::NeedsYou,
+        title: format!(
+            "{}: its history was rewritten, the installed commit is gone",
+            source.source
+        ),
+        detail: format!(
+            "Your chosen items come from commit {pinned}, which the remote no longer has; its head is now {latest}. \
+             Nothing was changed. Review the plan before you move to the new history."
+        ),
+        source: SOURCE,
+        since: None,
+        action: Some(Action::run(
+            "Review plan",
+            Screen::Library,
+            &["toolportctl", "library", "select", "plan", &source.source],
+        )),
+        skip: None,
+    }
+}
+
 fn package_row(package: &PackageFacts) -> Option<Item> {
     let latest = package.latest.as_deref()?;
     if !crate::servers::package::version::newer(latest, &package.pinned) {
@@ -228,6 +260,7 @@ pub fn items(inputs: &UpdateInputs) -> Vec<Item> {
         .map(tap_row)
         .chain(inputs.servers.iter().filter_map(repo_row))
         .chain(inputs.packages.iter().filter_map(package_row))
+        .chain(inputs.rewritten.iter().map(rewritten_row))
         .chain(super::feed_repo_heads::items(
             &inputs.peers,
             &inputs.unpublished,

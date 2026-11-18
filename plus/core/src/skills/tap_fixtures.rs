@@ -141,4 +141,17 @@ impl GitRunner for Rewrite {
     fn head(&self, repo: &Path) -> Result<String, String> {
         SystemGit.head(repo)
     }
+
+    fn deepen(&self, repo: &Path) -> Result<(), String> {
+        SystemGit.deepen(repo)
+    }
+
+    fn is_ancestor(
+        &self,
+        repo: &Path,
+        ancestor: &str,
+        descendant: &str,
+    ) -> Result<Option<bool>, String> {
+        SystemGit.is_ancestor(repo, ancestor, descendant)
+    }
 }

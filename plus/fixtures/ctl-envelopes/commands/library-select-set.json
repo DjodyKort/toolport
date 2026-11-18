@@ -5,7 +5,7 @@
   "flags": [
     {
       "aliases": [],
-      "effect": "Comma list of items to turn on: name or kind:name (hooks are ticked with --tick-hook)",
+      "effect": "Comma list of items to turn on: name or kind:name; write \\, for a comma inside a name (hooks are ticked with --tick-hook)",
       "escalates": false,
       "hidden": false,
       "name": "--on",
@@ -16,7 +16,7 @@
     },
     {
       "aliases": [],
-      "effect": "Comma list of items to turn off",
+      "effect": "Comma list of items to turn off; write \\, for a comma inside a name",
       "escalates": false,
       "hidden": false,
       "name": "--off",
@@ -27,7 +27,7 @@
     },
     {
       "aliases": [],
-      "effect": "Comma list of hooks to turn on after reading their command; a changed command needs this again",
+      "effect": "Comma list of hooks to turn on after reading their command; a changed command needs this again; write \\, for a comma inside a name",
       "escalates": false,
       "hidden": false,
       "name": "--tick-hook",

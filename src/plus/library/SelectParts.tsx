@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
-import type { SelectItem, SelectOffer, SelectPolicy } from "./selectData";
-import { isOn, itemRef, type Staged } from "./selectModel";
+import type { SelectHistory, SelectItem, SelectOffer, SelectPolicy } from "./selectData";
+import { isOn, itemRef, shortRef, type Staged } from "./selectModel";
 
 export function ItemPill({
   item,
@@ -62,6 +62,27 @@ export function PolicyBanners({ policy }: { policy: SelectPolicy }) {
       )}
     </>
   );
+}
+
+export function HistoryBanner({ history }: { history: SelectHistory }) {
+  if (history.state === "rewritten") {
+    return (
+      <Banner tone="destructive">
+        <b>History rewritten.</b> The commit you pinned ({shortRef(history.pinned)}) is no
+        longer in this source's history, so it was force-pushed or rebased. Your chosen
+        items are unchanged. The plan compares them with the new head: read it before you
+        apply.
+      </Banner>
+    );
+  }
+  if (history.state === "unknown") {
+    return (
+      <Banner tone="warning">
+        The history could not be checked{history.error ? `: ${history.error}` : ""}.
+      </Banner>
+    );
+  }
+  return null;
 }
 
 export function OfferBanner({

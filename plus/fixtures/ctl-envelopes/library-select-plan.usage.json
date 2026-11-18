@@ -4,7 +4,7 @@
     "command": "library select plan",
     "error": {
       "code": "usage",
-      "message": "missing source\nusage: library select plan <source> [--no-fetch] [--switch]"
+      "message": "missing source\nusage: library select plan <source> [--no-fetch] [--switch] [--deepen]"
     },
     "ok": false,
     "schemaVersion": 1

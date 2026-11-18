@@ -1,7 +1,7 @@
 //! Git access behind a trait so taps can be tested without a network: `SystemGit` shells out to
 //! the `git` binary, and tests use `MockGit`, which records calls and replays canned results.
 
-use super::gitexec::git_stdout;
+use super::gitexec::{git_command, git_stdout, run_command};
 #[cfg(test)]
 use std::cell::RefCell;
 use std::path::Path;
@@ -43,6 +43,23 @@ pub trait GitRunner {
 
     /// A plain push of HEAD to `branch`, never forced.
     fn push(&self, _repo: &Path, _branch: &str) -> Result<(), String> {
+        Err(UNSUPPORTED.into())
+    }
+
+    /// Downloads the rest of the history of a shallow clone. Can be large; only for a caller the
+    /// person asked to look at history.
+    fn deepen(&self, _repo: &Path) -> Result<(), String> {
+        Err(UNSUPPORTED.into())
+    }
+
+    /// Whether `ancestor` is in the history of `descendant`; `None` when the repository has no
+    /// such commit at all.
+    fn is_ancestor(
+        &self,
+        _repo: &Path,
+        _ancestor: &str,
+        _descendant: &str,
+    ) -> Result<Option<bool>, String> {
         Err(UNSUPPORTED.into())
     }
 }
@@ -141,6 +158,50 @@ impl GitRunner for SystemGit {
         let spec = format!("HEAD:refs/heads/{branch}");
         self.run(Some(repo), &["push", "--quiet", "origin", &spec])
             .map(|_| ())
+    }
+
+    fn deepen(&self, repo: &Path) -> Result<(), String> {
+        if self.run(Some(repo), &["rev-parse", "--is-shallow-repository"])? != "true" {
+            return Ok(());
+        }
+        self.run(Some(repo), &["fetch", "--quiet", "--unshallow"])
+            .map(|_| ())
+    }
+
+    fn is_ancestor(
+        &self,
+        repo: &Path,
+        ancestor: &str,
+        descendant: &str,
+    ) -> Result<Option<bool>, String> {
+        for sha in [ancestor, descendant] {
+            if sha.is_empty() || !sha.chars().all(|c| c.is_ascii_hexdigit()) {
+                return Err(format!("{sha:?} is not a commit id"));
+            }
+        }
+        let known = format!("{ancestor}^{{commit}}");
+        let probe = run_command(
+            git_command(Some(repo), &["cat-file", "-e", &known]),
+            GIT_TIMEOUT,
+        )?;
+        if !probe.ok() {
+            return Ok(None);
+        }
+        let answer = run_command(
+            git_command(
+                Some(repo),
+                &["merge-base", "--is-ancestor", ancestor, descendant],
+            ),
+            GIT_TIMEOUT,
+        )?;
+        match answer.code {
+            0 => Ok(Some(true)),
+            1 => Ok(Some(false)),
+            _ => Err(format!(
+                "git merge-base failed: {}",
+                answer.first_error_line()
+            )),
+        }
     }
 }
 

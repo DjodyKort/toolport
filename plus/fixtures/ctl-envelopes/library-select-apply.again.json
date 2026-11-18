@@ -18,6 +18,11 @@
       },
       "dryRun": true,
       "fetchError": null,
+      "history": {
+        "error": null,
+        "pinned": "78b20008ec7b986019384f2adc6d00b1fa08c506",
+        "state": "unchecked"
+      },
       "hooks": {},
       "id": "picks",
       "lines": {},

@@ -51,6 +51,11 @@
       },
       "dryRun": false,
       "fetchError": null,
+      "history": {
+        "error": null,
+        "pinned": null,
+        "state": "unchecked"
+      },
       "hooks": {},
       "id": "picks",
       "lines": {},

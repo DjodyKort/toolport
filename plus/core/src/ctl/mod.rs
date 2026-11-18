@@ -740,7 +740,7 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["library", "select", "plan"],
-        "Fetch the source and show what applying would change, per item; writes nothing (<source>, --no-fetch, --switch)",
+        "Fetch the source and show what applying would change, per item; writes nothing (<source>, --no-fetch, --switch, --deepen)",
         library_select::plan,
     ),
     cmd(
@@ -755,7 +755,7 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["library", "select", "check"],
-        "Fetch every source with a selection and record which have a plan waiting; applies nothing (--no-fetch)",
+        "Fetch every source with a selection (or the one named) and record which have a plan waiting; with --deepen also whether a force-push removed the pinned commit; applies nothing (<source>, --no-fetch, --deepen)",
         library_select::check,
     ),
     cmd(

@@ -63,7 +63,7 @@ mod movelink_tests;
 #[cfg(test)]
 mod sync_files_tests;
 #[cfg(test)]
-mod tap_fixtures;
+pub(crate) mod tap_fixtures;
 #[cfg(test)]
 mod tap_ops_tests;
 #[cfg(test)]

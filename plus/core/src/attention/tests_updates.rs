@@ -264,6 +264,7 @@ fn test35_some_sources_failing_names_how_many_instead_of_offline() {
     let inputs = UpdateInputs {
         servers: Vec::new(),
         packages: Vec::new(),
+        rewritten: Vec::new(),
         taps: Vec::new(),
         failures: vec![("tap:a".into(), "network unreachable".into())],
         checked: 3,
@@ -451,6 +452,7 @@ fn test45_a_tap_row_needs_the_remote_commit_the_fetch_saw() {
     let inputs = UpdateInputs {
         servers: Vec::new(),
         packages: Vec::new(),
+        rewritten: Vec::new(),
         taps: vec![TapFacts {
             name: "a".into(),
             marketplace: false,
@@ -464,4 +466,89 @@ fn test45_a_tap_row_needs_the_remote_commit_the_fetch_saw() {
         unpublished: Vec::new(),
     };
     assert!(feed_updates::items(&inputs).is_empty());
+}
+
+fn write_selective(world: &World, pinned: &str, state: &str) {
+    let dir = world.data.join("plus/selective");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("selections.json"),
+        json!({"version": 1, "sources": {"acme": {"ref": pinned, "slice": "acme-selected"}}})
+            .to_string(),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("updates.json"),
+        json!({"checkedAt": "2026-11-18T10:00:00Z", "sources": [{
+            "source": "acme", "latest": "ffff0000ffff0000",
+            "history": {"state": state, "pinned": "1111111122222222"}
+        }]})
+        .to_string(),
+    )
+    .unwrap();
+}
+
+fn history_rows(world: &World) -> Vec<Item> {
+    compute(&inputs_of(world))
+        .items
+        .into_iter()
+        .filter(|item| item.id.starts_with("updates:history:"))
+        .collect()
+}
+
+#[test]
+fn test46_a_source_whose_pinned_commit_the_remote_lost_is_a_needs_you_row() {
+    let world = World::new("history-row");
+    write_selective(&world, "1111111122222222", "rewritten");
+    let rows = history_rows(&world);
+    assert_eq!(rows.len(), 1);
+    let row = &rows[0];
+    assert_eq!(row.id, "updates:history:acme:11111111");
+    assert_eq!(row.urgency, Urgency::NeedsYou);
+    assert_eq!(row.source, "Updates");
+    assert!(row.detail.contains("11111111") && row.detail.contains("ffff0000"));
+    assert!(!row.skippable());
+    let action = row.action.as_ref().unwrap();
+    assert_eq!(
+        action.command.as_deref().unwrap().join(" "),
+        "toolportctl library select plan acme"
+    );
+}
+
+#[test]
+fn test47_an_intact_unchecked_or_moved_on_source_raises_nothing() {
+    let world = World::new("history-quiet");
+    for state in ["intact", "unchecked", "unknown"] {
+        write_selective(&world, "1111111122222222", state);
+        assert!(history_rows(&world).is_empty(), "{state}");
+    }
+    write_selective(&world, "ffff0000ffff0000", "rewritten");
+    assert!(history_rows(&world).is_empty(), "pinned elsewhere now");
+}
+
+#[test]
+fn test48_a_needs_you_history_row_can_be_snoozed_for_a_week_and_never_skipped() {
+    let world = World::new("history-hide");
+    write_selective(&world, "1111111122222222", "rewritten");
+    let item = history_rows(&world).remove(0);
+    let mut store = Store::default();
+    assert!(store.hide(&item, HideKind::Skip, None, NOW).is_err());
+    assert!(store.hide(&item, HideKind::Dismiss, None, NOW).is_err());
+    assert!(store
+        .hide(
+            &item,
+            HideKind::Snooze,
+            Some(NOW + NEEDS_YOU_SNOOZE_MAX + 1),
+            NOW
+        )
+        .is_err());
+    store
+        .hide(
+            &item,
+            HideKind::Snooze,
+            Some(NOW + NEEDS_YOU_SNOOZE_MAX),
+            NOW,
+        )
+        .unwrap();
+    assert!(store.hiding(&item, NOW + 60).is_some());
 }

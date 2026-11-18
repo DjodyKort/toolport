@@ -6,7 +6,7 @@ use std::path::Path;
 
 use serde_json::{json, Value};
 
-use super::feed_updates::{PackageFacts, RepoFacts, TapFacts, UpdateInputs};
+use super::feed_updates::{PackageFacts, RepoFacts, RewrittenFacts, TapFacts, UpdateInputs};
 use super::store::{SourceCheck, Store};
 use crate::egress;
 use crate::library::remote;
@@ -98,6 +98,14 @@ pub fn inputs(base: &Path, store: &Store) -> UpdateInputs {
         taps: tap_facts(base),
         servers: Vec::new(),
         packages: Vec::new(),
+        rewritten: crate::selective::check::rewritten(&crate::selective::base_dir(base))
+            .into_iter()
+            .map(|r| RewrittenFacts {
+                source: r.source,
+                pinned: r.pinned,
+                latest: r.latest,
+            })
+            .collect(),
         failures: store
             .updates
             .sources

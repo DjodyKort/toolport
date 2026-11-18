@@ -4,6 +4,10 @@
   },
   "isError": false,
   "result": {
+    "history": {
+      "pinned": null,
+      "state": "unchecked"
+    },
     "items": [
       {
         "hash": "<masked>",

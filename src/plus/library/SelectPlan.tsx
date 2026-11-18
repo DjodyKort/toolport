@@ -9,9 +9,14 @@ import { errorText } from "../settings/useCtl";
 import HookReview, { type HookView } from "./HookReview";
 import { plural } from "./model";
 import { selectApply, selectPlan, selectSet, selectUndo } from "./selectCommands";
-import type { PlanRowData, SelectItem, SelectPlanData } from "./selectData";
+import type {
+  PlanRowData,
+  SelectHistory,
+  SelectItem,
+  SelectPlanData,
+} from "./selectData";
 import { commandLines, lineSummary, rowLabel, shortRef } from "./selectModel";
-import { Banner, CliFooter, PolicyBanners } from "./SelectParts";
+import { Banner, CliFooter, HistoryBanner, PolicyBanners } from "./SelectParts";
 
 function Group({
   title,
@@ -61,6 +66,7 @@ export default function SelectPlan({
   source,
   plan,
   items,
+  history,
   switchWhole,
   onPlan,
   onBack,
@@ -69,6 +75,7 @@ export default function SelectPlan({
   source: string;
   plan: SelectPlanData;
   items: SelectItem[];
+  history: SelectHistory;
   switchWhole: boolean;
   onPlan: (plan: SelectPlanData) => void;
   onBack: () => void;
@@ -199,6 +206,7 @@ export default function SelectPlan({
       </div>
 
       <PolicyBanners policy={plan.policy} />
+      <HistoryBanner history={history} />
       {plan.fetchError && (
         <Banner tone="warning">
           Could not check for a newer version, last good {shortRef(plan.ref.pinned)}:{" "}

@@ -206,6 +206,7 @@ impl Fx {
             Options {
                 fetch: true,
                 switch: false,
+                ..Default::default()
             },
         )
         .unwrap()
@@ -220,6 +221,7 @@ impl Fx {
             Options {
                 fetch: true,
                 switch: false,
+                ..Default::default()
             },
         )
         .map_err(|e| e.message)
@@ -327,6 +329,7 @@ fn test05_a_plan_writes_nothing_and_apply_refuses_another_hash() {
         Options {
             fetch: true,
             switch: false,
+            ..Default::default()
         },
     )
     .unwrap_err();
@@ -640,6 +643,7 @@ fn test20_a_plugin_installed_whole_gets_an_offer_and_switch_turns_it_off() {
     let opts = Options {
         fetch: true,
         switch: false,
+        ..Default::default()
     };
     let plain = ops::plan(&fx.env(), source, opts).unwrap();
     assert_eq!(plain["offer"]["kind"], "switch-to-chosen-items");
@@ -648,6 +652,7 @@ fn test20_a_plugin_installed_whole_gets_an_offer_and_switch_turns_it_off() {
     let switch = Options {
         fetch: true,
         switch: true,
+        ..Default::default()
     };
     let plan = ops::plan(&fx.env(), source, switch).unwrap();
     assert!(plan["plan"]["steps"]
@@ -694,7 +699,15 @@ fn test22_the_scheduled_check_records_what_waits_and_applies_nothing() {
     assert!(check::pending(&fx.base()).is_empty());
     skill(&fx.upstream, "code-review", "Changed upstream.");
     *fx.git.sha.borrow_mut() = "bbbbbbb2".into();
-    let out = check::run(&fx.env(), true).unwrap();
+    let out = check::run(
+        &fx.env(),
+        check::Request {
+            fetch: true,
+            source: None,
+            deepen: false,
+        },
+    )
+    .unwrap();
     assert_eq!(out["waiting"], 1);
     assert_eq!(out["applied"], false);
     assert_eq!(check::pending(&fx.base())[0]["source"], TAP);

@@ -3,6 +3,8 @@
 import type { CtlReply } from "./ctlWorld";
 import type {
   ItemKind,
+  SelectCheckData,
+  SelectHistory,
   SelectItem,
   SelectLsData,
   SelectPlanData,
@@ -17,7 +19,10 @@ export type SelectScenario =
   | "blocked"
   | "offline"
   | "gone-only"
-  | "everything";
+  | "everything"
+  | "rewritten"
+  | "rewritten-seen"
+  | "comma";
 
 export const SELECT_SOURCE = "acme-skills";
 const WHOLE = "acme-skills@acme-skills";
@@ -82,12 +87,16 @@ const wanted = (i: SelectItem) => i.state === "on" || i.state === "removed";
 export function createSelectWorld(scenario: SelectScenario | undefined) {
   const scene = scenario ?? "fresh";
   const chosen = scene !== "fresh" && scene !== "whole" && scene !== "blocked";
+  const rewrittenScene = scene === "rewritten" || scene === "rewritten-seen";
   let items = seed(chosen || scene === "blocked");
+  if (scene === "comma") items.push(item("skill", "lint,format", "off"));
   if (scene === "everything")
     items = items.map((i) => ({ ...i, state: "on", inSlice: true }));
   let recorded = chosen || scene === "blocked";
   let pinned: string | null = recorded ? OLD_REF : null;
-  let moved = scene === "update" || scene === "gone-only";
+  let moved = scene === "update" || scene === "gone-only" || rewrittenScene;
+  let historyState: SelectHistory["state"] =
+    scene === "rewritten-seen" ? "rewritten" : "unchecked";
   let journal: { items: SelectItem[]; pinned: string | null; recorded: boolean } | null =
     null;
   let whole = scene === "whole";
@@ -202,6 +211,7 @@ export function createSelectWorld(scenario: SelectScenario | undefined) {
       ref: { pinned, latest },
       checked: !offline,
       fetchError: offline ? "could not resolve host" : null,
+      history: history(),
       diffs,
       lines: up.changed.length
         ? { "skill:code-review": { added: 12, removed: 3, files: 1 } }
@@ -236,11 +246,28 @@ export function createSelectWorld(scenario: SelectScenario | undefined) {
     };
   }
 
+  const history = (): SelectHistory => ({
+    state: pinned === null ? "unchecked" : historyState,
+    pinned,
+    error: null,
+  });
+
+  function checkHistory(): CtlReply {
+    historyState = rewrittenScene ? "rewritten" : "intact";
+    const data: SelectCheckData = {
+      checkedAt: "2026-11-18T10:00:00Z",
+      waiting: moved ? 1 : 0,
+      sources: [{ source: SELECT_SOURCE, history: history() }],
+    };
+    return ok(data);
+  }
+
   function ls(): CtlReply {
     const data: SelectLsData = {
       source: SELECT_SOURCE,
       tap: SELECT_SOURCE,
       ref: pinned,
+      history: history(),
       slice: SLICE,
       recorded,
       on: items.filter((i) => i.state === "on").length,
@@ -256,7 +283,9 @@ export function createSelectWorld(scenario: SelectScenario | undefined) {
   }
 
   const values = (argv: string[], flag: string) =>
-    argv.flatMap((a, i) => (a === flag ? [argv[i + 1] ?? ""] : []));
+    argv.flatMap((a, i) =>
+      a === flag ? [(argv[i + 1] ?? "").replace(/\\([,\\])/g, "$1")] : [],
+    );
   const find = (ref: string) =>
     items.find((i) => key(i) === ref) ?? items.find((i) => i.id === ref);
 
@@ -354,6 +383,7 @@ export function createSelectWorld(scenario: SelectScenario | undefined) {
     }
     for (const found of items) found.inSlice = wanted(found) && found.kind !== "rule";
     if (switchWhole) whole = false;
+    if (moved) historyState = "unchecked";
     pinned = moved ? NEW_REF : (pinned ?? OLD_REF);
     moved = false;
     return ok({
@@ -417,6 +447,8 @@ export function createSelectWorld(scenario: SelectScenario | undefined) {
           return apply(argv);
         case "undo":
           return undo();
+        case "check":
+          return checkHistory();
         default:
           return fail("usage", `unknown library select command: ${command ?? ""}`);
       }

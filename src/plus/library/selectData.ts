@@ -27,10 +27,20 @@ export interface SelectPolicy {
   blocked: string | null;
 }
 
+/** Whether the commit a source is pinned to is still in the remote's history. Only a check the
+ * person asked for can tell: it downloads the whole history. */
+export interface SelectHistory {
+  state: "unchecked" | "intact" | "rewritten" | "unknown";
+  pinned: string | null;
+  error?: string | null;
+  checkedAt?: string;
+}
+
 export interface SelectLsData {
   source: string;
   tap: string;
   ref: string | null;
+  history: SelectHistory;
   slice: string;
   recorded: boolean;
   on: number;
@@ -83,6 +93,7 @@ export interface SelectPlanData {
   ref: { pinned: string | null; latest: string };
   checked: boolean;
   fetchError: string | null;
+  history: SelectHistory;
   diffs: PlanDiffs;
   lines: Record<string, LineCount>;
   hooks: Record<string, HookText>;
@@ -90,6 +101,12 @@ export interface SelectPlanData {
   offer: SelectOffer | null;
   plan: WritePlan;
   result: { applied: boolean; changed: string[]; undo?: string } | null;
+}
+
+export interface SelectCheckData {
+  checkedAt: string;
+  waiting: number;
+  sources: Array<{ source: string; history?: SelectHistory }>;
 }
 
 export interface SelectSetData {

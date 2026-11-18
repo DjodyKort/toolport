@@ -368,4 +368,53 @@ describe("Library > Sources > Choose items", () => {
     await userEvent.click(screen.getByRole("button", { name: /Sources/ }));
     expect(await screen.findByRole("region", { name: "Taps" })).toBeVisible();
   });
+
+  it("test23_a_rewritten_history_is_flagged_on_the_screen_and_in_the_plan", async () => {
+    setup("rewritten-seen");
+    await ready();
+    expect(screen.getByText("history rewritten")).toBeVisible();
+    expect(screen.getByText(/no longer in this source's history/)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    const plan = await screen.findByRole("region", { name: "Update plan" });
+    expect(plan).toHaveTextContent("History rewritten.");
+  });
+
+  it("test24_history_is_only_checked_when_the_button_is_pressed", async () => {
+    setup("rewritten");
+    await ready();
+    expect(screen.queryByText("history rewritten")).toBeNull();
+    expect(ranSelect("check")).toHaveLength(0);
+    await userEvent.click(screen.getByRole("button", { name: "Check history" }));
+    await waitFor(() => expect(screen.getByText("history rewritten")).toBeVisible());
+    expect(ranSelect("check")[0]).toEqual([
+      "library",
+      "select",
+      "check",
+      SOURCE,
+      "--deepen",
+    ]);
+  });
+
+  it("test25_a_source_with_an_intact_history_shows_no_warning_after_the_check", async () => {
+    setup("update");
+    await ready();
+    await userEvent.click(screen.getByRole("button", { name: "Check history" }));
+    await waitFor(() => expect(ranSelect("check")).toHaveLength(1));
+    await ready();
+    expect(screen.queryByText("history rewritten")).toBeNull();
+  });
+
+  it("test26_an_item_with_a_comma_can_be_chosen_and_is_sent_with_the_comma_escaped", async () => {
+    setup("comma");
+    await ready();
+    const row = box("skill lint,format");
+    expect(row).toBeEnabled();
+    await userEvent.click(row);
+    expect(screen.getByRole("region", { name: "From a terminal" })).toHaveTextContent(
+      "--on 'skill:lint\\,format'",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Apply 1 change" }));
+    await screen.findByRole("region", { name: "Update plan" });
+    expect(ranSelect("set")[0]).toContain("skill:lint\\,format");
+  });
 });

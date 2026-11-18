@@ -19,6 +19,8 @@ pub mod store;
 
 #[cfg(all(test, unix))]
 mod tests;
+#[cfg(all(test, unix))]
+mod tests_history;
 
 pub use ops::Env;
 

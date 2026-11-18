@@ -27,9 +27,9 @@ export const itemRef = (item: { kind: ItemKind; id: string }) =>
 
 export const shortRef = (sha: string | null | undefined) => (sha ? sha.slice(0, 7) : "");
 
-/** A comma splits the list a flag takes, so such an item cannot be named on the command line. */
-export const addressable = (item: { kind: ItemKind; id: string }) =>
-  !itemRef(item).includes(",");
+/** The flags take a comma list; `\,` is a comma that belongs to the name. */
+export const escapeCommas = (ref: string) =>
+  ref.replace(/\\/g, "\\\\").replace(/,/g, "\\,");
 
 const storedOn = (item: SelectItem) => item.state === "on" || item.state === "removed";
 
@@ -130,9 +130,9 @@ export const quote = (text: string) =>
 
 export function setCommand(source: string, changes: SetChanges): string | null {
   const parts = [
-    ...changes.on.map((ref) => `--on ${quote(ref)}`),
-    ...changes.off.map((ref) => `--off ${quote(ref)}`),
-    ...changes.tick.map((ref) => `--tick-hook ${quote(ref)}`),
+    ...changes.on.map((ref) => `--on ${quote(escapeCommas(ref))}`),
+    ...changes.off.map((ref) => `--off ${quote(escapeCommas(ref))}`),
+    ...changes.tick.map((ref) => `--tick-hook ${quote(escapeCommas(ref))}`),
   ];
   if (parts.length === 0) return null;
   return `toolportctl library select set ${source} ${parts.join(" ")}`;

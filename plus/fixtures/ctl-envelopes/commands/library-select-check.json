@@ -13,6 +13,17 @@
       "required": false,
       "sensitive": false,
       "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Download each source's whole history to see whether the pinned commit is still in it; can be large, so it never happens without this flag",
+      "escalates": false,
+      "hidden": false,
+      "name": "--deepen",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
     }
   ],
   "group": "library",
@@ -22,7 +33,13 @@
   "needs": ["network"],
   "oneOf": [],
   "operandEscalates": false,
-  "operands": [],
+  "operands": [
+    {
+      "name": "source",
+      "required": false,
+      "variadic": false
+    }
+  ],
   "parent": null,
   "path": ["library", "select", "check"],
   "planned": false,
@@ -30,7 +47,7 @@
     "flag": null,
     "mode": "none"
   },
-  "summary": "Fetch every source with a selection and record which have a plan waiting; applies nothing (--no-fetch)",
+  "summary": "Fetch every source with a selection (or the one named) and record which have a plan waiting; with --deepen also whether a force-push removed the pinned commit; applies nothing (<source>, --no-fetch, --deepen)",
   "surface": "screen",
   "tier": "write",
   "tools": []

@@ -49,6 +49,6 @@ pub fn undo(host: &dyn Host, source: &str) -> Result<Value, OpError> {
     with_env(host, |env| ops::undo(env, source))
 }
 
-pub fn check(host: &dyn Host, fetch: bool) -> Result<Value, OpError> {
-    with_env(host, |env| check::run(env, fetch))
+pub fn check(host: &dyn Host, request: check::Request) -> Result<Value, OpError> {
+    with_env(host, |env| check::run(env, request))
 }

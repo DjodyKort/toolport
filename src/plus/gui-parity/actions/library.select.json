@@ -1,6 +1,6 @@
 {
   "route": "library",
   "status": "built",
-  "summary": "Choose single skills, agents, commands, hooks and rules of a tap or plugin, review the update plan and keep the choice across updates (library select ls|set|plan|apply|undo|check; library_select_ls, library_select_plan)",
+  "summary": "Choose single skills, agents, commands, hooks and rules of a tap or plugin, review the update plan and keep the choice across updates, flag a rewritten history on an explicit Check history, and name items with a comma through an escaped list (library select ls|set|plan|apply|undo|check; library_select_ls, library_select_plan)",
   "test": "src/plus/library/SelectScreen.test.tsx"
 }

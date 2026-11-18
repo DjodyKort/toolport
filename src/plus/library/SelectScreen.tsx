@@ -18,10 +18,15 @@ import { useLoad } from "../servers/useLoad";
 import { errorText } from "../settings/useCtl";
 import HookReview from "./HookReview";
 import SelectPlan from "./SelectPlan";
-import { selectLs, selectPlan, selectSet, selectUndo } from "./selectCommands";
+import {
+  selectCheckHistory,
+  selectLs,
+  selectPlan,
+  selectSet,
+  selectUndo,
+} from "./selectCommands";
 import type { ItemKind, SelectItem, SelectPlanData } from "./selectData";
 import {
-  addressable,
   changeCount,
   changesOf,
   commandLines,
@@ -41,7 +46,14 @@ import {
   type Staged,
   type StateView,
 } from "./selectModel";
-import { Banner, CliFooter, ItemPill, OfferBanner, PolicyBanners } from "./SelectParts";
+import {
+  Banner,
+  CliFooter,
+  HistoryBanner,
+  ItemPill,
+  OfferBanner,
+  PolicyBanners,
+} from "./SelectParts";
 import { plural } from "./model";
 
 const SELECT_CLASS =
@@ -61,7 +73,6 @@ function Row({
   onToggle: (item: SelectItem) => void;
 }) {
   const on = isOn(item, staged);
-  const reachable = addressable(item);
   const label = item.kind === "hook" ? hookTitle(item) : item.id;
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-card px-3 py-2">
@@ -69,7 +80,7 @@ function Row({
         type="checkbox"
         aria-label={`${item.kind} ${label}`}
         checked={on}
-        disabled={disabled || !reachable}
+        disabled={disabled}
         onChange={() => onToggle(item)}
       />
       <div className="min-w-0 flex-1 basis-40">
@@ -85,7 +96,6 @@ function Row({
           {item.state === "removed" &&
             " · no longer in the source, kept from the pinned copy"}
           {item.pending && " · command changed upstream, tick it again"}
-          {!reachable && " · the name has a comma, which the command line cannot address"}
         </p>
       </div>
       <ItemPill item={item} staged={staged} hooksOff={hooksOff} />
@@ -165,6 +175,7 @@ export default function SelectScreen({
         source={source}
         plan={plan}
         items={data?.items ?? []}
+        history={data?.history ?? { state: "unchecked", pinned: null }}
         switchWhole={switchWhole}
         onPlan={setPlan}
         onBack={() => {
@@ -228,6 +239,22 @@ export default function SelectScreen({
     );
   }
 
+  async function checkHistory() {
+    setBusy(true);
+    try {
+      const done = await selectCheckHistory(source);
+      const state = done.sources.find((row) => row.source === source)?.history?.state;
+      if (state === "intact") toast.success("The pinned commit is still in the history");
+      else if (state === "rewritten") toast.message("The history was rewritten");
+      else toast.message("The history could not be checked");
+      ls.reload();
+    } catch (error) {
+      toastError("The history was not checked", { description: errorText(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function makePlan() {
     setBusy(true);
     try {
@@ -256,6 +283,9 @@ export default function SelectScreen({
           <h2 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
             {data.source}
             {data.ref && <Badge variant="secondary">pinned {shortRef(data.ref)}</Badge>}
+            {data.history.state === "rewritten" && (
+              <Badge variant="destructive">history rewritten</Badge>
+            )}
           </h2>
           <p className="text-meta text-muted-foreground">
             {on} of {plural(total, "item")} on · nothing is loaded until you apply
@@ -265,6 +295,17 @@ export default function SelectScreen({
           {data.recorded && (
             <Button variant="ghost" size="sm" onClick={() => setUndoing(true)}>
               <Undo2 /> Undo last apply
+            </Button>
+          )}
+          {data.recorded && data.ref && (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              title="Downloads the whole history of this source once, to see whether the commit you pinned is still in it"
+              onClick={() => void checkHistory()}
+            >
+              Check history
             </Button>
           )}
           <Button variant="outline" size="sm" disabled={blocked} onClick={selectNone}>
@@ -285,6 +326,7 @@ export default function SelectScreen({
       </div>
 
       <PolicyBanners policy={data.policy} />
+      <HistoryBanner history={data.history} />
       {data.offer && (
         <OfferBanner offer={data.offer} checked={switchWhole} onChange={setSwitchWhole} />
       )}

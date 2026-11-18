@@ -3519,8 +3519,13 @@ const CASES: &[Case] = &[
     case(
         "library select check",
         &[
-            usage("usage", &["library", "select", "check", "picks"]),
+            usage("usage", &["library", "select", "check", "--bogus"]),
+            apply("unknown", &["library", "select", "check", "picks"]).exit(1),
             apply("none", &["library", "select", "check", "--no-fetch"]),
+            apply(
+                "deepen",
+                &["library", "select", "check", "--no-fetch", "--deepen"],
+            ),
         ],
     ),
     case(

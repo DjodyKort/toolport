@@ -116,6 +116,7 @@ pub(super) fn select_plan(host: &dyn Host, args: &Value) -> Result<Value, ToolEr
         let opts = Options {
             fetch: flag_or(args, "fetch", true),
             switch: flag(args, "switch"),
+            ..Default::default()
         };
         selective::plan(host, source, opts).map_err(tool_error)
     })

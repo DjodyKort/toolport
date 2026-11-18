@@ -485,6 +485,7 @@ fn no_updates() -> UpdateInputs {
     UpdateInputs {
         servers: Vec::new(),
         packages: Vec::new(),
+        rewritten: Vec::new(),
         taps: Vec::new(),
         failures: Vec::new(),
         checked: 0,
