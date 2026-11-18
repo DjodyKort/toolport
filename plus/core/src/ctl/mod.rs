@@ -23,6 +23,7 @@ mod plugins;
 mod policy;
 mod secret;
 mod server;
+mod server_repo;
 mod skills;
 mod skills_checks;
 mod skills_repo;
@@ -131,6 +132,26 @@ pub const COMMANDS: &[Command] = &[
         &["server", "mode"],
         "Choose whether a server's tools are listed (auto) or only searched (search): <server> auto|search",
         server::mode,
+    ),
+    cmd(
+        &["server", "repo", "status"],
+        "Show where the git checkout a server runs from stands against its tracked branch [<server>]",
+        server_repo::status,
+    ),
+    cmd(
+        &["server", "repo", "check"],
+        "Fetch the tracked remote of every checkout a server runs from; nothing is pulled",
+        server_repo::check,
+    ),
+    cmd(
+        &["server", "repo", "update"],
+        "Fast-forward a server's checkout, run the agreed build and restart it: <server> [--dry-run] [--plan-hash] [--build|--no-build] [--restart-now|--no-restart]",
+        server_repo::update,
+    ),
+    cmd(
+        &["server", "repo", "undo"],
+        "Move a server's checkout back to before the last update when nothing else moved it: <server> [--dry-run]",
+        server_repo::undo,
     ),
     cmd(
         &["server", "uninstall"],

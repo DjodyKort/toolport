@@ -1,0 +1,44 @@
+{
+  "argv": ["server", "repo", "update", "gamma", "--dry-run", "--wait", "1"],
+  "envelope": {
+    "command": "server repo update",
+    "data": {
+      "plan": {
+        "branch": "main",
+        "build": {
+          "command": null,
+          "remembered": false,
+          "timeoutSeconds": 120
+        },
+        "commits": [
+          {
+            "id": "fab65b24",
+            "subject": "Add the search tool"
+          }
+        ],
+        "commitsTotal": 1,
+        "files": [
+          {
+            "path": "tools.js",
+            "status": "A"
+          }
+        ],
+        "filesTotal": 1,
+        "from": "86846020f965369a54fc0d28358325928001cfbd",
+        "id": "srv-gamma",
+        "inFlight": null,
+        "planHash": "sha256:970ef1c37b8a5bf2",
+        "refusal": null,
+        "root": "<WORLD>/gamma-work",
+        "server": "gamma",
+        "sharedWith": [],
+        "to": "fab65b24170eb5d491fa9ad78d358f61054f8a4d",
+        "undo": "toolportctl server repo undo gamma",
+        "upstream": "origin/main"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

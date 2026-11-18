@@ -180,6 +180,14 @@ pub fn fetch(repo: &Path) -> Result<(), String> {
     network(repo, &["fetch", "--quiet", "origin"])
 }
 
+/// Fetches one named remote and nothing else: no other remote, no submodule.
+pub fn fetch_remote(repo: &Path, remote: &str) -> Result<(), String> {
+    network(
+        repo,
+        &["fetch", "--quiet", "--no-recurse-submodules", "--", remote],
+    )
+}
+
 fn last_fetch(repo: &Path) -> Option<String> {
     let secs = std::fs::metadata(repo.join(".git").join("FETCH_HEAD"))
         .ok()?

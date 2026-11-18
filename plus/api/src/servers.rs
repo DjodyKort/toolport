@@ -86,6 +86,20 @@ impl ServerRecord {
     }
 }
 
+/// Where the git checkout a local server runs from stands, as one machine can tell another.
+/// `remote` is the tracked remote's URL with credentials removed, so the same repository has the
+/// same value on every machine; `pushed` is true when `head` is already on that remote.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServerRepoHead {
+    pub server: String,
+    pub remote: String,
+    pub branch: String,
+    pub head: String,
+    pub pushed: bool,
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
+}
+
 /// Checks that live in upstream's code and that the fork applies to what it writes.
 pub trait ServerRules {
     /// Whether `text` looks like a credential: a known token prefix, an inline `password=`
@@ -169,6 +183,18 @@ mod tests {
         assert_eq!(record.text("description"), Some("d"));
         let back: Value = convert(&record).unwrap();
         assert_eq!(back, upstream);
+    }
+
+    #[test]
+    fn test01_a_repo_head_keeps_the_keys_a_newer_version_adds() {
+        let wire = json!({
+            "server": "alpha", "remote": "https://git.example.invalid/a.git", "branch": "main",
+            "head": "9be07d2", "pushed": true, "dirty": false,
+        });
+        let head: ServerRepoHead = convert(&wire).unwrap();
+        assert!(head.pushed && head.branch == "main");
+        let back: Value = convert(&head).unwrap();
+        assert_eq!(back, wire);
     }
 
     #[test]

@@ -898,6 +898,19 @@ pub const TOOLS: &[ToolDef] = &[
         servers::get
     ),
     tool!(
+        "servers_repo_status",
+        1,
+        None,
+        "Where the git checkout each local server runs from stands against the branch it tracks: branch, head, commits ahead and behind, local changes and the time of the last fetch. Reads git state already on disk and fetches nothing; applying an update is not offered here",
+        [p(
+            "name",
+            Ty::Str,
+            false,
+            "Server id or name; every server that runs from a checkout when omitted"
+        )],
+        servers::repo_status
+    ),
+    tool!(
         "servers_list_profiles",
         1,
         None,

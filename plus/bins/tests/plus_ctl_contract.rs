@@ -25,6 +25,7 @@ use common::compression::{
 };
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
+use common::server_repo_world::{server_repo, server_repo_dirty};
 use common::tasks_world::{scheduler_extras, tasks_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
@@ -834,6 +835,116 @@ const CASES: &[Case] = &[
                 "not-running",
                 &["server", "restart", "alpha", "--wait", "1"],
             ),
+        ],
+    ),
+    case(
+        "server repo status",
+        &[
+            hook("repo-world", server_repo),
+            read("never_checked", &["server", "repo", "status"]),
+            setup("fetch", &["server", "repo", "check"]),
+            read("behind", &["server", "repo", "status"]),
+            read("one", &["server", "repo", "status", "gamma"]),
+            read("unknown", &["server", "repo", "status", "ghost"]).exit(1),
+            read("no_checkout", &["server", "repo", "status", "alpha"]).exit(1),
+            usage("usage", &["server", "repo", "status", "a", "b"]),
+        ],
+    ),
+    case(
+        "server repo check",
+        &[
+            hook("repo-world", server_repo),
+            apply("fetched", &["server", "repo", "check"]),
+            usage("usage", &["server", "repo", "check", "extra"]),
+        ],
+    ),
+    case(
+        "server repo update",
+        &[
+            hook("repo-world", server_repo),
+            setup("fetch", &["server", "repo", "check"]),
+            read(
+                "plan",
+                &[
+                    "server",
+                    "repo",
+                    "update",
+                    "gamma",
+                    "--dry-run",
+                    "--wait",
+                    "1",
+                ],
+            ),
+            apply(
+                "update",
+                &[
+                    "server",
+                    "repo",
+                    "update",
+                    "gamma",
+                    "--build",
+                    "echo built",
+                    "--no-restart",
+                ],
+            ),
+            apply(
+                "up_to_date",
+                &["server", "repo", "update", "gamma", "--no-restart"],
+            ),
+            hook("local-change", server_repo_dirty),
+            apply(
+                "dirty",
+                &["server", "repo", "update", "gamma", "--no-restart"],
+            )
+            .exit(1),
+            read(
+                "dirty_plan",
+                &[
+                    "server",
+                    "repo",
+                    "update",
+                    "gamma",
+                    "--dry-run",
+                    "--wait",
+                    "1",
+                ],
+            ),
+            apply("unknown", &["server", "repo", "update", "ghost"]).exit(1),
+            usage("usage", &["server", "repo", "update"]),
+            usage(
+                "conflicting_restart",
+                &[
+                    "server",
+                    "repo",
+                    "update",
+                    "gamma",
+                    "--restart-now",
+                    "--no-restart",
+                ],
+            ),
+        ],
+    ),
+    case(
+        "server repo undo",
+        &[
+            hook("repo-world", server_repo),
+            setup("fetch", &["server", "repo", "check"]),
+            apply("nothing", &["server", "repo", "undo", "gamma"]).exit(1),
+            setup(
+                "update",
+                &[
+                    "server",
+                    "repo",
+                    "update",
+                    "gamma",
+                    "--build",
+                    "echo built",
+                    "--no-restart",
+                ],
+            ),
+            read("preview", &["server", "repo", "undo", "gamma", "--dry-run"]),
+            apply("undo", &["server", "repo", "undo", "gamma", "--no-restart"]),
+            usage("usage", &["server", "repo", "undo"]),
         ],
     ),
     case("auth statusline", &[read("", &["auth", "statusline"])]),

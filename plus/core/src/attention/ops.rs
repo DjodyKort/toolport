@@ -160,8 +160,19 @@ pub fn check(host: &dyn Host) -> Result<updates::Report, OpError> {
         home: None,
         data_dir: Some(base.clone()),
     });
-    updates::check(&base, host.now_unix(), &updates::fetch)
-        .map_err(|e| OpError::failed("attention_check", e))
+    let servers: Vec<(String, PathBuf)> = crate::servers::repo::repos(host)?
+        .into_iter()
+        .filter(|repo| repo.state.remote.is_some())
+        .map(|repo| (repo.source(), repo.state.root))
+        .collect();
+    updates::check_with(
+        &base,
+        host.now_unix(),
+        &updates::fetch,
+        &servers,
+        &crate::servers::repo::fetch_tracked,
+    )
+    .map_err(|e| OpError::failed("attention_check", e))
 }
 
 pub fn hidden_json(snapshot: &Snapshot) -> Value {

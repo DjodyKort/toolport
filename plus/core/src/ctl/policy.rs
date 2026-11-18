@@ -21,6 +21,7 @@ use super::mcp;
 use super::plugins;
 use super::secret;
 use super::server;
+use super::server_repo;
 use super::skills;
 use super::skills_checks;
 use super::skills_repo;
@@ -348,6 +349,20 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&server::MODE])
         .args(&[req("server"), req("mode")])
         .skip("changes how a server is listed; plus_ctl_contract round trip in a scratch registry"),
+    row("server repo status", R).spec(&[&server_repo::STATUS]),
+    row("server repo check", W)
+        .spec(&[&server_repo::CHECK])
+        .skip("fetches from remotes; golden step uses a local remote"),
+    row("server repo update", W)
+        .dry()
+        .spec(&[&server_repo::UPDATE])
+        .args(&[req("server")])
+        .skip("moves a checkout, runs a build and restarts; its --dry-run is a golden step"),
+    row("server repo undo", W)
+        .dry()
+        .spec(&[&server_repo::UNDO])
+        .args(&[req("server")])
+        .skip("moves a checkout back; its --dry-run is a golden step"),
     row("server uninstall", D)
         .dry()
         .spec(&[&server::UNINSTALL])
@@ -920,6 +935,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("servers_set_mode", W, "server mode"),
     maps("servers_uninstall", D, "server uninstall"),
     maps("servers_restart", W, "server restart").on(),
+    maps("servers_repo_status", R, "server repo status"),
     maps("servers_auth", W, "auth login"),
     maps("context_bundle_ls", R, "context bundle ls"),
     maps("context_bundle_status", R, "context bundle status"),

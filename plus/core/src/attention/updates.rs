@@ -6,7 +6,7 @@ use std::path::Path;
 
 use serde_json::{json, Value};
 
-use super::feed_updates::{TapFacts, UpdateInputs};
+use super::feed_updates::{RepoFacts, TapFacts, UpdateInputs};
 use super::store::{SourceCheck, Store};
 use crate::egress;
 use crate::library::remote;
@@ -20,7 +20,7 @@ fn tap_source(name: &str) -> String {
 }
 
 /// The host a remote URL names; `None` for a path on this machine.
-fn host_of(url: &str) -> Option<String> {
+pub(crate) fn host_of(url: &str) -> Option<String> {
     let authority = match url.split_once("://") {
         Some((scheme, _)) if scheme.eq_ignore_ascii_case("file") => return None,
         Some((_, rest)) => rest.split('/').next()?,
@@ -71,9 +71,31 @@ pub fn tap_facts(base: &Path) -> Vec<TapFacts> {
         .collect()
 }
 
+pub fn repo_facts(repo: &crate::servers::repo::Repo) -> RepoFacts {
+    let state = &repo.state;
+    RepoFacts {
+        server: repo.first_name().to_string(),
+        also: repo
+            .servers
+            .iter()
+            .skip(1)
+            .map(|(_, name)| name.clone())
+            .collect(),
+        branch: state.branch.clone().unwrap_or_default(),
+        upstream: state.upstream.clone().unwrap_or_default(),
+        head: state.head.clone(),
+        upstream_head: state.upstream_head.clone(),
+        behind: state.behind,
+        ahead: state.ahead,
+        dirty: state.dirty,
+        verdict: state.verdict(),
+    }
+}
+
 pub fn inputs(base: &Path, store: &Store) -> UpdateInputs {
     UpdateInputs {
         taps: tap_facts(base),
+        servers: Vec::new(),
         failures: store
             .updates
             .sources
@@ -128,12 +150,59 @@ impl Report {
     }
 }
 
+/// Fetches `targets` with `fetch` and records when and how each went, leaving every other
+/// source in the store as it is. Returns each source with its error, if any.
+pub fn record_fetches(
+    base: &Path,
+    now: i64,
+    targets: &[(String, std::path::PathBuf)],
+    fetch: &dyn Fn(&Path) -> Result<(), String>,
+) -> Result<Vec<(String, Option<String>)>, String> {
+    let mut store = Store::read(base)?;
+    let outcomes = fetch_into(&mut store, now, targets, fetch);
+    store.write(base)?;
+    Ok(outcomes)
+}
+
+fn fetch_into(
+    store: &mut Store,
+    now: i64,
+    targets: &[(String, std::path::PathBuf)],
+    fetch: &dyn Fn(&Path) -> Result<(), String>,
+) -> Vec<(String, Option<String>)> {
+    targets
+        .iter()
+        .map(|(source, dir)| {
+            let error = fetch(dir).err();
+            store.updates.sources.insert(
+                source.clone(),
+                SourceCheck {
+                    at: now,
+                    error: error.clone(),
+                },
+            );
+            (source.clone(), error)
+        })
+        .collect()
+}
+
 /// Fetches every tap clone and the library with `fetch` and records when and how each went.
 /// A store that cannot be read stops the pass before anything is fetched.
 pub fn check(
     base: &Path,
     now: i64,
     fetch: &dyn Fn(&Path) -> Result<(), String>,
+) -> Result<Report, String> {
+    check_with(base, now, fetch, &[], &|_| Ok(()))
+}
+
+/// [`check`] that also fetches the checkouts local servers run from, each with `fetch_server`.
+pub fn check_with(
+    base: &Path,
+    now: i64,
+    fetch: &dyn Fn(&Path) -> Result<(), String>,
+    servers: &[(String, std::path::PathBuf)],
+    fetch_server: &dyn Fn(&Path) -> Result<(), String>,
 ) -> Result<Report, String> {
     let mut store = Store::read(base)?;
     if !store.settings.check_on("updates") {
@@ -152,23 +221,13 @@ pub fn check(
     if let Ok(repo) = remote::locate() {
         targets.push((LIBRARY.to_string(), repo));
     }
-    let mut sources = Vec::new();
-    for (source, dir) in targets {
-        let error = fetch(&dir).err();
-        store.updates.sources.insert(
-            source.clone(),
-            SourceCheck {
-                at: now,
-                error: error.clone(),
-            },
-        );
-        sources.push(Outcome { source, error });
-    }
-    let names: Vec<&str> = sources.iter().map(|s| s.source.as_str()).collect();
-    store
-        .updates
-        .sources
-        .retain(|name, _| names.contains(&name.as_str()));
+    let sources: Vec<Outcome> = fetch_into(&mut store, now, &targets, fetch)
+        .into_iter()
+        .chain(fetch_into(&mut store, now, servers, fetch_server))
+        .map(|(source, error)| Outcome { source, error })
+        .collect();
+    let names: Vec<String> = sources.iter().map(|s| s.source.clone()).collect();
+    store.updates.sources.retain(|name, _| names.contains(name));
     store.updates.checked_at = Some(now);
     store.write(base)?;
     Ok(Report {

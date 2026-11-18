@@ -1,0 +1,87 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Show what would move back and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Do not run the build command again",
+      "escalates": false,
+      "hidden": false,
+      "name": "--no-build",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Restart even when a call is running; the call ends",
+      "escalates": false,
+      "hidden": false,
+      "name": "--restart-now",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Do not restart the server",
+      "escalates": false,
+      "hidden": false,
+      "name": "--no-restart",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Seconds to wait for the gateways' answers to the restart",
+      "escalates": false,
+      "hidden": false,
+      "name": "--wait",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    }
+  ],
+  "group": "server",
+  "id": "server repo undo",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "server",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["server", "repo", "undo"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Move a server's checkout back to before the last update when nothing else moved it: <server> [--dry-run]",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

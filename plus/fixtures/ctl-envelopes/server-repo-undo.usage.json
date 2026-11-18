@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "repo", "undo"],
+  "envelope": {
+    "command": "server repo undo",
+    "error": {
+      "code": "usage",
+      "message": "usage: server repo undo <id|name> [--dry-run] [--no-build] [--restart-now|--no-restart] [--wait <seconds>]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

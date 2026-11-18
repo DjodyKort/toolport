@@ -1,0 +1,27 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "repos": [
+      {
+        "ahead": 0,
+        "behind": 0,
+        "branch": "main",
+        "checkedAt": null,
+        "dirty": 0,
+        "error": null,
+        "head": "<masked>",
+        "id": "srv-gamma",
+        "remote": "origin",
+        "root": "<WORLD>/gamma-work",
+        "server": "gamma",
+        "state": "up_to_date",
+        "unpushed": 0,
+        "upstream": "origin/main",
+        "upstreamHead": "86846020f965369a54fc0d28358325928001cfbd",
+        "url": "<WORLD>/gamma-remote.git"
+      }
+    ]
+  },
+  "tool": "servers_repo_status"
+}

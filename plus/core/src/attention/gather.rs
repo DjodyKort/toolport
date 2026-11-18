@@ -117,5 +117,9 @@ pub fn updates(host: &dyn Host, store: Option<&Store>) -> Result<UpdateInputs, S
         home: None,
         data_dir: Some(base.clone()),
     });
-    Ok(updates::inputs(&base, store.unwrap_or(&Store::default())))
+    let mut inputs = updates::inputs(&base, store.unwrap_or(&Store::default()));
+    inputs.servers = crate::servers::repo::repos(host)
+        .map(|repos| repos.iter().map(updates::repo_facts).collect())
+        .unwrap_or_default();
+    Ok(inputs)
 }

@@ -35,7 +35,7 @@ pub use notifier::{FakeNotifier, Notifier};
 pub use secrets::{SecretsHost, TrustInputs, VaultAccess, HTTP_AUTH_KEY};
 pub use servers::{
     CallsInFlight, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter, RestartOutcome,
-    ServerRules, ServerSpec,
+    ServerRepoHead, ServerRules, ServerSpec,
 };
 pub use settings::SettingsStore;
 pub use tasks::{

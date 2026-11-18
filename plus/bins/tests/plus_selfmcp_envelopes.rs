@@ -19,6 +19,7 @@ use common::attention_world::{attention_home, attention_updates};
 use common::client::Client;
 use common::compression;
 use common::library_world::{self, library_home};
+use common::server_repo_world::server_repo;
 use common::tasks_world::{scheduler_home, tasks_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
@@ -944,6 +945,20 @@ const CASES: &[Case] = &[
                 "refused",
                 "servers_restart",
                 r#"{"name":"alpha","dry_run":false}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "servers_repo_status",
+        server_repo,
+        &[
+            read("behind", "servers_repo_status", "{}"),
+            read("one", "servers_repo_status", r#"{"name":"gamma"}"#),
+            fails(
+                "no_checkout",
+                "not_found",
+                "servers_repo_status",
+                r#"{"name":"alpha"}"#,
             ),
         ],
     ),
