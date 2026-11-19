@@ -111,7 +111,7 @@ fn marketplace_clone(claude_home: &Path, marketplace: &str) -> std::path::PathBu
 
 /// Whether the marketplace clone on disk offers a newer version than the install. Reads files;
 /// what the remote has is only known after `--refresh` updated the clone.
-pub fn update(claude_home: &Path, plugin: &Installed) -> Value {
+pub fn update(claude_home: &Path, layers: &Layers, plugin: &Installed) -> Value {
     let unknown = || json!({"state": "unknown", "available": null});
     let Some(installed) = plugin.version.as_deref() else {
         return unknown();
@@ -128,10 +128,45 @@ pub fn update(claude_home: &Path, plugin: &Installed) -> Value {
         return unknown();
     };
     match compare(&offered, installed) {
-        Some(Ordering::Greater) => json!({"state": "update", "available": offered}),
+        Some(Ordering::Greater) => match blocked(claude_home, layers, plugin) {
+            Some(reason) => {
+                json!({"state": "blocked", "available": offered, "reason": reason})
+            }
+            None => json!({"state": "update", "available": offered}),
+        },
         Some(_) => json!({"state": "current", "available": null}),
         None => unknown(),
     }
+}
+
+fn names_source(list: &Value, name: &str, source: Option<&str>) -> bool {
+    list.as_array().into_iter().flatten().any(|entry| {
+        entry.as_str() == Some(name)
+            || entry.get("name").and_then(Value::as_str) == Some(name)
+            || source.is_some_and(|s| installed::source_text(entry).as_deref() == Some(s))
+    })
+}
+
+/// Why an offered update cannot be applied here: the administrator decides the plugin, or the
+/// managed settings block its marketplace or allow only others.
+pub fn blocked(claude_home: &Path, layers: &Layers, plugin: &Installed) -> Option<String> {
+    if layers.enabled(&plugin.id).managed.is_some() {
+        return Some("your administrator decides this plugin".to_string());
+    }
+    let market = plugin.marketplace.as_deref()?;
+    let source = installed::marketplace_source(claude_home, market);
+    if layers
+        .managed("blockedMarketplaces")
+        .is_some_and(|list| names_source(list, market, source.as_deref()))
+    {
+        return Some(format!(
+            "your administrator blocks the {market} marketplace"
+        ));
+    }
+    let allowed = layers.managed("strictKnownMarketplaces")?;
+    (allowed.as_array().is_some_and(|l| !l.is_empty())
+        && !names_source(allowed, market, source.as_deref()))
+    .then(|| format!("your administrator does not allow the {market} marketplace"))
 }
 
 /// An MCP server a plugin declares: `.mcp.json` or the manifest's `mcpServers`.

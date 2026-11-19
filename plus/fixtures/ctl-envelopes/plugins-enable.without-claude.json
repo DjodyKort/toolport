@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "enable", "ecc@ecc"],
+  "envelope": {
+    "command": "plugins enable",
+    "error": {
+      "code": "conflict",
+      "message": "claude not found on PATH: `claude plugin enable` needs it"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

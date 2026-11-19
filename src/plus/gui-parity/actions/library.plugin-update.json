@@ -1,0 +1,5 @@
+{
+  "route": "library-later",
+  "status": "planned",
+  "summary": "Update one plugin, or every plugin with an update waiting, to the version its marketplace offers after the plan, with the restart notice and the scheduled check named on the card (plugins update)"
+}

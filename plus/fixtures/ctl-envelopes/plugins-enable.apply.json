@@ -1,0 +1,51 @@
+{
+  "argv": ["plugins", "enable", "ecc@ecc"],
+  "envelope": {
+    "command": "plugins enable",
+    "data": {
+      "changes": [
+        {
+          "action": "enable",
+          "command": ["claude", "plugin", "enable", "ecc@ecc", "--scope", "user"],
+          "from": null,
+          "scope": "user",
+          "to": null
+        }
+      ],
+      "conflicts": [],
+      "cwd": null,
+      "dryRun": false,
+      "id": "ecc@ecc",
+      "ledger": null,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "claude plugin enable ecc@ecc --scope user",
+            "op": "exec"
+          },
+          {
+            "detail": "your folder settings still apply on top: a folder that turned the plugin off keeps it off",
+            "op": "note"
+          }
+        ],
+        "summary": "Enable ecc@ecc (user scope)",
+        "undo": "toolportctl plugins disable ecc@ecc",
+        "warnings": [
+          "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+        ]
+      },
+      "restartRequired": true,
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["ecc@ecc (user scope)"],
+        "undo": "toolportctl plugins disable ecc@ecc"
+      },
+      "scope": "user"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

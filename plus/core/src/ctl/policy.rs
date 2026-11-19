@@ -560,6 +560,22 @@ pub(super) const ROWS: &[Row] = &[
         .reads(&["--refresh"])
         .spec(&[&plugins::LS])
         .smoke(&[]),
+    row("plugins disable", D)
+        .dry()
+        .spec(&[&plugins::DISABLE])
+        .args(&[req("id")])
+        .skip("runs claude plugin disable; its --dry-run is a golden step"),
+    row("plugins enable", W)
+        .dry()
+        .spec(&[&plugins::ENABLE])
+        .args(&[req("id")])
+        .skip("runs claude plugin enable; its --dry-run is a golden step"),
+    row("plugins update", W)
+        .dry()
+        .needs(&[Needs::Network])
+        .spec(&[&plugins::UPDATE])
+        .args(&[req("id")])
+        .skip("runs claude plugin update, which fetches; its --dry-run is a golden step"),
     row("plugins show", R)
         .spec(&[&plugins::SHOW])
         .args(&[req("id")])

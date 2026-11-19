@@ -1,0 +1,5 @@
+{
+  "route": "library-later",
+  "status": "planned",
+  "summary": "Turn a plugin off or on for every folder in the user settings, after its plan; turning it off asks for the plugin's name to be typed (plugins disable|enable)"
+}

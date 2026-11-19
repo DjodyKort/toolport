@@ -10,10 +10,11 @@ use std::time::Duration;
 use serde_json::{json, Value};
 use toolport_plus_api::Host;
 
-use super::claude::{ClaudeRunner, NOT_FOUND};
+use super::claude::{ClaudeRunner, SystemClaude, NOT_FOUND};
 use super::detail;
 use super::hook_list;
 use super::installed::{self, Installed};
+use super::sessions;
 use super::settings::{Layers, Scope};
 use crate::context::fsx;
 use crate::context::measure;
@@ -33,17 +34,31 @@ pub struct World {
     /// The administrator's `managed-settings.json`; `None` when it is not looked at.
     pub managed: Option<PathBuf>,
     pub data_dir: Option<PathBuf>,
+    /// When the running Claude Code sessions started (unix seconds); empty when none is known.
+    pub starts: Vec<i64>,
 }
 
 impl World {
     pub fn host(host: &dyn Host) -> Option<Self> {
         let home = host.home_dir()?;
         Some(Self {
+            starts: Vec::new(),
             claude_home: crate::fsx::claude_dir_in(&home),
             managed: crate::sources::managed_settings_path(),
             data_dir: host.data_dir(),
             home,
         })
+    }
+}
+
+impl World {
+    /// Adds the running Claude Code sessions, which only `plugins ls` needs: `ps` is asked when
+    /// `claude` can be found at all.
+    pub fn with_sessions(mut self) -> Self {
+        if SystemClaude::from_env().present() {
+            self.starts = sessions::running_starts(crate::context::fsx::now_secs());
+        }
+        self
     }
 }
 
@@ -189,7 +204,7 @@ fn row(read: &Read, plugin: &Installed) -> Value {
             "managed": enabled.managed,
             "effective": enabled.effective,
         },
-        "update": detail::update(&world.claude_home, plugin),
+        "update": detail::update(&world.claude_home, &read.layers, plugin),
         "brings": {
             "skills": names_in(&root.join("skills"), true).len(),
             "agents": names_in(&root.join("agents"), false).len(),
@@ -242,6 +257,21 @@ fn refresh(runner: Option<&dyn ClaudeRunner>) -> Option<String> {
     }
 }
 
+fn restart_required(world: &World, cwd: Option<&Path>) -> bool {
+    let plugins = world.claude_home.join("plugins");
+    let mut files = vec![
+        plugins.join("installed_plugins.json"),
+        plugins.join("known_marketplaces.json"),
+        world.claude_home.join("settings.json"),
+    ];
+    if let Some(cwd) = cwd {
+        files.push(cwd.join(".claude/settings.json"));
+        files.push(cwd.join(".claude/settings.local.json"));
+    }
+    let files: Vec<&Path> = files.iter().map(PathBuf::as_path).collect();
+    sessions::restart_required(&files, &world.starts)
+}
+
 pub fn ls(
     world: &World,
     runner: Option<&dyn ClaudeRunner>,
@@ -262,6 +292,7 @@ pub fn ls(
         "marketplaces": detail::marketplaces(&world.claude_home, &listing.plugins),
         "updatesAvailable": waiting,
         "managedSettings": managed_info(world, &read.layers),
+        "restartRequired": restart_required(world, cwd),
         "refreshed": refresh_first && refresh_error.is_none(),
         "refreshError": refresh_error.or_else(|| listing.cli_error.clone()),
         "partial": listing.via == installed::Via::Files && !listing.plugins.is_empty(),

@@ -325,6 +325,15 @@ fn plugin_inventory(world: &World) {
     world.plugin_inventory();
 }
 
+fn plugin_off_for_the_user(world: &World) {
+    world.plugin_inventory();
+    let path = world.home.join(".claude/settings.json");
+    std::fs::write(path, "{\"enabledPlugins\": {\"ecc@ecc\": false}}").unwrap();
+}
+
+/// A `claude` that exits 0 and prints nothing, so the user-scope commands run without a real one.
+const QUIET_CLAUDE: &[(&str, &str)] = &[("TOOLPORT_CLAUDE_BIN", "/usr/bin/true")];
+
 fn plugin_with_folder(world: &World) {
     world.context_files();
     world.plugin_inventory();
@@ -2584,6 +2593,39 @@ const CASES: &[Case] = &[
             read("one", &["plugins", "show", "ecc@ecc"]),
             read("unknown", &["plugins", "show", "ghost@x"]).exit(1),
             usage("usage", &["plugins", "show"]),
+        ],
+    ),
+    case(
+        "plugins disable",
+        &[
+            hook("files", plugin_inventory),
+            read("plan", &["plugins", "disable", "ecc@ecc", "--dry-run"]).env(QUIET_CLAUDE),
+            apply("apply", &["plugins", "disable", "ecc@ecc"]).env(QUIET_CLAUDE),
+            read("without-claude", &["plugins", "disable", "ecc@ecc"]).exit(1),
+            read("unknown-plugin", &["plugins", "disable", "ghost@x"])
+                .env(QUIET_CLAUDE)
+                .exit(1),
+            usage("usage", &["plugins", "disable"]),
+        ],
+    ),
+    case(
+        "plugins enable",
+        &[
+            hook("files", plugin_off_for_the_user),
+            read("plan", &["plugins", "enable", "ecc@ecc", "--dry-run"]).env(QUIET_CLAUDE),
+            apply("apply", &["plugins", "enable", "ecc@ecc"]).env(QUIET_CLAUDE),
+            read("without-claude", &["plugins", "enable", "ecc@ecc"]).exit(1),
+            usage("usage", &["plugins", "enable"]),
+        ],
+    ),
+    case(
+        "plugins update",
+        &[
+            hook("files", plugin_inventory),
+            read("plan", &["plugins", "update", "ecc@ecc", "--dry-run"]).env(QUIET_CLAUDE),
+            apply("apply", &["plugins", "update", "ecc@ecc"]).env(QUIET_CLAUDE),
+            read("without-claude", &["plugins", "update", "ecc@ecc"]).exit(1),
+            usage("usage", &["plugins", "update"]),
         ],
     ),
     case(

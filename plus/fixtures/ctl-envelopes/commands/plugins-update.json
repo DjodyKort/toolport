@@ -1,0 +1,43 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "plugins",
+  "id": "plugins update",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": ["network"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "id",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["plugins", "update"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Update an installed plugin to the version its marketplace offers: claude plugin update (<id>, --dry-run); a running session keeps the old version until it restarts",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

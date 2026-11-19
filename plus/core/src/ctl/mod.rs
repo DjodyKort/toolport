@@ -456,6 +456,21 @@ pub const COMMANDS: &[Command] = &[
         plugins::on,
     ),
     cmd(
+        &["plugins", "disable"],
+        "Turn a plugin off for every folder: claude plugin disable --scope user (<id>, --dry-run); undone by `plugins enable`",
+        plugins::disable,
+    ),
+    cmd(
+        &["plugins", "enable"],
+        "Turn a plugin on for every folder: claude plugin enable --scope user (<id>, --dry-run)",
+        plugins::enable,
+    ),
+    cmd(
+        &["plugins", "update"],
+        "Update an installed plugin to the version its marketplace offers: claude plugin update (<id>, --dry-run); a running session keeps the old version until it restarts",
+        plugins::update,
+    ),
+    cmd(
         &["plugins", "ls"],
         "List the installed plugins with where they are on (user, project, local, managed), what they bring, cost and update (--cwd, --refresh)",
         plugins::ls,

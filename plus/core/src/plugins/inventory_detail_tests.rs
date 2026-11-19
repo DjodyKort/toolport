@@ -86,6 +86,7 @@ fn world(tree: &Tree) -> World {
         claude_home: tree.claude.clone(),
         managed: None,
         data_dir: Some(tree.dir.path().join("data")),
+        starts: Vec::new(),
     }
 }
 
@@ -329,6 +330,7 @@ fn test09_ls_is_partial_only_while_claude_could_not_fill_the_cost() {
             claude_home: empty.path().join(".claude"),
             managed: None,
             data_dir: None,
+            starts: Vec::new(),
         },
         None,
         None,

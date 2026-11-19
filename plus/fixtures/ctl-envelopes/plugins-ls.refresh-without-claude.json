@@ -66,6 +66,7 @@
       ],
       "refreshError": "claude not found on PATH",
       "refreshed": false,
+      "restartRequired": false,
       "updatesAvailable": 1
     },
     "ok": true,

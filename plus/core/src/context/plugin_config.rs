@@ -37,7 +37,7 @@ pub fn mcp_control(id: &str, server: &str) -> String {
     format!("mcp:{id}:{server}")
 }
 
-fn resolve(
+pub(crate) fn resolve(
     world: &World,
     runner: Option<&dyn ClaudeRunner>,
     id: &str,

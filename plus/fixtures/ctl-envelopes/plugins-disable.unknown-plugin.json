@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "disable", "ghost@x"],
+  "envelope": {
+    "command": "plugins disable",
+    "error": {
+      "code": "not_found",
+      "message": "ghost@x is not among the installed plugins; `toolportctl plugins ls` shows the ids"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

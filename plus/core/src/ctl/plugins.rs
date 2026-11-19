@@ -1,5 +1,5 @@
-//! `toolportctl plugins off|on|ls|show|config|mcp` and `hooks ls`: switch one plugin off or on in
-//! a folder (D-097, D-136), read what is installed and which hooks would run, and set a plugin's
+//! `toolportctl plugins off|on|disable|enable|update|ls|show|config|mcp` and `hooks ls`: switch one
+//! plugin off or on in a folder (D-097, D-136), disable, enable or update it for the user, read what is installed and which hooks would run, and set a plugin's
 //! own switches or deny one of its MCP servers in a folder. Thin renderers over `context::ops`,
 //! `context::plugin_config` and `plugins::inventory`.
 
@@ -10,6 +10,7 @@ use crate::context::ops as api;
 use crate::context::plugin_config::{self, ConfigArgs, McpArgs, McpOp};
 use crate::context::plugin_switch::Switch;
 use crate::plugins::inventory::{self, HookFilter, World};
+use crate::plugins::user_ops::{self, Op};
 use crate::plugins::{ClaudeRunner, SystemClaude};
 use serde_json::Value;
 use std::path::Path;
@@ -82,17 +83,21 @@ pub(super) const HOOKS_LS: Spec = Spec {
 
 fn with_world<R>(
     host: &dyn Host,
+    sessions: bool,
     run: impl FnOnce(&World, Option<&dyn ClaudeRunner>) -> Result<R, CtlError>,
 ) -> Result<R, CtlError> {
-    let world = World::host(host)
+    let mut world = World::host(host)
         .ok_or_else(|| CtlError::failed("no_home", "home directory could not be resolved"))?;
+    if sessions {
+        world = world.with_sessions();
+    }
     let claude = SystemClaude::from_env();
     run(&world, Some(&claude))
 }
 
 pub fn ls(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = LS.parse(rest)?;
-    let data = with_world(host, |world, runner| {
+    let data = with_world(host, true, |world, runner| {
         Ok(inventory::ls(
             world,
             runner,
@@ -140,7 +145,7 @@ fn ls_text(data: &Value) -> String {
 pub fn show(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = SHOW.parse(rest)?;
     let id = flags.single(SHOW_USAGE)?;
-    let data = with_world(host, |world, runner| {
+    let data = with_world(host, false, |world, runner| {
         inventory::show(world, runner, id, flags.one("--cwd").map(Path::new))
     })?;
     let mut human = ls_text(&serde_json::json!({"plugins": [data.clone()]}));
@@ -197,7 +202,7 @@ fn hook_line(hook: &Value) -> String {
 
 pub fn hooks_ls(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = HOOKS_LS.parse(rest)?;
-    let data = with_world(host, |world, runner| {
+    let data = with_world(host, false, |world, runner| {
         Ok(inventory::hooks(
             world,
             runner,
@@ -261,7 +266,7 @@ pub fn config(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
         if flags.on("--dry-run") {
             return Err(CtlError::usage("--dry-run needs --set or --unset"));
         }
-        let data = with_world(host, |world, runner| {
+        let data = with_world(host, false, |world, runner| {
             plugin_config::read(world, runner, id, cwd).map_err(flagged)
         })?;
         let mut human = String::new();
@@ -285,7 +290,7 @@ pub fn config(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
         }
         return Ok(Output::new(data, human));
     }
-    let data = with_world(host, |world, runner| {
+    let data = with_world(host, false, |world, runner| {
         plugin_config::run(
             world,
             runner,
@@ -329,7 +334,7 @@ pub(super) const MCP_ALLOW: Spec = Spec {
 pub fn mcp_ls(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = MCP_LS.parse(rest)?;
     let id = flags.single(MCP_LS_USAGE)?;
-    let data = with_world(host, |world, runner| {
+    let data = with_world(host, false, |world, runner| {
         plugin_config::mcp_read(world, runner, id, flags.one("--cwd").map(Path::new))
             .map_err(flagged)
     })?;
@@ -365,7 +370,7 @@ fn mcp_write(
     let cwd = flags
         .one("--cwd")
         .ok_or_else(|| CtlError::usage("--cwd is required: a server is denied per folder"))?;
-    let data = with_world(host, |world, runner| {
+    let data = with_world(host, false, |world, runner| {
         plugin_config::mcp(
             world,
             runner,
@@ -389,4 +394,63 @@ pub fn mcp_deny(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
 
 pub fn mcp_allow(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     mcp_write(host, rest, &MCP_ALLOW, MCP_ALLOW_USAGE, McpOp::Allow)
+}
+
+const DISABLE_USAGE: &str = "usage: plugins disable <id> [--dry-run]";
+const ENABLE_USAGE: &str = "usage: plugins enable <id> [--dry-run]";
+const UPDATE_USAGE: &str = "usage: plugins update <id> [--dry-run]";
+
+pub(super) const DISABLE: Spec = Spec {
+    flags: &[switch("--dry-run")],
+    inline: Inline::Strict,
+    unknown: Unknown::Argument,
+    operands: Operands::Max(1, DISABLE_USAGE),
+    ..Spec::PLAIN
+};
+
+pub(super) const ENABLE: Spec = Spec {
+    operands: Operands::Max(1, ENABLE_USAGE),
+    ..DISABLE
+};
+
+pub(super) const UPDATE: Spec = Spec {
+    operands: Operands::Max(1, UPDATE_USAGE),
+    ..DISABLE
+};
+
+fn user_scope(
+    host: &dyn Host,
+    rest: &[String],
+    spec: &Spec,
+    usage: &str,
+    op: Op,
+) -> Result<Output, CtlError> {
+    let flags = spec.parse(rest)?;
+    let id = flags.single(usage)?;
+    let data = with_world(host, false, |world, runner| {
+        user_ops::run(
+            world,
+            runner,
+            &user_ops::Args {
+                op,
+                id,
+                dry_run: flags.on("--dry-run"),
+            },
+        )
+        .map_err(flagged)
+    })?;
+    let human = plan_text(&data);
+    Ok(Output::new(data, human))
+}
+
+pub fn disable(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    user_scope(host, rest, &DISABLE, DISABLE_USAGE, Op::Disable)
+}
+
+pub fn enable(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    user_scope(host, rest, &ENABLE, ENABLE_USAGE, Op::Enable)
+}
+
+pub fn update(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    user_scope(host, rest, &UPDATE, UPDATE_USAGE, Op::Update)
 }

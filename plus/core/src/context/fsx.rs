@@ -144,11 +144,14 @@ pub fn zulu(unix_secs: i64) -> String {
     )
 }
 
-pub fn now_zulu() -> String {
-    let now = std::time::SystemTime::now()
+pub fn now_secs() -> i64 {
+    std::time::SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs() as i64);
-    zulu(now)
+        .map_or(0, |d| d.as_secs() as i64)
+}
+
+pub fn now_zulu() -> String {
+    zulu(now_secs())
 }
 
 pub fn canonical(path: &Path) -> PathBuf {

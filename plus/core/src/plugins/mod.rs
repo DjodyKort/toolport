@@ -15,7 +15,9 @@ pub mod installed;
 pub mod inventory;
 pub mod link;
 pub mod marketplace;
+pub mod sessions;
 pub mod settings;
+pub mod user_ops;
 
 pub use claude::{ClaudeRunner, SystemClaude};
 
@@ -25,6 +27,8 @@ mod inventory_detail_tests;
 mod inventory_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod user_ops_tests;
 
 use crate::context::fsx;
 use serde_json::Value;

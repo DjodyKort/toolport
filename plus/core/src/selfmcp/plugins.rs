@@ -15,16 +15,20 @@ use crate::plugins::{ClaudeRunner, SystemClaude};
 
 fn with_world<R>(
     host: &dyn Host,
+    sessions: bool,
     run: impl FnOnce(&World, Option<&dyn ClaudeRunner>) -> Result<R, ToolError>,
 ) -> Result<R, ToolError> {
-    let world = World::host(host)
+    let mut world = World::host(host)
         .ok_or_else(|| ToolError::new("no_home", "home directory could not be resolved"))?;
+    if sessions {
+        world = world.with_sessions();
+    }
     let claude = SystemClaude::from_env();
     run(&world, Some(&claude))
 }
 
 pub(super) fn ls(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
-    with_world(host, |world, runner| {
+    with_world(host, true, |world, runner| {
         Ok(inventory::ls(
             world,
             runner,
@@ -37,7 +41,7 @@ pub(super) fn ls(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
 pub(super) fn show(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
     let id = str_trimmed(args, "id")
         .ok_or_else(|| ToolError::new("invalid_arguments", "id is required"))?;
-    with_world(host, |world, runner| {
+    with_world(host, false, |world, runner| {
         Ok(inventory::show(
             world,
             runner,
@@ -48,7 +52,7 @@ pub(super) fn show(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
 }
 
 pub(super) fn hooks(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
-    with_world(host, |world, runner| {
+    with_world(host, false, |world, runner| {
         Ok(inventory::hooks(
             world,
             runner,
@@ -68,7 +72,7 @@ fn id_of(args: &Value) -> Result<&str, ToolError> {
 
 pub(super) fn config(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
     let id = id_of(args)?;
-    with_world(host, |world, runner| {
+    with_world(host, false, |world, runner| {
         Ok(plugin_config::read(
             world,
             runner,
@@ -80,7 +84,7 @@ pub(super) fn config(host: &dyn Host, args: &Value) -> Result<Value, ToolError> 
 
 pub(super) fn mcp(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
     let id = id_of(args)?;
-    with_world(host, |world, runner| {
+    with_world(host, false, |world, runner| {
         Ok(plugin_config::mcp_read(
             world,
             runner,

@@ -61,6 +61,7 @@ fn world(tree: &Tree) -> World {
         claude_home: tree.claude.clone(),
         managed: None,
         data_dir: Some(tree.dir.path().join("data")),
+        starts: Vec::new(),
     }
 }
 

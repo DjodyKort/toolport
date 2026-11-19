@@ -65,6 +65,7 @@
     ],
     "refreshError": null,
     "refreshed": false,
+    "restartRequired": false,
     "updatesAvailable": 1
   },
   "tool": "plugins_ls"

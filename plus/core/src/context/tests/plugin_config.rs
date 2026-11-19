@@ -64,6 +64,7 @@ impl Case {
                 claude_home: claude,
                 managed: None,
                 data_dir: Some(data),
+                starts: Vec::new(),
             },
             _scratch: scratch,
             cwd,

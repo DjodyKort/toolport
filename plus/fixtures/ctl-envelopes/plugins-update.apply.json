@@ -1,0 +1,51 @@
+{
+  "argv": ["plugins", "update", "ecc@ecc"],
+  "envelope": {
+    "command": "plugins update",
+    "data": {
+      "changes": [
+        {
+          "action": "update",
+          "command": ["claude", "plugin", "update", "ecc@ecc", "--scope", "user"],
+          "from": "1.2.0",
+          "scope": "user",
+          "to": "1.2.0"
+        }
+      ],
+      "conflicts": [],
+      "cwd": null,
+      "dryRun": false,
+      "id": "ecc@ecc",
+      "ledger": null,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "claude plugin update ecc@ecc --scope user",
+            "op": "exec"
+          },
+          {
+            "detail": "the marketplace offers 1.10.0",
+            "op": "note"
+          }
+        ],
+        "summary": "Update ecc@ecc (user scope)",
+        "undo": "no undo: the version before the update was 1.2.0",
+        "warnings": [
+          "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+        ]
+      },
+      "restartRequired": true,
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["ecc@ecc (user scope)"],
+        "undo": "no undo: the version before the update was 1.2.0"
+      },
+      "scope": "user"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
