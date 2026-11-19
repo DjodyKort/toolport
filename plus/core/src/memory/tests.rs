@@ -24,6 +24,8 @@ fn count(text: &str) -> u64 {
 struct Fx {
     _dir: tempfile::TempDir,
     home: PathBuf,
+    claude_dir: PathBuf,
+    claude_json: PathBuf,
     data: PathBuf,
     managed: Option<PathBuf>,
     env: Option<String>,
@@ -39,6 +41,8 @@ impl Fx {
         std::fs::create_dir_all(&data).unwrap();
         Self {
             _dir: dir,
+            claude_dir: home.join(".claude"),
+            claude_json: home.join(".claude.json"),
             home,
             data,
             managed: None,
@@ -49,6 +53,8 @@ impl Fx {
     fn world(&self) -> World<'_> {
         World {
             home: &self.home,
+            claude_dir: &self.claude_dir,
+            claude_json: &self.claude_json,
             data_dir: &self.data,
             now: NOW,
             count_tokens: &count,
@@ -181,7 +187,9 @@ fn the_memory_folder_follows_auto_memory_directory_from_local_or_user_settings_o
     let repo = Repo::of(&fx.repo("work/app"));
     let default = fx.at(&format!(".claude/projects/{}/memory", repo.slug()));
     assert_eq!(
-        fx.world().layers(&repo).directory(&fx.home, &repo),
+        fx.world()
+            .layers(&repo)
+            .directory(&fx.home, &fx.claude_dir, &repo),
         (default, false)
     );
     fx.put(
@@ -191,13 +199,20 @@ fn the_memory_folder_follows_auto_memory_directory_from_local_or_user_settings_o
             fx.at("elsewhere").display()
         ),
     );
-    assert!(!fx.world().layers(&repo).directory(&fx.home, &repo).1);
+    assert!(
+        !fx.world()
+            .layers(&repo)
+            .directory(&fx.home, &fx.claude_dir, &repo)
+            .1
+    );
     fx.put(
         ".claude/settings.json",
         "{\"autoMemoryDirectory\": \"~/notes\"}",
     );
     assert_eq!(
-        fx.world().layers(&repo).directory(&fx.home, &repo),
+        fx.world()
+            .layers(&repo)
+            .directory(&fx.home, &fx.claude_dir, &repo),
         (fx.at("notes"), true)
     );
 }
@@ -527,6 +542,83 @@ fn a_switch_that_cannot_be_written_puts_the_cleared_memory_back() {
 }
 
 #[test]
+fn a_claude_config_dir_holds_the_memory_sessions_switch_and_folder_list_instead_of_dot_claude() {
+    let mut fx = Fx::new();
+    let root = fx.repo("work/app");
+    let repo = Repo::of(&root);
+    let slug = project_slug(&root);
+    fx.claude_dir = fx.at("profile");
+    fx.claude_json = fx.at("profile/.claude.json");
+    fx.put(
+        &format!("profile/projects/{slug}/memory/MEMORY.md"),
+        "- mine\n",
+    );
+    fx.put(
+        &format!(".claude/projects/{slug}/memory/OLD.md"),
+        "- decoy\n",
+    );
+    fx.put(&format!("profile/projects/{slug}/abc.jsonl"), "{}\n");
+    fx.put(
+        "profile/.claude.json",
+        &serde_json::json!({"projects": {fsx::display(&fx.at("work/app/sub")): {}}}).to_string(),
+    );
+    fx.put("profile/settings.json", "{\"cleanupPeriodDays\": 90}");
+    fx.put(".claude/settings.json", "{\"cleanupPeriodDays\": 5}");
+
+    let layers = fx.world().layers(&repo);
+    assert_eq!(
+        layers.directory(&fx.home, &fx.claude_dir, &repo).0,
+        fx.at(&format!("profile/projects/{slug}/memory"))
+    );
+    assert_eq!(super::sessions::retention(&fx.claude_dir).days, 90);
+    let known = Known::read(&fx.claude_json);
+    assert_eq!(known.folders, vec![fx.at("work/app/sub")]);
+    let folders = super::sessions::folders_of(&fx.claude_dir, &repo, &known);
+    assert_eq!(folders.iter().map(|f| f.sessions.len()).sum::<usize>(), 1);
+
+    let store = MemoryHost::default();
+    ok(switch::set_global(
+        &fx.world(),
+        &store,
+        Position::Off,
+        false,
+    ));
+    assert!(fx.at("profile/settings.json").exists());
+    assert!(std::fs::read_to_string(fx.at("profile/settings.json"))
+        .unwrap()
+        .contains("autoMemoryEnabled"));
+    assert!(!std::fs::read_to_string(fx.at(".claude/settings.json"))
+        .unwrap()
+        .contains("autoMemoryEnabled"));
+    assert_eq!(fx.world().layers(&repo).effective(), (false, SetBy::Global));
+
+    fx.put("profile/projects/-tmp-gone/x.jsonl", "12345");
+    fx.put(".claude/projects/-tmp-decoy/y.jsonl", "123");
+    let all = ok(overview::overview(
+        &fx.world(),
+        &Options {
+            all: true,
+            cwd: None,
+            sort: "name",
+            filter: None,
+        },
+    ));
+    let other = all["other"].to_string();
+    assert!(other.contains("-tmp-gone"), "{other}");
+    assert!(!other.contains("-tmp-decoy"), "{other}");
+
+    let cleared = ok(clear::clear(&fx.world(), &clear_args(&root)));
+    assert_eq!(
+        cleared["directory"],
+        fsx::display(&fx.at(&format!("profile/projects/{slug}/memory")))
+    );
+    assert!(!fx.at(&format!("profile/projects/{slug}/memory")).exists());
+    assert!(fx
+        .at(&format!(".claude/projects/{slug}/memory/OLD.md"))
+        .exists());
+}
+
+#[test]
 fn nothing_to_clear_is_not_found_and_a_folder_that_holds_the_home_is_refused() {
     let fx = Fx::new();
     let root = fx.repo("work/app");
@@ -793,7 +885,7 @@ fn only_the_two_known_facts_are_taken_from_the_claude_json() {
             fx.at("work/app").display()
         ),
     );
-    let known = Known::read(&fx.home);
+    let known = Known::read(&fx.claude_json);
     assert_eq!(known.folders, [fx.at("work/app")]);
     assert_eq!(
         known.external_imports_approved(&fx.at("work/app")),
@@ -885,6 +977,7 @@ fn a_toolport_exclusion_is_shown_as_toolports_and_agents_md_loads_without_a_clau
     let count = |t: &str| t.len() as u64;
     let loads = crate::context::loads::InstructionLoads {
         home: &fx.home,
+        claude_dir: &fx.claude_dir,
         policy_file: None,
         count_tokens: &count,
     };

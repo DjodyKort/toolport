@@ -18,8 +18,8 @@ pub struct Retention {
     pub file: PathBuf,
 }
 
-pub fn retention(home: &Path) -> Retention {
-    let file = home.join(".claude/settings.json");
+pub fn retention(claude_dir: &Path) -> Retention {
+    let file = claude_dir.join("settings.json");
     let days = fsx::read_text(&file, fsx::TEXT_CAP)
         .and_then(|t| serde_json::from_str::<Value>(&t).ok())
         .and_then(|v| v.get("cleanupPeriodDays")?.as_u64())
@@ -129,8 +129,8 @@ pub fn scan_dir(project_dir: &Path, folder: &Path) -> Vec<Session> {
 
 /// The working folders that belong to `repo`: its worktrees, the folder asked about and every
 /// folder under them that Claude Code has run in.
-pub fn folders_of(home: &Path, repo: &Repo, known: &Known) -> Vec<Folder> {
-    let projects = home.join(".claude/projects");
+pub fn folders_of(claude_dir: &Path, repo: &Repo, known: &Known) -> Vec<Folder> {
+    let projects = claude_dir.join("projects");
     let mut paths: Vec<PathBuf> = repo.worktrees.clone();
     paths.push(repo.cwd.clone());
     paths.extend(known.under(&repo.worktrees));

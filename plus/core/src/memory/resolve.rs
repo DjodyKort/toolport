@@ -151,8 +151,13 @@ pub struct Layers {
 }
 
 impl Layers {
-    pub fn load(home: &Path, repo: &Repo, managed: Option<&Path>, env: Option<String>) -> Self {
-        let user_file = home.join(".claude/settings.json");
+    pub fn load(
+        claude_dir: &Path,
+        repo: &Repo,
+        managed: Option<&Path>,
+        env: Option<String>,
+    ) -> Self {
+        let user_file = claude_dir.join("settings.json");
         let other = repo.cwd != repo.root;
         let beside = |rel: &str| {
             if other {
@@ -201,7 +206,7 @@ impl Layers {
 
     /// The memory folder: `autoMemoryDirectory` from managed, local or user settings (a shared
     /// project file cannot point Toolport at another folder), else the default under `projects/`.
-    pub fn directory(&self, home: &Path, repo: &Repo) -> (PathBuf, bool) {
+    pub fn directory(&self, home: &Path, claude_dir: &Path, repo: &Repo) -> (PathBuf, bool) {
         let custom = [&self.managed, &self.local_root, &self.local_cwd, &self.user]
             .iter()
             .find_map(|keys| keys.dir.as_deref())
@@ -215,7 +220,7 @@ impl Layers {
         match custom {
             Some(path) => (path, true),
             None => {
-                let projects = home.join(".claude/projects");
+                let projects = claude_dir.join("projects");
                 let dir = project_dirs(&projects, &repo.root)
                     .into_iter()
                     .next()

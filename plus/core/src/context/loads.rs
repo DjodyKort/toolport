@@ -72,6 +72,7 @@ pub const AUTO_MEMORY_OFF: &str = "auto memory is off (autoMemoryEnabled)";
 /// that is not itemised.
 pub struct InstructionLoads<'a> {
     pub home: &'a Path,
+    pub claude_dir: &'a Path,
     pub policy_file: Option<&'a Path>,
     pub count_tokens: &'a dyn Fn(&str) -> u64,
 }
@@ -238,7 +239,7 @@ impl LoadSource for InstructionLoads<'_> {
             return Err(problem);
         }
         let cwd = fsx::canonical(cwd);
-        let user_claude = self.home.join(".claude");
+        let user_claude = self.claude_dir;
         let repo = Repo::of(&cwd);
         let mut settings = Settings::default();
         read_settings(&user_claude.join("settings.json"), &mut settings);
@@ -284,8 +285,11 @@ impl LoadSource for InstructionLoads<'_> {
             }
         }
         let mut items = walk.items;
-        let layers = Layers::load(self.home, &repo, None, None);
-        let index = layers.directory(self.home, &repo).0.join("MEMORY.md");
+        let layers = Layers::load(self.claude_dir, &repo, None, None);
+        let index = layers
+            .directory(self.home, self.claude_dir, &repo)
+            .0
+            .join("MEMORY.md");
         if let Some(text) = fsx::read_text(&index, MEMORY_INDEX_BYTES) {
             let text: String = text
                 .lines()
@@ -338,6 +342,7 @@ mod tests {
         let count = |text: &str| text.len() as u64;
         InstructionLoads {
             home,
+            claude_dir: &home.join(".claude"),
             policy_file: None,
             count_tokens: &count,
         }

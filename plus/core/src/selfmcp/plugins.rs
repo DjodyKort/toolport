@@ -18,7 +18,7 @@ fn with_world<R>(
     let home = host
         .home_dir()
         .ok_or_else(|| ToolError::new("no_home", "home directory could not be resolved"))?;
-    let claude_home = home.join(".claude");
+    let claude_home = crate::fsx::claude_dir_in(&home);
     let claude = SystemClaude::from_env();
     run(
         &World {

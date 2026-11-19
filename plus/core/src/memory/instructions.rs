@@ -141,6 +141,7 @@ fn nested_claude_md(root: &Path, skip: &BTreeSet<PathBuf>, out: &mut Vec<PathBuf
 pub fn report(world: &World, repo: &Repo, known: &Known) -> Result<Report, String> {
     let loads = InstructionLoads {
         home: world.home,
+        claude_dir: world.claude_dir,
         policy_file: world.policy_claude_md,
         count_tokens: world.count_tokens,
     };

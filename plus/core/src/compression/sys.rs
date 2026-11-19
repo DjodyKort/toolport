@@ -12,10 +12,7 @@ pub fn claude_root(over: Option<&Path>) -> PathBuf {
     if let Some(path) = over {
         return path.to_path_buf();
     }
-    if let Some(dir) = std::env::var_os("CLAUDE_CONFIG_DIR").filter(|v| !v.is_empty()) {
-        return PathBuf::from(dir);
-    }
-    home_dir().unwrap_or_default().join(".claude")
+    crate::fsx::claude_dir().unwrap_or_default()
 }
 
 pub fn hex(bytes: &[u8]) -> String {

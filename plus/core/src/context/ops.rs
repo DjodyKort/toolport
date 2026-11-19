@@ -29,8 +29,10 @@ fn with_world<T>(
     })?;
     let roots = Roots::from_home(&home);
     let count = |text: &str| host.count_tokens(text);
+    let claude_dir = crate::fsx::claude_dir_in(&home);
     let loads = InstructionLoads {
         home: &home,
+        claude_dir: &claude_dir,
         policy_file: Some(Path::new(POLICY_CLAUDE_MD)),
         count_tokens: &count,
     };
@@ -288,8 +290,10 @@ pub fn leave_out(
     })?;
     let roots = Roots::from_home(&home);
     let count = |text: &str| host.count_tokens(text);
+    let claude_dir = crate::fsx::claude_dir_in(&home);
     let loads = InstructionLoads {
         home: &home,
+        claude_dir: &claude_dir,
         policy_file: Some(Path::new(POLICY_CLAUDE_MD)),
         count_tokens: &count,
     };
@@ -326,7 +330,7 @@ pub fn plugin_switch(
     })?;
     plugin_switch::run(
         &plugin_switch::World {
-            claude_home: &home.join(".claude"),
+            claude_home: &crate::fsx::claude_dir_in(&home),
             data_dir: &data,
         },
         &plugin_switch::Args {
@@ -367,8 +371,10 @@ fn stack(
         return Err(OpError::usage(format!("cwd {problem}")));
     }
     let count = |text: &str| host.count_tokens(text);
+    let claude_dir = crate::fsx::claude_dir_in(&home);
     let loads = InstructionLoads {
         home: &home,
+        claude_dir: &claude_dir,
         policy_file: Some(Path::new(POLICY_CLAUDE_MD)),
         count_tokens: &count,
     };

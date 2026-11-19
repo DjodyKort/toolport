@@ -83,9 +83,8 @@ fn base_of(host: &dyn Host) -> Option<PathBuf> {
 }
 
 pub fn home_roots(host: &dyn Host) -> Vec<PathBuf> {
-    let config_dir = std::env::var_os("CLAUDE_CONFIG_DIR").map(PathBuf::from);
     host.home_dir()
-        .map(|home| transcript::roots_under(&home, config_dir.as_deref()))
+        .map(|home| transcript::roots_under(&home, Some(&crate::fsx::claude_dir_in(&home))))
         .unwrap_or_default()
 }
 

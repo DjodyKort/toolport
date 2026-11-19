@@ -32,7 +32,7 @@ pub fn roots_under(home: &Path, config_dir: Option<&Path>) -> Vec<PathBuf> {
     let mut roots = Vec::new();
     for base in config_dir
         .into_iter()
-        .chain([home.join(".claude").as_path()])
+        .chain([crate::fsx::claude_dir_from(None, home).as_path()])
     {
         let projects = base.join("projects");
         if !roots.contains(&projects) {

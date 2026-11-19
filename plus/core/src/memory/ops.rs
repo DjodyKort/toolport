@@ -26,8 +26,12 @@ pub fn with_world<T>(
         OpError::failed("no_data_dir", "the data directory could not be resolved")
     })?;
     let count = |text: &str| host.count_tokens(text);
+    let claude_dir = crate::fsx::claude_dir_in(&home);
+    let claude_json = crate::fsx::claude_json_in(&home);
     run(&World {
         home: &home,
+        claude_dir: &claude_dir,
+        claude_json: &claude_json,
         data_dir: &data,
         now: host.now_unix(),
         count_tokens: &count,
@@ -75,17 +79,17 @@ pub fn status(host: &dyn Host, cwd: Option<&str>) -> Result<Value, OpError> {
         let repo = Repo::of(&cwd);
         let layers = world.layers(&repo);
         let (enabled, by) = layers.effective();
-        let (dir, custom) = layers.directory(world.home, &repo);
+        let (dir, custom) = layers.directory(world.home, world.claude_dir, &repo);
         let files = inventory::files(&dir);
         let summary = inventory::summary(&files);
         let index = inventory::index(&dir, world.count_tokens);
         let held = leave_out::held_in(world.data_dir, &repo.cwd);
         let position = Position::of(layers.switch());
-        let known = Known::read(world.home);
+        let known = Known::read(world.claude_json);
         let report = instructions::report(world, &repo, &known)
             .map_err(|e| OpError::failed("context_invalid", e))?;
-        let retention = sessions::retention(world.home);
-        let folders = sessions::folders_of(world.home, &repo, &known);
+        let retention = sessions::retention(world.claude_dir);
+        let folders = sessions::folders_of(world.claude_dir, &repo, &known);
         let totals = sessions::totals(
             folders.iter().flat_map(|f| f.sessions.iter()),
             retention.days,
@@ -178,7 +182,7 @@ pub fn ls(host: &dyn Host, cwd: Option<&str>, all: bool) -> Result<Value, OpErro
         let cwd = existing(cwd)?;
         let repo = Repo::of(&cwd);
         let layers = world.layers(&repo);
-        let (dir, custom) = layers.directory(world.home, &repo);
+        let (dir, custom) = layers.directory(world.home, world.claude_dir, &repo);
         let files = inventory::files(&dir);
         let summary = inventory::summary(&files);
         Ok(json!({

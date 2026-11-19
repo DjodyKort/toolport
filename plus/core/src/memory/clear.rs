@@ -39,7 +39,7 @@ pub fn clear(world: &World, args: &Args) -> Result<Value, OpError> {
     }
     let repo = Repo::of(args.cwd);
     let layers = world.layers(&repo);
-    let (dir, custom) = layers.directory(world.home, &repo);
+    let (dir, custom) = layers.directory(world.home, world.claude_dir, &repo);
     let files = inventory::files(&dir);
     if files.is_empty() {
         return Err(OpError::not_found(format!(
@@ -109,6 +109,7 @@ pub fn clear(world: &World, args: &Args) -> Result<Value, OpError> {
     if layers.effective().0 && !args.also_off {
         let loads = InstructionLoads {
             home: world.home,
+            claude_dir: world.claude_dir,
             policy_file: world.policy_claude_md,
             count_tokens: world.count_tokens,
         };

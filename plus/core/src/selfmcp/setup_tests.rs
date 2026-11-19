@@ -6,25 +6,6 @@ use crate::setup::tests::World;
 
 const TRANSCRIPT: &str = "TRANSCRIPT-text-that-must-not-leave-the-disk-4471";
 
-struct ClaudeHome(Option<std::ffi::OsString>);
-
-impl ClaudeHome {
-    fn set(world: &World) -> Self {
-        let previous = std::env::var_os("CLAUDE_CONFIG_DIR");
-        std::env::set_var("CLAUDE_CONFIG_DIR", world.home.join(".claude"));
-        Self(previous)
-    }
-}
-
-impl Drop for ClaudeHome {
-    fn drop(&mut self) {
-        match self.0.take() {
-            Some(value) => std::env::set_var("CLAUDE_CONFIG_DIR", value),
-            None => std::env::remove_var("CLAUDE_CONFIG_DIR"),
-        }
-    }
-}
-
 fn world() -> World {
     let world = World::new();
     let web = world.repo("web");
@@ -43,9 +24,7 @@ fn export(world: &World, extra: Value) -> Result<Value, ToolError> {
 
 #[test]
 fn test01_sessions_list_repositories_with_sizes_after_approval_and_never_their_text() {
-    let _lock = crate::testutil::env_lock();
     let world = world();
-    let _claude = ClaudeHome::set(&world);
     world.host.tasks.decision.set(RunDecision::Approved);
     let data = export(&world, json!({})).unwrap();
     let history = data["parts"]

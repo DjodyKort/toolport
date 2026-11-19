@@ -43,8 +43,8 @@ fn kept(world: &World, store: Store, repo: &Repo) -> Vec<Value> {
 }
 
 pub fn ls(world: &World, cwd: Option<&Path>, all: bool) -> Result<Value, OpError> {
-    let retention = sessions::retention(world.home);
-    let known = Known::read(world.home);
+    let retention = sessions::retention(world.claude_dir);
+    let known = Known::read(world.claude_json);
     if all {
         let overview = overview::overview(
             world,
@@ -77,7 +77,7 @@ pub fn ls(world: &World, cwd: Option<&Path>, all: bool) -> Result<Value, OpError
         }));
     }
     let repo = repo_of(cwd.ok_or_else(|| OpError::usage("--cwd or --all is required"))?)?;
-    let folders = sessions::folders_of(world.home, &repo, &known);
+    let folders = sessions::folders_of(world.claude_dir, &repo, &known);
     let mut all_sessions: Vec<&Session> = folders.iter().flat_map(|f| f.sessions.iter()).collect();
     all_sessions.sort_by(|a, b| b.modified.cmp(&a.modified).then_with(|| a.id.cmp(&b.id)));
     let totals = sessions::totals(all_sessions.iter().copied(), retention.days, world.now);
@@ -137,9 +137,9 @@ pub fn clear(world: &World, args: &ClearArgs) -> Result<Value, OpError> {
         return Err(OpError::usage("give --ids or --older-than"));
     }
     let repo = repo_of(args.cwd)?;
-    let known = Known::read(world.home);
-    let retention = sessions::retention(world.home);
-    let folders = sessions::folders_of(world.home, &repo, &known);
+    let known = Known::read(world.claude_json);
+    let retention = sessions::retention(world.claude_dir);
+    let folders = sessions::folders_of(world.claude_dir, &repo, &known);
     let picked = select(&folders, args, world.now)?;
     let bytes: u64 = picked.iter().map(|s| s.bytes).sum();
     let forever = args.dest == Dest::Forever;
@@ -355,7 +355,7 @@ pub fn retention(
     set: Option<u64>,
     dry_run: bool,
 ) -> Result<Value, OpError> {
-    let current = sessions::retention(world.home);
+    let current = sessions::retention(world.claude_dir);
     let Some(days) = set else {
         return Ok(json!({
             "retention": sessions::retention_json(&current),

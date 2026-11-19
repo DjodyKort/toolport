@@ -71,7 +71,7 @@ pub fn discover(world: &World, known: &Known) -> Vec<Repo> {
 }
 
 pub fn repositories_with_own_switch(world: &World) -> usize {
-    let known = Known::read(world.home);
+    let known = Known::read(world.claude_json);
     discover(world, &known)
         .iter()
         .filter(|repo| world.layers(repo).switch().is_some())
@@ -95,11 +95,12 @@ struct Built {
 fn build(world: &World, repo: &Repo, known: &Known, retention: &Retention) -> Built {
     let layers = world.layers(repo);
     let (enabled, by) = layers.effective();
-    let (dir, custom) = layers.directory(world.home, repo);
+    let (dir, custom) = layers.directory(world.home, world.claude_dir, repo);
     let files = inventory::files(&dir);
     let memory = inventory::summary(&files);
     let loads = InstructionLoads {
         home: world.home,
+        claude_dir: world.claude_dir,
         policy_file: world.policy_claude_md,
         count_tokens: world.count_tokens,
     };
@@ -112,7 +113,7 @@ fn build(world: &World, repo: &Repo, known: &Known, retention: &Retention) -> Bu
         local += usize::from(item.source == "local");
         imports += usize::from(item.kind == "import");
     }
-    let folders = sessions::folders_of(world.home, repo, known);
+    let folders = sessions::folders_of(world.claude_dir, repo, known);
     let all = folders.iter().flat_map(|f| f.sessions.iter());
     let totals = sessions::totals(all, retention.days, world.now);
     let mut flags: Vec<&str> = Vec::new();
@@ -194,7 +195,7 @@ fn keep(filter: Option<&str>, b: &Built) -> bool {
 }
 
 fn other_folders(world: &World, claimed: &BTreeSet<PathBuf>) -> (Value, u64, usize, u64) {
-    let projects = world.home.join(".claude/projects");
+    let projects = world.claude_dir.join("projects");
     let (mut items, mut count, mut bytes, mut memory) = (Vec::new(), 0usize, 0u64, 0u64);
     for entry in fsx::list_dir(&projects) {
         if entry.kind != fsx::Kind::Dir || claimed.contains(&entry.path) {
@@ -239,8 +240,8 @@ pub fn overview(world: &World, opts: &Options) -> Result<Value, OpError> {
             FILTERS.join(", ")
         )));
     }
-    let known = Known::read(world.home);
-    let retention = sessions::retention(world.home);
+    let known = Known::read(world.claude_json);
+    let retention = sessions::retention(world.claude_dir);
     let repos = match (opts.all, opts.cwd) {
         (false, Some(cwd)) => {
             if let Some(problem) = fsx::folder_problem(cwd) {
@@ -284,7 +285,7 @@ pub fn overview(world: &World, opts: &Options) -> Result<Value, OpError> {
         });
     }
     let layers = Layers::load(
-        world.home,
+        world.claude_dir,
         &Repo::of(world.home),
         world.managed_settings,
         world.env_disable.clone(),
@@ -307,14 +308,14 @@ pub fn overview(world: &World, opts: &Options) -> Result<Value, OpError> {
 
 /// Every repository with auto memory kept, for the all-folders sheet.
 pub fn memory_all(world: &World) -> Value {
-    let known = Known::read(world.home);
+    let known = Known::read(world.claude_json);
     let repos = discover(world, &known);
     let mut claimed: BTreeSet<PathBuf> = BTreeSet::new();
     let mut rows = Vec::new();
     let mut own = 0;
     for repo in &repos {
         let layers = world.layers(repo);
-        let (dir, custom) = layers.directory(world.home, repo);
+        let (dir, custom) = layers.directory(world.home, world.claude_dir, repo);
         claimed.insert(dir.clone());
         own += usize::from(layers.switch().is_some());
         let files = inventory::files(&dir);
@@ -339,7 +340,7 @@ pub fn memory_all(world: &World) -> Value {
             "ownSwitch": layers.switch().is_some(),
         }));
     }
-    let projects = world.home.join(".claude/projects");
+    let projects = world.claude_dir.join("projects");
     let mut other = Vec::new();
     for entry in fsx::list_dir(&projects) {
         let memory_dir = entry.path.join("memory");
@@ -358,7 +359,7 @@ pub fn memory_all(world: &World) -> Value {
             "lastWritten": memory.last_written.map(fsx::zulu),
         }));
     }
-    let global = Layers::load(world.home, &Repo::of(world.home), None, None);
+    let global = Layers::load(world.claude_dir, &Repo::of(world.home), None, None);
     json!({
         "repositories": rows,
         "otherFolders": other,

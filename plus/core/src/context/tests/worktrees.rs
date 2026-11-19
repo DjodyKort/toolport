@@ -74,6 +74,7 @@ impl Fx {
         let count = |text: &str| text.len() as u64;
         let loads = InstructionLoads {
             home: &self.base,
+            claude_dir: &self.base.join(".claude"),
             policy_file: None,
             count_tokens: &count,
         };
@@ -92,6 +93,7 @@ impl Fx {
         let count = |text: &str| text.len() as u64;
         let loads = InstructionLoads {
             home: &self.base,
+            claude_dir: &self.base.join(".claude"),
             policy_file: None,
             count_tokens: &count,
         };

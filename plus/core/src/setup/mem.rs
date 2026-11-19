@@ -59,13 +59,9 @@ pub struct FsMemory {
 
 impl FsMemory {
     pub fn new(home: &Path) -> Self {
-        let claude_home = std::env::var_os("CLAUDE_CONFIG_DIR")
-            .map(PathBuf::from)
-            .filter(|p| p.is_absolute())
-            .unwrap_or_else(|| home.join(".claude"));
         Self {
             home: home.to_path_buf(),
-            claude_home,
+            claude_home: crate::fsx::claude_dir_in(home),
         }
     }
 

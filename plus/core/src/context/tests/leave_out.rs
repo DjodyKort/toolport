@@ -45,6 +45,7 @@ struct Fx {
     h: Home,
     roots: Roots,
     data: PathBuf,
+    claude_dir: PathBuf,
     cwd: PathBuf,
     policy: Option<PathBuf>,
 }
@@ -59,6 +60,7 @@ impl Fx {
         let data = h.at("data");
         std::fs::create_dir_all(&data).unwrap();
         Self {
+            claude_dir: h.base.join(".claude"),
             h,
             roots,
             data,
@@ -70,6 +72,7 @@ impl Fx {
     fn loads(&self) -> InstructionLoads<'_> {
         InstructionLoads {
             home: &self.h.base,
+            claude_dir: &self.claude_dir,
             policy_file: self.policy.as_deref(),
             count_tokens: &count,
         }

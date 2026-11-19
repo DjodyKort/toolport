@@ -22,6 +22,10 @@ use std::path::Path;
 /// What every operation reads from the machine, explicit so tests supply their own.
 pub struct World<'a> {
     pub home: &'a Path,
+    /// Claude Code's folder: `<home>/.claude`, or `CLAUDE_CONFIG_DIR` when that is set.
+    pub claude_dir: &'a Path,
+    /// Claude Code's `.claude.json`, which moves into `CLAUDE_CONFIG_DIR` with the folder.
+    pub claude_json: &'a Path,
     /// Toolport's data folder: the ledger, the trash and the archive.
     pub data_dir: &'a Path,
     pub now: i64,
@@ -36,7 +40,7 @@ pub struct World<'a> {
 impl World<'_> {
     pub fn layers(&self, repo: &resolve::Repo) -> resolve::Layers {
         resolve::Layers::load(
-            self.home,
+            self.claude_dir,
             repo,
             self.managed_settings,
             self.env_disable.clone(),

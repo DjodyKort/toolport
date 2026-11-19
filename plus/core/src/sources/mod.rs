@@ -60,7 +60,7 @@ const DEFAULT_CORP_TOOLS_REL: &str = ".local/share/corp-dev-tools";
 impl Places {
     pub fn from_config(roots: &Roots, config: &Config) -> Self {
         Self {
-            claude_home: roots.home.join(".claude"),
+            claude_home: crate::fsx::claude_dir_from(None, &roots.home),
             managed_settings: None,
             corp_tools_dir: match config.corp_tools_dir.as_deref().filter(|v| !v.is_empty()) {
                 Some(raw) => roots.expand_user(raw),
@@ -74,9 +74,7 @@ impl Places {
     pub fn from_env(roots: &Roots, config: &Config) -> Self {
         let mut places = Self::from_config(roots, config);
         let var = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
-        if let Some(dir) = var("CLAUDE_CONFIG_DIR") {
-            places.claude_home = roots.expand_user(&dir);
-        }
+        places.claude_home = crate::fsx::claude_dir_in(&roots.home);
         if let Some(dir) = var(ENV_CORP_TOOLS_DIR) {
             places.corp_tools_dir = roots.expand_user(&dir);
         }

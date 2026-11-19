@@ -63,13 +63,14 @@ impl Position {
 fn effects(world: &World, repo: &Repo, layers: &Layers, becomes: Option<bool>) -> Effects {
     let loads = InstructionLoads {
         home: world.home,
+        claude_dir: world.claude_dir,
         policy_file: world.policy_claude_md,
         count_tokens: world.count_tokens,
     };
     let Ok(found) = loads.what_loads(&repo.cwd) else {
         return Effects::default();
     };
-    let (dir, _) = layers.directory(world.home, repo);
+    let (dir, _) = layers.directory(world.home, world.claude_dir, repo);
     let Some(index) = super::inventory::index(&dir, world.count_tokens) else {
         return Effects::default();
     };
@@ -197,14 +198,14 @@ pub fn set_repository(
     }))
 }
 
-/// Sets the global default: `autoMemoryEnabled` in `~/.claude/settings.json`.
+/// Sets the global default: `autoMemoryEnabled` in the user `settings.json` of the Claude folder.
 pub fn set_global(
     world: &World,
     store: &dyn SettingsStore,
     position: Position,
     dry_run: bool,
 ) -> Result<Value, OpError> {
-    let file = world.home.join(".claude/settings.json");
+    let file = world.claude_dir.join("settings.json");
     let (mut root, original) = store
         .read_settings(&file)
         .map_err(|e| OpError::failed("settings_unreadable", e))?;

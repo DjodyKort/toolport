@@ -2,6 +2,7 @@
 //! a copy of an unreadable file kept aside, and the home and data dirs of this run.
 
 use std::cell::RefCell;
+use std::ffi::OsString;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -179,6 +180,52 @@ fn env_home() -> Option<PathBuf> {
     })
 }
 
+const CLAUDE_CONFIG_DIR: &str = "CLAUDE_CONFIG_DIR";
+
+#[cfg(not(test))]
+fn env_claude_dir() -> Option<OsString> {
+    std::env::var_os(CLAUDE_CONFIG_DIR)
+}
+
+/// Like the test `HOME`: a `CLAUDE_CONFIG_DIR` outside the temp dir is the developer's own and
+/// is not seen, so a test never reads another Claude Code profile.
+#[cfg(test)]
+fn env_claude_dir() -> Option<OsString> {
+    let temp = std::env::temp_dir();
+    std::env::var_os(CLAUDE_CONFIG_DIR).filter(|dir| Path::new(dir).starts_with(&temp))
+}
+
+/// The folder Claude Code keeps its settings, memory and sessions in. `CLAUDE_CONFIG_DIR` counts
+/// only as an absolute path, with no `~` expanded: the rule of upstream's
+/// `claude_config_dir_override` in `clients.rs`, so client setup and everything here agree.
+pub fn claude_dir_from(env: Option<OsString>, home: &Path) -> PathBuf {
+    env.map(PathBuf::from)
+        .filter(|dir| dir.is_absolute())
+        .unwrap_or_else(|| home.join(".claude"))
+}
+
+/// The file Claude Code keeps its folder list and approvals in: `<CLAUDE_CONFIG_DIR>/.claude.json`
+/// when the variable is set, else `~/.claude.json`, which sits beside the folder, not in it.
+pub fn claude_json_from(env: Option<OsString>, home: &Path) -> PathBuf {
+    match env.map(PathBuf::from).filter(|dir| dir.is_absolute()) {
+        Some(dir) => dir.join(".claude.json"),
+        None => home.join(".claude.json"),
+    }
+}
+
+pub fn claude_dir_in(home: &Path) -> PathBuf {
+    claude_dir_from(env_claude_dir(), home)
+}
+
+pub fn claude_json_in(home: &Path) -> PathBuf {
+    claude_json_from(env_claude_dir(), home)
+}
+
+/// [`claude_dir_in`] for the home of this run.
+pub fn claude_dir() -> Option<PathBuf> {
+    home().map(|home| claude_dir_in(&home))
+}
+
 pub fn data_dir() -> Option<PathBuf> {
     PATHS.with(|p| p.borrow().as_ref().and_then(|p| p.data_dir.clone()))
 }
@@ -213,6 +260,33 @@ mod tests {
             .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
             .filter(|n| n.ends_with(".plus-tmp"))
             .collect()
+    }
+
+    #[test]
+    fn the_claude_folder_follows_an_absolute_config_dir_and_else_the_home() {
+        let home = Path::new("/h");
+        let set = |v: &str| Some(OsString::from(v));
+        assert_eq!(
+            claude_dir_from(set("/profiles/work"), home),
+            Path::new("/profiles/work")
+        );
+        for ignored in [None, set(""), set("work"), set("~/work")] {
+            assert_eq!(claude_dir_from(ignored, home), Path::new("/h/.claude"));
+        }
+    }
+
+    #[test]
+    fn the_claude_json_moves_into_a_config_dir_and_stays_beside_the_default_folder() {
+        let home = Path::new("/h");
+        assert_eq!(
+            claude_json_from(Some(OsString::from("/profiles/work")), home),
+            Path::new("/profiles/work/.claude.json")
+        );
+        assert_eq!(claude_json_from(None, home), Path::new("/h/.claude.json"));
+        assert_eq!(
+            claude_json_from(Some(OsString::from("relative")), home),
+            Path::new("/h/.claude.json")
+        );
     }
 
     #[test]

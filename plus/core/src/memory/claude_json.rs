@@ -1,4 +1,4 @@
-//! The two facts Toolport takes from `~/.claude.json`: the folders Claude Code has run in and
+//! The two facts Toolport takes from Claude Code's `.claude.json`: the folders Claude Code has run in and
 //! whether a project approved external `@imports`. Nothing else in that file is read or kept.
 
 use crate::context::fsx;
@@ -15,8 +15,8 @@ pub struct Known {
 }
 
 impl Known {
-    pub fn read(home: &Path) -> Self {
-        let Some(text) = fsx::read_text(&home.join(".claude.json"), CAP) else {
+    pub fn read(file: &Path) -> Self {
+        let Some(text) = fsx::read_text(file, CAP) else {
             return Self::default();
         };
         let Ok(Value::Object(root)) = serde_json::from_str::<Value>(&text) else {
