@@ -39,7 +39,7 @@ import {
   searchTaps,
   updateTaps,
 } from "./commands";
-import type { SearchHit, SourceRow, SourcesData, TapUpdateData } from "./data";
+import type { SearchHit, SourceRow, SourcesData, TapRow, TapUpdateData } from "./data";
 import { AskDialog, FileLines, Mono, WriteDialog } from "./dialogs";
 import {
   canPull,
@@ -49,6 +49,8 @@ import {
   remoteState,
   when,
 } from "./model";
+import { linkState } from "./marketplaceLink";
+import TapLinkDialog from "./TapLink";
 import { AddRemoteDialog, CommitDialog, PullDialog, PushDialog } from "./writes";
 
 const SelectScreen = lazy(() => import("./SelectScreen"));
@@ -234,6 +236,13 @@ function RemoteCard() {
   );
 }
 
+const LINK_BADGE = {
+  linked: { variant: "success", label: "Linked to Claude Code" },
+  "not-linked": { variant: "off", label: "Plugin marketplace, not linked" },
+  elsewhere: { variant: "warning", label: "Name taken by another source" },
+  unreadable: { variant: "destructive", label: "Marketplace unreadable" },
+} as const;
+
 function Taps({
   sources,
   onUpdated,
@@ -247,7 +256,10 @@ function Taps({
   const [results, setResults] = useState<TapUpdateData["results"]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [dialog, setDialog] = useState<
-    { kind: "add" } | { kind: "remove"; name: string } | null
+    | { kind: "add" }
+    | { kind: "remove"; name: string }
+    | { kind: "link"; tap: TapRow; link: boolean }
+    | null
   >(null);
 
   async function update(name?: string) {
@@ -321,6 +333,31 @@ function Taps({
                     {result.ok ? `Updated ${result.head ?? ""}`.trim() : "Update failed"}
                   </Badge>
                 )}
+                {linkState(tap) && (
+                  <Badge variant={LINK_BADGE[linkState(tap) ?? "unreadable"].variant}>
+                    {LINK_BADGE[linkState(tap) ?? "unreadable"].label}
+                  </Badge>
+                )}
+                {(linkState(tap) === "not-linked" || linkState(tap) === "elsewhere") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label={`Link ${tap.name} to Claude Code`}
+                    onClick={() => setDialog({ kind: "link", tap, link: true })}
+                  >
+                    Link…
+                  </Button>
+                )}
+                {linkState(tap) === "linked" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label={`Unlink ${tap.name} from Claude Code`}
+                    onClick={() => setDialog({ kind: "link", tap, link: false })}
+                  >
+                    Unlink…
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -387,6 +424,17 @@ function Taps({
               onDone={taps.reload}
             />
           )}
+        />
+      )}
+      {dialog?.kind === "link" && (
+        <TapLinkDialog
+          tap={dialog.tap}
+          link={dialog.link}
+          onClose={() => setDialog(null)}
+          onDone={() => {
+            taps.reload();
+            onUpdated();
+          }}
         />
       )}
       {dialog?.kind === "remove" && (

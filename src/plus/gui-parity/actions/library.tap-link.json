@@ -1,5 +1,6 @@
 {
-  "route": "library-later",
-  "status": "planned",
-  "summary": "Taps that are plugin marketplaces: link them to Claude Code and unlink them (skills tap link|unlink; skills_tap_link, skills_tap_unlink)"
+  "route": "library",
+  "status": "built",
+  "summary": "Taps that are plugin marketplaces: link them to Claude Code and unlink them after the plan of settings keys, with Undo (skills tap link|unlink; skills_tap_link, skills_tap_unlink)",
+  "test": "src/plus/library/TapLink.test.tsx"
 }
