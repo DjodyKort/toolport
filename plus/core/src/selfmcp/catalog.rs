@@ -1271,8 +1271,8 @@ pub const TOOLS: &[ToolDef] = &[
     tool!(
         "servers_uninstall",
         4,
-        Always,
-        "Remove a server and its vault entries",
+        UnlessDryRun,
+        "Remove a server, its client entries and its vault entries; dry_run is on by default and lists what would go (apply with dry_run=false and confirm=true); keep_secrets=true leaves the vault entries",
         [
             NAME,
             p(
@@ -1280,7 +1280,9 @@ pub const TOOLS: &[ToolDef] = &[
                 Ty::Bool,
                 false,
                 "Remove client entries too"
-            )
+            ),
+            p("keep_secrets", Ty::Bool, false, "Leave the server's vault entries in place"),
+            DRY_ON
         ],
         servers::uninstall
     ),

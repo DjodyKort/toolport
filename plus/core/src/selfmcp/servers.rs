@@ -365,9 +365,9 @@ pub(super) fn uninstall(host: &dyn Host, args: &Value) -> Outcome {
         host,
         &UninstallArgs {
             key: name,
-            dry_run: false,
+            dry_run: flag_or(args, "dry_run", true),
             keep_clients: !flag_or(args, "propagate_to_clients", true),
-            keep_secrets: false,
+            keep_secrets: flag(args, "keep_secrets"),
         },
     )?;
     Ok(done.to_value())

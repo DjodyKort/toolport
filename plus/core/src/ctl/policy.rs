@@ -1188,7 +1188,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("servers_install", W, "server new"),
     maps("servers_update_config", W, "server edit"),
     maps("servers_set_mode", W, "server mode"),
-    maps("servers_uninstall", D, "server uninstall"),
+    maps("servers_uninstall", D, "server uninstall").on(),
     maps("access_set_ls", R, "access-set ls"),
     maps("access_set_add", W, "access-set add").on(),
     maps("access_set_rm", D, "access-set rm").on(),

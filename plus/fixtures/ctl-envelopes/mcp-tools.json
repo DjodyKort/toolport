@@ -2835,9 +2835,9 @@
           "tier": 4
         },
         {
-          "description": "Remove a server and its vault entries",
-          "dryRunDefault": false,
-          "gate": "always",
+          "description": "Remove a server, its client entries and its vault entries; dry_run is on by default and lists what would go (apply with dry_run=false and confirm=true); keep_secrets=true leaves the vault entries",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
           "name": "servers_uninstall",
           "params": [
             {
@@ -2849,6 +2849,18 @@
             {
               "description": "Remove client entries too",
               "name": "propagate_to_clients",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Leave the server's vault entries in place",
+              "name": "keep_secrets",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
               "required": false,
               "type": "boolean"
             },

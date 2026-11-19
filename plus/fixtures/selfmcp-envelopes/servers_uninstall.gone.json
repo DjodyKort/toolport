@@ -1,6 +1,7 @@
 {
   "arguments": {
     "confirm": true,
+    "dry_run": false,
     "name": "beta"
   },
   "isError": true,

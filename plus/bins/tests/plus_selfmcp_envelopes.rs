@@ -1297,17 +1297,27 @@ const CASES: &[Case] = &[
     case(
         "servers_uninstall",
         &[
-            refused("refused", "servers_uninstall", r#"{"name":"beta"}"#),
+            read("preview", "servers_uninstall", r#"{"name":"beta"}"#),
+            refused(
+                "refused",
+                "servers_uninstall",
+                r#"{"name":"beta","dry_run":false}"#,
+            ),
+            read(
+                "confirmed_preview",
+                "servers_uninstall",
+                r#"{"name":"beta","confirm":true}"#,
+            ),
             write(
                 "apply",
                 "servers_uninstall",
-                r#"{"name":"beta","confirm":true}"#,
+                r#"{"name":"beta","dry_run":false,"confirm":true}"#,
             ),
             fails(
                 "gone",
                 "not_found",
                 "servers_uninstall",
-                r#"{"name":"beta","confirm":true}"#,
+                r#"{"name":"beta","dry_run":false,"confirm":true}"#,
             ),
         ],
     ),

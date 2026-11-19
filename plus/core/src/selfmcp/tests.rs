@@ -340,7 +340,7 @@ mod servers {
     }
 
     #[test]
-    fn test06_uninstall_removes_the_server() {
+    fn test06_uninstall_removes_the_server_only_with_dry_run_false() {
         let host = host();
         call(
             &host,
@@ -348,20 +348,48 @@ mod servers {
             r#"{"name":"beta","config":{"command":"x"},"confirm":true}"#,
         )
         .unwrap();
-        let done = call(
+        let preview = call(
             &host,
             "servers_uninstall",
             r#"{"name":"beta","confirm":true}"#,
         )
         .unwrap();
+        assert_eq!(preview["dryRun"], true);
+        assert_eq!(host.registry.servers.borrow().len(), 1);
+        let done = call(
+            &host,
+            "servers_uninstall",
+            r#"{"name":"beta","dry_run":false,"confirm":true}"#,
+        )
+        .unwrap();
         assert_eq!(done["id"], "beta");
+        assert_eq!(done["dryRun"], false);
         assert!(host.registry.servers.borrow().is_empty());
         let gone = call(
             &host,
             "servers_uninstall",
-            r#"{"name":"beta","confirm":true}"#,
+            r#"{"name":"beta","dry_run":false,"confirm":true}"#,
         )
         .unwrap_err();
         assert_eq!(gone.kind, "not_found");
+    }
+
+    #[test]
+    fn test07_uninstall_apply_without_confirm_is_refused() {
+        let host = host();
+        call(
+            &host,
+            "servers_install",
+            r#"{"name":"beta","config":{"command":"x"},"confirm":true}"#,
+        )
+        .unwrap();
+        let refused = call(
+            &host,
+            "servers_uninstall",
+            r#"{"name":"beta","dry_run":false}"#,
+        )
+        .unwrap_err();
+        assert_eq!(refused.kind, "refused");
+        assert_eq!(host.registry.servers.borrow().len(), 1);
     }
 }

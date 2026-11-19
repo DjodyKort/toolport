@@ -1,6 +1,6 @@
 {
   "command": "server uninstall",
-  "dryRun": "none",
+  "dryRun": "default-on",
   "name": "servers_uninstall",
   "tier": "destructive",
   "toolTier": 4
