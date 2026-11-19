@@ -1,6 +1,6 @@
 {
   "route": "library",
   "status": "built",
-  "summary": "The Sync tab: plan with held removals, hooks, differing files, agents and output styles, Apply, the status of the library (skills sync, status, clean; skills_sync, skills_status, skills_clean)",
+  "summary": "The Sync tab: plan with held removals, hooks, differing files, agents and output styles, Apply, the status of the library, and the table of what each client holds (skills status, agents status and styles status; skills sync, status, clean; skills_sync, skills_status, skills_clean)",
   "test": "src/plus/library/LibraryScreen.test.tsx"
 }

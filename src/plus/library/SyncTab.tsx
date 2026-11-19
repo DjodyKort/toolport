@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { toastError } from "@/lib/toast";
 import { errorText } from "../settings/useCtl";
 import ChecksPanel from "./ChecksPanel";
+import ClientContent from "./ClientContent";
 import CompareDialog from "./CompareDialog";
 import { autoSet, autoSwitch, syncRun, verifySync } from "./commands";
 import type { SyncData, VerifyData } from "./data";
@@ -202,6 +203,7 @@ export default function SyncTab({
               setClients(next);
             }}
           />
+          <ClientContent key={String(lib.status?.lockfileSyncedAt)} skills={lib.status} />
           <ItemsList
             items={libraryItems(lib.skills, lib.status, sync, lib.held, lib.inventory)}
             onOpen={onOpenSkill}
