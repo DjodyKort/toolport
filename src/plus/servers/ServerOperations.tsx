@@ -21,6 +21,7 @@ import { RemoveRow } from "./RemoveRow";
 import { useRestartState } from "./restartStore";
 import { RuntimeRow } from "./RuntimeRow";
 import { SecretsRow } from "./SecretsRow";
+import SourceRow from "./SourceRow";
 import { useLoad } from "./useLoad";
 import { fingerprint, observeServers, useServerWatch } from "./watch";
 
@@ -125,6 +126,9 @@ export default function ServerOperations({
           )}
           {server.transport === "stdio" && (
             <RepoRow key={`repo-${server.id}`} serverId={server.id} />
+          )}
+          {server.transport === "stdio" && (
+            <SourceRow key={`source-${server.id}`} serverId={server.id} />
           )}
           <ReachRow
             server={server}

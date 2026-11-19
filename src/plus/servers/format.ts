@@ -33,3 +33,9 @@ export function span(seconds: number): string {
   if (hours < 48) return `${hours} h`;
   return `${Math.floor(hours / 24)} days`;
 }
+
+/** An image digest as shown to a person: `sha256:` and the first twelve digits. */
+export function shortVersion(version: string): string {
+  const hex = version.startsWith("sha256:") ? version.slice(7) : null;
+  return hex && hex.length > 12 ? `sha256:${hex.slice(0, 12)}...` : version;
+}

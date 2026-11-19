@@ -1,0 +1,6 @@
+{
+  "route": "servers",
+  "status": "built",
+  "summary": "The Source row of a server: package, release or image it runs, whether a newer one is known, Check now and Update (server source, servers_source)",
+  "test": "src/plus/servers/SourceRow.test.tsx"
+}

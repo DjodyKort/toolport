@@ -6,6 +6,9 @@ import type {
   LoginData,
   MembershipData,
   ModeData,
+  PackageBatchDone,
+  PackageBatchPlan,
+  PackageBatchPlanData,
   PackageUpdateDone,
   PackageUpdatePlanData,
   ProbeData,
@@ -17,6 +20,7 @@ import type {
   RepoStatusData,
   RestartData,
   SecretGetData,
+  SourceData,
   ServerInfoData,
   ServerListData,
   UninstallData,
@@ -321,3 +325,90 @@ export const packageApply = (
 
 export const packageUndo = (key: string) =>
   packageDone(["server", "update", key, "--undo"]);
+
+function oneAsBatch(done: PackageUpdateDone): PackageBatchDone {
+  return {
+    applied: done.applied ? 1 : 0,
+    failed: 0,
+    results: [{ server: done.server, id: done.id, ok: true, result: done, error: null }],
+    undo: done.undo,
+  };
+}
+
+/** The one plan of several servers; nothing changes. `fetch` asks every registry first. A single
+ * server has no combined plan on the command line, so its own plan stands in for it. */
+export async function batchPlan(
+  names: string[],
+  options: { fetch?: boolean } = {},
+): Promise<PackageBatchPlanData> {
+  if (names.length === 1) {
+    const { plan } = await packagePlan(names[0], options);
+    return {
+      batch: {
+        count: 1,
+        plans: [plan],
+        planHash: plan.planHash,
+        apply: plan.apply ?? "",
+        undo: plan.undo,
+      },
+    };
+  }
+  return ctlData<PackageBatchPlanData>([
+    "server",
+    "update",
+    ...names,
+    "--dry-run",
+    ...(options.fetch ? ["--fetch"] : []),
+  ]);
+}
+
+/** Applies a reviewed batch. Every server ends on its own: a failure exits 1 but still lists each
+ * result. */
+export async function batchApply(
+  batch: PackageBatchPlan,
+  options: { allowUnverified?: boolean } = {},
+): Promise<PackageBatchDone> {
+  if (batch.plans.length === 1) {
+    const [plan] = batch.plans;
+    return oneAsBatch(
+      await packageApply(plan.server, {
+        to: plan.to,
+        planHash: plan.planHash,
+        allowUnverified: options.allowUnverified,
+      }),
+    );
+  }
+  const argv = [
+    "server",
+    "update",
+    ...batch.plans.map((plan) => plan.server),
+    "--plan-hash",
+    batch.planHash,
+    ...(options.allowUnverified ? ["--allow-unverified"] : []),
+  ];
+  try {
+    return await ctlData<PackageBatchDone>(argv);
+  } catch (error) {
+    const data =
+      error instanceof CtlError ? (error.data as Partial<PackageBatchDone>) : null;
+    if (data && Array.isArray(data.results)) return data as PackageBatchDone;
+    throw error;
+  }
+}
+
+export async function batchUndo(names: string[]): Promise<PackageBatchDone> {
+  if (names.length === 1) return oneAsBatch(await packageUndo(names[0]));
+  const argv = ["server", "update", ...names, "--undo"];
+  try {
+    return await ctlData<PackageBatchDone>(argv);
+  } catch (error) {
+    const data =
+      error instanceof CtlError ? (error.data as Partial<PackageBatchDone>) : null;
+    if (data && Array.isArray(data.results)) return data as PackageBatchDone;
+    throw error;
+  }
+}
+
+/** Where a server's code comes from; reads the last check and asks no registry and no gateway. */
+export const sourceRows = (key?: string) =>
+  ctlData<SourceData>(["server", "source", ...(key ? [key] : [])]);

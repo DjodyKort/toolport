@@ -7,7 +7,7 @@ import { ctlData } from "../bridge/ctl";
 import { useAttentionSnapshot, type AttentionItem } from "../shell/attentionFeed";
 import { refreshAttention } from "./attentionCtl";
 import { reviewedServer, type Reviewed } from "./reviewTarget";
-import { ReviewDialog } from "./reviewUpdate";
+import { ReviewDialog, ReviewUpdatesDialog } from "./reviewUpdate";
 import { RowMenu } from "./RowMenu";
 import { registerShownPage } from "./shownPages";
 
@@ -23,6 +23,34 @@ function ReviewUpdate({ item, reviewed }: { item: AttentionItem; reviewed: Revie
       {open && <ReviewDialog reviewed={reviewed} open={open} onOpenChange={setOpen} />}
     </>
   );
+}
+
+/** "Review updates": the plan of every package row of the list in one dialog. */
+function ReviewAll({ servers }: { servers: string[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button size="sm" onClick={() => setOpen(true)}>
+        Review updates
+      </Button>
+      {open && (
+        <ReviewUpdatesDialog
+          servers={servers}
+          open={open}
+          onOpenChange={setOpen}
+          onChanged={refreshAttention}
+        />
+      )}
+    </>
+  );
+}
+
+/** The servers whose row's button reviews a package or release update. */
+function packageServers(items: AttentionItem[]): string[] {
+  return items.flatMap((item) => {
+    const reviewed = item.action?.command ? reviewedServer(item.action.command) : null;
+    return reviewed?.verb === "package" ? [reviewed.server] : [];
+  });
 }
 
 function Fix({ item }: { item: AttentionItem }) {
@@ -117,6 +145,9 @@ export function AttentionBanner({
           actions={
             <>
               {other.length === 1 && <Fix item={other[0]} />}
+              {packageServers(other).length > 1 && (
+                <ReviewAll servers={packageServers(other)} />
+              )}
               {other.length === 1 && <RowMenu item={other[0]} />}
             </>
           }

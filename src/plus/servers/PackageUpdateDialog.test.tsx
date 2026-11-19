@@ -286,3 +286,121 @@ describe("the Updates row of a package", () => {
     expect(screen.queryByRole("button", { name: "Update" })).toBeNull();
   });
 });
+
+describe("review updates of several servers", () => {
+  const SECOND: PackageSeed = {
+    kind: "pypi",
+    package: "tools-mcp",
+    from: "0.9.1",
+    to: "1.0.0",
+  };
+
+  function startMany(seeds: Record<string, PackageSeed>) {
+    const list = fixtureServers();
+    list[0].name = "alpha-api";
+    list[1].name = "beta-mail";
+    resetPlusFixture({
+      servers: { servers: list, packages: seeds },
+      attention: { scenario: "package-updates" },
+    });
+    render(
+      <>
+        <PlusFooterBell />
+        <AttentionBanner page="servers" />
+      </>,
+    );
+  }
+
+  async function review() {
+    await userEvent.click(await screen.findByRole("button", { name: "Review updates" }));
+    return screen.findByRole("dialog");
+  }
+
+  it("test20_one_plan_lists_every_servers_change_and_one_confirm_runs_them_all", async () => {
+    startMany({ "fixture-0": NPM, "fixture-1": SECOND });
+    const dialog = await review();
+    expect(await within(dialog).findByLabelText("Update alpha-api")).toBeChecked();
+    expect(within(dialog).getByLabelText("Update beta-mail")).toBeChecked();
+    expect(within(dialog).getByText("@scope/alpha@1.5.0")).toBeInTheDocument();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Update 2 servers" }),
+    );
+    expect(await within(dialog).findByText(/Updated 2 servers/)).toBeInTheDocument();
+    expect(within(dialog).getAllByText(/Restarted/)).toHaveLength(2);
+    const apply = updateArgv().find((argv) => argv.includes("--plan-hash"))!;
+    expect(apply.slice(0, 4)).toEqual(["server", "update", "alpha-api", "beta-mail"]);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Undo all" }));
+    expect(await within(dialog).findByText(/Put back 2 servers/)).toBeInTheDocument();
+    expect(updateArgv()).toContainEqual([
+      "server",
+      "update",
+      "alpha-api",
+      "beta-mail",
+      "--undo",
+    ]);
+  });
+
+  it("test21_only_the_ticked_servers_run_and_a_single_one_goes_through_its_own_plan", async () => {
+    startMany({ "fixture-0": NPM, "fixture-1": SECOND });
+    const dialog = await review();
+    await userEvent.click(await within(dialog).findByLabelText("Update beta-mail"));
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Update 1 server" }),
+    );
+    expect(await within(dialog).findByText(/Updated 1 server/)).toBeInTheDocument();
+    const apply = updateArgv().find((argv) => argv.includes("--plan-hash"))!;
+    expect(apply.slice(0, 3)).toEqual(["server", "update", "alpha-api"]);
+    expect(apply).not.toContain("beta-mail");
+  });
+
+  it("test22_a_release_without_a_checksum_stays_unticked_and_a_refused_server_cannot_be_ticked", async () => {
+    startMany({
+      "fixture-0": { ...RELEASE, release: { ...RELEASE.release!, checksum: null } },
+      "fixture-1": {
+        ...SECOND,
+        refusal: {
+          code: "cannot_rewrite",
+          message: "its arguments come from a launch recipe",
+        },
+      },
+    });
+    const dialog = await review();
+    const release = await within(dialog).findByLabelText("Update alpha-api");
+    expect(release).not.toBeChecked();
+    expect(within(dialog).getByLabelText("Update beta-mail")).toBeDisabled();
+    expect(
+      within(dialog).getByText(/its arguments come from a launch recipe/),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Update 0 servers" }),
+    ).toBeDisabled();
+    await userEvent.click(release);
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Update 1 server" }),
+    );
+    await within(dialog).findByText(/Updated 1 server/);
+    expect(updateArgv().find((argv) => argv.includes("--plan-hash"))).toContain(
+      "--allow-unverified",
+    );
+  });
+
+  it("test23_each_server_keeps_its_own_restart_state_and_a_busy_one_can_restart_at_once", async () => {
+    startMany({ "fixture-0": { ...NPM, inFlight: 1 }, "fixture-1": SECOND });
+    const dialog = await review();
+    await userEvent.click(
+      await within(dialog).findByRole("button", { name: "Update 2 servers" }),
+    );
+    await within(dialog).findByText(/Updated 2 servers/);
+    expect(within(dialog).getAllByText(/Restarted beta-mail/)).toHaveLength(1);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Restart now" }));
+    await waitFor(() =>
+      expect(ranArgv()).toContainEqual(["server", "restart", "alpha-api"]),
+    );
+  });
+
+  it("test24_the_summary_card_offers_review_only_when_two_package_rows_wait", async () => {
+    startMany({ "fixture-0": NPM, "fixture-1": SECOND });
+    expect(await screen.findByText("2 things are worth a look")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review updates" })).toBeInTheDocument();
+  });
+});

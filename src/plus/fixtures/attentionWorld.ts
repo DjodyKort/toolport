@@ -18,6 +18,7 @@ export type AttentionScenario =
   | "updates"
   | "server-update"
   | "package-update"
+  | "package-updates"
   | "release-update"
   | "release-manual"
   | "peer-branch"
@@ -133,6 +134,24 @@ function packageUpdate(now: number): AttentionRow[] {
         command: ["toolportctl", "server", "update", "alpha-api", "--dry-run", "--fetch"],
       },
       skip: { label: "1.5.0" },
+    },
+  ];
+}
+
+function packageUpdates(now: number): AttentionRow[] {
+  const [first] = packageUpdate(now);
+  return [
+    first,
+    {
+      ...first,
+      id: "updates:package:beta-mail:0.9.1>1.0.0",
+      title: "beta-mail: tools-mcp 1.0.0 is out, pinned to 0.9.1",
+      action: {
+        label: "Update",
+        screen: "servers",
+        command: ["toolportctl", "server", "update", "beta-mail", "--dry-run", "--fetch"],
+      },
+      skip: { label: "1.0.0" },
     },
   ];
 }
@@ -280,6 +299,8 @@ export function createAttentionWorld(options: AttentionWorldOptions = {}) {
     if (options.scenario === "server-update") return [...busy(now), ...serverUpdate(now)];
     if (options.scenario === "package-update")
       return [...busy(now), ...packageUpdate(now)];
+    if (options.scenario === "package-updates")
+      return [...busy(now), ...packageUpdates(now)];
     if (options.scenario === "release-update")
       return [...busy(now), ...releaseUpdate(now)];
     if (options.scenario === "release-manual")

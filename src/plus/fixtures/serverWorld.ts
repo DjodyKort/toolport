@@ -292,7 +292,7 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
 
   const find = (key: string) => servers.find((s) => s.id === key || s.name === key);
   const repoWorld = createRepoWorld(options.repos ?? {}, find);
-  const packageWorld = createPackageWorld(options.packages ?? {}, find);
+  const packageWorld = createPackageWorld(options.packages ?? {}, find, () => servers);
   const setOf = (key: string) =>
     sets.find((s) => s.id === key) ??
     sets.find((s) => s.name.toLowerCase() === key.trim().toLowerCase());
@@ -763,6 +763,7 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
       const [, verb, key] = argv;
       if (verb === "repo") return repoWorld.run(argv.slice(2));
       if (verb === "update") return packageWorld.run(argv.slice(1));
+      if (verb === "source") return packageWorld.source(argv.slice(1));
       if (verb === "ls") {
         const data: ServerListData = {
           defaultAccess,

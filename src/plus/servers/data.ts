@@ -368,6 +368,8 @@ export interface PackageUpdatePlan {
   from: string;
   to: string;
   downgrade: boolean;
+  /** The pin is an image digest that follows a tag, not a version number. */
+  digest: boolean;
   /** The registry (or GitHub) was asked in this plan whether the version exists. */
   verified: boolean;
   changes: PackageChange[];
@@ -405,4 +407,66 @@ export interface PackageUpdateDone {
   restart: { status: string; detail: string } | null;
   warnings: string[];
   undo: string;
+}
+
+/** What `server update a b --dry-run` (or `--all`) reports: every server's plan under one hash. */
+export interface PackageBatchPlan {
+  count: number;
+  plans: PackageUpdatePlan[];
+  planHash: string;
+  apply: string;
+  undo: string;
+}
+
+export interface PackageBatchPlanData {
+  batch: PackageBatchPlan;
+}
+
+/** How one server of a batch ended: the result, or the error that stopped only that server. */
+export interface PackageBatchResult {
+  server: string;
+  id: string;
+  ok: boolean;
+  result: PackageUpdateDone | null;
+  error: { code: string; message: string } | null;
+}
+
+export interface PackageBatchDone {
+  applied: number;
+  failed: number;
+  results: PackageBatchResult[];
+  undo: string;
+}
+
+export type SourceState =
+  | "up_to_date"
+  | "update_available"
+  | "unchecked"
+  | "error"
+  | "automatic"
+  | "blocked"
+  | "unknown";
+
+/** One row of `server source`: where a server's code comes from and what is known of a newer one. */
+export interface SourceRowData {
+  server: string;
+  id: string;
+  kind: PackageKind | "git" | "none";
+  state: SourceState;
+  package: string | null;
+  /** The tag a digest pin follows. */
+  tracks: string | null;
+  pinned: string | null;
+  latest: string | null;
+  checkedAt: string | null;
+  error: string | null;
+  manual: string | null;
+  branch: string | null;
+  upstream: string | null;
+  behind: number;
+  root: string | null;
+}
+
+export interface SourceData {
+  sources: SourceRowData[];
 }

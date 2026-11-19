@@ -1,6 +1,6 @@
 {
   "route": "servers",
   "status": "built",
-  "summary": "Update a server's pinned package or GitHub release: the plan with the exact registry change, one confirm, a restart and an Undo (server update)",
+  "summary": "Update a server's pinned package, image digest or GitHub release, one server or several at once: the plan with the exact registry change, one confirm, a restart and an Undo (server update)",
   "test": "src/plus/servers/PackageUpdateDialog.test.tsx"
 }

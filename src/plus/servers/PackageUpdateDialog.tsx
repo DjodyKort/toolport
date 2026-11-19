@@ -14,6 +14,7 @@ import { errorText } from "../settings/useCtl";
 import { plural } from "../settings/model";
 import { packageApply, packagePlan, packageUndo, restartServer } from "./commands";
 import type { PackageUpdateDone, PackageUpdatePlan } from "./data";
+import { shortVersion } from "./format";
 
 const REGISTRY: Record<PackageUpdatePlan["kind"], string> = {
   npm: "npm",
@@ -67,8 +68,8 @@ function PlanView({
       )}
       <section aria-label="Registry change" className="flex flex-col gap-1 text-meta">
         <span className="font-semibold">
-          {plan.downgrade ? "Go back" : "Update"} {plan.package} from {plan.from} to{" "}
-          {plan.to}
+          {plan.downgrade ? "Go back" : "Update"} {plan.package} from{" "}
+          {shortVersion(plan.from)} to {shortVersion(plan.to)}
         </span>
         <span className="text-muted-foreground">
           The registry entry changes in {plural(plan.changes.length, "place")}; nothing
@@ -87,7 +88,7 @@ function PlanView({
       </section>
       {!plan.verified && (
         <p className="text-meta text-muted-foreground">
-          {REGISTRY[plan.kind]} was not asked whether {plan.to} exists.
+          {REGISTRY[plan.kind]} was not asked whether {shortVersion(plan.to)} exists.
         </p>
       )}
       {release && (
@@ -148,8 +149,8 @@ function ResultView({
       <p className="flex items-center gap-2 font-semibold">
         <Check className="size-4 text-success" />
         {result.applied
-          ? `${undone ? "Put back" : "Updated"} ${result.server}: ${result.package} ${result.from} to ${result.to}`
-          : `${result.server} is already on ${result.from}`}
+          ? `${undone ? "Put back" : "Updated"} ${result.server}: ${result.package} ${shortVersion(result.from)} to ${shortVersion(result.to)}`
+          : `${result.server} is already on ${shortVersion(result.from)}`}
       </p>
       {result.restart && (
         <p>
@@ -265,7 +266,7 @@ export default function PackageUpdateDialog({
           </DialogTitle>
           <DialogDescription>
             {plan && !plan.refusal
-              ? `${plan.package} on ${REGISTRY[plan.kind]}, ${plan.from} to ${plan.to}`
+              ? `${plan.package} on ${REGISTRY[plan.kind]}, ${shortVersion(plan.from)} to ${shortVersion(plan.to)}`
               : "The package or release this server runs"}
           </DialogDescription>
         </DialogHeader>

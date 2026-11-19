@@ -5,6 +5,21 @@ import { REVIEW_EVENT, type Reviewed } from "./reviewTarget";
 const RepoUpdateDialog = lazy(() => import("../servers/RepoUpdateDialog"));
 const RepoSwitchDialog = lazy(() => import("../servers/RepoSwitchDialog"));
 const PackageUpdateDialog = lazy(() => import("../servers/PackageUpdateDialog"));
+const ReviewUpdates = lazy(() => import("../servers/ReviewUpdatesDialog"));
+
+/** The plan of several servers at once, one confirm. */
+export function ReviewUpdatesDialog(props: {
+  servers: string[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onChanged?: () => void;
+}) {
+  return (
+    <Suspense fallback={null}>
+      <ReviewUpdates {...props} />
+    </Suspense>
+  );
+}
 
 export function ReviewDialog({
   reviewed: { server, verb, fetch },
