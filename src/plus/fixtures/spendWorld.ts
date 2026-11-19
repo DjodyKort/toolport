@@ -13,6 +13,8 @@ import type {
   StatusData,
   SummaryData,
   TokenCounts,
+  WeeklyMeasure,
+  WeeklyMeasurePlan,
 } from "../spend/data";
 import type { CtlReply } from "./ctlWorld";
 
@@ -54,6 +56,14 @@ export interface SpendWorldOptions {
   busyPorts?: number[];
   /** The events file still holds the old 282 MB log, so pruning would remove most of it. */
   oldEventsFile?: boolean;
+  /** The weekly measure task is already on for this folder. */
+  weeklyFolder?: string;
+  /** `config set --weekly-measure on --dry-run` (the plan) fails with this message. */
+  weeklyPlanError?: string;
+  /** Adding the weekly task fails with this message; the settings are not changed. */
+  weeklyError?: string;
+  /** Setup apply writes the settings but the weekly task cannot be added. */
+  weeklyApplyError?: string;
 }
 
 type Phase = "never" | "off" | "waiting" | "healthy" | "cannot-listen";
@@ -214,6 +224,9 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
   let retentionDays = 30;
   let maxMb = 64;
   let showCost = options.hideCost !== true;
+  let dailyTotals = true;
+  let weeklyEnabled = options.weeklyFolder !== undefined;
+  let weeklyFolder: string | null = options.weeklyFolder ?? null;
   let scanned = scenario !== "computing";
   let statusCalls = 0;
   let scanTimer: ReturnType<typeof setTimeout> | null = null;
@@ -264,6 +277,7 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
         retentionDays,
         dailyLines: stored ? 62 : 0,
         skippedLines: 0,
+        dailyTotals,
       },
       showCost,
       profilesSetUp: setUp.size,
@@ -272,7 +286,29 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
         files,
         done: scanned ? files : Math.min(files - 1, statusCalls * SCAN_STEP),
       },
+      weeklyMeasure: weekly(),
     };
+  }
+
+  function weekly(): WeeklyMeasure {
+    return {
+      task: "spend-weekly-measure",
+      exists: weeklyFolder !== null,
+      enabled: weeklyEnabled,
+      folder: weeklyFolder,
+      cron: "0 9 * * 1",
+      model: "haiku",
+    };
+  }
+
+  function weeklyPlan(requested: boolean, folder?: string): WeeklyMeasurePlan {
+    const chosen = folder ?? weeklyFolder ?? PROJECT_WEB;
+    const action = !requested
+      ? "off"
+      : weeklyEnabled && chosen === weeklyFolder
+        ? "already on"
+        : "add";
+    return { ...weekly(), requested, folder: chosen, action };
   }
 
   function mcpPart(): McpPart {
@@ -419,6 +455,18 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
         estimatedShare: usd > 0 ? Math.round((estimated / usd) * 1000) / 1000 : 0,
       },
       tiles: { today: tile[0], "7d": tile[1], "30d": tile[2] },
+      prices: {
+        verified: false,
+        unit: "usd per million tokens",
+        families: [
+          { family: "opus", inputUsd: 15, outputUsd: 75, verified: false },
+          { family: "sonnet", inputUsd: 3, outputUsd: 15, verified: false },
+          { family: "haiku", inputUsd: 1, outputUsd: 5, verified: false },
+        ],
+        cacheReadFactor: 0.1,
+        cacheWriteFactor: 1.25,
+        factorsVerified: false,
+      },
       mcpPart: mcpPart(),
       stale:
         options.stale && phase === "healthy"
@@ -549,6 +597,10 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
         writes: rows.reduce((sum, r) => sum + r.writes, 0),
         conflicts,
         contentFlags: "never written",
+        weeklyMeasure: weeklyPlan(
+          argv.includes("--weekly-measure"),
+          flag(argv, "--measure-folder"),
+        ),
         note:
           conflicts > 0
             ? "Keys that already hold another value stay as they are unless you choose to overwrite them; collection will not work until they match"
@@ -569,6 +621,12 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
       return { ok: true, data: { dryRun: true, plan: planned.data } };
     if (options.applyError) return fail("apply_failed", options.applyError);
     for (const row of data.profiles) setUp.set(row.profile, iso(SPEND_NOW));
+    const wantsWeekly = argv.includes("--weekly-measure");
+    const weeklyFailed = wantsWeekly && options.weeklyApplyError !== undefined;
+    if (wantsWeekly && !weeklyFailed) {
+      weeklyEnabled = true;
+      weeklyFolder = flag(argv, "--measure-folder") ?? weeklyFolder ?? PROJECT_WEB;
+    }
     port = data.port;
     dataDeleted = dataDeleted && false;
     if (busyPorts.includes(port)) phase = "cannot-listen";
@@ -581,6 +639,12 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
         port,
         enabled: true,
         complete: data.conflicts === 0,
+        weeklyMeasure: {
+          applied: wantsWeekly && !weeklyFailed,
+          enabled: wantsWeekly && !weeklyFailed,
+          folder: wantsWeekly && !weeklyFailed ? weeklyFolder : null,
+          ...(weeklyFailed ? { error: options.weeklyApplyError } : {}),
+        },
       },
     };
   }
@@ -646,16 +710,25 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
         "usage",
         "--totals deletes the daily totals for good: add --yes, or --dry-run to look first",
       );
+    const window = flag(argv, "--older-than");
+    const days = window ? Number(window.replace(/d$/, "")) : retentionDays;
+    if (!Number.isInteger(days) || days < 1)
+      return fail("usage", `--older-than: '${window}' is not a number of days (use 7d)`);
+    const olderThanDays = Math.min(days, retentionDays);
     const data: PruneData = {
       dryRun: dry,
-      removedEvents: options.oldEventsFile ? 1_930_000 : 5120,
+      removedEvents: options.oldEventsFile
+        ? 1_930_000
+        : Math.round(5120 * (olderThanDays === retentionDays ? 1 : 1.8)),
       removedBytes: options.oldEventsFile ? 282 * MB : 2 * MB,
       keptEvents: 41206,
       keptBytes: Math.round(18.4 * MB),
-      foldedDays: dry ? 2 : 0,
+      foldedDays: dailyTotals ? (dry ? 2 : 0) : 0,
       retentionDays,
       maxBytes: maxMb * MB,
       totalsDeleted: argv.includes("--totals") && !dry,
+      dailyTotals,
+      olderThanDays,
     };
     return { ok: true, data };
   }
@@ -672,23 +745,64 @@ export function createSpendWorld(options: SpendWorldOptions = {}) {
     if (next.maxMb < 16 || next.maxMb > 256)
       return fail("usage", "size cap must be 16 to 256 MB");
     const cost = flag(argv, "--show-cost");
+    const totals = flag(argv, "--daily-totals");
+    const weeklyFlag = flag(argv, "--weekly-measure");
+    const folder = flag(argv, "--measure-folder");
     const portChanged = next.port !== port;
     const changed =
       portChanged ||
       next.retentionDays !== retentionDays ||
       next.maxMb !== maxMb ||
-      (cost !== undefined && (cost === "on") !== showCost);
+      (cost !== undefined && (cost === "on") !== showCost) ||
+      (totals !== undefined && (totals === "on") !== dailyTotals) ||
+      weeklyFlag !== undefined;
+    const preview = weeklyPlan(
+      weeklyFlag === "on" || (!weeklyFlag && weeklyEnabled),
+      folder,
+    );
+    if (argv.includes("--dry-run") && options.weeklyPlanError)
+      return fail("weekly_plan_failed", options.weeklyPlanError);
+    if (argv.includes("--dry-run"))
+      return {
+        ok: true,
+        data: {
+          dryRun: true,
+          port,
+          retentionDays,
+          maxMb,
+          showCost,
+          dailyTotals,
+          weeklyMeasure: preview,
+          enabled: phase !== "never" && phase !== "off",
+          portChanged,
+          changed,
+        },
+      };
+    if (weeklyFlag === "on" && !folder && !weeklyFolder)
+      return fail(
+        "usage",
+        "the weekly measure needs one folder to measure: pass --measure-folder <folder>",
+      );
+    if (weeklyFlag === "on" && options.weeklyError)
+      return fail("weekly_failed", options.weeklyError);
     port = next.port;
     if (portChanged && phase !== "never" && phase !== "off")
       phase = busyPorts.includes(port) ? "cannot-listen" : "healthy";
     retentionDays = next.retentionDays;
     maxMb = next.maxMb;
     if (cost !== undefined) showCost = cost === "on";
+    if (totals !== undefined) dailyTotals = totals === "on";
+    if (weeklyFlag !== undefined) {
+      weeklyEnabled = weeklyFlag === "on";
+      if (weeklyEnabled) weeklyFolder = folder ?? weeklyFolder;
+    }
     const data: ConfigSetData = {
       port,
       retentionDays,
       maxMb,
       showCost,
+      dailyTotals,
+      weeklyMeasure: weeklyPlan(weeklyEnabled),
       enabled: phase !== "never" && phase !== "off",
       portChanged,
       changed,

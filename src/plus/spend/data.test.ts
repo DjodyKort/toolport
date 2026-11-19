@@ -39,6 +39,7 @@ const STATUS_KEYS = [
   "state",
   "store",
   "transcripts",
+  "weeklyMeasure",
 ];
 
 const SUMMARY_KEYS = [
@@ -51,6 +52,7 @@ const SUMMARY_KEYS = [
   "model",
   "notes",
   "previous",
+  "prices",
   "project",
   "range",
   "since",
@@ -174,11 +176,13 @@ describe("the spend envelope types match the Rust goldens", () => {
     const prune = goldens("spend-prune.dry-run")[0].envelope.data as PruneData;
     expect(keys(prune)).toEqual(
       [
+        "dailyTotals",
         "dryRun",
         "foldedDays",
         "keptBytes",
         "keptEvents",
         "maxBytes",
+        "olderThanDays",
         "removedBytes",
         "removedEvents",
         "retentionDays",
@@ -189,13 +193,68 @@ describe("the spend envelope types match the Rust goldens", () => {
     expect(keys(config)).toEqual(
       [
         "changed",
+        "dailyTotals",
         "enabled",
         "maxMb",
         "port",
         "portChanged",
         "retentionDays",
         "showCost",
+        "weeklyMeasure",
       ].sort(),
     );
+  });
+
+  it("test09_the_weekly_measure_and_the_price_table_have_the_shapes_the_page_reads", () => {
+    const [status] = goldens("spend-status.on");
+    expect(keys((status.envelope.data as StatusData).weeklyMeasure)).toEqual(
+      ["cron", "enabled", "exists", "folder", "model", "task"].sort(),
+    );
+    expect((status.envelope.data as StatusData).store.dailyTotals).toBeTypeOf("boolean");
+    const [plan] = goldens("spend-setup-plan.port");
+    expect(keys((plan.envelope.data as SetupPlanData).weeklyMeasure)).toEqual(
+      [
+        "action",
+        "cron",
+        "enabled",
+        "exists",
+        "folder",
+        "model",
+        "requested",
+        "task",
+      ].sort(),
+    );
+    const [summary] = goldens("spend-summary.default");
+    const prices = (summary.envelope.data as SummaryData).prices;
+    expect(keys(prices)).toEqual(
+      [
+        "cacheReadFactor",
+        "cacheWriteFactor",
+        "factorsVerified",
+        "families",
+        "unit",
+        "verified",
+      ].sort(),
+    );
+    expect(prices.verified).toBe(false);
+    expect(keys(prices.families[0])).toEqual(
+      ["family", "inputUsd", "outputUsd", "verified"].sort(),
+    );
+  });
+
+  it("test10_the_age_window_and_the_weekly_flag_have_goldens_for_their_refusals", () => {
+    const dry = goldens("spend-config-set.weekly-dry-run")[0].envelope
+      .data as ConfigSetData;
+    expect(dry).toMatchObject({
+      dryRun: true,
+      changed: false,
+      weeklyMeasure: { action: "needs a folder", requested: true },
+    });
+    const window = goldens("spend-prune.older-than.json")[0].envelope.data as PruneData;
+    expect(window.olderThanDays).toBe(7);
+    const refused = readdirSync(dir)
+      .filter((f) => f === "spend-prune.older-than-word.json")
+      .map((f) => JSON.parse(readFileSync(join(dir, f), "utf8")) as Golden);
+    expect(refused[0].envelope.ok).toBe(false);
   });
 });

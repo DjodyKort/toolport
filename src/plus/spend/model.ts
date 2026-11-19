@@ -4,6 +4,7 @@ import type {
   McpPart,
   McpPartReady,
   Money,
+  PriceTable,
   RangeId,
   RangeTile,
   SetupRecord,
@@ -109,6 +110,43 @@ export function megabytes(bytes: number): string {
 /** The home folder as `~` in the paths Claude Code reports. */
 export function tildePath(path: string): string {
   return path.replace(/^\/(?:Users|home)\/[^/]+/, "~");
+}
+
+/** The sentence that goes next to an estimate when its list prices were never checked against
+ * Anthropic's published pricing; null once they were. */
+export function unverifiedPriceNote(prices: PriceTable | undefined): string | null {
+  if (!prices || prices.verified) return null;
+  const list = prices.families
+    .filter((p) => !p.verified)
+    .map(
+      (p) =>
+        `${p.family[0].toUpperCase()}${p.family.slice(1)} $${p.inputUsd} in / $${p.outputUsd} out`,
+    )
+    .join(", ");
+  return `The list prices behind these estimates (${list} per million tokens${
+    prices.factorsVerified
+      ? ""
+      : `, cache reads at ${prices.cacheReadFactor}x and cache writes at ${prices.cacheWriteFactor}x`
+  }) are not verified against Anthropic's published pricing yet.`;
+}
+
+const WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+/** "Every Monday at 09:00" for the one-day-a-week schedules the weekly measure uses; any other
+ * schedule is shown as the cron text it is. */
+export function weeklySchedule(cron: string | null): string {
+  const match = /^(\d{1,2}) (\d{1,2}) \* \* ([0-6])$/.exec(cron ?? "");
+  if (!match) return cron ?? "no schedule";
+  const [, minute, hour, day] = match;
+  return `Every ${WEEKDAYS[Number(day)]} at ${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
 }
 
 /** Cost is an estimate as soon as any of it comes from list prices. */

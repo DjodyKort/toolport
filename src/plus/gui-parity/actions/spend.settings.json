@@ -1,6 +1,6 @@
 {
   "route": "spend-settings",
   "status": "built",
-  "summary": "Port, retention days, size cap and the Show cost switch in Settings > Toolport+ > Spend (spend config set)",
+  "summary": "Port, retention days, size cap, the Show cost switch, the Daily totals switch with Delete totals, and the Weekly measure switch with its plan dialog in Settings > Toolport+ > Spend (spend config set --show-cost, --daily-totals, --weekly-measure, --measure-folder, --dry-run)",
   "test": "src/plus/spend/SpendSettings.test.tsx"
 }

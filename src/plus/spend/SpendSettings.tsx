@@ -13,7 +13,7 @@ import { openView } from "../shell/navigate";
 import { errorText } from "../settings/useCtl";
 import { setConfig, spendStatus, type ConfigEdit } from "./commands";
 import type { StatusData } from "./data";
-import { boundedInt, SETTING_BOUNDS } from "./model";
+import { boundedInt, SETTING_BOUNDS, tildePath, weeklySchedule } from "./model";
 import { validPort } from "./plan";
 import { useSpendDialogs, type SpendDialogs } from "./useSpendDialogs";
 
@@ -129,7 +129,7 @@ function SettingsBody({ status, dialogs, reload }: BodyProps) {
       </Row>
       <Row
         title="Keep events for"
-        help={`Days or megabytes, whichever comes first (${SETTING_BOUNDS.retentionDays.min} to ${SETTING_BOUNDS.retentionDays.max} days, ${SETTING_BOUNDS.maxMb.min} to ${SETTING_BOUNDS.maxMb.max} MB). Daily totals stay after events are pruned.`}
+        help={`Days or megabytes, whichever comes first (${SETTING_BOUNDS.retentionDays.min} to ${SETTING_BOUNDS.retentionDays.max} days, ${SETTING_BOUNDS.maxMb.min} to ${SETTING_BOUNDS.maxMb.max} MB). Daily totals stay after events are pruned unless you switch them off.`}
       >
         <Input
           aria-label="Days to keep events"
@@ -173,6 +173,53 @@ function SettingsBody({ status, dialogs, reload }: BodyProps) {
           }
         />
       </Row>
+      <Row
+        title="Daily totals"
+        help={`Keep one line per day, project and model after events are pruned, so the charts keep their history. ${
+          status.store.dailyLines > 0
+            ? `${status.store.dailyLines} ${status.store.dailyLines === 1 ? "line" : "lines"} kept.`
+            : "Nothing kept yet."
+        }`}
+      >
+        <Switch
+          aria-label="Keep daily totals"
+          checked={status.store.dailyTotals}
+          disabled={busy}
+          onCheckedChange={(on) =>
+            void save(
+              { dailyTotals: on },
+              on ? "Daily totals are kept" : "Daily totals are no longer kept",
+            )
+          }
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={busy || status.store.dailyLines === 0}
+          onClick={dialogs.deleteTotals}
+        >
+          Delete totals…
+        </Button>
+      </Row>
+      <Row
+        title="Weekly measure"
+        help={
+          status.weeklyMeasure.enabled
+            ? `Runs context measure for ${tildePath(status.weeklyMeasure.folder ?? "one folder")}: ${weeklySchedule(status.weeklyMeasure.cron).toLowerCase()}, one small request to the ${status.weeklyMeasure.model} model.`
+            : "Runs context measure once a week as a task (haiku, one folder, one small model request). Turning it on asks for approval."
+        }
+      >
+        <Switch
+          aria-label="Weekly measure"
+          checked={status.weeklyMeasure.enabled}
+          disabled={busy}
+          onCheckedChange={(on) =>
+            on
+              ? dialogs.weeklyMeasure()
+              : void save({ weeklyMeasure: false }, "The weekly measure is off")
+          }
+        />
+      </Row>
       <Row title="Spend page" help="Cost, tokens, project, model and task.">
         <Button variant="outline" size="sm" onClick={() => openView("spend")}>
           <ExternalLink data-icon="inline-start" />
@@ -211,6 +258,10 @@ export default function SpendSettings() {
     data.store.maxBytes,
     data.showCost,
     data.enabled,
+    data.store.dailyTotals,
+    data.store.dailyLines,
+    data.weeklyMeasure.enabled,
+    data.weeklyMeasure.folder,
   ].join("|");
   return (
     <>

@@ -5,7 +5,7 @@ import {
   PROJECT_WEB,
   type SpendWorldOptions,
 } from "../fixtures/spendWorld";
-import type { SpendRow, StatusData, SummaryData } from "./data";
+import type { PriceTable, SpendRow, StatusData, SummaryData } from "./data";
 import {
   age,
   bars,
@@ -30,6 +30,8 @@ import {
   tildePath,
   tiles,
   toggleFilter,
+  unverifiedPriceNote,
+  weeklySchedule,
   filterChips,
   duration,
   tokens,
@@ -484,5 +486,40 @@ describe("the collecting card", () => {
     expect(card.stored).toBe("No spend data on this computer.");
     expect(card.claudeCode).toBe("No OpenTelemetry settings written by Toolport.");
     expect(card.receiver).toBe("Not running.");
+  });
+});
+
+describe("the price note and the weekly schedule", () => {
+  const prices = (): PriceTable => read().summary.prices;
+
+  it("test34_unverified_prices_are_named_with_their_numbers", () => {
+    const note = unverifiedPriceNote(prices());
+    expect(note).toContain("Opus $15 in / $75 out");
+    expect(note).toContain("Haiku $1 in / $5 out");
+    expect(note).toContain("cache reads at 0.1x and cache writes at 1.25x");
+  });
+
+  it("test35_verified_or_missing_prices_need_no_note", () => {
+    expect(unverifiedPriceNote(undefined)).toBeNull();
+    expect(unverifiedPriceNote({ ...prices(), verified: true })).toBeNull();
+  });
+
+  it("test36_only_the_unverified_part_of_the_table_is_listed", () => {
+    const table = prices();
+    const note = unverifiedPriceNote({
+      ...table,
+      factorsVerified: true,
+      families: table.families.map((p) => ({ ...p, verified: p.family === "opus" })),
+    });
+    expect(note).not.toContain("Opus");
+    expect(note).toContain("Sonnet");
+    expect(note).not.toContain("cache reads");
+  });
+
+  it("test37_a_weekly_cron_reads_as_a_sentence_and_anything_else_stays_cron", () => {
+    expect(weeklySchedule("0 9 * * 1")).toBe("Every Monday at 09:00");
+    expect(weeklySchedule("30 7 * * 0")).toBe("Every Sunday at 07:30");
+    expect(weeklySchedule("*/5 * * * *")).toBe("*/5 * * * *");
+    expect(weeklySchedule(null)).toBe("no schedule");
   });
 });

@@ -19,10 +19,15 @@ export interface SetupChoice {
   overwrite?: string[];
   /** Settings files (or their folders) to write; empty means every detected profile. */
   profiles?: string[];
+  /** Also turn on the weekly `context measure` task for `measureFolder`. */
+  weeklyMeasure?: boolean;
+  measureFolder?: string;
 }
 
 function setupFlags(choice: SetupChoice): string[] {
   return [
+    ...(choice.weeklyMeasure ? ["--weekly-measure"] : []),
+    ...(choice.measureFolder ? ["--measure-folder", choice.measureFolder] : []),
     ...(choice.port === undefined ? [] : ["--port", String(choice.port)]),
     ...(choice.overwrite ?? []).flatMap((key) => ["--overwrite", key]),
     ...(choice.profiles ?? []).flatMap((profile) => ["--profile", profile]),
@@ -104,9 +109,15 @@ export const setupUndo = (choice: UndoChoice = {}) =>
     ...(choice.deleteData ? ["--yes"] : []),
   ]);
 
-export const prunePreview = () => ctlData<PruneData>(["spend", "prune", "--dry-run"]);
+const olderThan = (days?: number) =>
+  days === undefined ? [] : ["--older-than", `${days}d`];
 
-export const pruneNow = () => ctlData<PruneData>(["spend", "prune"]);
+/** Without `days` the window is the retention setting. */
+export const prunePreview = (days?: number) =>
+  ctlData<PruneData>(["spend", "prune", "--dry-run", ...olderThan(days)]);
+
+export const pruneNow = (days?: number) =>
+  ctlData<PruneData>(["spend", "prune", ...olderThan(days)]);
 
 /** Deletes the daily totals that survive pruning, for good. */
 export const deleteTotals = () =>
@@ -117,17 +128,31 @@ export interface ConfigEdit {
   retentionDays?: number;
   maxMb?: number;
   showCost?: boolean;
+  dailyTotals?: boolean;
+  weeklyMeasure?: boolean;
+  measureFolder?: string;
 }
 
-export function setConfig(edit: ConfigEdit) {
+function configArgv(edit: ConfigEdit) {
   const argv = ["spend", "config", "set"];
   if (edit.port !== undefined) argv.push("--port", String(edit.port));
   if (edit.retentionDays !== undefined)
     argv.push("--retention-days", String(edit.retentionDays));
   if (edit.maxMb !== undefined) argv.push("--max-mb", String(edit.maxMb));
   if (edit.showCost !== undefined) argv.push("--show-cost", edit.showCost ? "on" : "off");
-  return ctlData<ConfigSetData>(argv);
+  if (edit.dailyTotals !== undefined)
+    argv.push("--daily-totals", edit.dailyTotals ? "on" : "off");
+  if (edit.weeklyMeasure !== undefined)
+    argv.push("--weekly-measure", edit.weeklyMeasure ? "on" : "off");
+  if (edit.measureFolder) argv.push("--measure-folder", edit.measureFolder);
+  return argv;
 }
+
+export const setConfig = (edit: ConfigEdit) => ctlData<ConfigSetData>(configArgv(edit));
+
+/** What `setConfig` would do, without doing it. */
+export const previewConfig = (edit: ConfigEdit) =>
+  ctlData<ConfigSetData>([...configArgv(edit), "--dry-run"]);
 
 /** Without `out` the CSV text comes back; with it the file is written. */
 export const exportCsv = (range: RangeId, out?: string) =>

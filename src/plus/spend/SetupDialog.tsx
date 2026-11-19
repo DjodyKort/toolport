@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useLoad } from "../servers/useLoad";
 import { errorText } from "../settings/useCtl";
 import { setupApply, setupPlan } from "./commands";
 import type { PlanEntry, PlanProfile, SetupApplyData } from "./data";
-import { profileName } from "./model";
+import { profileName, tildePath, weeklySchedule } from "./model";
 import {
   chosenProfiles,
   CONTENT_FLAGS,
@@ -123,11 +124,15 @@ export function SetupDialog({ onClose, onApplied }: SetupDialogProps) {
   const [replace, setReplace] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [weekly, setWeekly] = useState(false);
+  const [weeklyFolder, setWeeklyFolder] = useState<string | null>(null);
 
   const data = plan.data;
+  const measure = data?.weeklyMeasure;
+  const folder = weeklyFolder ?? measure?.folder ?? "";
   const chosen = data ? selectedProfiles(data.profiles, off) : [];
   const keys = conflictKeys(chosen);
-  const writes = writeCount(chosen, replace);
+  const writes = writeCount(chosen, replace) + (weekly ? 1 : 0);
 
   async function apply() {
     if (!data) return;
@@ -137,6 +142,7 @@ export function SetupDialog({ onClose, onApplied }: SetupDialogProps) {
       const result = await setupApply({
         profiles: chosenProfiles(data.profiles, off),
         overwrite: replace.filter((key) => keys.includes(key)),
+        ...(weekly && { weeklyMeasure: true, measureFolder: folder }),
       });
       onApplied(result, writes);
     } catch (error) {
@@ -162,7 +168,9 @@ export function SetupDialog({ onClose, onApplied }: SetupDialogProps) {
             Cancel
           </Button>
           <Button
-            disabled={!data || busy || chosen.length === 0}
+            disabled={
+              !data || busy || chosen.length === 0 || (weekly && folder.trim() === "")
+            }
             onClick={() => void apply()}
           >
             {failure ? "Try again" : "Apply"}
@@ -258,6 +266,52 @@ export function SetupDialog({ onClose, onApplied }: SetupDialogProps) {
               </div>
             </div>
           </section>
+          {measure && (
+            <section
+              aria-label="Measure my context every week"
+              className="flex flex-col gap-2"
+            >
+              <h3 className="font-semibold">
+                3. Optional: measure my context every week
+              </h3>
+              {measure.enabled && measure.folder ? (
+                <p className="text-meta text-muted-foreground">
+                  Already on for{" "}
+                  <code className="font-mono">{tildePath(measure.folder ?? "")}</code>.
+                </p>
+              ) : (
+                <>
+                  <label className="flex items-start gap-2 text-meta">
+                    <input
+                      type="checkbox"
+                      checked={weekly}
+                      onChange={(event) => setWeekly(event.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      Add a weekly task <code className="font-mono">{measure.task}</code>.{" "}
+                      {weeklySchedule(measure.cron)}, one small request to the{" "}
+                      {measure.model} model; it makes growth visible. Applying adds it and
+                      switches it on.
+                    </span>
+                  </label>
+                  {weekly && (
+                    <label className="flex flex-col gap-1 text-meta">
+                      <span className="font-semibold text-foreground">
+                        Folder to measure
+                      </span>
+                      <Input
+                        aria-label="Folder to measure"
+                        className="font-mono"
+                        value={folder}
+                        onChange={(event) => setWeeklyFolder(event.target.value)}
+                      />
+                    </label>
+                  )}
+                </>
+              )}
+            </section>
+          )}
           <p className="text-meta">
             <b>Takes effect for new Claude Code sessions.</b> Sessions already open keep
             their old settings until restarted.

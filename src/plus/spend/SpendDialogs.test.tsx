@@ -121,8 +121,10 @@ describe("the setup plan dialog", () => {
   it("test04_no_profile_means_no_apply", async () => {
     open({ scenario: "never" });
     const plan = await openPlan();
-    for (const box of await within(plan).findAllByRole("checkbox"))
-      await userEvent.click(box);
+    const profiles = within(
+      await within(plan).findByRole("group", { name: "Applies to:" }),
+    ).getAllByRole("checkbox");
+    for (const box of profiles) await userEvent.click(box);
     expect(within(plan).getByRole("alert")).toHaveTextContent(
       "Choose at least one profile",
     );
@@ -283,6 +285,89 @@ describe("the prune dialog", () => {
     expect(toast.success).toHaveBeenCalledWith(
       "Pruned the events and deleted the daily totals",
     );
+  });
+});
+
+describe("the prune age window", () => {
+  it("test24_a_shorter_window_previews_and_runs_with_older_than", async () => {
+    open();
+    const prune = await openPrune();
+    await within(prune).findByRole("button", { name: "Prune 5,120 events" });
+    await userEvent.selectOptions(
+      within(prune).getByRole("combobox", { name: "Remove events older than" }),
+      "7",
+    );
+    const run = await within(prune).findByRole("button", { name: "Prune 9,216 events" });
+    expect(prune).toHaveTextContent("older than 7 days");
+    expect(joined()).toContain("spend prune --dry-run --older-than 7d");
+    await userEvent.click(run);
+    await waitFor(() => expect(wrote("prune")).toEqual(["spend prune --older-than 7d"]));
+  });
+
+  it("test25_the_window_never_offers_more_than_the_retention", async () => {
+    open();
+    const prune = await openPrune();
+    const choice = await within(prune).findByRole("combobox", {
+      name: "Remove events older than",
+    });
+    const days = within(choice)
+      .getAllByRole("option")
+      .map((o) => Number((o as HTMLOptionElement).value));
+    expect(Math.max(...days)).toBe(30);
+  });
+});
+
+describe("the weekly measure step of the plan", () => {
+  it("test26_the_plan_lists_it_as_an_optional_third_step_that_is_off_by_default", async () => {
+    open({ scenario: "never" });
+    const plan = await openPlan();
+    const step = await within(plan).findByRole("region", {
+      name: "Measure my context every week",
+    });
+    expect(step).toHaveTextContent("Every Monday at 09:00");
+    expect(step).toHaveTextContent("haiku");
+    await userEvent.click(within(plan).getByRole("button", { name: /^Apply/ }));
+    await waitFor(() => expect(wrote("setup apply")).toEqual(["spend setup apply"]));
+  });
+
+  it("test27_ticking_it_adds_one_change_and_sends_the_flag_with_the_folder", async () => {
+    open({ scenario: "never" });
+    const plan = await openPlan();
+    await userEvent.click(
+      await within(plan).findByRole("checkbox", { name: /Add a weekly task/ }),
+    );
+    expect(within(plan).getByRole("button", { name: "Apply 11 changes" })).toBeEnabled();
+    const folder = within(plan).getByRole("textbox", { name: "Folder to measure" });
+    await userEvent.clear(folder);
+    expect(within(plan).getByRole("button", { name: /^Apply/ })).toBeDisabled();
+    await userEvent.type(folder, "/Users/example/work");
+    await userEvent.click(within(plan).getByRole("button", { name: /^Apply/ }));
+    await waitFor(() =>
+      expect(wrote("setup apply")).toEqual([
+        "spend setup apply --weekly-measure --measure-folder /Users/example/work",
+      ]),
+    );
+  });
+
+  it("test28_a_measure_that_is_already_on_says_so_and_offers_no_second_one", async () => {
+    open({ scenario: "never", weeklyFolder: "/Users/example/work" });
+    const plan = await openPlan();
+    const step = await within(plan).findByRole("region", {
+      name: "Measure my context every week",
+    });
+    expect(step).toHaveTextContent("Already on for");
+    expect(within(step).queryByRole("checkbox")).toBeNull();
+  });
+});
+
+describe("the price note", () => {
+  it("test29_estimated_cost_names_the_list_prices_as_unverified", async () => {
+    open({ scenario: "off" });
+    const note = await screen.findByText(
+      /not verified against Anthropic's published pricing/,
+    );
+    expect(note).toHaveTextContent("Opus $15 in / $75 out");
+    expect(note).toHaveTextContent("cache reads at 0.1x");
   });
 });
 

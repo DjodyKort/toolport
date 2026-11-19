@@ -153,6 +153,54 @@ describe("Settings > Toolport+ > Spend", () => {
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
+  it("test10_daily_totals_switch_off_and_delete_totals_opens_the_prune_choice", async () => {
+    open();
+    const totals = await screen.findByRole("switch", { name: "Keep daily totals" });
+    expect(totals).toBeChecked();
+    await userEvent.click(totals);
+    await waitFor(() =>
+      expect(config()).toEqual(["spend config set --daily-totals off"]),
+    );
+    expect(toast.success).toHaveBeenCalledWith("Daily totals are no longer kept");
+    await userEvent.click(screen.getByRole("button", { name: "Delete totals…" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      await within(dialog).findByRole("checkbox", {
+        name: /Also delete the daily totals/,
+      }),
+    ).toBeChecked();
+    expect(dialog).toHaveTextContent("Daily totals are off");
+  });
+
+  it("test11_the_weekly_measure_row_turns_on_through_a_plan_dialog_and_off_at_once", async () => {
+    open();
+    const row = await screen.findByRole("switch", { name: "Weekly measure" });
+    expect(row).not.toBeChecked();
+    await userEvent.click(row);
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole("textbox", { name: "Folder to measure" }),
+      ).toHaveValue("/Users/example/work/clients/alpha/web-app"),
+    );
+    expect(dialog).toHaveTextContent("Every Monday at 09:00");
+    expect(config()).toEqual(["spend config set --weekly-measure on --dry-run"]);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Turn on" }));
+    await waitFor(() =>
+      expect(config()).toContain(
+        "spend config set --weekly-measure on --measure-folder /Users/example/work/clients/alpha/web-app",
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: "Weekly measure" })).toBeChecked(),
+    );
+    await userEvent.click(screen.getByRole("switch", { name: "Weekly measure" }));
+    await waitFor(() =>
+      expect(config()).toContain("spend config set --weekly-measure off"),
+    );
+    expect(toast.success).toHaveBeenCalledWith("The weekly measure is off");
+  });
+
   it("test09_the_parity_row_names_this_file_as_its_proof", () => {
     for (const id of COVERS)
       expect(guiParity.actions[id].test).toBe("src/plus/spend/SpendSettings.test.tsx");

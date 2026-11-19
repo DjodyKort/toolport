@@ -7,11 +7,13 @@ import { PortDialog } from "./PortDialog";
 import { PruneDialog } from "./PruneDialog";
 import { SetupDialog } from "./SetupDialog";
 import { UndoDialog } from "./UndoDialog";
+import { WeeklyMeasureDialog } from "./WeeklyMeasureDialog";
 
 type Open =
   | { kind: "setup" }
   | { kind: "undo" }
-  | { kind: "prune" }
+  | { kind: "weekly" }
+  | { kind: "prune"; withTotals: boolean }
   | { kind: "export"; range: RangeId; filtered: boolean }
   | { kind: "port"; port: number; current: number };
 
@@ -19,7 +21,10 @@ export interface SpendDialogs {
   element: ReactNode;
   setup: () => void;
   undo: () => void;
+  weeklyMeasure: () => void;
   prune: () => void;
+  /** Prune with "Also delete the daily totals" already ticked. */
+  deleteTotals: () => void;
   exportCsv: (range: RangeId, filtered?: boolean) => void;
   usePort: (port: number, current: number) => void;
 }
@@ -41,7 +46,12 @@ export function useSpendDialogs(onChanged: () => void): SpendDialogs {
             (sum, p) => sum + (p.applied ? p.writes : 0),
             0,
           );
-          if (result.complete)
+          if (result.weeklyMeasure.error)
+            toast.warning("Collecting is on, but the weekly measure was not added", {
+              description: result.weeklyMeasure.error,
+              action: { label: "Undo setup…", onClick: undo },
+            });
+          else if (result.complete)
             toast.success("Collecting is on", {
               description: `${written} settings written. Restart Claude Code sessions that are already open; new sessions export, and the first events usually arrive within a minute.`,
               action: { label: "Undo setup…", onClick: undo },
@@ -71,9 +81,23 @@ export function useSpendDialogs(onChanged: () => void): SpendDialogs {
         }}
       />
     );
+  else if (open?.kind === "weekly")
+    element = (
+      <WeeklyMeasureDialog
+        onClose={close}
+        onTurnedOn={(result) => {
+          toast.success("The weekly measure is on", {
+            description: `${result.weeklyMeasure.task} measures ${result.weeklyMeasure.folder ?? "the folder"} and runs on its own schedule.`,
+          });
+          close();
+          onChanged();
+        }}
+      />
+    );
   else if (open?.kind === "prune")
     element = (
       <PruneDialog
+        withTotals={open.withTotals}
         onClose={close}
         onPruned={(result) => {
           toast.success(
@@ -128,7 +152,9 @@ export function useSpendDialogs(onChanged: () => void): SpendDialogs {
     element,
     setup: () => setOpen({ kind: "setup" }),
     undo,
-    prune: () => setOpen({ kind: "prune" }),
+    weeklyMeasure: () => setOpen({ kind: "weekly" }),
+    prune: () => setOpen({ kind: "prune", withTotals: false }),
+    deleteTotals: () => setOpen({ kind: "prune", withTotals: true }),
     exportCsv: (range, filtered = false) => setOpen({ kind: "export", range, filtered }),
     usePort: (port, current) => setOpen({ kind: "port", port, current }),
   };

@@ -1,6 +1,6 @@
 {
   "route": "spend",
   "status": "built",
-  "summary": "Prune now with a preview, daily totals kept unless deleted on purpose (spend prune)",
+  "summary": "Prune now with a preview and an age window (older than 1 to 30 days, never beyond the retention), daily totals kept unless deleted on purpose (spend prune --older-than)",
   "test": "src/plus/spend/SpendDialogs.test.tsx"
 }

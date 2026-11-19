@@ -142,6 +142,27 @@ export interface StoreStatus {
   retentionDays: number;
   dailyLines: number;
   skippedLines: number;
+  /** Whether pruned events are folded into one line per day, project and model first. */
+  dailyTotals: boolean;
+}
+
+/** The shipped weekly task that runs `context measure` for one folder. */
+export interface WeeklyMeasure {
+  task: string;
+  /** Whether the task file exists in the data folder; a shipped task is listed before that. */
+  exists: boolean;
+  enabled: boolean;
+  /** The folder the task measures; null until one is chosen. */
+  folder: string | null;
+  cron: string;
+  model: string;
+}
+
+/** What `setup plan` says about the optional third step. */
+export interface WeeklyMeasurePlan extends WeeklyMeasure {
+  /** Whether this plan asks for the task (`--weekly-measure`). */
+  requested: boolean;
+  action: "add" | "already on" | "needs a folder" | "off";
 }
 
 export interface SetupRecord {
@@ -164,6 +185,24 @@ export interface StatusData {
   profilesSetUp: number;
   setup: SetupRecord[];
   transcripts: TranscriptProgress;
+  weeklyMeasure: WeeklyMeasure;
+}
+
+/** The list prices behind every estimated cost. A price nobody checked against Anthropic's
+ * published pricing says so, and the page repeats it next to the estimate. */
+export interface PriceTable {
+  /** True only when every family and both cache factors are verified. */
+  verified: boolean;
+  unit: string;
+  families: Array<{
+    family: string;
+    inputUsd: number;
+    outputUsd: number;
+    verified: boolean;
+  }>;
+  cacheReadFactor: number;
+  cacheWriteFactor: number;
+  factorsVerified: boolean;
 }
 
 export interface SummaryData {
@@ -187,6 +226,7 @@ export interface SummaryData {
   byModel: SpendRow[];
   byTask: SpendRow[];
   sources: { otelSessions: number; transcriptSessions: number; estimatedShare: number };
+  prices: PriceTable;
   tiles: Tiles;
   /** Present when a project, model or task filter is set; largest first. */
   sessionList?: SessionRow[];
@@ -222,12 +262,20 @@ export interface SetupPlanData {
   conflicts: number;
   contentFlags: string;
   note: string;
+  weeklyMeasure: WeeklyMeasurePlan;
 }
 
 export interface SetupApplyData {
   profiles: (PlanProfile & { applied: boolean })[];
   port: number;
   enabled: boolean;
+  weeklyMeasure: {
+    applied: boolean;
+    enabled: boolean;
+    folder: string | null;
+    /** Why the task was not added although the settings were written. */
+    error?: string;
+  };
   /** False when a conflicting key was kept: collection will not work until it matches. */
   complete: boolean;
 }
@@ -275,6 +323,10 @@ export interface PruneData {
   retentionDays: number;
   maxBytes: number;
   totalsDeleted: boolean;
+  /** Whether the removed events were folded into the daily totals. */
+  dailyTotals: boolean;
+  /** The age window of this prune, in days: the retention, or a shorter one the person chose. */
+  olderThanDays: number;
 }
 
 export interface ConfigSetData {
@@ -282,9 +334,13 @@ export interface ConfigSetData {
   retentionDays: number;
   maxMb: number;
   showCost: boolean;
+  dailyTotals: boolean;
+  weeklyMeasure: WeeklyMeasurePlan;
   enabled: boolean;
   portChanged: boolean;
   changed: boolean;
+  /** Only on a `--dry-run`, which changes nothing. */
+  dryRun?: true;
 }
 
 export interface ExportCsvData {

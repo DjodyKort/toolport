@@ -2,8 +2,15 @@ import { Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import type { Badge } from "./data";
-import { chartTable, legend, tokens, type Bar, type ModelFamily } from "./model";
+import type { Badge, PriceTable } from "./data";
+import {
+  chartTable,
+  legend,
+  tokens,
+  unverifiedPriceNote,
+  type Bar,
+  type ModelFamily,
+} from "./model";
 import { Panel } from "./Panel";
 
 const CHART_HEIGHT = 150;
@@ -48,6 +55,7 @@ export interface CostByDayProps {
   badge: Badge;
   rangeLabel: string;
   onTable: (on: boolean) => void;
+  prices?: PriceTable;
 }
 
 /** Cost by day, stacked by model; days that come from transcripts are hatched. The same data
@@ -59,7 +67,9 @@ export function CostByDay({
   badge,
   rangeLabel,
   onTable,
+  prices,
 }: CostByDayProps) {
+  const priceNote = unverifiedPriceNote(prices);
   const labelled = bars.length <= LABELLED_DAYS;
   const estimated = bars.filter(isEstimate);
   const measured = bars.some((bar) => bar.usd > 0 && bar.hatched < 0.999);
@@ -105,6 +115,11 @@ export function CostByDay({
           {measured &&
             "Cost for measured days is the figure Claude Code reports per request, which is its own estimate and not your invoice."}
           {estimated.length === 0 && !measured && "Nothing was spent in this range."}
+          {priceNote && (estimated.length > 0 || bars.some((b) => b.hatched > 0)) && (
+            <span data-slot="price-note" className="mt-1 block">
+              <b className="text-foreground">Unverified prices.</b> {priceNote}
+            </span>
+          )}
         </>
       }
     >

@@ -281,6 +281,7 @@ export default function SpendPage({
               badge={badges.chart}
               rangeLabel={rangeLabel}
               onTable={setTable}
+              prices={report.prices}
             />
             <CacheCard summary={report} badge={badges.counted} />
           </div>

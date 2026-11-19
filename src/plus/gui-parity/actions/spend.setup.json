@@ -1,6 +1,6 @@
 {
   "route": "spend",
   "status": "built",
-  "summary": "The plan dialog, apply and Undo for the five OTel env keys in each Claude Code profile (spend setup plan|apply|undo, spend_setup_plan)",
+  "summary": "The plan dialog with its optional weekly context measure step, apply and Undo for the five OTel env keys in each Claude Code profile (spend setup plan|apply|undo --weekly-measure --measure-folder, spend_setup_plan)",
   "test": "src/plus/spend/SpendDialogs.test.tsx"
 }
