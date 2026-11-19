@@ -6,6 +6,7 @@ import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
 import { createCompressionWorld, type CompressionWorldOptions } from "./compressionWorld";
 import { createContextWorld, type ContextWorldOptions } from "./contextWorld";
 import { createPluginsWorld, type PluginsWorldOptions } from "./pluginsWorld";
+import { createWiringWorld, type WiringWorldOptions } from "./wiringWorld";
 import { createMemoryWorld, type MemoryWorldOptions } from "./memoryWorld";
 import { createDirectWorld, type DirectWorldOptions } from "./directWorld";
 import { createReachWorld, type ReachWorldOptions } from "./reachWorld";
@@ -65,6 +66,8 @@ export interface WorldOptions {
   context?: ContextWorldOptions;
   /** The installed plugins, their hooks, servers and options for the Library's Plugins tab. */
   plugins?: PluginsWorldOptions;
+  /** The launch wiring, layers, presync and checkpoint gauge of the Rules & launch tab. */
+  wiring?: WiringWorldOptions;
   /** The hook entries, the pause and the measurements of the Hooks & compression tab. */
   compression?: CompressionWorldOptions;
   /** The Library screen's library, plan, remote, taps and sources. */
@@ -95,7 +98,8 @@ export function createCtlWorld(options: WorldOptions = {}) {
   const accessSets = options.accessSets ?? ["local", "work"];
   const serverWorld = createServerWorld({ setIds: accessSets, ...options.servers });
   const taskWorld = createTaskWorld(options.tasks);
-  const contextWorld = createContextWorld(options.context);
+  const wiringWorld = createWiringWorld(options.wiring);
+  const contextWorld = createContextWorld(options.context, wiringWorld.syncParts);
   const pluginsWorld = createPluginsWorld(options.plugins, (cwd) => {
     const status = contextWorld.run(["context", "status", "--cwd", cwd]);
     const off = (status.data as { pluginsOff?: string[] } | undefined)?.pluginsOff;
@@ -362,6 +366,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
     access: accessWorld,
     spend: spendWorld,
     plugins: pluginsWorld,
+    wiring: wiringWorld,
     run(argv: string[], stdin?: string): CtlReply {
       const key = argv.filter((a) => a !== "--json");
       const [first, second] = key;
@@ -379,6 +384,18 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "hooks") return pluginsWorld.run(key);
       if (first === "plugins" && second !== "off" && second !== "on") {
         return pluginsWorld.run(key);
+      }
+      if (
+        first === "context" &&
+        [
+          "wiring",
+          "layers",
+          "presync",
+          "checkpoint-status",
+          "checkpoint-config",
+        ].includes(second ?? "")
+      ) {
+        return wiringWorld.run(key);
       }
       if (first === "context" || first === "plugins") return contextWorld.run(key);
       if (first === "memory" || first === "sessions") return memoryWorld.run(key);

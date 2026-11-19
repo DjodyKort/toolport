@@ -254,7 +254,49 @@ export interface SyncData {
   }> | null;
   launchProfiles: RegeneratedPart;
   directEntries: RegeneratedPart;
-  deploy: { built: boolean; note: string };
+  layers: LayerDeployPart;
+  /** Only with `--rules`: the global layers `skills sync` would write to ~/.claude/rules. */
+  rules: RulesDeployPart | null;
+  shims: ShimsPart;
+}
+
+export type LayerAction =
+  "add" | "update" | "replace" | "remove" | "held" | "failed" | "unchanged";
+
+export interface LayerDeployRow {
+  layer: string;
+  folder: string;
+  file: string;
+  action: LayerAction;
+  reason?: string;
+  diff?: { before: string; after: string };
+  applied?: boolean;
+}
+
+/** What delivering the folder layers into CLAUDE.local.md did or would do. */
+export interface LayerDeployPart {
+  rows: LayerDeployRow[];
+  upToDate: number;
+  files: string[];
+  changed: string[];
+  backups: string[];
+  /** The command that puts back what this deploy replaced; null when nothing changed. */
+  undo: string | null;
+  error?: string;
+}
+
+export interface RulesDeployPart {
+  rows: Array<{ name: string; path: string; op: string; held: boolean }>;
+  held: Array<{ skill: string; path: string; op: string; reason: string }>;
+  upToDate: number;
+  error?: string;
+}
+
+export interface ShimsPart {
+  action: "skipped" | "unchanged" | "would rewrite" | "rewritten";
+  file: string;
+  reason?: string;
+  error?: string;
 }
 
 /** What `context sync` did, or would do, to the files Toolport generated. */
@@ -333,4 +375,136 @@ export interface LaunchProfileWriteData {
   keys?: Array<{ serverName: string }>;
   cwd?: string;
   denyDirect?: boolean;
+}
+
+export type LayerScope = "global" | "glob" | "folder";
+
+export type LayerState =
+  | "deployed"
+  | "not-deployed"
+  | "outdated"
+  | "edited"
+  | "shadowed"
+  | "nowhere"
+  | "problem";
+
+export interface LayerRow {
+  name: string;
+  path: string;
+  scope: LayerScope;
+  delivery: "copy" | "import";
+  globs: string[];
+  folderPatterns: string[];
+  imports: string[];
+  tokens: { value: number; basis: "estimate" };
+  problems: string[];
+  state: LayerState;
+  detail: string;
+  target:
+    | { kind: "rules"; file: string }
+    | { kind: "folders"; folders: string[]; deployed: number; file: string };
+}
+
+export interface LayersData {
+  layers: LayerRow[];
+  library: string;
+}
+
+export interface LayersUndoData {
+  dryRun: boolean;
+  rows: Array<{ layer: string; folder: string; action: string; reason?: string }>;
+  changed: string[];
+}
+
+export type WiringState = "not_set_up" | "healthy" | "look" | "failed";
+
+export interface WiringCheck {
+  id: string;
+  level: "ok" | "look" | "fail";
+  title: string;
+  detail: string;
+}
+
+export interface PresyncInfo {
+  lastAttemptAt: string;
+  lastOkAt: string | null;
+  durationMs: number;
+  ok: boolean;
+  warnings: string[];
+  output: string;
+  nextAfter: string | null;
+  due: boolean;
+}
+
+export interface OrgStatus {
+  installed: boolean;
+  name: string | null;
+  folder: string;
+  file: string;
+  fileTokens: number | null;
+  tokenBasis: "estimate";
+  intervalSecs: number;
+  lastSyncedAt: string | null;
+  matchesClone: boolean | null;
+}
+
+export interface WiringStatusData {
+  state: WiringState;
+  home: string;
+  setUp: boolean;
+  shims: {
+    file: string;
+    exists: boolean;
+    current: boolean;
+    functions: Array<{ name: string; summary: string }>;
+  };
+  shell: {
+    file: string;
+    exists: boolean;
+    linkTarget: string | null;
+    sourced: boolean;
+    addedByToolport: boolean;
+    line: number | null;
+    sourcedBefore: string[];
+  };
+  presync: PresyncInfo | null;
+  intervalSecs: number;
+  org: OrgStatus;
+  checks: WiringCheck[];
+  shells: string[];
+}
+
+/** `wiring init|disable` and `checkpoint-config`: the plan, and the result once applied. */
+export interface PlanWriteData {
+  dryRun: boolean;
+  plan: Plan;
+  result: WriteResult | null;
+}
+
+export interface PresyncData {
+  ran: boolean;
+  ok?: boolean;
+  reason?: string;
+  orgPulled?: boolean;
+  durationMs?: number;
+  warnings?: string[];
+  nextAfter: string | number | null;
+}
+
+export interface CheckpointData {
+  session: {
+    id: string;
+    cwd: string | null;
+    model: string | null;
+    lastActivityAt: string;
+    stale: boolean;
+  } | null;
+  note?: string;
+  usedTokens?: number;
+  usedBasis?: string;
+  window?: { tokens: number; source: string };
+  compactionAt?: number;
+  checkpointAt: number | null;
+  checkpoint?: { point: number; reached: boolean; remaining: number } | null;
+  remainingToCompaction?: number;
 }

@@ -1,0 +1,6 @@
+{
+  "route": "context",
+  "status": "built",
+  "summary": "Rules & launch: the health of the launch wiring and its one plan, confirm, apply and undo path for the shell file and the one marked startup line, the presync, the folder layers and global rules with their state, the org file, and the checkpoint gauge (context wiring status|init|disable, context presync, context layers ls|undo, context sync, context checkpoint-status|config, and the context_* tools of the same names)",
+  "test": "src/plus/context/RulesLaunch.test.tsx"
+}

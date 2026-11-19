@@ -3,6 +3,7 @@ import type {
   LoadItem,
   LoadsData,
   MeasuredSummary,
+  SyncData,
   Verified,
 } from "./data";
 
@@ -171,4 +172,101 @@ export function changesIn(status: FolderStatusData): number {
     status.pluginsOff.length +
     (status.bundle.applied ? 1 : 0)
   );
+}
+
+/** "08:54 today", "yesterday 21:02" or a date, in the viewer's time. */
+export function whenText(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((day(now) - day(date)) / 86_400_000);
+  if (days === 0) return `${time} today`;
+  if (days === 1) return `yesterday ${time}`;
+  return `${date.toLocaleDateString([], { dateStyle: "medium" })} ${time}`;
+}
+
+export function secondsText(ms: number): string {
+  return ms < 100 ? "under 0.1 s" : `${(ms / 1000).toFixed(1)} s`;
+}
+
+/** 14400 becomes "4 h", 900 "15 min". */
+export function intervalText(secs: number): string {
+  return secs % 3600 === 0 ? `${secs / 3600} h` : `${Math.ceil(secs / 60)} min`;
+}
+
+const REWRITES = new Set([
+  "regenerated",
+  "would regenerate",
+  "rewritten",
+  "would rewrite",
+]);
+
+export interface SyncRow {
+  sign: "+" | "~" | "\u2212" | "=" | "\u00b7" | "!";
+  text: string;
+  note?: string;
+}
+
+/** The rows of "What a sync would write now": one line per file or record the sync touches,
+ * in the order of the spec (layers, shell file, rules, then what the bundles and the generated
+ * files need). Parts that are up to date add no row. */
+export function syncRows(data: SyncData, home: string | null): SyncRow[] {
+  const rows: SyncRow[] = [];
+  for (const row of data.layers.rows) {
+    const where = shortPath(row.file, home);
+    const why = row.reason;
+    if (row.action === "add")
+      rows.push({ sign: "+", text: `Layer ${row.layer} \u2192 ${where}` });
+    else if (row.action === "update")
+      rows.push({ sign: "~", text: `Layer ${row.layer} in ${where}` });
+    else if (row.action === "replace")
+      rows.push({
+        sign: "~",
+        text: `Layer ${row.layer} in ${where}`,
+        note: "A hand-edited copy is replaced; a copy of it is kept.",
+      });
+    else if (row.action === "remove")
+      rows.push({ sign: "\u2212", text: `Layer ${row.layer} in ${where}`, note: why });
+    else if (row.action === "held")
+      rows.push({ sign: "\u00b7", text: `Layer ${row.layer} in ${where}`, note: why });
+    else if (row.action === "failed")
+      rows.push({ sign: "!", text: `Layer ${row.layer} in ${where}`, note: why });
+  }
+  if (data.layers.error)
+    rows.push({ sign: "!", text: "Layers", note: data.layers.error });
+  if (data.shims.action === "would rewrite" || data.shims.action === "rewritten")
+    rows.push({ sign: "~", text: `Shell file ${shortPath(data.shims.file, home)}` });
+  for (const row of data.rules?.rows ?? []) {
+    rows.push({
+      sign: row.op === "add" ? "+" : "~",
+      text: `Rule ${row.name} \u2192 ${shortPath(row.path, home)}`,
+      note: row.held ? "Waits for a decision." : undefined,
+    });
+  }
+  for (const b of data.bundles ?? [])
+    rows.push({
+      sign: b.error ? "!" : "+",
+      text: `Bundle ${b.bundle} in ${shortPath(b.folder, home)}`,
+      note: b.error,
+    });
+  for (const part of [data.launchProfiles, data.directEntries]) {
+    for (const row of part.rows) {
+      const name = row.name ?? `${row.entry} in ${row.client}`;
+      const sign = REWRITES.has(row.action)
+        ? "~"
+        : row.action === "failed"
+          ? "!"
+          : "\u00b7";
+      rows.push({
+        sign,
+        text:
+          part === data.launchProfiles
+            ? `Launch profile file ${name}`
+            : `Direct entry ${name}`,
+        note: row.reason,
+      });
+    }
+  }
+  return rows;
 }

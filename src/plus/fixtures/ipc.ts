@@ -146,7 +146,8 @@ const HOOK_SCENARIOS = [
  * `?plus-bridge=down` pick the state the fixture page starts in. `?plus-restart=busy|partial|none|slow`
  * picks how a server restart answers, `?plus-measured=fresh|stale`, `?plus-measure=slow|fail` and `?plus-bundles=none` set the Context screen's world,
  * `?plus-compression=adopt|on|paused|paused-open|missing|edited|none` the hooks of its Hooks & compression tab and
- * `?plus-measurements=compared|empty` its measurements, and `?plus-default=<access set id>` the default access; the servers follow
+ * `?plus-measurements=compared|empty` its measurements, `?plus-wiring=not_set_up|healthy|look|failed`, `?plus-org=none` and `?plus-session=none` the Rules & launch tab,
+ * and `?plus-default=<access set id>` the default access; the servers follow
  * `?auth-guidance` of the app fixture. */
 export function plusFixtureFromSearch(search: string) {
   const params = new URLSearchParams(search);
@@ -176,6 +177,15 @@ export function plusFixtureFromSearch(search: string) {
       measure: ["compared", "empty"].includes(params.get("plus-measurements") ?? "")
         ? (params.get("plus-measurements") as MeasureScenario)
         : "refused",
+    },
+    wiring: {
+      state: ["not_set_up", "healthy", "look", "failed"].includes(
+        params.get("plus-wiring") ?? "",
+      )
+        ? (params.get("plus-wiring") as "not_set_up" | "healthy" | "look" | "failed")
+        : "healthy",
+      org: params.get("plus-org") !== "none",
+      noSession: params.get("plus-session") === "none",
     },
     down: params.get("plus-bridge") === "down",
     servers: {

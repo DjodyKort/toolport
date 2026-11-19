@@ -1,0 +1,5 @@
+{
+  "route": "context",
+  "action": "context.rules-launch",
+  "surface": "screen"
+}

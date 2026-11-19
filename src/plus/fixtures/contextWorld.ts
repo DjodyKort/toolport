@@ -6,6 +6,7 @@ import type {
   MeasureData,
   Plan,
   PlanStep,
+  SyncData,
   WriteData,
 } from "../context/data";
 
@@ -203,7 +204,13 @@ const operand = (argv: string[], from: number) =>
 
 /** A small in-memory toolportctl for the `context` and `plugins` commands: enough state for a
  * leave-out, a plugin switch, a bundle and a measurement to show on the next read. */
-export function createContextWorld(options: ContextWorldOptions = {}) {
+export function createContextWorld(
+  options: ContextWorldOptions = {},
+  syncParts?: (
+    dryRun: boolean,
+    rules: boolean,
+  ) => Pick<SyncData, "layers" | "rules" | "shims">,
+) {
   const folders = new Map<string, FolderState>();
   const bundles = options.bundles === false ? [] : seedBundles();
   let autoApply = false;
@@ -832,10 +839,22 @@ export function createContextWorld(options: ContextWorldOptions = {}) {
               upToDate: 0,
             }
           : { rows: [], upToDate: 0 },
-        deploy: {
-          built: false,
-          note: "rule layers and shims are not part of this build yet",
-        },
+        ...(syncParts?.(argv.includes("--dry-run"), argv.includes("--rules")) ?? {
+          layers: {
+            rows: [],
+            upToDate: 0,
+            files: [],
+            changed: [],
+            backups: [],
+            undo: null,
+          },
+          rules: null,
+          shims: {
+            action: "skipped",
+            file: "",
+            reason: "the launch wiring is not set up",
+          },
+        }),
       },
     };
   }

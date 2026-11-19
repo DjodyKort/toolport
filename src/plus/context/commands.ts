@@ -6,13 +6,19 @@ import type {
   BundleSaveData,
   BundleShowData,
   BundleStatusData,
+  CheckpointData,
   ComposeData,
   FolderStatusData,
+  LayersData,
+  LayersUndoData,
   LaunchProfilesData,
   LaunchProfileWriteData,
   LoadsData,
   MeasureData,
+  PlanWriteData,
+  PresyncData,
   SyncData,
+  WiringStatusData,
   WriteData,
 } from "./data";
 
@@ -185,8 +191,41 @@ export function editBundle(name: string, fields: BundleFields, dryRun = false) {
 export const removeBundle = (name: string, dryRun: boolean) =>
   ctlData<BundleSaveData>(["context", "bundle", "rm", name, ...dry(dryRun)]);
 
-export const syncContext = (dryRun: boolean) =>
-  ctlData<SyncData>(["context", "sync", ...dry(dryRun)]);
+export const syncContext = (dryRun: boolean, rules = false) =>
+  ctlData<SyncData>(["context", "sync", ...dry(dryRun), ...(rules ? ["--rules"] : [])]);
+
+export const listLayers = () => ctlData<LayersData>(["context", "layers", "ls"]);
+
+export const undoLayers = (dryRun: boolean) =>
+  ctlData<LayersUndoData>(["context", "layers", "undo", ...dry(dryRun)]);
+
+export const wiringStatus = () =>
+  ctlData<WiringStatusData>(["context", "wiring", "status"]);
+
+export const initWiring = (dryRun: boolean) =>
+  ctlData<PlanWriteData>(["context", "wiring", "init", ...dry(dryRun)]);
+
+export const disableWiring = (dryRun: boolean) =>
+  ctlData<PlanWriteData>(["context", "wiring", "disable", ...dry(dryRun)]);
+
+/** The presync the shell runs before a launch, started by hand; it only runs when due. */
+export const runPresync = (force: boolean) =>
+  ctlData<PresyncData>(["context", "presync", ...(force ? ["--force"] : [])]);
+
+export const checkpointStatus = (cwd?: string) =>
+  ctlData<CheckpointData>([
+    "context",
+    "checkpoint-status",
+    ...(cwd ? ["--cwd", cwd] : []),
+  ]);
+
+export const setCheckpoint = (at: number | null, dryRun: boolean) =>
+  ctlData<PlanWriteData>([
+    "context",
+    "checkpoint-config",
+    ...(at === null ? ["--off"] : ["--at", String(at)]),
+    ...dry(dryRun),
+  ]);
 
 export const listLaunchProfiles = (cwd?: string) =>
   ctlData<LaunchProfilesData>([

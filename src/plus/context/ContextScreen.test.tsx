@@ -398,31 +398,35 @@ describe("Context screen", () => {
       ]),
     );
     await userEvent.click(screen.getByRole("tab", { name: "Rules & launch" }));
-    expect(await screen.findByText("auto-apply on")).toBeVisible();
-    expect(screen.getByText(/1 folder would get a bundle/)).toBeVisible();
-    expect(screen.getAllByText(/not part of this build yet/).length).toBeGreaterThan(0);
+    expect(await screen.findByText("bundle auto-apply on")).toBeVisible();
+    expect(
+      await screen.findByText(/Bundle erp-dev in ~\/work\/clients\/erp\/portal/),
+    ).toBeVisible();
   });
 
   it("test16_context_sync_runs_context_sync_when_sync_now_is_pressed", async () => {
     setup();
     await onThisFolder();
     await userEvent.click(screen.getByRole("tab", { name: "Rules & launch" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Sync now" }));
-    await waitFor(() => expect(ranArgv()).toContainEqual(["context", "sync"]));
-    expect(ranArgv()).toContainEqual(["context", "sync", "--dry-run"]);
+    await userEvent.click(
+      (await screen.findAllByRole("button", { name: "Sync now…" }))[0],
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Sync" }));
+    await waitFor(() => expect(ranArgv()).toContainEqual(["context", "sync", "--rules"]));
+    expect(ranArgv()).toContainEqual(["context", "sync", "--dry-run", "--rules"]);
   });
 
   it("test20_sync_lists_the_launch_profiles_and_direct_entries_it_rewrites", async () => {
     setup({ regenerate: true });
     await onThisFolder();
     await userEvent.click(screen.getByRole("tab", { name: "Rules & launch" }));
-    expect(await screen.findByText("1 would be rewritten")).toBeVisible();
-    expect(screen.getByText(/bare · would regenerate/)).toBeVisible();
+    expect(await screen.findByText("Launch profile file bare")).toBeVisible();
+    expect(screen.getByText("Direct entry sierra-design in claude-code")).toBeVisible();
+    expect(screen.getByText("Launch profile file wide")).toBeVisible();
     expect(
-      screen.getByText(/sierra-design in claude-code · would rewrite/),
-    ).toBeVisible();
-    expect(
-      screen.getByText(/wide · left: the access set wide no longer exists/),
+      screen.getByText(
+        /the access set wide no longer exists, so the launch sees no servers/,
+      ),
     ).toBeVisible();
   });
 
