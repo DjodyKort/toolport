@@ -1,4 +1,4 @@
-//! What runs before a `claude` launch: the org tool's own pull when its interval has passed, then
+//! What runs before a `claude` launch: the org file pull when its interval has passed, then
 //! `context sync`. A failure is recorded and only warns; Claude starts regardless. The record in
 //! the data directory is what the Rules and launch tab shows as the last run.
 
@@ -20,12 +20,51 @@ const OUTPUT_CAP: usize = 4 * 1024;
 const PULL_TIMEOUT: Duration = Duration::from_secs(120);
 const PYTHON_CALL: &str = "import sys; sys.path.insert(0, sys.argv[1]); from cfdevtools.claude import sync_claude_files, auto_update_mcp_repos; sync_claude_files(); auto_update_mcp_repos()";
 
-pub fn interval_secs() -> u64 {
-    std::env::var("CLAUDE_SYNC_INTERVAL")
+/// `orgPull.intervalSecs` from `context.json`, else the org tool's own `CLAUDE_SYNC_INTERVAL`,
+/// else four hours.
+pub fn interval_secs(config: &crate::sources::config::Config) -> u64 {
+    config
+        .org_pull
+        .as_ref()
         .ok()
-        .and_then(|v| v.trim().parse::<u64>().ok())
-        .filter(|s| *s > 0)
+        .and_then(|pull| pull.interval_secs)
+        .or_else(|| {
+            std::env::var("CLAUDE_SYNC_INTERVAL")
+                .ok()
+                .and_then(|v| v.trim().parse::<u64>().ok())
+                .filter(|s| *s > 0)
+        })
         .unwrap_or(DEFAULT_INTERVAL_SECS)
+}
+
+/// What pulls the org file: the built-in call into the org tool, or the argv from `context.json`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OrgCommand {
+    BuiltIn,
+    Argv(Vec<String>),
+}
+
+impl OrgCommand {
+    pub fn from_config(config: &crate::sources::config::Config) -> Result<Self, String> {
+        match config.org_pull.clone()?.command {
+            Some(argv) => Ok(Self::Argv(argv)),
+            None => Ok(Self::BuiltIn),
+        }
+    }
+}
+
+/// An argv for display: items with a space or quote are wrapped in quotes.
+pub fn command_text(argv: &[String]) -> String {
+    argv.iter()
+        .map(|a| {
+            if a.is_empty() || a.contains(|c: char| c.is_whitespace() || c == '"' || c == '\'') {
+                format!("{a:?}")
+            } else {
+                a.clone()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,7 +103,7 @@ fn write(data_dir: &Path, record: &Record) -> Result<(), String> {
 
 /// The corporate tool that syncs the org file into `~/.claude`.
 pub trait OrgTool {
-    fn pull(&self, dir: &Path) -> Result<(), String>;
+    fn pull(&self, dir: &Path, command: &OrgCommand) -> Result<(), String>;
 }
 
 pub struct ProcessOrgTool;
@@ -102,27 +141,45 @@ fn finish(mut child: std::process::Child, what: &str) -> Result<(), String> {
 }
 
 impl OrgTool for ProcessOrgTool {
-    fn pull(&self, dir: &Path) -> Result<(), String> {
-        let git = Command::new("git")
-            .arg("-C")
-            .arg(dir)
-            .args(["pull", "--quiet"])
+    fn pull(&self, dir: &Path, command: &OrgCommand) -> Result<(), String> {
+        let OrgCommand::Argv(argv) = command else {
+            return built_in_pull(dir);
+        };
+        let (program, args) = argv
+            .split_first()
+            .ok_or_else(|| "the org pull command is empty".to_string())?;
+        let child = Command::new(program)
+            .args(args)
+            .current_dir(dir)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|e| format!("git: {e}"))?;
-        finish(git, "git pull")?;
-        let python = Command::new(dir.join(".venv/bin/python"))
-            .args(["-c", PYTHON_CALL])
-            .arg(dir)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("the org tool's python: {e}"))?;
-        finish(python, "the org tool's sync")
+            .map_err(|e| format!("{program}: {e}"))?;
+        finish(child, program)
     }
+}
+
+fn built_in_pull(dir: &Path) -> Result<(), String> {
+    let git = Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["pull", "--quiet"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("git: {e}"))?;
+    finish(git, "git pull")?;
+    let python = Command::new(dir.join(".venv/bin/python"))
+        .args(["-c", PYTHON_CALL])
+        .arg(dir)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("the org tool's python: {e}"))?;
+    finish(python, "the org tool's sync")
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -130,8 +187,13 @@ pub struct Opts {
     pub force: bool,
 }
 
-fn org_installed(dir: &Path) -> bool {
-    fsx::is_dir(&dir.join(".git")) && fsx::is_file(&dir.join(".venv/bin/python"))
+/// The built-in pull needs the org tool's clone and python; a configured command only needs the
+/// folder it runs in.
+fn org_installed(dir: &Path, command: &Result<OrgCommand, String>) -> bool {
+    match command {
+        Ok(OrgCommand::Argv(_)) => fsx::is_dir(dir),
+        _ => fsx::is_dir(&dir.join(".git")) && fsx::is_file(&dir.join(".venv/bin/python")),
+    }
 }
 
 fn cap(text: &str) -> String {
@@ -170,16 +232,16 @@ fn failed_rows(value: &Value, out: &mut Vec<String>) {
 pub fn run(host: &dyn Host, tool: &dyn OrgTool, opts: Opts) -> Result<Value, OpError> {
     let env = layer_deploy::env(host)?;
     let now = host.now_unix();
-    let interval = interval_secs();
+    let config = crate::sources::config::load(&env.roots.context_config_path());
+    let interval = interval_secs(&config);
     let previous = read(&env.data_dir);
-    let places = crate::sources::Places::from_env(
-        &env.roots,
-        &crate::sources::config::load(&env.roots.context_config_path()),
-    );
+    let places = crate::sources::Places::from_env(&env.roots, &config);
+    let command = OrgCommand::from_config(&config);
     let stamp_file = places.claude_home.join(".last_auto_sync");
     let last_org = fsx::read_text(&stamp_file, 64).and_then(|t| t.trim().parse::<i64>().ok());
-    let org_due = org_installed(&places.corp_tools_dir)
-        && last_org.is_none_or(|at| now - at >= interval as i64);
+    let org_due = command.is_err()
+        || (org_installed(&places.corp_tools_dir, &command)
+            && last_org.is_none_or(|at| now - at >= interval as i64));
     let sync_due = opts.force
         || org_due
         || previous
@@ -199,20 +261,30 @@ pub fn run(host: &dyn Host, tool: &dyn OrgTool, opts: Opts) -> Result<Value, OpE
     let mut org_pulled = false;
     let mut pull_failed = false;
     if org_due {
-        org_pulled = true;
-        if let Err(why) = tool.pull(&places.corp_tools_dir) {
-            pull_failed = true;
-            warnings.push(
-                "the org tool could not be pulled; the files on disk are from its last good run"
-                    .to_string(),
-            );
-            output.push_str(&why);
+        match &command {
+            Ok(command) => {
+                org_pulled = true;
+                if let Err(why) = tool.pull(&places.corp_tools_dir, command) {
+                    pull_failed = true;
+                    warnings.push(
+                        "the org tool could not be pulled; the files on disk are from its last good run"
+                            .to_string(),
+                    );
+                    output.push_str(&why);
+                }
+                let _ = crate::fsx::atomic_write(
+                    &stamp_file,
+                    &format!("{now}\n"),
+                    crate::fsx::Mode::KeepOrDefault,
+                );
+            }
+            // No stamp: the pull is tried again at the next launch once context.json is fixed.
+            Err(why) => {
+                pull_failed = true;
+                warnings.push(format!("the org file was not pulled: {why}"));
+                output.push_str(why);
+            }
         }
-        let _ = crate::fsx::atomic_write(
-            &stamp_file,
-            &format!("{now}\n"),
-            crate::fsx::Mode::KeepOrDefault,
-        );
     }
     let synced = ops::sync_with(
         host,

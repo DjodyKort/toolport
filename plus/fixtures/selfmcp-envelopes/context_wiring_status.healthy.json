@@ -33,6 +33,14 @@
       "lastSyncedAt": null,
       "matchesClone": null,
       "name": "corp-dev-tools",
+      "pull": {
+        "command": null,
+        "configFile": "<WORLD>/home/.config/mcpm/context.json",
+        "display": "git pull, then the org tool's own sync (built in)",
+        "error": null,
+        "key": "orgPull.command",
+        "source": "default"
+      },
       "tokenBasis": "[redacted]"
     },
     "presync": null,

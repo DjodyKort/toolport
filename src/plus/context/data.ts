@@ -436,6 +436,16 @@ export interface PresyncInfo {
   due: boolean;
 }
 
+export interface OrgPullStatus {
+  /** `default` is the built-in call into the org tool; `invalid` is a setting that cannot be used. */
+  source: "default" | "configured" | "invalid";
+  command: string[] | null;
+  display: string;
+  error: string | null;
+  configFile: string;
+  key: string;
+}
+
 export interface OrgStatus {
   installed: boolean;
   name: string | null;
@@ -444,6 +454,7 @@ export interface OrgStatus {
   fileTokens: number | null;
   tokenBasis: "estimate";
   intervalSecs: number;
+  pull: OrgPullStatus;
   lastSyncedAt: string | null;
   matchesClone: boolean | null;
 }

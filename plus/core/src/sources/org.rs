@@ -15,7 +15,6 @@ use serde_json::json;
 use std::path::Path;
 
 const HASH_CAP: usize = 8 * 1024 * 1024;
-const DEFAULT_SYNC_SECS: u64 = 14_400;
 
 pub(super) fn sha(ctx: &ScanCtx, path: &Path) -> Option<String> {
     let stamp = fsx::stamp(path)?;
@@ -28,12 +27,8 @@ pub(super) fn sha(ctx: &ScanCtx, path: &Path) -> Option<String> {
     Some(hex)
 }
 
-fn interval_text() -> String {
-    let secs = std::env::var("CLAUDE_SYNC_INTERVAL")
-        .ok()
-        .and_then(|v| v.trim().parse::<u64>().ok())
-        .filter(|s| *s > 0)
-        .unwrap_or(DEFAULT_SYNC_SECS);
+fn interval_text(config: &super::config::Config) -> String {
+    let secs = crate::context::presync::interval_secs(config);
     if secs.is_multiple_of(3600) {
         format!("{} h", secs / 3600)
     } else {
@@ -180,7 +175,10 @@ impl SourceDetector for OrgDetector {
             root: Some(fsx::display(&clone)),
             owner: "org",
             writable: false,
-            managed_by: Some(format!("{name} sync (about every {})", interval_text())),
+            managed_by: Some(format!(
+                "{name} sync (about every {})",
+                interval_text(ctx.config)
+            )),
             state,
             detail,
             freshness: Some(Freshness {

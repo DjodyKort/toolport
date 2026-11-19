@@ -445,7 +445,41 @@ fn check(id: &str, level: &str, title: impl Into<String>, detail: impl Into<Stri
     json!({ "id": id, "level": level, "title": title.into(), "detail": detail.into() })
 }
 
-fn org_status(host: &dyn Host, places: &crate::sources::Places) -> Value {
+fn pull_status(config: &crate::sources::config::Config, config_file: &Path) -> Value {
+    let (source, command, display, error) = match presync::OrgCommand::from_config(config) {
+        Ok(presync::OrgCommand::BuiltIn) => (
+            "default",
+            None,
+            "git pull, then the org tool's own sync (built in)".to_string(),
+            None,
+        ),
+        Ok(presync::OrgCommand::Argv(argv)) => {
+            let text = presync::command_text(&argv);
+            ("configured", Some(argv), text, None)
+        }
+        Err(why) => (
+            "invalid",
+            None,
+            "not run until context.json is fixed".to_string(),
+            Some(why),
+        ),
+    };
+    json!({
+        "source": source,
+        "command": command,
+        "display": display,
+        "error": error,
+        "configFile": fsx::display(config_file),
+        "key": format!("{}.command", crate::sources::config::ORG_PULL_KEY),
+    })
+}
+
+fn org_status(
+    host: &dyn Host,
+    places: &crate::sources::Places,
+    config: &crate::sources::config::Config,
+    config_file: &Path,
+) -> Value {
     let dir = &places.corp_tools_dir;
     let claude_src = dir.join("claude");
     let installed = fsx::is_dir(&claude_src);
@@ -472,7 +506,8 @@ fn org_status(host: &dyn Host, places: &crate::sources::Places) -> Value {
         "file": fsx::display(&user_md),
         "fileTokens": user_text.as_deref().map(|t| host.count_tokens(t)),
         "tokenBasis": "estimate",
-        "intervalSecs": presync::interval_secs(),
+        "intervalSecs": presync::interval_secs(config),
+        "pull": pull_status(config, config_file),
         "lastSyncedAt": last.map(fsx::zulu),
         "matchesClone": matches,
     })
@@ -480,6 +515,14 @@ fn org_status(host: &dyn Host, places: &crate::sources::Places) -> Value {
 
 fn org_checks(env: &Env, places: &crate::sources::Places, org: &Value) -> Vec<Value> {
     let mut out = Vec::new();
+    if let Some(why) = org["pull"]["error"].as_str() {
+        out.push(check(
+            "org-pull",
+            "look",
+            "The org pull command cannot be used",
+            format!("{why}. The org file is not pulled until it is fixed."),
+        ));
+    }
     if org["installed"] != json!(true) {
         out.push(check(
             "org-tool",
@@ -548,13 +591,12 @@ pub fn status(host: &dyn Host) -> Result<Value, OpError> {
     let shims_exists = shims_text.is_some();
     let shims_current = shims_text.as_deref() == Some(generated(&env).as_str());
     let set_up = shims_exists || found.sourced();
-    let places = crate::sources::Places::from_env(
-        &env.roots,
-        &crate::sources::config::load(&env.roots.context_config_path()),
-    );
-    let org = org_status(host, &places);
+    let config_file = env.roots.context_config_path();
+    let config = crate::sources::config::load(&config_file);
+    let places = crate::sources::Places::from_env(&env.roots, &config);
+    let org = org_status(host, &places, &config, &config_file);
     let record = presync::read(&env.data_dir);
-    let interval = presync::interval_secs();
+    let interval = presync::interval_secs(&config);
 
     let mut checks = Vec::new();
     if set_up {

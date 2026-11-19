@@ -9,6 +9,7 @@ import type {
   PresyncData,
   RulesDeployPart,
   ShimsPart,
+  OrgPullStatus,
   WiringCheck,
   WiringState,
   WiringStatusData,
@@ -26,6 +27,10 @@ export interface WiringWorldOptions {
   state?: WiringState;
   /** The org tool is installed (default) or not. */
   org?: boolean;
+  /** The org pull command set in context.json; absent means the built-in pull. */
+  orgPullCommand?: string[];
+  /** The orgPull setting in context.json cannot be used; this is why. */
+  orgPullError?: string;
   /** The layers of the skills repository; the default is the four of the design. */
   layers?: LayerRow[];
   /** No Claude session has run yet: the gauge has nothing to show. */
@@ -36,6 +41,40 @@ export interface WiringWorldOptions {
   presyncFails?: boolean;
   /** The sync preview finds a hand-edited layer block that a confirmed run replaces. */
   edited?: boolean;
+}
+
+function orgPull(options: WiringWorldOptions): OrgPullStatus {
+  const base = {
+    configFile: `${HOME}/.config/mcpm/context.json`,
+    key: "orgPull.command",
+  };
+  if (options.orgPullError) {
+    return {
+      ...base,
+      source: "invalid",
+      command: null,
+      display: "not run until context.json is fixed",
+      error: options.orgPullError,
+    };
+  }
+  if (options.orgPullCommand) {
+    return {
+      ...base,
+      source: "configured",
+      command: options.orgPullCommand,
+      display: options.orgPullCommand
+        .map((a) => (/[\s"']/.test(a) ? JSON.stringify(a) : a))
+        .join(" "),
+      error: null,
+    };
+  }
+  return {
+    ...base,
+    source: "default",
+    command: null,
+    display: "git pull, then the org tool's own sync (built in)",
+    error: null,
+  };
 }
 
 const tokensOf = (value: number) => ({ value, basis: "estimate" as const });
@@ -301,6 +340,7 @@ export function createWiringWorld(options: WiringWorldOptions = {}) {
         fileTokens: orgInstalled ? 10070 : null,
         tokenBasis: "estimate",
         intervalSecs: INTERVAL,
+        pull: orgPull(options),
         lastSyncedAt: orgInstalled ? "2026-11-19T07:54:00Z" : null,
         matchesClone: orgInstalled ? true : null,
       },

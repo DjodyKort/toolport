@@ -467,7 +467,6 @@ fn test18_the_generated_file_is_valid_zsh_and_names_no_function_with_an_undersco
 #[test]
 fn test19_the_org_tool_is_recorded_once_a_presync_ran() {
     let w = world("wiring-arm");
-    let _ = presync::interval_secs();
     w.write(
         ".local/share/corp-dev-tools/claude/shell-wrapper.sh",
         "wrapper v1\n",
@@ -487,4 +486,59 @@ fn test19_the_org_tool_is_recorded_once_a_presync_ran() {
         w.read(".config/mcpm/context.json").contains(&want),
         "a recorded hash is never replaced"
     );
+}
+
+#[test]
+fn test20_the_status_tells_the_org_pull_command_and_where_to_change_it() {
+    let w = world("wiring-pull-command");
+    wiring::init(&w.host, false).unwrap();
+    let find = |data: &Value, id: &str| {
+        data["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["id"] == id)
+            .cloned()
+    };
+    let default = wiring::status(&w.host).unwrap();
+    let pull = &default["org"]["pull"];
+    assert_eq!(pull["source"], "default");
+    assert_eq!(pull["command"], Value::Null);
+    assert_eq!(pull["key"], "orgPull.command");
+    assert!(pull["configFile"]
+        .as_str()
+        .unwrap()
+        .ends_with("context.json"));
+    assert!(find(&default, "org-pull").is_none());
+
+    w.write(
+        ".config/mcpm/context.json",
+        "{\"orgPull\": {\"command\": [\"org-pull\", \"--quiet\", \"two words\"], \"intervalSecs\": 7200}}\n",
+    );
+    let set = wiring::status(&w.host).unwrap();
+    assert_eq!(set["org"]["pull"]["source"], "configured");
+    assert_eq!(
+        set["org"]["pull"]["command"],
+        json!(["org-pull", "--quiet", "two words"])
+    );
+    assert_eq!(
+        set["org"]["pull"]["display"],
+        "org-pull --quiet \"two words\""
+    );
+    assert_eq!(set["org"]["intervalSecs"], 7200);
+    assert_eq!(set["intervalSecs"], 7200);
+
+    w.write(
+        ".config/mcpm/context.json",
+        "{\"orgPull\": {\"command\": \"git pull\"}}\n",
+    );
+    let bad = wiring::status(&w.host).unwrap();
+    assert_eq!(bad["org"]["pull"]["source"], "invalid");
+    let check = find(&bad, "org-pull").unwrap();
+    assert_eq!(check["level"], "look");
+    assert!(check["detail"]
+        .as_str()
+        .unwrap()
+        .contains("not a shell string"));
+    assert_eq!(bad["state"], "look");
 }

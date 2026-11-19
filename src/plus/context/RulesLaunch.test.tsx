@@ -296,6 +296,40 @@ describe("Rules and launch", () => {
     expect(within(org).getByText(/≈ 10,070 tokens, estimate/)).toBeVisible();
   });
 
+  it("test14b_the_org_card_shows_the_pull_command_as_text_and_says_where_to_change_it", async () => {
+    setup();
+    const org = (await screen.findByText("Org file")).closest("section")!;
+    expect(
+      within(org).getByText("git pull, then the org tool's own sync (built in)"),
+    ).toBeVisible();
+    expect(
+      within(org).getByText(/Nothing is set, so the built-in pull runs/),
+    ).toBeVisible();
+    expect(within(org).getByText("orgPull.command")).toBeVisible();
+    expect(within(org).getByText("~/.config/mcpm/context.json")).toBeVisible();
+    expect(within(org).queryByRole("textbox")).toBeNull();
+    expect(within(org).queryByRole("button")).toBeNull();
+  });
+
+  it("test14c_a_configured_command_is_shown_as_it_runs", async () => {
+    setup({ orgPullCommand: ["org-pull", "--quiet", "two words"] });
+    const org = (await screen.findByText("Org file")).closest("section")!;
+    expect(within(org).getByText('org-pull --quiet "two words"')).toBeVisible();
+    expect(within(org).queryByText(/Nothing is set/)).toBeNull();
+    expect(within(org).getByText(/the pull command sync, about every 4 h/)).toBeVisible();
+  });
+
+  it("test14d_an_unusable_setting_shows_the_reason_on_the_card", async () => {
+    setup({
+      orgPullError: "orgPull in context.json: command is empty; give the program to run",
+    });
+    const org = (await screen.findByText("Org file")).closest("section")!;
+    expect(
+      within(org).getByText(/command is empty; give the program to run/),
+    ).toBeVisible();
+    expect(within(org).getByText("not run until context.json is fixed")).toBeVisible();
+  });
+
   it("test15_without_the_org_tool_the_card_says_nothing_is_wrong", async () => {
     setup({ org: false });
     expect(

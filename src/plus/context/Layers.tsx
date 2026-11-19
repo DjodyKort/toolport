@@ -125,7 +125,7 @@ function OrgCard({ org, home }: { org: OrgStatus; home: string | null }) {
     ["Folder", shortPath(org.folder, home)],
     [
       "Managed by",
-      `${org.name ?? "the org tool"} sync, about every ${intervalText(org.intervalSecs)}`,
+      `${org.pull.source === "configured" ? "the pull command" : (org.name ?? "the org tool")} sync, about every ${intervalText(org.intervalSecs)}`,
     ],
     ["Last synced", org.lastSyncedAt ? whenText(org.lastSyncedAt) : "not recorded"],
     [
@@ -150,6 +150,21 @@ function OrgCard({ org, home }: { org: OrgStatus; home: string | null }) {
           Toolport never edits this file; its owner replaces it on a schedule. Your layers
           load after it.
         </p>
+        <div className="flex flex-col gap-1 text-meta">
+          <span className="text-muted-foreground">Pull command</span>
+          <code className="break-words rounded-md bg-muted px-2 py-1 font-mono">
+            {org.pull.display}
+          </code>
+          {org.pull.error && <span className="text-destructive">{org.pull.error}</span>}
+          <span className="text-muted-foreground">
+            {org.pull.source === "default"
+              ? "Nothing is set, so the built-in pull runs. "
+              : ""}
+            To change it, edit <code className="font-mono">{org.pull.key}</code> in{" "}
+            <code className="font-mono">{shortPath(org.pull.configFile, home)}</code>. It
+            is a list: the program first, then one item per argument.
+          </span>
+        </div>
       </div>
     </Group>
   );
