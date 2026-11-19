@@ -1,4 +1,5 @@
 import { commandsGolden } from "./commandsGolden";
+import { createAccessWorld, type AccessWorldOptions } from "./accessWorld";
 import { createAttentionWorld, type AttentionWorldOptions } from "./attentionWorld";
 import { createCatalogWorld, type CatalogWorldOptions } from "./catalogWorld";
 import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
@@ -75,6 +76,8 @@ export interface WorldOptions {
   direct?: DirectWorldOptions;
   /** The clients with an access set of their own and the folder mappings `client reach` reads. */
   reach?: ReachWorldOptions;
+  /** The tool lists `access-set tools` starts with; its other state is the servers' and the reach world's. */
+  access?: AccessWorldOptions;
   /** The launch profiles `context launch-profile` lists and the folder mappings that outrank them. */
   launchProfiles?: LaunchProfileWorldOptions;
   /** The Spend page's collecting state, report and setup plan. */
@@ -96,7 +99,18 @@ export function createCtlWorld(options: WorldOptions = {}) {
   const attentionWorld = createAttentionWorld(options.attention);
   const catalogWorld = createCatalogWorld(options.catalog);
   const directWorld = createDirectWorld(options.direct ?? {}, () => serverWorld.servers);
-  const reachWorld = createReachWorld(options.reach ?? {}, () => serverWorld);
+  const reachOptions = {
+    ...options.reach,
+    clients: (options.reach?.clients ?? []).map((client) => ({ ...client })),
+    folders: (options.reach?.folders ?? []).map((folder) => ({ ...folder })),
+  };
+  const reachWorld = createReachWorld(reachOptions, () => serverWorld);
+  const accessWorld = createAccessWorld(
+    options.access ?? {},
+    serverWorld,
+    reachOptions.clients,
+    reachOptions.folders,
+  );
   const launchProfileWorld = createLaunchProfileWorld(
     options.launchProfiles ?? {},
     () => serverWorld.sets,
@@ -293,7 +307,9 @@ export function createCtlWorld(options: WorldOptions = {}) {
     const tool = argv[2];
     const given = stdin?.trim() ? JSON.parse(stdin) : {};
     const handled =
-      serverWorld.tool(tool ?? "", given) ?? libraryWorld.tool(tool ?? "", given);
+      serverWorld.tool(tool ?? "", given) ??
+      accessWorld.tool(tool ?? "", given) ??
+      libraryWorld.tool(tool ?? "", given);
     if (handled) return handled;
     const row = tools.tools.find((t) => t.name === tool);
     if (!row) {
@@ -333,6 +349,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
     memory: memoryWorld,
     catalog: catalogWorld,
     direct: directWorld,
+    access: accessWorld,
     spend: spendWorld,
     run(argv: string[], stdin?: string): CtlReply {
       const key = argv.filter((a) => a !== "--json");
@@ -356,6 +373,9 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "sync") return syncWorld.run(key, stdin);
       if (first === "client" && second === "direct") return directWorld.run(key);
       if (first === "client" && second === "reach") return reachWorld.run(key);
+      if (first === "access-set" || (first === "client" && second === "scope"))
+        return accessWorld.run(key);
+      if (first === "folder" && second === "route") return accessWorld.run(key);
       if (first === "spend") return spendWorld.run(key);
       if (["skills", "library", "sources", "agents", "styles"].includes(first ?? ""))
         return libraryWorld.run(key);

@@ -1,5 +1,6 @@
 {
   "route": "access-write",
-  "status": "planned",
-  "summary": "Create, delete and set the default access set, bind a client to a set and route a folder, each with its plan and Undo; Settings > Access is upstream's own screen for these edits until then (access-set add, rm, default, tools; client scope; folder route add, rm; access_set_add, access_set_rm, access_set_default, access_set_tools, client_scope, client_discovery_set, folder_route_add, folder_route_rm)"
+  "status": "built",
+  "summary": "Create, delete and narrow the tools of access sets, choose the default access, bind a client to a set and pick its tool listing, route a folder: each with its plan before and Undo after (access-set add, rm, default, tools; client scope; folder route add, rm; access_set_add, access_set_rm, access_set_default, access_set_tools, client_scope, client_discovery_set, folder_route_add, folder_route_rm)",
+  "test": "src/plus/access/AccessWrite.test.tsx"
 }

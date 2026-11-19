@@ -10,7 +10,7 @@ const ServersListEnd = lazy(() =>
   import("./ServersBanner").then((m) => ({ default: m.ServersListEnd })),
 );
 const ServerOperations = lazy(() => import("./ServerOperations"));
-const AccessCompare = lazy(() => import("./AccessCompare"));
+const AccessCompare = lazy(() => import("../access/AccessSection"));
 
 /** The seams App.tsx and SettingsView.tsx call, one line each. The Servers screen of the fork
  * (slice S2) is drawn by what these mount. */

@@ -262,8 +262,7 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
   const sets = structuredClone(
     options.sets ?? setsFromIds(options.setIds ?? ["local", "work"], servers),
   );
-  const defaultAccess =
-    options.defaultAccess === undefined ? null : options.defaultAccess;
+  let defaultAccess = options.defaultAccess === undefined ? null : options.defaultAccess;
   const script = options.restart ?? {};
   const vault = new Map(
     (options.vault ?? []).map((entry) => [
@@ -709,6 +708,9 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
     sets,
     get defaultAccess() {
       return defaultAccess;
+    },
+    setDefaultAccess(id: string | null) {
+      defaultAccess = id;
     },
     authSection,
     secret,

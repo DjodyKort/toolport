@@ -1,4 +1,6 @@
 {
   "title": "Access sets: edits with a plan and Undo",
-  "status": "planned"
+  "status": "built",
+  "page": "settings:access",
+  "component": "src/plus/access/AccessWrite.tsx"
 }
