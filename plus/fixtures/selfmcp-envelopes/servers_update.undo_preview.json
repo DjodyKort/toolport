@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "name": "files",
+    "undo": true
+  },
+  "isError": false,
+  "result": {
+    "from": "1.5.0",
+    "id": "srv-files",
+    "kind": "npm",
+    "package": "@scope/files",
+    "refusal": null,
+    "server": "files",
+    "to": "1.4.2"
+  },
+  "tool": "servers_update"
+}

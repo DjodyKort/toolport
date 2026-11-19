@@ -1,0 +1,28 @@
+{
+  "arguments": {
+    "name": "recipe"
+  },
+  "isError": false,
+  "result": {
+    "apply": null,
+    "applyWith": "call servers_update with dry_run=false, this planHash as plan_hash, this `to` as to and confirm=true",
+    "changes": [],
+    "downgrade": false,
+    "from": "2.0.0",
+    "id": "srv-recipe",
+    "inFlight": null,
+    "kind": "npm",
+    "package": "@scope/recipe",
+    "planHash": "<masked>",
+    "refusal": {
+      "code": "cannot_rewrite",
+      "message": "Toolport cannot change this pin itself: its arguments come from a catalog launch recipe, and editing them detaches it"
+    },
+    "release": null,
+    "server": "recipe",
+    "to": "2.1.0",
+    "undo": "toolportctl server update recipe --undo",
+    "verified": false
+  },
+  "tool": "servers_update"
+}

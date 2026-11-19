@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "files",
+    "undo": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no update of files to take back"
+    }
+  },
+  "text": "not_found: no update of files to take back",
+  "tool": "servers_update"
+}

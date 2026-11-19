@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "name": "files"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "plan_hash is required: take it from servers_update with dry_run=true"
+    }
+  },
+  "text": "invalid_arguments: plan_hash is required: take it from servers_update with dry_run=true",
+  "tool": "servers_update"
+}

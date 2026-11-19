@@ -3092,6 +3092,69 @@
           "tier": 1
         },
         {
+          "description": "Move a server to another version of the package its arguments pin (npm, uvx or pipx, Docker Hub tag) or of the GitHub release it was installed from, then restart it. HIGH risk: it changes what code the server runs, and for a release it replaces the installed binary. dry_run is on by default and returns the plan: the exact registry change, for a release the file and whether its checksum is published, and the plan_hash (apply with dry_run=false, that plan_hash, the plan's `to` and confirm=true; refused when the plan changed since). Without `to` the newest version the last update check found is taken; fetch asks the registry or GitHub first. undo=true takes back the one update on record when nothing changed it since. A pin Toolport cannot rewrite is refused with the reason",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "servers_update",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Hash of the plan dry_run returned; the write is refused when the plan changed since",
+              "name": "plan_hash",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "The exact version to move to; the newest checked one when omitted",
+              "name": "to",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Ask the registry or GitHub before planning, so the newest version and that the version exists are checked now",
+              "name": "fetch",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Install a release file the publisher gives no checksum for",
+              "name": "allow_unverified",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Restart even while a call is running; calls in flight end. Without it a busy server is not restarted",
+              "name": "restart_now",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Put back the last update of this server instead of making one",
+              "name": "undo",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "Where the git checkout each local server runs from stands against the branch it tracks: branch, head, commits ahead and behind, local changes and the time of the last fetch. Reads git state already on disk and fetches nothing; applying an update is not offered here",
           "dryRunDefault": false,
           "gate": "none",

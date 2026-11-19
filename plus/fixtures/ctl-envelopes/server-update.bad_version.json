@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "update", "files", "--to", "latest"],
+  "envelope": {
+    "command": "server update",
+    "error": {
+      "code": "usage",
+      "message": "'latest' is not one version; give an exact one such as 1.4.2"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

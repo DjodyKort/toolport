@@ -36,6 +36,7 @@ mod secret;
 #[cfg(test)]
 mod secret_tests;
 mod server_repo;
+mod server_update;
 mod servers;
 mod setup;
 #[cfg(test)]

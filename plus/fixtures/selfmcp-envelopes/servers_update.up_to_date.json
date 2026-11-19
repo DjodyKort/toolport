@@ -1,0 +1,28 @@
+{
+  "arguments": {
+    "name": "files"
+  },
+  "isError": false,
+  "result": {
+    "apply": null,
+    "applyWith": "call servers_update with dry_run=false, this planHash as plan_hash, this `to` as to and confirm=true",
+    "changes": [],
+    "downgrade": false,
+    "from": "1.5.0",
+    "id": "srv-files",
+    "inFlight": null,
+    "kind": "npm",
+    "package": "@scope/files",
+    "planHash": "<masked>",
+    "refusal": {
+      "code": "up_to_date",
+      "message": "@scope/files is already on 1.5.0"
+    },
+    "release": null,
+    "server": "files",
+    "to": "1.5.0",
+    "undo": "toolportctl server update files --undo",
+    "verified": false
+  },
+  "tool": "servers_update"
+}

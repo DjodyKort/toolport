@@ -3,8 +3,8 @@ use toolport_plus_api::Host;
 
 use super::{
     access, attention, backend, catalog_index, clients, compression, content, context,
-    launch_profile, library, memory, plugins, reach, secret, server_repo, servers, setup, skills,
-    sources, spend, sync, tasks, ToolError,
+    launch_profile, library, memory, plugins, reach, secret, server_repo, server_update, servers,
+    setup, skills, sources, spend, sync, tasks, ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1370,6 +1370,23 @@ pub const TOOLS: &[ToolDef] = &[
         "Read one server entry without secret values",
         [NAME],
         servers::get
+    ),
+    tool!(
+        "servers_update",
+        3,
+        UnlessDryRun,
+        "Move a server to another version of the package its arguments pin (npm, uvx or pipx, Docker Hub tag) or of the GitHub release it was installed from, then restart it. HIGH risk: it changes what code the server runs, and for a release it replaces the installed binary. dry_run is on by default and returns the plan: the exact registry change, for a release the file and whether its checksum is published, and the plan_hash (apply with dry_run=false, that plan_hash, the plan's `to` and confirm=true; refused when the plan changed since). Without `to` the newest version the last update check found is taken; fetch asks the registry or GitHub first. undo=true takes back the one update on record when nothing changed it since. A pin Toolport cannot rewrite is refused with the reason",
+        [
+            NAME,
+            DRY_ON,
+            PLAN_HASH,
+            p("to", Ty::Str, false, "The exact version to move to; the newest checked one when omitted"),
+            p("fetch", Ty::Bool, false, "Ask the registry or GitHub before planning, so the newest version and that the version exists are checked now"),
+            p("allow_unverified", Ty::Bool, false, "Install a release file the publisher gives no checksum for"),
+            p("restart_now", Ty::Bool, false, "Restart even while a call is running; calls in flight end. Without it a busy server is not restarted"),
+            p("undo", Ty::Bool, false, "Put back the last update of this server instead of making one")
+        ],
+        server_update::run
     ),
     tool!(
         "servers_repo_status",

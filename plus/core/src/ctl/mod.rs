@@ -31,6 +31,7 @@ mod policy;
 mod secret;
 mod server;
 mod server_repo;
+mod server_update;
 mod setup;
 mod skills;
 mod skills_checks;
@@ -142,6 +143,11 @@ pub const COMMANDS: &[Command] = &[
         &["server", "mode"],
         "Choose whether a server's tools are listed (auto) or only searched (search): <server> auto|search",
         server::mode,
+    ),
+    cmd(
+        &["server", "update"],
+        "Move a server to another version of its pinned package or GitHub release: the plan shows the exact change, then the pin is rewritten and the server restarts <server> [--to <version>] [--fetch] [--dry-run] [--plan-hash] [--allow-unverified] [--restart-now|--no-restart], or --undo",
+        server_update::run,
     ),
     cmd(
         &["server", "repo", "status"],

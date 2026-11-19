@@ -21,6 +21,7 @@ use common::client::Client;
 use common::compression;
 use common::library_world::{self, library_home};
 use common::server_repo_world::{server_repo, server_repo_diverged, server_repo_with_peers};
+use common::server_update_world::server_package;
 use common::taps_world;
 use common::tasks_world::{scheduler_home, tasks_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY, SET_SENTINEL};
@@ -1856,6 +1857,64 @@ const CASES: &[Case] = &[
         "servers_repo_check",
         server_repo,
         &[write("fetched", "servers_repo_check", "{}")],
+    ),
+    prepared(
+        "servers_update",
+        server_package,
+        &[
+            read("plan", "servers_update", r#"{"name":"files"}"#),
+            read("plan_to", "servers_update", r#"{"name":"files","to":"1.6.0"}"#),
+            read("recipe", "servers_update", r#"{"name":"recipe"}"#),
+            read("release_manual", "servers_update", r#"{"name":"golf"}"#),
+            fails(
+                "needs_hash",
+                "invalid_arguments",
+                "servers_update",
+                r#"{"name":"files","dry_run":false,"confirm":true}"#,
+            ),
+            refused(
+                "refused",
+                "servers_update",
+                r#"{"name":"files","dry_run":false,"plan_hash":"sha256:0000000000000000"}"#,
+            ),
+            fails(
+                "stale_hash",
+                "conflict",
+                "servers_update",
+                r#"{"name":"files","dry_run":false,"plan_hash":"sha256:0000000000000000","confirm":true}"#,
+            ),
+            fails(
+                "cannot_rewrite",
+                "backend_error",
+                "servers_update",
+                r#"{"name":"recipe","dry_run":false,"plan_hash":"sha256:0000000000000000","confirm":true}"#,
+            ),
+            fails("unknown", "not_found", "servers_update", r#"{"name":"ghost"}"#),
+            fails(
+                "undo_with_version",
+                "invalid_arguments",
+                "servers_update",
+                r#"{"name":"files","undo":true,"to":"1.5.0"}"#,
+            ),
+            write(
+                "update",
+                "servers_update",
+                r#"{"name":"files","dry_run":false,"plan_hash":"sha256:d4e49786aae00346","confirm":true}"#,
+            ),
+            read("up_to_date", "servers_update", r#"{"name":"files"}"#),
+            read("undo_preview", "servers_update", r#"{"name":"files","undo":true}"#),
+            write(
+                "undo",
+                "servers_update",
+                r#"{"name":"files","undo":true,"dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "undo_nothing",
+                "not_found",
+                "servers_update",
+                r#"{"name":"files","undo":true}"#,
+            ),
+        ],
     ),
     prepared(
         "servers_repo_update",

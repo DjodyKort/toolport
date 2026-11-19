@@ -1,0 +1,22 @@
+{
+  "argv": ["server", "update", "files", "--no-restart"],
+  "envelope": {
+    "command": "server update",
+    "data": {
+      "applied": false,
+      "changes": [],
+      "from": "1.5.0",
+      "id": "srv-files",
+      "kind": "npm",
+      "package": "@scope/files",
+      "restart": null,
+      "server": "files",
+      "to": "1.5.0",
+      "undo": "toolportctl server update files --undo",
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

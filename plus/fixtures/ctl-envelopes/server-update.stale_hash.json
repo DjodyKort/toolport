@@ -1,0 +1,16 @@
+{
+  "argv": ["server", "update", "files", "--plan-hash", "sha256:0000000000000000"],
+  "envelope": {
+    "command": "server update",
+    "data": {
+      "planHash": "<masked>"
+    },
+    "error": {
+      "code": "conflict",
+      "message": "the plan has changed since it was reviewed; review it again"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

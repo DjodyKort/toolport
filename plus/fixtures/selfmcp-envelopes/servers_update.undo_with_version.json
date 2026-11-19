@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "name": "files",
+    "to": "1.5.0",
+    "undo": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "undo takes no to or plan_hash"
+    }
+  },
+  "text": "invalid_arguments: undo takes no to or plan_hash",
+  "tool": "servers_update"
+}

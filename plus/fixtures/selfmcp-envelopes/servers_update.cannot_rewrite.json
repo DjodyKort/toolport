@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "name": "recipe",
+    "plan_hash": "sha256:0000000000000000"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "backend_error",
+      "message": "Toolport cannot change this pin itself: its arguments come from a catalog launch recipe, and editing them detaches it"
+    }
+  },
+  "text": "backend_error: Toolport cannot change this pin itself: its arguments come from a catalog launch recipe, and editing them detaches it",
+  "tool": "servers_update"
+}

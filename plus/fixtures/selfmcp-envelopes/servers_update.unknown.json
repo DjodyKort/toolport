@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "ghost"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no server 'ghost'"
+    }
+  },
+  "text": "not_found: no server 'ghost'",
+  "tool": "servers_update"
+}

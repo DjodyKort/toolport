@@ -29,6 +29,7 @@ use common::compression::{
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
 use common::server_repo_world::{server_repo, server_repo_dirty, server_repo_peers};
+use common::server_update_world::server_package;
 use common::setup_world::{self, PASSPHRASE};
 use common::taps_world;
 use common::tasks_world::{scheduler_extras, tasks_home};
@@ -1799,6 +1800,108 @@ const CASES: &[Case] = &[
             apply(
                 "not-running",
                 &["server", "restart", "alpha", "--wait", "1"],
+            ),
+        ],
+    ),
+    case(
+        "server update",
+        &[
+            hook("package-world", server_package),
+            read(
+                "plan",
+                &["server", "update", "files", "--dry-run", "--wait", "1"],
+            ),
+            read(
+                "plan_to",
+                &[
+                    "server",
+                    "update",
+                    "files",
+                    "--to",
+                    "1.6.0",
+                    "--dry-run",
+                    "--wait",
+                    "1",
+                ],
+            ),
+            read(
+                "plan_downgrade",
+                &[
+                    "server",
+                    "update",
+                    "files",
+                    "--to",
+                    "1.3.0",
+                    "--dry-run",
+                    "--wait",
+                    "1",
+                ],
+            ),
+            read(
+                "not_checked",
+                &["server", "update", "bare", "--dry-run", "--wait", "1"],
+            ),
+            read(
+                "recipe",
+                &["server", "update", "recipe", "--dry-run", "--wait", "1"],
+            ),
+            read(
+                "release_manual",
+                &["server", "update", "golf", "--dry-run", "--wait", "1"],
+            ),
+            apply("unknown", &["server", "update", "ghost"]).exit(1),
+            apply(
+                "stale_hash",
+                &[
+                    "server",
+                    "update",
+                    "files",
+                    "--plan-hash",
+                    "sha256:0000000000000000",
+                ],
+            )
+            .exit(1),
+            apply(
+                "update",
+                &[
+                    "server",
+                    "update",
+                    "files",
+                    "--plan-hash",
+                    "sha256:d4e49786aae00346",
+                    "--no-restart",
+                ],
+            ),
+            apply("up_to_date", &["server", "update", "files", "--no-restart"]),
+            read(
+                "undo_preview",
+                &["server", "update", "files", "--undo", "--dry-run"],
+            ),
+            apply(
+                "undo",
+                &["server", "update", "files", "--undo", "--no-restart"],
+            ),
+            apply(
+                "undo_again",
+                &["server", "update", "files", "--undo", "--no-restart"],
+            )
+            .exit(1),
+            apply(
+                "restart",
+                &["server", "update", "files", "--to", "1.6.0", "--wait", "1"],
+            ),
+            usage("usage", &["server", "update"]),
+            usage(
+                "conflicting_restart",
+                &["server", "update", "files", "--restart-now", "--no-restart"],
+            ),
+            usage(
+                "undo_with_version",
+                &["server", "update", "files", "--undo", "--to", "1.5.0"],
+            ),
+            usage(
+                "bad_version",
+                &["server", "update", "files", "--to", "latest"],
             ),
         ],
     ),

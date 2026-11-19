@@ -9,6 +9,7 @@ pub mod library_world;
 pub mod normalize;
 pub mod oauth_mock;
 pub mod server_repo_world;
+pub mod server_update_world;
 pub mod setup_world;
 pub mod sources_world;
 pub mod spend_world;

@@ -1,0 +1,131 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "The version to move to (default: the newest one the last check found)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--to",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Ask the registry or GitHub first, so the plan sees what was published since the last check and that the version exists",
+      "escalates": false,
+      "hidden": false,
+      "name": "--fetch",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the exact change to the registry entry, the release file and whether a call is running, and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "The hash of the reviewed plan; the update stops when the plan has changed",
+      "escalates": false,
+      "hidden": false,
+      "name": "--plan-hash",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Install a release file the publisher gives no checksum for",
+      "escalates": false,
+      "hidden": false,
+      "name": "--allow-unverified",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Restart even when a call is running; the call ends",
+      "escalates": false,
+      "hidden": false,
+      "name": "--restart-now",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Do not restart the server",
+      "escalates": false,
+      "hidden": false,
+      "name": "--no-restart",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Seconds to wait for the gateways' answers to the restart",
+      "escalates": false,
+      "hidden": false,
+      "name": "--wait",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "Put back what the last update changed, when nothing has changed it since",
+      "escalates": false,
+      "hidden": false,
+      "name": "--undo",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "server",
+  "id": "server update",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "server",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["server", "update"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Move a server to another version of its pinned package or GitHub release: the plan shows the exact change, then the pin is rewritten and the server restarts <server> [--to <version>] [--fetch] [--dry-run] [--plan-hash] [--allow-unverified] [--restart-now|--no-restart], or --undo",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["servers_update"]
+}

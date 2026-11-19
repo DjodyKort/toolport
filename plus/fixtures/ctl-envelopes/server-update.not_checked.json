@@ -1,0 +1,31 @@
+{
+  "argv": ["server", "update", "bare", "--dry-run", "--wait", "1"],
+  "envelope": {
+    "command": "server update",
+    "data": {
+      "plan": {
+        "apply": null,
+        "changes": [],
+        "downgrade": false,
+        "from": "0.9.1",
+        "id": "srv-bare",
+        "inFlight": null,
+        "kind": "pypi",
+        "package": "bare-mcp",
+        "planHash": "<masked>",
+        "refusal": {
+          "code": "not_checked",
+          "message": "the last update check found no version of bare-mcp; run the check, pass --fetch to ask the registry now, or give --to"
+        },
+        "release": null,
+        "server": "bare",
+        "to": "",
+        "undo": "toolportctl server update bare --undo",
+        "verified": false
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

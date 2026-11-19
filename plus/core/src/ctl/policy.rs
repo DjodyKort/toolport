@@ -29,6 +29,7 @@ use super::plugins;
 use super::secret;
 use super::server;
 use super::server_repo;
+use super::server_update;
 use super::setup;
 use super::skills;
 use super::skills_checks;
@@ -359,6 +360,11 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&server::MODE])
         .args(&[req("server"), req("mode")])
         .skip("changes how a server is listed; plus_ctl_contract round trip in a scratch registry"),
+    row("server update", W)
+        .dry()
+        .spec(&[&server_update::UPDATE])
+        .args(&[req("server")])
+        .skip("rewrites a server's pin or replaces its binary and restarts it; its --dry-run is a golden step"),
     row("server repo status", R).spec(&[&server_repo::STATUS]),
     row("server repo check", W)
         .spec(&[&server_repo::CHECK])
@@ -1294,6 +1300,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("client_direct_rm", D, "client direct rm").on(),
     own("servers_set_enabled", W).on(),
     maps("servers_restart", W, "server restart").on(),
+    maps("servers_update", W, "server update").on(),
     maps("servers_repo_status", R, "server repo status"),
     maps("servers_repo_check", W, "server repo check"),
     maps("servers_repo_update", W, "server repo update").on(),

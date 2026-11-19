@@ -1,0 +1,31 @@
+{
+  "argv": ["server", "update", "files", "--to", "1.6.0", "--wait", "1"],
+  "envelope": {
+    "command": "server update",
+    "data": {
+      "applied": true,
+      "changes": [
+        {
+          "field": "args[1]",
+          "from": "@scope/files@1.4.2",
+          "to": "@scope/files@1.6.0"
+        }
+      ],
+      "from": "1.4.2",
+      "id": "srv-files",
+      "kind": "npm",
+      "package": "@scope/files",
+      "restart": {
+        "detail": "No running gateway holds files (srv-files), so there is nothing to restart. It starts fresh at its next call.",
+        "status": "not_running"
+      },
+      "server": "files",
+      "to": "1.6.0",
+      "undo": "toolportctl server update files --undo",
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

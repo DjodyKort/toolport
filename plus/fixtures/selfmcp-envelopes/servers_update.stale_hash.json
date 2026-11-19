@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "name": "files",
+    "plan_hash": "sha256:0000000000000000"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "the plan has changed since it was reviewed; review it again"
+    }
+  },
+  "text": "conflict: the plan has changed since it was reviewed; review it again",
+  "tool": "servers_update"
+}

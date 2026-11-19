@@ -1,0 +1,34 @@
+{
+  "argv": ["server", "update", "files", "--to", "1.3.0", "--dry-run", "--wait", "1"],
+  "envelope": {
+    "command": "server update",
+    "data": {
+      "plan": {
+        "apply": "toolportctl server update files --to 1.3.0 --plan-hash sha256:a8105878bde22517",
+        "changes": [
+          {
+            "field": "args[1]",
+            "from": "@scope/files@1.4.2",
+            "to": "@scope/files@1.3.0"
+          }
+        ],
+        "downgrade": true,
+        "from": "1.4.2",
+        "id": "srv-files",
+        "inFlight": null,
+        "kind": "npm",
+        "package": "@scope/files",
+        "planHash": "<masked>",
+        "refusal": null,
+        "release": null,
+        "server": "files",
+        "to": "1.3.0",
+        "undo": "toolportctl server update files --undo",
+        "verified": false
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
