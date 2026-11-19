@@ -564,3 +564,37 @@ fn test16_keeping_this_machine_settles_a_conflict_row_and_lets_the_push_through(
     assert_eq!(row(&pull(&b, &[]), "server:alpha")["state"], "mine");
     assert_eq!(push(&b)["pushed"], true);
 }
+
+#[test]
+fn test17_a_sync_undo_that_could_not_finish_keeps_the_run_to_try_again() {
+    let (a, b, shared) = two_machines();
+    a.claude("CLAUDE.md", "v1\n");
+    b.claude("CLAUDE.md", "v1\n");
+    join_folder(&a, &shared, &WITH_FILES);
+    join_folder(&b, &shared, &WITH_FILES);
+    push(&a);
+    apply(&b, &[]);
+    a.claude("CLAUDE.md", "v2\n");
+    push(&a);
+    apply(&b, &[]);
+    let path = b.home.join(".claude/CLAUDE.md");
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "v2\n");
+    let run = config::read_state(&b.ctx())
+        .unwrap()
+        .last_apply
+        .unwrap()
+        .run;
+    let backup = b.data.join("plus/setup/runs").join(run).join("backup/0");
+    let saved = std::fs::read(&backup).unwrap();
+    std::fs::remove_file(&backup).unwrap();
+
+    let stuck = engine::undo(&b.ctx(), false).unwrap();
+    assert_eq!(stuck["undone"], false, "{stuck}");
+    assert!(config::read_state(&b.ctx()).unwrap().last_apply.is_some());
+
+    std::fs::write(&backup, saved).unwrap();
+    let done = engine::undo(&b.ctx(), false).unwrap();
+    assert_eq!(done["undone"], true, "{done}");
+    assert!(config::read_state(&b.ctx()).unwrap().last_apply.is_none());
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "v1\n");
+}

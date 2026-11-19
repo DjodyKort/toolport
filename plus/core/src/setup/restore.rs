@@ -1121,6 +1121,9 @@ struct Journal {
     at: u128,
     #[serde(default)]
     undone: bool,
+    /// Undo steps that are finished, so that a second undo after a failure only does the rest.
+    #[serde(default)]
+    undone_steps: Vec<String>,
     settings: Map<String, Value>,
     servers: Vec<String>,
     #[serde(default)]
@@ -1173,13 +1176,20 @@ fn write_one(ctx: &Ctx<'_>, journal: &mut Journal, write: &Write) -> Result<bool
     } else {
         None
     };
-    atomic_write_bytes(&write.path, &write.bytes, Mode::KeepOrDefault)
-        .map_err(|e| format!("{}: {e}", write.path.display()))?;
     journal.files.push(Touched {
         path: write.path.to_string_lossy().into_owned(),
         sha: sha256_hex(&write.bytes),
         backup,
     });
+    if let Err(why) = save_journal(ctx, journal) {
+        journal.files.pop();
+        return Err(why.message);
+    }
+    if let Err(e) = atomic_write_bytes(&write.path, &write.bytes, Mode::KeepOrDefault) {
+        journal.files.pop();
+        let _ = save_journal(ctx, journal);
+        return Err(format!("{}: {e}", write.path.display()));
+    }
     Ok(true)
 }
 
@@ -1276,11 +1286,15 @@ fn run_step(
                 set.insert("claudeMdExcludes".into(), Value::Null);
             }
             let text = serde_json::to_string_pretty(&doc).unwrap_or_default() + "\n";
-            atomic_write_bytes(&path, text.as_bytes(), Mode::KeepOrDefault)
-                .map_err(|e| e.to_string())?;
             journal
                 .switches
                 .push((repo.to_string_lossy().into_owned(), set));
+            save_journal(ctx, journal).map_err(|e| e.message)?;
+            if let Err(e) = atomic_write_bytes(&path, text.as_bytes(), Mode::KeepOrDefault) {
+                journal.switches.pop();
+                let _ = save_journal(ctx, journal);
+                return Err(e.to_string());
+            }
             Ok("switches set".into())
         }
         Step::Tasks(tasks) => {
@@ -1289,8 +1303,13 @@ fn run_step(
                 let mut task: crate::tasks::model::Task =
                     serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
                 task.enabled = false;
-                crate::tasks::store::save_task(&base, &task).map_err(|e| e.message)?;
-                journal.tasks.push(task.id);
+                journal.tasks.push(task.id.clone());
+                save_journal(ctx, journal).map_err(|e| e.message)?;
+                if let Err(e) = crate::tasks::store::save_task(&base, &task) {
+                    journal.tasks.pop();
+                    let _ = save_journal(ctx, journal);
+                    return Err(e.message);
+                }
             }
             Ok(format!("{} added, turned off", tasks.len()))
         }
@@ -1320,6 +1339,15 @@ fn order(step: &Option<Step>) -> u8 {
 }
 
 pub fn run(ctx: &Ctx<'_>, opts: &RestoreOptions) -> Result<Value, OpError> {
+    run_stopping_after(ctx, opts, None)
+}
+
+/// [`run`] that leaves off after this many steps, as a process killed at that point would.
+pub(super) fn run_stopping_after(
+    ctx: &Ctx<'_>,
+    opts: &RestoreOptions,
+    stop_after: Option<usize>,
+) -> Result<Value, OpError> {
     super::scratch::sweep(ctx);
     let mut opened = inspect::open(&opts.file)?;
     if opened.parts.iter().all(|p| p.standing != Standing::Ok) {
@@ -1364,19 +1392,32 @@ pub fn run(ctx: &Ctx<'_>, opts: &RestoreOptions) -> Result<Value, OpError> {
     let refused = refused_rows(&plan.rows);
     let mut rows = std::mem::take(&mut plan.rows);
     rows.sort_by_key(|r| order(&r.step));
+    // The journal is on disk before the first step and after every change, so a run that stops
+    // anywhere can still be undone.
+    save_journal(ctx, &journal)?;
     let mut added = Vec::new();
     let mut results = Vec::new();
     for row in &rows {
         let Some(step) = &row.step else {
             continue;
         };
+        if stop_after == Some(results.len()) {
+            return Ok(json!({"stopped": results.len(), "run": journal.id}));
+        }
         let (ok, note) = match run_step(ctx, &mut journal, step, &mut added) {
             Ok(note) => (true, note),
             Err(why) => (false, why),
         };
+        save_journal(ctx, &journal).map_err(|e| {
+            failed(format!(
+                "{}: restore stopped after {} steps; undo run {} puts back what was done",
+                e.message,
+                results.len() + 1,
+                journal.id
+            ))
+        })?;
         results.push(json!({"id": row.id, "part": row.part.id(), "label": row.label, "ok": ok, "note": note}));
     }
-    save_journal(ctx, &journal)?;
     let failures = results.iter().filter(|r| r["ok"] == false).count();
     let needs: Vec<Value> = rows
         .iter()
@@ -1423,140 +1464,254 @@ fn latest_journal(ctx: &Ctx<'_>, wanted: Option<&str>) -> Result<Journal, OpErro
     serde_json::from_slice(&bytes).map_err(|e| failed(format!("{id}: {e}")))
 }
 
-/// Undoes a restore run as far as nothing changed since: files still as the restore wrote them,
-/// clones without new work. Servers and vault values stay: the result names them.
-pub fn undo(ctx: &Ctx<'_>, run_id: Option<&str>, dry_run: bool) -> Result<Value, OpError> {
-    let mut journal = latest_journal(ctx, run_id)?;
-    if journal.undone {
-        return Err(OpError::failed("undone", "that run is already undone"));
-    }
-    let mut steps = Vec::new();
-    let mut step = |what: String, ok: bool, note: &str| {
-        steps.push(json!({"what": what, "ok": ok, "note": note}))
-    };
-    if !journal.settings.is_empty() {
-        let result = if dry_run {
-            Ok(Map::new())
-        } else {
-            ctx.host.setup_apply_settings(&journal.settings)
-        };
-        step(
-            format!("{} settings", journal.settings.len()),
-            result.is_ok(),
-            "old values put back",
-        );
-    }
-    for updated in journal.updated.iter().rev() {
-        let result = if dry_run {
-            Ok(())
-        } else {
-            ctx.host.setup_restore_server(updated)
-        };
-        step(
-            format!("server {}", updated.name),
-            result.is_ok(),
-            match &result {
-                Ok(()) => "the old definition is back",
-                Err(_) => "kept: changed since the restore",
-            },
-        );
-    }
-    if let Some(added) = &journal.access {
-        let result = if dry_run {
-            Ok(())
-        } else {
-            ctx.host.setup_unmerge_access(added)
-        };
-        step(
-            "access sets".into(),
-            result.is_ok(),
-            "what the merge added is removed where unchanged",
-        );
-    }
-    if !journal.tasks.is_empty() {
-        let base = crate::tasks::triggers::base_of(ctx.host)?;
-        for id in &journal.tasks {
-            let ok = dry_run || crate::tasks::store::remove_task(&base, id).is_ok();
-            step(format!("task {id}"), ok, "removed");
+/// How one undo step ended: put back, left alone on purpose, or not possible.
+enum Outcome {
+    Done(String),
+    /// Changed since the restore or holding work of its own: left as it is, which is not a failure.
+    Kept(String),
+    Failed(String),
+}
+
+struct Undoing<'a, 'c> {
+    ctx: &'a Ctx<'c>,
+    journal: Journal,
+    dry_run: bool,
+    steps: Vec<Value>,
+    failed: Vec<String>,
+}
+
+impl Undoing<'_, '_> {
+    /// Runs one step unless an earlier undo of this run finished it, and records how it ended.
+    fn step(
+        &mut self,
+        key: String,
+        what: String,
+        run: impl FnOnce(&Ctx<'_>) -> Outcome,
+    ) -> Result<(), OpError> {
+        if self.journal.undone_steps.contains(&key) {
+            self.steps.push(json!({
+                "what": what, "ok": true, "result": "done", "note": "undone by an earlier try",
+            }));
+            return Ok(());
         }
-    }
-    for (path, head) in &journal.clones {
-        let dir = PathBuf::from(path);
-        let here = repos::read(&dir, &ctx.home, false);
-        let clean = here.error.is_none()
-            && here.dirty == 0
-            && here.untracked == 0
-            && here.unpushed_commits() == 0
-            && here.head.as_deref() == Some(head.as_str());
-        if clean && !dry_run {
-            let _ = std::fs::remove_dir_all(&dir);
-        }
-        step(
-            ctx.tilde(&dir),
-            clean,
-            if clean {
-                "clone removed"
-            } else {
-                "kept: it has work of its own"
-            },
-        );
-    }
-    for touched in journal.files.iter().rev() {
-        let path = PathBuf::from(&touched.path);
-        let unchanged = std::fs::read(&path).is_ok_and(|b| sha256_hex(&b) == touched.sha);
-        if unchanged && !dry_run {
-            match &touched.backup {
-                Some(backup) => {
-                    if let Ok(old) = std::fs::read(backup) {
-                        let _ = atomic_write_bytes(&path, &old, Mode::KeepOrDefault);
-                    }
-                }
-                None => {
-                    let _ = std::fs::remove_file(&path);
-                }
+        let (result, note) = match run(self.ctx) {
+            Outcome::Done(note) => ("done", note),
+            Outcome::Kept(note) => ("kept", note),
+            Outcome::Failed(note) => {
+                self.failed.push(what.clone());
+                ("failed", note)
             }
+        };
+        self.steps.push(json!({
+            "what": what, "ok": result == "done", "result": result, "note": note,
+        }));
+        if result != "failed" && !self.dry_run {
+            self.journal.undone_steps.push(key);
+            save_journal(self.ctx, &self.journal)?;
         }
-        step(
-            ctx.tilde(&path),
-            unchanged,
-            if !unchanged {
-                "kept: changed since the restore"
-            } else if touched.backup.is_some() {
+        Ok(())
+    }
+}
+
+fn removed_dir(dir: &Path) -> Outcome {
+    match std::fs::remove_dir_all(dir) {
+        Ok(()) => Outcome::Done("clone removed".into()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Outcome::Done("the clone is already gone".into())
+        }
+        Err(e) => Outcome::Failed(format!("the clone could not be removed: {e}")),
+    }
+}
+
+fn undo_file(touched: &Touched, dry_run: bool) -> Outcome {
+    let path = PathBuf::from(&touched.path);
+    let current = std::fs::read(&path).ok();
+    let backup = touched.backup.as_ref().map(std::fs::read);
+    let is_restored = current
+        .as_ref()
+        .is_some_and(|b| sha256_hex(b) == touched.sha);
+    if !is_restored {
+        return match (&current, &backup) {
+            (None, None) => Outcome::Done("it is already gone".into()),
+            (Some(now), Some(Ok(old))) if now == old => {
+                Outcome::Done("it was never replaced".into())
+            }
+            _ => Outcome::Kept("kept: changed since the restore".into()),
+        };
+    }
+    match backup {
+        _ if dry_run => Outcome::Done(
+            if touched.backup.is_some() {
                 "your copy put back"
             } else {
                 "removed"
-            },
-        );
-    }
-    for (repo, set) in &journal.switches {
-        if !dry_run {
-            let path = PathBuf::from(repo).join(".claude/settings.local.json");
-            if let Some(mut doc) = std::fs::read(&path)
-                .ok()
-                .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
-            {
-                if let Some(map) = doc.as_object_mut() {
-                    for key in set.keys() {
-                        map.remove(key);
-                    }
-                    let text = serde_json::to_string_pretty(&doc).unwrap_or_default() + "\n";
-                    let _ = atomic_write_bytes(&path, text.as_bytes(), Mode::KeepOrDefault);
-                }
             }
-        }
-        step(
-            format!("switches of {}", ctx.tilde(Path::new(repo))),
-            true,
-            "removed",
-        );
+            .into(),
+        ),
+        Some(Ok(old)) => match atomic_write_bytes(&path, &old, Mode::KeepOrDefault) {
+            Ok(()) => Outcome::Done("your copy put back".into()),
+            Err(e) => Outcome::Failed(format!("your copy could not be put back: {e}")),
+        },
+        Some(Err(e)) => Outcome::Failed(format!("the saved copy of yours cannot be read: {e}")),
+        None => match std::fs::remove_file(&path) {
+            Ok(()) => Outcome::Done("removed".into()),
+            Err(e) => Outcome::Failed(format!("it could not be removed: {e}")),
+        },
     }
-    if !dry_run {
+}
+
+fn undo_switches(repo: &str, set: &Map<String, Value>, dry_run: bool) -> Outcome {
+    let path = PathBuf::from(repo).join(".claude/settings.local.json");
+    let bytes = match std::fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Outcome::Done("the file is already gone".into())
+        }
+        Err(e) => return Outcome::Failed(format!("it cannot be read: {e}")),
+    };
+    let Ok(mut doc) = serde_json::from_slice::<Value>(&bytes) else {
+        return Outcome::Kept("kept: it is not readable JSON any more".into());
+    };
+    let Some(map) = doc.as_object_mut() else {
+        return Outcome::Kept("kept: it is not an object any more".into());
+    };
+    if dry_run || !set.keys().any(|key| map.contains_key(key)) {
+        return Outcome::Done("removed".into());
+    }
+    for key in set.keys() {
+        map.remove(key);
+    }
+    let text = serde_json::to_string_pretty(&doc).unwrap_or_default() + "\n";
+    match atomic_write_bytes(&path, text.as_bytes(), Mode::KeepOrDefault) {
+        Ok(()) => Outcome::Done("removed".into()),
+        Err(e) => Outcome::Failed(format!("it could not be written: {e}")),
+    }
+}
+
+/// Undoes a restore run as far as nothing changed since: files still as the restore wrote them,
+/// clones without new work. Servers and vault values stay: the result names them. A step that
+/// could not be done keeps the run open (`undone` false, the step named in `failed`): a second
+/// undo does only what is left.
+pub fn undo(ctx: &Ctx<'_>, run_id: Option<&str>, dry_run: bool) -> Result<Value, OpError> {
+    let journal = latest_journal(ctx, run_id)?;
+    if journal.undone {
+        return Err(OpError::failed("undone", "that run is already undone"));
+    }
+    let mut undoing = Undoing {
+        ctx,
+        journal,
+        dry_run,
+        steps: Vec::new(),
+        failed: Vec::new(),
+    };
+    if !undoing.journal.settings.is_empty() {
+        let settings = undoing.journal.settings.clone();
+        undoing.step(
+            "settings".into(),
+            format!("{} settings", settings.len()),
+            |ctx| {
+                if dry_run {
+                    return Outcome::Done("old values put back".into());
+                }
+                match ctx.host.setup_apply_settings(&settings) {
+                    Ok(_) => Outcome::Done("old values put back".into()),
+                    Err(why) => Outcome::Failed(why),
+                }
+            },
+        )?;
+    }
+    for updated in undoing.journal.updated.clone().iter().rev() {
+        undoing.step(
+            format!("server:{}", updated.id),
+            format!("server {}", updated.name),
+            |ctx| {
+                if dry_run {
+                    return Outcome::Done("the old definition is back".into());
+                }
+                match ctx.host.setup_restore_server(updated) {
+                    Ok(()) => Outcome::Done("the old definition is back".into()),
+                    Err(why) => Outcome::Kept(format!("kept: {why}")),
+                }
+            },
+        )?;
+    }
+    if let Some(added) = undoing.journal.access.clone() {
+        undoing.step("access".into(), "access sets".into(), |ctx| {
+            if dry_run {
+                return Outcome::Done("what the merge added is removed where unchanged".into());
+            }
+            match ctx.host.setup_unmerge_access(&added) {
+                Ok(()) => Outcome::Done("what the merge added is removed where unchanged".into()),
+                Err(why) => Outcome::Failed(why),
+            }
+        })?;
+    }
+    let tasks = undoing.journal.tasks.clone();
+    if !tasks.is_empty() {
+        let base = crate::tasks::triggers::base_of(ctx.host)?;
+        for id in &tasks {
+            undoing.step(format!("task:{id}"), format!("task {id}"), |_| {
+                if dry_run {
+                    return Outcome::Done("removed".into());
+                }
+                match crate::tasks::store::load_task(&base, id) {
+                    Err(_) => Outcome::Done("it is already gone".into()),
+                    Ok(_) => match crate::tasks::store::remove_task(&base, id) {
+                        Ok(()) => Outcome::Done("removed".into()),
+                        Err(e) => Outcome::Failed(e.message),
+                    },
+                }
+            })?;
+        }
+    }
+    for (path, head) in undoing.journal.clones.clone() {
+        let dir = PathBuf::from(&path);
+        undoing.step(format!("clone:{path}"), ctx.tilde(&dir), |ctx| {
+            if !dir.exists() {
+                return Outcome::Done("the clone is already gone".into());
+            }
+            let here = repos::read(&dir, &ctx.home, false);
+            let clean = here.error.is_none()
+                && here.dirty == 0
+                && here.untracked == 0
+                && here.unpushed_commits() == 0
+                && here.head.as_deref() == Some(head.as_str());
+            match (clean, dry_run) {
+                (false, _) => Outcome::Kept("kept: it has work of its own".into()),
+                (true, true) => Outcome::Done("clone removed".into()),
+                (true, false) => removed_dir(&dir),
+            }
+        })?;
+    }
+    for touched in undoing.journal.files.clone().iter().rev() {
+        let path = PathBuf::from(&touched.path);
+        undoing.step(format!("file:{}", touched.path), ctx.tilde(&path), |_| {
+            undo_file(touched, dry_run)
+        })?;
+    }
+    for (repo, set) in undoing.journal.switches.clone() {
+        undoing.step(
+            format!("switch:{repo}"),
+            format!("switches of {}", ctx.tilde(Path::new(&repo))),
+            |_| undo_switches(&repo, &set, dry_run),
+        )?;
+    }
+    let Undoing {
+        mut journal,
+        steps,
+        failed: not_undone,
+        ..
+    } = undoing;
+    let undone = !dry_run && not_undone.is_empty();
+    if undone {
         journal.undone = true;
         save_journal(ctx, &journal)?;
     }
     Ok(json!({
         "run": journal.id,
         "dryRun": dry_run,
+        "undone": undone,
+        "failed": not_undone,
         "steps": steps,
         "left": {
             "servers": journal.servers,

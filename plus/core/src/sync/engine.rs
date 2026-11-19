@@ -650,7 +650,7 @@ pub fn undo(ctx: &Ctx<'_>, dry_run: bool) -> Result<Value, OpError> {
         .clone()
         .ok_or_else(|| OpError::not_found("no applied sync pull to undo"))?;
     let data = restore::undo(ctx, Some(&apply.run), dry_run)?;
-    if !dry_run {
+    if data["undone"] == true {
         state.baseline = apply.before;
         state.remote_seen = apply.seen_before;
         state.last_apply = None;

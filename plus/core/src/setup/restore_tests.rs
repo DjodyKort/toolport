@@ -1,6 +1,6 @@
 //! Restore and the reset check against two synthetic homes: one exports, the other restores.
 
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use super::check;
 use super::export;
@@ -192,6 +192,192 @@ fn test07_ticks_and_acknowledgements_survive_and_a_clean_world_is_ready_once_exp
     assert!(check::run(&world.ctx(), &opts(&["nonsense"])).is_err());
 }
 
+fn journal_dir(to: &World) -> std::path::PathBuf {
+    to.data.join("plus/setup/runs")
+}
+
+fn step<'a>(undone: &'a Value, what_ends_with: &str) -> &'a Value {
+    undone["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["what"].as_str().unwrap().ends_with(what_ends_with))
+        .unwrap_or_else(|| panic!("no step {what_ends_with} in {undone}"))
+}
+
+#[test]
+fn test08_an_undo_step_that_fails_is_named_and_keeps_the_run_open_for_a_second_try() {
+    let from = World::new();
+    from.claude("CLAUDE.md", "from the file\n");
+    from.claude("agents/a.md", "agent from the file\n");
+    let file = exported(&from);
+    let to = World::new();
+    to.claude("CLAUDE.md", "mine\n");
+    let take = ["claude:CLAUDE.md"];
+    let hash = plan(&to, &file, &take)["plan"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let done = apply(&to, &file, &take, &hash);
+    let run = done["run"].as_str().unwrap().to_string();
+    let backup = journal_dir(&to).join(&run).join("backup/0");
+    let saved = std::fs::read(&backup).unwrap();
+    std::fs::remove_file(&backup).unwrap();
+
+    let first = restore::undo(&to.ctx(), None, false).unwrap();
+    assert_eq!(first["undone"], false, "{first}");
+    assert_eq!(first["failed"], json!(["~/.claude/CLAUDE.md"]));
+    let failed = step(&first, "CLAUDE.md");
+    assert_eq!(
+        (failed["ok"].clone(), failed["result"].clone()),
+        (json!(false), json!("failed"))
+    );
+    assert!(
+        failed["note"].as_str().unwrap().contains("cannot be read"),
+        "{first}"
+    );
+    assert!(!to.home.join(".claude/agents/a.md").exists());
+    assert_eq!(step(&first, "a.md")["result"], "done");
+    assert_eq!(
+        std::fs::read_to_string(to.home.join(".claude/CLAUDE.md")).unwrap(),
+        "from the file\n"
+    );
+
+    std::fs::write(&backup, saved).unwrap();
+    let second = restore::undo(&to.ctx(), None, false).unwrap();
+    assert_eq!(second["undone"], true, "{second}");
+    assert_eq!(second["failed"], json!([]));
+    assert_eq!(step(&second, "a.md")["note"], "undone by an earlier try");
+    assert_eq!(
+        std::fs::read_to_string(to.home.join(".claude/CLAUDE.md")).unwrap(),
+        "mine\n"
+    );
+    assert!(restore::undo(&to.ctx(), None, false).is_err());
+}
+
+#[cfg(unix)]
+#[test]
+fn test09_a_file_that_cannot_be_removed_is_a_failure_not_a_success() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let from = World::new();
+    from.claude("CLAUDE.md", "from the file\n");
+    let file = exported(&from);
+    let to = World::new();
+    let hash = plan(&to, &file, &[])["plan"].as_str().unwrap().to_string();
+    apply(&to, &file, &[], &hash);
+    let dir = to.home.join(".claude");
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o500)).unwrap();
+    let probe = dir.join("probe");
+    if std::fs::write(&probe, "x").is_ok() {
+        std::fs::remove_file(&probe).unwrap();
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+        return;
+    }
+    let blocked = restore::undo(&to.ctx(), None, false).unwrap();
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+    assert_eq!(blocked["undone"], false, "{blocked}");
+    assert_eq!(step(&blocked, "CLAUDE.md")["result"], "failed");
+    assert!(dir.join("CLAUDE.md").exists());
+    let again = restore::undo(&to.ctx(), None, false).unwrap();
+    assert_eq!(again["undone"], true, "{again}");
+    assert!(!dir.join("CLAUDE.md").exists());
+}
+
+#[test]
+fn test10_what_was_kept_on_purpose_is_not_a_failure() {
+    let from = World::new();
+    from.claude("CLAUDE.md", "from the file\n");
+    let file = exported(&from);
+    let to = World::new();
+    let hash = plan(&to, &file, &[])["plan"].as_str().unwrap().to_string();
+    apply(&to, &file, &[], &hash);
+    std::fs::write(to.home.join(".claude/CLAUDE.md"), "edited since\n").unwrap();
+    let undone = restore::undo(&to.ctx(), None, false).unwrap();
+    assert_eq!(undone["undone"], true, "{undone}");
+    assert_eq!(undone["failed"], json!([]));
+    assert_eq!(step(&undone, "CLAUDE.md")["result"], "kept");
+}
+
+#[test]
+fn test11_a_dry_run_of_undo_changes_nothing_and_never_says_undone() {
+    let from = World::new();
+    from.claude("CLAUDE.md", "from the file\n");
+    let file = exported(&from);
+    let to = World::new();
+    let hash = plan(&to, &file, &[])["plan"].as_str().unwrap().to_string();
+    apply(&to, &file, &[], &hash);
+    let before = to.snapshot();
+    let preview = restore::undo(&to.ctx(), None, true).unwrap();
+    to.assert_unchanged(&before);
+    assert_eq!(preview["undone"], false);
+    assert_eq!(step(&preview, "CLAUDE.md")["result"], "done");
+}
+
+#[test]
+fn test12_a_run_killed_after_any_step_can_still_be_undone() {
+    let from = World::new();
+    from.repo("web");
+    from.claude("CLAUDE.md", "global rules\n");
+    from.claude("agents/a.md", "an agent\n");
+    let file = exported(&from);
+    for stop in 0..3 {
+        let to = World::new();
+        let hash = plan(&to, &file, &[])["plan"].as_str().unwrap().to_string();
+        let opts = RestoreOptions {
+            file: file.clone(),
+            apply: true,
+            plan: Some(hash),
+            ..Default::default()
+        };
+        let killed = restore::run_stopping_after(&to.ctx(), &opts, Some(stop)).unwrap();
+        assert_eq!(killed["stopped"], stop, "{killed}");
+        let run = killed["run"].as_str().unwrap();
+        assert!(journal_dir(&to).join(format!("{run}.json")).exists());
+        assert_eq!(
+            to.home.join("code/web").exists(),
+            stop >= 1,
+            "the clone is the first step"
+        );
+        assert_eq!(to.home.join(".claude/CLAUDE.md").exists(), stop >= 2);
+        assert!(!to.home.join(".claude/agents/a.md").exists());
+
+        let undone = restore::undo(&to.ctx(), None, false).unwrap();
+        assert_eq!(undone["undone"], true, "stop {stop}: {undone}");
+        assert!(!to.home.join("code/web").exists(), "stop {stop}");
+        assert!(!to.home.join(".claude/CLAUDE.md").exists(), "stop {stop}");
+        assert!(!to.home.join(".claude/agents/a.md").exists(), "stop {stop}");
+    }
+}
+
+#[test]
+fn test13_the_journal_grows_with_every_step_not_at_the_end() {
+    let from = World::new();
+    from.claude("CLAUDE.md", "global rules\n");
+    from.claude("agents/a.md", "an agent\n");
+    let file = exported(&from);
+    let to = World::new();
+    let hash = plan(&to, &file, &[])["plan"].as_str().unwrap().to_string();
+    let opts = RestoreOptions {
+        file,
+        apply: true,
+        plan: Some(hash),
+        ..Default::default()
+    };
+    let mut touched = Vec::new();
+    for stop in 0..=2 {
+        let killed = restore::run_stopping_after(&to.ctx(), &opts, Some(stop)).unwrap();
+        let run = killed["run"].as_str().unwrap();
+        let journal: Value = serde_json::from_slice(
+            &std::fs::read(journal_dir(&to).join(format!("{run}.json"))).unwrap(),
+        )
+        .unwrap();
+        touched.push(journal["files"].as_array().unwrap().len());
+        restore::undo(&to.ctx(), None, false).unwrap();
+    }
+    assert_eq!(touched, [0, 1, 2]);
+}
+
 #[cfg(feature = "cipher")]
 mod sealed {
     use super::*;
@@ -221,7 +407,7 @@ mod sealed {
     }
 
     #[test]
-    fn test08_without_the_passphrase_the_secrets_stay_locked_and_nothing_is_stored() {
+    fn test14_without_the_passphrase_the_secrets_stay_locked_and_nothing_is_stored() {
         let from = World::new();
         let file = sealed_file(&from);
         let to = empty_target();
@@ -232,7 +418,7 @@ mod sealed {
     }
 
     #[test]
-    fn test09_a_wrong_passphrase_is_refused_before_anything_changes() {
+    fn test15_a_wrong_passphrase_is_refused_before_anything_changes() {
         let from = World::new();
         let file = sealed_file(&from);
         let to = empty_target();
@@ -242,7 +428,7 @@ mod sealed {
     }
 
     #[test]
-    fn test10_the_right_passphrase_stores_secrets_only_for_servers_added_in_this_run() {
+    fn test16_the_right_passphrase_stores_secrets_only_for_servers_added_in_this_run() {
         let from = World::new();
         let file = sealed_file(&from);
         let to = empty_target();
@@ -259,7 +445,7 @@ mod sealed {
     }
 
     #[test]
-    fn test11_a_server_that_was_already_here_keeps_its_own_secret() {
+    fn test17_a_server_that_was_already_here_keeps_its_own_secret() {
         let from = World::new();
         let file = sealed_file(&from);
         let to = World::new();
