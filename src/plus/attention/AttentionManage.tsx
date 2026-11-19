@@ -17,7 +17,6 @@ import type {
 } from "../bridge/data";
 import { ageLabel, type AttentionItem } from "../shell/attentionFeed";
 import { toItem } from "../shell/ctlAttentionFeed";
-import { openView } from "../shell/navigate";
 import {
   ATTENTION_REFRESH_EVENT,
   checkNow,
@@ -31,6 +30,7 @@ import {
   setSwitch,
 } from "./attentionCtl";
 import { NotifyPermission } from "./NotifyPermission";
+import { openAction } from "./reviewTarget";
 import { RowMenu } from "./RowMenu";
 
 function StaleDays({
@@ -161,7 +161,7 @@ function OpenRow({ item }: { item: AttentionItem }) {
         <Button
           size="xs"
           variant={item.urgency === "needs-you" ? "default" : "outline"}
-          onClick={() => item.action && openView(item.action.view)}
+          onClick={() => openAction(item)}
         >
           {item.action.label}
         </Button>

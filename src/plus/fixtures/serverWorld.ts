@@ -1,5 +1,6 @@
 import type { AuthFix, AuthRow, AuthSection, LoginState } from "../bridge/data";
 import type { CtlReply } from "./ctlWorld";
+import { createPackageWorld, type PackageSeed } from "./packageWorld";
 import { createRepoWorld, type RepoSeed } from "./repoWorld";
 import type {
   AccessSetsData,
@@ -96,6 +97,8 @@ export interface ServerWorldOptions {
   vaultLocked?: boolean;
   /** Servers that run from a git checkout, by server id. */
   repos?: Record<string, RepoSeed>;
+  /** Servers that pin a package version or run a GitHub release, by server id. */
+  packages?: Record<string, PackageSeed>;
 }
 
 const PLACEHOLDER = /^<.*>$|^(changeme|your[-_ ]?(api[-_ ]?)?key.*)$/i;
@@ -289,6 +292,7 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
 
   const find = (key: string) => servers.find((s) => s.id === key || s.name === key);
   const repoWorld = createRepoWorld(options.repos ?? {}, find);
+  const packageWorld = createPackageWorld(options.packages ?? {}, find);
   const setOf = (key: string) =>
     sets.find((s) => s.id === key) ??
     sets.find((s) => s.name.toLowerCase() === key.trim().toLowerCase());
@@ -758,6 +762,7 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
     run(argv: string[]): CtlReply {
       const [, verb, key] = argv;
       if (verb === "repo") return repoWorld.run(argv.slice(2));
+      if (verb === "update") return packageWorld.run(argv.slice(1));
       if (verb === "ls") {
         const data: ServerListData = {
           defaultAccess,

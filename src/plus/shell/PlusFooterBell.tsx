@@ -9,8 +9,10 @@ import {
   type AttentionItem,
   type AttentionSnapshot,
 } from "./attentionFeed";
+import { openAction } from "../attention/reviewTarget";
+import { ReviewHost } from "../attention/reviewUpdate";
 import { RowMenu } from "../attention/RowMenu";
-import { openSettingsPage, openView } from "./navigate";
+import { openSettingsPage } from "./navigate";
 
 const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -37,7 +39,7 @@ function Row({ item }: { item: AttentionItem }) {
               size="xs"
               variant={item.urgency === "needs-you" ? "default" : "outline"}
               className="mt-2"
-              onClick={() => item.action && openView(item.action.view)}
+              onClick={() => openAction(item)}
             >
               {item.action.label}
             </Button>
@@ -76,7 +78,7 @@ function summary(snapshot: AttentionSnapshot): string {
 
 /** The bell next to Help (design study, mockup 07). It is drawn only while an attention feed is
  * registered; the production feed reads `toolportctl attention ls` (`ctlAttentionFeed.ts`). */
-export function PlusFooterBell() {
+function BellButton() {
   const snapshot = useAttentionSnapshot();
   if (!snapshot) return null;
   const needs = needsYouCount(snapshot);
@@ -161,5 +163,15 @@ export function PlusFooterBell() {
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
+  );
+}
+
+/** The bell, and the host that draws the plan of an update when one of its rows asks for it. */
+export function PlusFooterBell() {
+  return (
+    <>
+      <BellButton />
+      <ReviewHost />
+    </>
   );
 }

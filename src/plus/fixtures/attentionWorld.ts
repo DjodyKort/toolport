@@ -17,6 +17,9 @@ export type AttentionScenario =
   | "unchecked"
   | "updates"
   | "server-update"
+  | "package-update"
+  | "release-update"
+  | "release-manual"
   | "peer-branch"
   | "peer-newer"
   | "access";
@@ -110,6 +113,54 @@ function serverUpdate(now: number): AttentionRow[] {
         command: ["toolportctl", "server", "repo", "update", "alpha-api", "--dry-run"],
       },
       skip: { label: "9be07d2b" },
+    },
+  ];
+}
+
+function packageUpdate(now: number): AttentionRow[] {
+  return [
+    {
+      id: "updates:package:alpha-api:1.4.2>1.5.0",
+      urgency: "worth-a-look",
+      title: "alpha-api: @scope/alpha 1.5.0 is out, pinned to 1.4.2",
+      detail:
+        "The server's arguments pin 1.4.2 on npm. Review the plan to see the exact change; nothing is written until you confirm, and the server restarts only after that.",
+      source: "Updates",
+      since: iso(now - HOUR),
+      action: {
+        label: "Update",
+        screen: "servers",
+        command: ["toolportctl", "server", "update", "alpha-api", "--dry-run", "--fetch"],
+      },
+      skip: { label: "1.5.0" },
+    },
+  ];
+}
+
+function releaseUpdate(now: number): AttentionRow[] {
+  return [
+    {
+      ...packageUpdate(now)[0],
+      id: "updates:package:alpha-api:1.3.0>v1.4.0",
+      title: "alpha-api: release v1.4.0 of acme/alpha is out, installed 1.3.0",
+      detail: "The server was installed from a release of acme/alpha on GitHub.",
+      skip: { label: "v1.4.0" },
+    },
+  ];
+}
+
+function releaseManual(now: number): AttentionRow[] {
+  return [
+    {
+      id: "updates:package:alpha-api:1.3.0>v1.4.0",
+      urgency: "worth-a-look",
+      title: "alpha-api: release v1.4.0 of acme/alpha is out, installed 1.3.0",
+      detail:
+        "The server was installed from a release of acme/alpha on GitHub. Toolport cannot change it itself: its source records no file name pattern (asset_pattern) to pick the release file with. Download v1.4.0 from https://github.com/acme/alpha/releases and replace the installed file by hand.",
+      source: "Updates",
+      since: iso(now - HOUR),
+      action: { label: "Open Servers", screen: "servers" },
+      skip: { label: "v1.4.0" },
     },
   ];
 }
@@ -227,6 +278,12 @@ export function createAttentionWorld(options: AttentionWorldOptions = {}) {
   function rows(now: number): AttentionRow[] {
     if (options.scenario === "clear") return [];
     if (options.scenario === "server-update") return [...busy(now), ...serverUpdate(now)];
+    if (options.scenario === "package-update")
+      return [...busy(now), ...packageUpdate(now)];
+    if (options.scenario === "release-update")
+      return [...busy(now), ...releaseUpdate(now)];
+    if (options.scenario === "release-manual")
+      return [...busy(now), ...releaseManual(now)];
     if (options.scenario === "peer-newer") return [...busy(now), ...peerNewer(now)];
     if (options.scenario === "access") return [...busy(now), ...access(now)];
     if (options.scenario === "peer-branch") return [...busy(now), ...peerBranch(now)];

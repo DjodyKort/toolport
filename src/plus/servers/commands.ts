@@ -6,6 +6,8 @@ import type {
   LoginData,
   MembershipData,
   ModeData,
+  PackageUpdateDone,
+  PackageUpdatePlanData,
   ProbeData,
   ReachData,
   RepoCheckData,
@@ -272,3 +274,50 @@ export function repoApply(
 }
 
 export const repoUndo = (key: string) => repoDone(["server", "repo", "undo", key]);
+
+/** The plan of moving a server to another package version or release; nothing changes.
+ * `fetch` asks the registry first, so the plan sees what was published since the last check. */
+export const packagePlan = (
+  key: string,
+  options: { to?: string; fetch?: boolean } = {},
+) =>
+  ctlData<PackageUpdatePlanData>([
+    "server",
+    "update",
+    key,
+    "--dry-run",
+    "--wait",
+    "4",
+    ...(options.fetch ? ["--fetch"] : []),
+    ...(options.to ? ["--to", options.to] : []),
+  ]);
+
+/** A restart that failed exits 1 but still says what changed; a refusal throws with its reason. */
+async function packageDone(argv: string[]): Promise<PackageUpdateDone> {
+  try {
+    return await ctlData<PackageUpdateDone>(argv);
+  } catch (error) {
+    const data =
+      error instanceof CtlError ? (error.data as Partial<PackageUpdateDone>) : null;
+    if (data && typeof data.applied === "boolean") return data as PackageUpdateDone;
+    throw error;
+  }
+}
+
+export const packageApply = (
+  key: string,
+  options: { to: string; planHash: string; allowUnverified?: boolean },
+) =>
+  packageDone([
+    "server",
+    "update",
+    key,
+    "--to",
+    options.to,
+    "--plan-hash",
+    options.planHash,
+    ...(options.allowUnverified ? ["--allow-unverified"] : []),
+  ]);
+
+export const packageUndo = (key: string) =>
+  packageDone(["server", "update", key, "--undo"]);

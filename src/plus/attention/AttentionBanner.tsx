@@ -6,63 +6,21 @@ import { toastError } from "@/lib/toast";
 import { ctlData } from "../bridge/ctl";
 import { useAttentionSnapshot, type AttentionItem } from "../shell/attentionFeed";
 import { refreshAttention } from "./attentionCtl";
+import { reviewedServer, type Reviewed } from "./reviewTarget";
+import { ReviewDialog } from "./reviewUpdate";
 import { RowMenu } from "./RowMenu";
 import { registerShownPage } from "./shownPages";
 
 type Page = "servers" | "tasks" | "library";
 
-const RepoUpdateDialog = lazy(() => import("../servers/RepoUpdateDialog"));
-const RepoSwitchDialog = lazy(() => import("../servers/RepoSwitchDialog"));
-
-interface Reviewed {
-  server: string;
-  verb: "update" | "switch";
-  fetch: boolean;
-}
-
-/** The server a "Review update", "Pull" or "Switch branch" row is about: its command is the plan
- * of `server repo update|switch`, which only reads, so the button opens the plan instead of
- * running it. */
-function reviewedServer(command: string[]): Reviewed | null {
-  const [, group, sub, verb, server] = command;
-  if (group !== "server" || sub !== "repo" || !server) return null;
-  if (verb === "update") return { server, verb, fetch: command.includes("--fetch") };
-  return verb === "switch" ? { server, verb, fetch: false } : null;
-}
-
-function ReviewUpdate({
-  item,
-  reviewed: { server, verb, fetch },
-}: {
-  item: AttentionItem;
-  reviewed: Reviewed;
-}) {
+function ReviewUpdate({ item, reviewed }: { item: AttentionItem; reviewed: Reviewed }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>
         {item.action?.label ?? "Review update"}
       </Button>
-      {open && (
-        <Suspense fallback={null}>
-          {verb === "switch" ? (
-            <RepoSwitchDialog
-              serverName={server}
-              open={open}
-              onOpenChange={setOpen}
-              onChanged={refreshAttention}
-            />
-          ) : (
-            <RepoUpdateDialog
-              serverName={server}
-              open={open}
-              onOpenChange={setOpen}
-              onChanged={refreshAttention}
-              fetch={fetch}
-            />
-          )}
-        </Suspense>
-      )}
+      {open && <ReviewDialog reviewed={reviewed} open={open} onOpenChange={setOpen} />}
     </>
   );
 }

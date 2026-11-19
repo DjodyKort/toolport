@@ -350,3 +350,59 @@ export interface RepoDoneData {
   /** Set by a branch switch: the branch it left. */
   fromBranch?: string;
 }
+
+export type PackageKind = "npm" | "pypi" | "docker" | "github";
+
+export interface PackageChange {
+  field: string;
+  from: string;
+  to: string;
+}
+
+/** What `server update --dry-run` reports: the exact registry change, nothing written. */
+export interface PackageUpdatePlan {
+  server: string;
+  id: string;
+  kind: PackageKind;
+  package: string;
+  from: string;
+  to: string;
+  downgrade: boolean;
+  /** The registry (or GitHub) was asked in this plan whether the version exists. */
+  verified: boolean;
+  changes: PackageChange[];
+  /** Set for a GitHub release: the file that replaces the installed binary. */
+  release: {
+    tag: string;
+    asset: { name: string; size: number };
+    /** `null` when the publisher gives no checksum, so the file cannot be verified. */
+    checksum: { source: string } | null;
+    file: string;
+    verifyCommand: boolean;
+  } | null;
+  refusal: { code: string; message: string } | null;
+  /** `null` when no gateway answered: nothing is running that a restart could cut. */
+  inFlight: number | null;
+  planHash: string;
+  /** The command that applies this plan; `null` when the plan is refused. */
+  apply: string | null;
+  undo: string;
+}
+
+export interface PackageUpdatePlanData {
+  plan: PackageUpdatePlan;
+}
+
+export interface PackageUpdateDone {
+  applied: boolean;
+  server: string;
+  id: string;
+  kind: PackageKind;
+  package: string;
+  from: string;
+  to: string;
+  changes: PackageChange[];
+  restart: { status: string; detail: string } | null;
+  warnings: string[];
+  undo: string;
+}
