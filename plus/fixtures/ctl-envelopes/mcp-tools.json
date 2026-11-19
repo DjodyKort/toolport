@@ -3092,6 +3092,39 @@
           "tier": 3
         },
         {
+          "description": "Choose how one client is shown the tools: full (every tool listed), lazy (found through toolport_search_tools), grouped (browsed per server), or inherit to follow the global mode again. Takes effect at the client's next connection. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "client_discovery_set",
+          "params": [
+            {
+              "description": "Client id, as clients_reach shows it",
+              "name": "client",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "full, lazy, grouped or inherit",
+              "name": "mode",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "Bind a client to an access set, or none=true so it follows the default access. A folder route still outranks the binding. dry_run is on by default (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",
@@ -3356,6 +3389,39 @@
             }
           ],
           "tier": 4
+        },
+        {
+          "description": "Switch a server on or off globally: off, no client reaches it whatever its access sets say, and its settings and secrets stay. dry_run is on by default and returns the plan (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "servers_set_enabled",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "true switches the server on, false off",
+              "name": "enabled",
+              "required": true,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
         },
         {
           "description": "Restart one server's process in every running gateway, and in every project folder of a server that runs once per folder, so it runs its current code and its tool list is read again; dry_run is on by default (apply with dry_run=false and confirm=true); if_idle=true restarts only when no call is in flight in any of them and names the busy folders, because a restart ends the calls",

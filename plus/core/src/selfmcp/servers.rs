@@ -8,6 +8,7 @@ use serde_json::{json, Map, Value};
 use toolport_plus_api::{Host, ServerRecord};
 
 use super::ToolError;
+use crate::access::{finish, note, step, Draft};
 use crate::args::{flag, flag_or, list, str_arg};
 use crate::servers::env::{Change, Refusal};
 use crate::servers::restart::{self, RestartArgs};
@@ -380,4 +381,76 @@ pub(super) fn restart_server(host: &dyn Host, args: &Value) -> Outcome {
     ask.if_idle = flag(args, "if_idle");
     ask.wait = restart::DEFAULT_WAIT.min(Duration::from_secs(60));
     Ok(restart::restart(host, &ask)?.to_value())
+}
+
+pub(super) fn set_enabled(host: &dyn Host, args: &Value) -> Outcome {
+    let server = load(host, args)?;
+    let enabled = args
+        .get("enabled")
+        .and_then(Value::as_bool)
+        .ok_or_else(|| invalid("enabled is required: true or false"))?;
+    let view = host.read_view().map_err(registry_error)?;
+    let sets: Vec<String> = view
+        .iter()
+        .flat_map(|view| view.access_sets())
+        .filter(|set| set.server_ids.contains(&server.id))
+        .map(|set| set.name)
+        .collect();
+    let same = server.enabled == enabled;
+    let mut warnings = Vec::new();
+    if enabled && sets.is_empty() {
+        warnings.push(format!(
+            "no access set lists {}, so a client bound to a set does not reach it",
+            server.name
+        ));
+    }
+    let detail = if enabled {
+        format!(
+            "switch {} on: clients reach it through {}",
+            server.name,
+            if sets.is_empty() {
+                "the default access".to_string()
+            } else {
+                sets.join(", ")
+            }
+        )
+    } else {
+        format!(
+            "switch {} off: no client reaches it, its settings stay",
+            server.name
+        )
+    };
+    let draft = Draft {
+        summary: if same {
+            format!(
+                "{} is already switched {}",
+                server.name,
+                if enabled { "on" } else { "off" }
+            )
+        } else if enabled {
+            format!("Switch {} on", server.name)
+        } else {
+            format!("Switch {} off", server.name)
+        },
+        steps: vec![if same {
+            note("nothing to change")
+        } else {
+            step(detail)
+        }],
+        warnings,
+        undo: format!(
+            "servers_set_enabled name={} enabled={}",
+            server.name, server.enabled
+        ),
+    };
+    let id = server.id.clone();
+    finish(
+        host,
+        flag_or(args, "dry_run", true),
+        draft,
+        !same,
+        &mut |tx| tx.set_server_enabled(&id, enabled),
+        json!({"server": {"id": server.id, "name": server.name}, "enabled": enabled, "was": server.enabled}),
+    )
+    .map_err(ToolError::from)
 }

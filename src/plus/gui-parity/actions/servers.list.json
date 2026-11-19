@@ -1,6 +1,6 @@
 {
   "route": "servers",
   "status": "built",
-  "summary": "The servers list: every server with its global switch and the default access (server ls, servers_list); upstream's list stays whole, the fork adds banner rows",
+  "summary": "The servers list: every server with its global switch and the default access (server ls, servers_list; servers_set_enabled switches one off or on); upstream's list stays whole, the fork adds banner rows",
   "test": "src/plus/servers/ServersBanner.test.tsx"
 }

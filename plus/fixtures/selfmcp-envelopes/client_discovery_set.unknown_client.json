@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "client": "claud-code",
+    "mode": "full"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no client 'claud-code'"
+    }
+  },
+  "text": "not_found: no client 'claud-code'",
+  "tool": "client_discovery_set"
+}

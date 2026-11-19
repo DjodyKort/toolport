@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "client": "claude-code",
+    "mode": "auto"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "mode is full, lazy, grouped or inherit"
+    }
+  },
+  "text": "invalid_arguments: mode is full, lazy, grouped or inherit",
+  "tool": "client_discovery_set"
+}

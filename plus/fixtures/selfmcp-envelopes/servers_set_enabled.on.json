@@ -1,0 +1,37 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "enabled": true,
+    "name": "alpha"
+  },
+  "isError": false,
+  "result": {
+    "dryRun": false,
+    "enabled": true,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "switch alpha on: clients reach it through Default",
+          "op": "registry"
+        }
+      ],
+      "summary": "Switch alpha on",
+      "undo": "servers_set_enabled name=alpha enabled=false",
+      "warnings": []
+    },
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": ["registry"],
+      "undo": "servers_set_enabled name=alpha enabled=false"
+    },
+    "server": {
+      "id": "srv-alpha",
+      "name": "alpha"
+    },
+    "was": false
+  },
+  "tool": "servers_set_enabled"
+}

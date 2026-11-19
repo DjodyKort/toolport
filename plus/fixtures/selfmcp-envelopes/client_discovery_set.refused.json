@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "client": "claude-code",
+    "dry_run": false,
+    "mode": "lazy"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: client_discovery_set (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: client_discovery_set (tier 3). Pass confirm=true to proceed.",
+  "tool": "client_discovery_set"
+}

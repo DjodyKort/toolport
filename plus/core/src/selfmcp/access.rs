@@ -5,7 +5,9 @@ use serde_json::Value;
 use toolport_plus_api::Host;
 
 use super::ToolError;
-use crate::access::{self, AddArgs, Change, Orphans, RmArgs, ToolChange, ToolsArgs};
+use crate::access::{
+    self, finish, note, step, AddArgs, Change, Draft, Orphans, RmArgs, ToolChange, ToolsArgs,
+};
 use crate::args::{flag, flag_or, list, nonempty_strings, str_trimmed};
 
 fn required<'a>(args: &'a Value, key: &str) -> Result<&'a str, ToolError> {
@@ -141,4 +143,74 @@ pub(super) fn set_tools(host: &dyn Host, args: &Value) -> Result<Value, ToolErro
             dry_run: flag_or(args, "dry_run", true),
         },
     )?)
+}
+
+const DISCOVERY_MODES: [&str; 3] = ["full", "lazy", "grouped"];
+
+pub(super) fn discovery_set(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    let client = required(args, "client")?;
+    let mode = match str_trimmed(args, "mode") {
+        None => {
+            return Err(ToolError::new(
+                "invalid_arguments",
+                "mode is required: full, lazy, grouped or inherit",
+            ))
+        }
+        Some("inherit") => None,
+        Some(mode) if DISCOVERY_MODES.contains(&mode) => Some(mode.to_string()),
+        Some(_) => {
+            return Err(ToolError::new(
+                "invalid_arguments",
+                "mode is full, lazy, grouped or inherit",
+            ))
+        }
+    };
+    let view = host
+        .read_view()
+        .map_err(|error| ToolError::new("registry_error", error))?;
+    let before = view.as_ref().and_then(|view| view.client_discovery(client));
+    let known = host.detect_clients().iter().any(|info| info.id == client);
+    if before.is_none() && !known {
+        return Err(ToolError::new("not_found", format!("no client '{client}'")));
+    }
+    let same = before == mode;
+    let label = |mode: &Option<String>| mode.clone().unwrap_or_else(|| "inherit".to_string());
+    let draft = Draft {
+        summary: if same {
+            format!("{client} already uses {}", label(&mode))
+        } else {
+            format!("Set the discovery mode of {client} to {}", label(&mode))
+        },
+        steps: vec![if same {
+            note("nothing to change")
+        } else {
+            step(match &mode {
+                Some(mode) => {
+                    format!("{client} gets the {mode} tool listing instead of the global mode")
+                }
+                None => format!("{client} follows the global discovery mode again"),
+            })
+        }],
+        warnings: Vec::new(),
+        undo: format!(
+            "client_discovery_set client={client} mode={}",
+            label(&before)
+        ),
+    };
+    let (id, pinned) = (client.to_string(), mode.clone());
+    let mut data = finish(
+        host,
+        flag_or(args, "dry_run", true),
+        draft,
+        !same,
+        &mut |tx| tx.set_client_discovery(&id, pinned.as_deref()),
+        serde_json::json!({"client": client, "mode": label(&mode), "was": label(&before)}),
+    )?;
+    data["modes"] = serde_json::json!({
+        "full": "the client sees every tool in the list",
+        "lazy": "the client finds tools through toolport_search_tools",
+        "grouped": "the client browses one server at a time",
+        "inherit": "the global mode applies",
+    });
+    Ok(data)
 }

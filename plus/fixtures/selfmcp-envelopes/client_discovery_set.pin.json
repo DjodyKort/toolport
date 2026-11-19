@@ -1,0 +1,40 @@
+{
+  "arguments": {
+    "client": "claude-code",
+    "confirm": true,
+    "dry_run": false,
+    "mode": "grouped"
+  },
+  "isError": false,
+  "result": {
+    "client": "claude-code",
+    "dryRun": false,
+    "mode": "grouped",
+    "modes": {
+      "full": "the client sees every tool in the list",
+      "grouped": "the client browses one server at a time",
+      "inherit": "the global mode applies",
+      "lazy": "the client finds tools through toolport_search_tools"
+    },
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "claude-code gets the grouped tool listing instead of the global mode",
+          "op": "registry"
+        }
+      ],
+      "summary": "Set the discovery mode of claude-code to grouped",
+      "undo": "client_discovery_set client=claude-code mode=inherit",
+      "warnings": []
+    },
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": ["registry"],
+      "undo": "client_discovery_set client=claude-code mode=inherit"
+    },
+    "was": "inherit"
+  },
+  "tool": "client_discovery_set"
+}

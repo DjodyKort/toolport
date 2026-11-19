@@ -1366,6 +1366,18 @@ pub const TOOLS: &[ToolDef] = &[
         access::set_tools
     ),
     tool!(
+        "client_discovery_set",
+        3,
+        UnlessDryRun,
+        "Choose how one client is shown the tools: full (every tool listed), lazy (found through toolport_search_tools), grouped (browsed per server), or inherit to follow the global mode again. Takes effect at the client's next connection. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("client", Ty::Str, true, "Client id, as clients_reach shows it"),
+            p("mode", Ty::Str, true, "full, lazy, grouped or inherit"),
+            DRY_ON
+        ],
+        access::discovery_set
+    ),
+    tool!(
         "client_scope",
         3,
         UnlessDryRun,
@@ -1455,6 +1467,18 @@ pub const TOOLS: &[ToolDef] = &[
             DRY_ON
         ],
         servers::uninstall
+    ),
+    tool!(
+        "servers_set_enabled",
+        3,
+        UnlessDryRun,
+        "Switch a server on or off globally: off, no client reaches it whatever its access sets say, and its settings and secrets stay. dry_run is on by default and returns the plan (apply with dry_run=false and confirm=true)",
+        [
+            NAME,
+            p("enabled", Ty::Bool, true, "true switches the server on, false off"),
+            DRY_ON
+        ],
+        servers::set_enabled
     ),
     tool!(
         "servers_restart",

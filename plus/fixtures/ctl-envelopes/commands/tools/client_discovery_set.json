@@ -1,0 +1,7 @@
+{
+  "command": null,
+  "dryRun": "default-on",
+  "name": "client_discovery_set",
+  "tier": "write",
+  "toolTier": 3
+}

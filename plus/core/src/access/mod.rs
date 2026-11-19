@@ -108,7 +108,7 @@ fn scopes_using<'a>(
     })
 }
 
-fn step(detail: impl Into<String>) -> Step {
+pub(crate) fn step(detail: impl Into<String>) -> Step {
     Step {
         op: "registry",
         path: None,
@@ -118,21 +118,21 @@ fn step(detail: impl Into<String>) -> Step {
     }
 }
 
-fn note(detail: impl Into<String>) -> Step {
+pub(crate) fn note(detail: impl Into<String>) -> Step {
     Step {
         op: "note",
         ..step(detail)
     }
 }
 
-struct Draft {
-    summary: String,
-    steps: Vec<Step>,
-    warnings: Vec<String>,
-    undo: String,
+pub(crate) struct Draft {
+    pub(crate) summary: String,
+    pub(crate) steps: Vec<Step>,
+    pub(crate) warnings: Vec<String>,
+    pub(crate) undo: String,
 }
 
-fn finish(
+pub(crate) fn finish(
     host: &dyn Host,
     dry_run: bool,
     change: Draft,

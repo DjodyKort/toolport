@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "alpha"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "missing required argument: enabled"
+    }
+  },
+  "text": "invalid_arguments: missing required argument: enabled",
+  "tool": "servers_set_enabled"
+}
