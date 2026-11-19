@@ -2621,6 +2621,102 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "spend_receiver_status",
+        &[
+            read("off", "spend_receiver_status", "{}"),
+            hook("data", spend_data),
+            read("with_data", "spend_receiver_status", "{}"),
+        ],
+    ),
+    case(
+        "spend_export_csv",
+        &[
+            read("empty", "spend_export_csv", "{}"),
+            hook("data", spend_data),
+            read("month", "spend_export_csv", r#"{"range":"30d"}"#),
+            fails(
+                "bad_range",
+                "invalid_arguments",
+                "spend_export_csv",
+                r#"{"range":"year"}"#,
+            ),
+        ],
+    ),
+    case(
+        "spend_config_set",
+        &[
+            read(
+                "preview",
+                "spend_config_set",
+                r#"{"retention_days":30,"show_cost":false}"#,
+            ),
+            refused(
+                "refused",
+                "spend_config_set",
+                r#"{"retention_days":30,"dry_run":false}"#,
+            ),
+            fails("nothing", "invalid_arguments", "spend_config_set", "{}"),
+            fails(
+                "invalid",
+                "invalid_arguments",
+                "spend_config_set",
+                r#"{"port":"99999999"}"#,
+            ),
+            write(
+                "apply",
+                "spend_config_set",
+                r#"{"retention_days":30,"max_mb":64,"show_cost":false,"dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "spend_setup_apply",
+        &[
+            hook("settings", spend_settings),
+            read("preview", "spend_setup_apply", r#"{"port":"4999"}"#),
+            refused(
+                "refused",
+                "spend_setup_apply",
+                r#"{"port":"4999","dry_run":false}"#,
+            ),
+            write(
+                "conflict",
+                "spend_setup_apply",
+                r#"{"port":"4999","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "no_overwrite",
+                "invalid_arguments",
+                "spend_setup_apply",
+                r#"{"overwrite":["all"],"dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "spend_setup_undo",
+        &[
+            hook("settings", spend_settings),
+            read("nothing", "spend_setup_undo", "{}"),
+            setup(
+                "spend_setup_apply",
+                r#"{"port":"4999","dry_run":false,"confirm":true}"#,
+            ),
+            read("preview", "spend_setup_undo", "{}"),
+            refused("refused", "spend_setup_undo", r#"{"dry_run":false}"#),
+            write(
+                "apply",
+                "spend_setup_undo",
+                r#"{"dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "no_delete_data",
+                "invalid_arguments",
+                "spend_setup_undo",
+                r#"{"delete_data":true,"dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
         "compression_status",
         &[
             read("fresh", "compression_status", "{}"),

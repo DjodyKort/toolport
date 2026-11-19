@@ -66,5 +66,5 @@
   "summary": "Remove the env keys Toolport wrote and turn collection off; --delete-data --yes also deletes the collected data (--profile, --dry-run)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["spend_setup_undo"]
 }

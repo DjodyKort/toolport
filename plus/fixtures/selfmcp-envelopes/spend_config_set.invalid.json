@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "port": "99999999"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "--port: '99999999' is not valid"
+    }
+  },
+  "text": "invalid_arguments: --port: '99999999' is not valid",
+  "tool": "spend_config_set"
+}

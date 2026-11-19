@@ -45,5 +45,5 @@
   "summary": "Export spend as CSV, one row per day, project and model (--range, --out)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["spend_export_csv"]
 }

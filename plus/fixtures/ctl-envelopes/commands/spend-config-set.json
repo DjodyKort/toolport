@@ -67,5 +67,5 @@
   "summary": "Change the Spend settings: port, retention days, size cap, show cost (--port, --retention-days, --max-mb, --show-cost)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["spend_config_set"]
 }

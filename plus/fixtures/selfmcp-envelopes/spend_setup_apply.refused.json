@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "port": "4999"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: spend_setup_apply (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: spend_setup_apply (tier 3). Pass confirm=true to proceed.",
+  "tool": "spend_setup_apply"
+}

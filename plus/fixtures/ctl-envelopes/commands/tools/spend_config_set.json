@@ -1,0 +1,7 @@
+{
+  "command": "spend config set",
+  "dryRun": "default-on",
+  "name": "spend_config_set",
+  "tier": "write",
+  "toolTier": 3
+}

@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "retention_days": 30,
+    "show_cost": false
+  },
+  "isError": false,
+  "result": {
+    "changed": true,
+    "dryRun": true,
+    "enabled": false,
+    "maxMb": 64,
+    "port": 4318,
+    "portChanged": false,
+    "retentionDays": 30,
+    "showCost": false
+  },
+  "tool": "spend_config_set"
+}

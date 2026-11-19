@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "delete_data": true,
+    "dry_run": false
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "unknown argument: delete_data"
+    }
+  },
+  "text": "invalid_arguments: unknown argument: delete_data",
+  "tool": "spend_setup_undo"
+}

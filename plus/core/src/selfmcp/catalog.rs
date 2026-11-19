@@ -968,6 +968,55 @@ pub const TOOLS: &[ToolDef] = &[
         spend::setup_plan
     ),
     tool!(
+        "spend_receiver_status",
+        1,
+        None,
+        "Show only the OTLP receiver of model-spend collection: whether collection is on, its state, address, owner, counters and last error, and the last event",
+        [],
+        spend::receiver_status
+    ),
+    tool!(
+        "spend_export_csv",
+        1,
+        None,
+        "Return the model spend of a window ending today as CSV text (one row per day, project folder and model) with the row count; no file is written",
+        [p("range", Ty::Str, false, "today, 7d (default) or 30d")],
+        spend::export_csv
+    ),
+    tool!(
+        "spend_config_set",
+        3,
+        UnlessDryRun,
+        "Change the model-spend collection settings: receiver port, how many days of events are kept, the size cap of the event store and whether cost is shown. A new port needs spend_setup_apply afterwards so Claude Code sends to it. dry_run is on by default and reports the settings that would result (apply with dry_run=false and confirm=true)",
+        [
+            p("port", Ty::Str, false, "Receiver port"),
+            p("retention_days", Ty::Int, false, "Days of events to keep"),
+            p("max_mb", Ty::Int, false, "Size cap of the event store in MB"),
+            p("show_cost", Ty::Bool, false, "Show cost figures"),
+            DRY_ON
+        ],
+        spend::config_set
+    ),
+    tool!(
+        "spend_setup_apply",
+        3,
+        UnlessDryRun,
+        "Turn model-spend collection on: write the five OTel env keys into each Claude Code profile's settings.json and start the receiver. A key that already holds another value is left alone and named in the result; this tool cannot overwrite it. dry_run is on by default and returns the plan (apply with dry_run=false and confirm=true)",
+        [
+            p("port", Ty::Str, false, "Receiver port (default 4318)"),
+            DRY_ON
+        ],
+        spend::setup_apply
+    ),
+    tool!(
+        "spend_setup_undo",
+        3,
+        UnlessDryRun,
+        "Turn model-spend collection off: remove the OTel env keys Toolport wrote from every Claude Code profile and stop the receiver. The collected events and totals stay; deleting them is not offered here. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [DRY_ON],
+        spend::setup_undo
+    ),
+    tool!(
         "compression_status",
         1,
         None,

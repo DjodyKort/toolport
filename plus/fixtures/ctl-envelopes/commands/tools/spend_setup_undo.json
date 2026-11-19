@@ -1,0 +1,7 @@
+{
+  "command": "spend setup undo",
+  "dryRun": "default-on",
+  "name": "spend_setup_undo",
+  "tier": "write",
+  "toolTier": 3
+}

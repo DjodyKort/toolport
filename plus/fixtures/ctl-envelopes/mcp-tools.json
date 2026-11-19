@@ -2156,6 +2156,122 @@
           "tier": 1
         },
         {
+          "description": "Show only the OTLP receiver of model-spend collection: whether collection is on, its state, address, owner, counters and last error, and the last event",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "spend_receiver_status",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Return the model spend of a window ending today as CSV text (one row per day, project folder and model) with the row count; no file is written",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "spend_export_csv",
+          "params": [
+            {
+              "description": "today, 7d (default) or 30d",
+              "name": "range",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Change the model-spend collection settings: receiver port, how many days of events are kept, the size cap of the event store and whether cost is shown. A new port needs spend_setup_apply afterwards so Claude Code sends to it. dry_run is on by default and reports the settings that would result (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "spend_config_set",
+          "params": [
+            {
+              "description": "Receiver port",
+              "name": "port",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Days of events to keep",
+              "name": "retention_days",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "description": "Size cap of the event store in MB",
+              "name": "max_mb",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "description": "Show cost figures",
+              "name": "show_cost",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Turn model-spend collection on: write the five OTel env keys into each Claude Code profile's settings.json and start the receiver. A key that already holds another value is left alone and named in the result; this tool cannot overwrite it. dry_run is on by default and returns the plan (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "spend_setup_apply",
+          "params": [
+            {
+              "description": "Receiver port (default 4318)",
+              "name": "port",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Turn model-spend collection off: remove the OTel env keys Toolport wrote from every Claude Code profile and stop the receiver. The collected events and totals stay; deleting them is not offered here. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "spend_setup_undo",
+          "params": [
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "Show the compression provider, active preset, engine pin and shims",
           "dryRunDefault": false,
           "gate": "none",

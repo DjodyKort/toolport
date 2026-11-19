@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "retention_days": 30
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: spend_config_set (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: spend_config_set (tier 3). Pass confirm=true to proceed.",
+  "tool": "spend_config_set"
+}

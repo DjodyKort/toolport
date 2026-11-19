@@ -1,0 +1,12 @@
+{
+  "arguments": {},
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "nothing to set: pass port, retention_days, max_mb or show_cost"
+    }
+  },
+  "text": "invalid_arguments: nothing to set: pass port, retention_days, max_mb or show_cost",
+  "tool": "spend_config_set"
+}

@@ -1,0 +1,20 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "enabled": false,
+    "lastEvent": null,
+    "receiver": {
+      "address": "127.0.0.1:<PORT>",
+      "dropped": 0,
+      "error": null,
+      "events": 0,
+      "listening": false,
+      "owner": null,
+      "rejected": 0,
+      "requests": 0
+    },
+    "state": "off"
+  },
+  "tool": "spend_receiver_status"
+}

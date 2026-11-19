@@ -1,0 +1,23 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "enabled": false,
+    "profiles": [
+      {
+        "keptChanged": [],
+        "profile": "<WORLD>/home/.claude/settings.json",
+        "restored": [
+          "CLAUDE_CODE_ENABLE_TELEMETRY",
+          "OTEL_EXPORTER_OTLP_ENDPOINT",
+          "OTEL_EXPORTER_OTLP_PROTOCOL",
+          "OTEL_LOGS_EXPORTER"
+        ]
+      }
+    ]
+  },
+  "tool": "spend_setup_undo"
+}

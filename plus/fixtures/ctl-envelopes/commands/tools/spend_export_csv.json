@@ -1,0 +1,7 @@
+{
+  "command": "spend export-csv",
+  "dryRun": "none",
+  "name": "spend_export_csv",
+  "tier": "read",
+  "toolTier": 1
+}

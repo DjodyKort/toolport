@@ -1,0 +1,10 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "profilesSetUp": 1,
+    "remaining": 0
+  },
+  "tool": "spend_setup_undo"
+}

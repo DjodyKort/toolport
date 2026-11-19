@@ -158,6 +158,11 @@ pub struct ConfigEdit<'a> {
 }
 
 pub fn config_set(host: &dyn Host, edit: &ConfigEdit) -> Result<Value, OpError> {
+    config_edit(host, edit, false)
+}
+
+/// With `dry_run` the new settings are validated and reported, and the file stays as it is.
+pub fn config_edit(host: &dyn Host, edit: &ConfigEdit, dry_run: bool) -> Result<Value, OpError> {
     let ctx = ctx(host)?;
     let mut cfg = config::load(&ctx.dir);
     let before = cfg.clone();
@@ -178,10 +183,10 @@ pub fn config_set(host: &dyn Host, edit: &ConfigEdit) -> Result<Value, OpError> 
         };
     }
     cfg.validate().map_err(OpError::usage)?;
-    if cfg != before {
+    if cfg != before && !dry_run {
         config::save(&ctx.dir, &cfg).map_err(|e| OpError::failed("config_failed", e))?;
     }
-    Ok(json!({
+    let mut out = json!({
         "port": cfg.port,
         "retentionDays": cfg.retention_days,
         "maxMb": cfg.max_mb,
@@ -189,7 +194,11 @@ pub fn config_set(host: &dyn Host, edit: &ConfigEdit) -> Result<Value, OpError> 
         "enabled": cfg.enabled,
         "portChanged": cfg.port != before.port,
         "changed": cfg != before,
-    }))
+    });
+    if dry_run {
+        out["dryRun"] = json!(true);
+    }
+    Ok(out)
 }
 
 pub fn export_csv(host: &dyn Host, range: Option<&str>) -> Result<(String, usize), OpError> {

@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "overwrite": ["all"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "unknown argument: overwrite"
+    }
+  },
+  "text": "invalid_arguments: unknown argument: overwrite",
+  "tool": "spend_setup_apply"
+}

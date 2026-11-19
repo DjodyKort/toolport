@@ -66,5 +66,5 @@
   "summary": "Write the OTel env keys after a plan and turn collection on (--port, --overwrite, --profile, --dry-run)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["spend_setup_apply"]
 }
