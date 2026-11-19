@@ -97,7 +97,7 @@ fn rewrite_body(path: &Path, new_body: &str) -> Result<String, ToolError> {
     let mut yaml = String::new();
     let mut closed = false;
     if first_ok {
-        for line in lines {
+        for line in lines.by_ref() {
             if fence(line) {
                 closed = true;
                 break;
@@ -111,7 +111,9 @@ fn rewrite_body(path: &Path, new_body: &str) -> Result<String, ToolError> {
             format!("{} has no YAML frontmatter", path.display()),
         ));
     }
-    let content = format!("---\n{yaml}---\n{}\n", new_body.trim_end());
+    // The blank lines between the closing fence and the text stay, so an edit does not move them.
+    let gap: String = lines.take_while(|line| line.trim().is_empty()).collect();
+    let content = format!("---\n{yaml}---\n{gap}{}\n", new_body.trim_end());
     write_text(path, &content).map_err(ToolError::backend)?;
     file_hash(path)
 }

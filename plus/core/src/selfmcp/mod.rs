@@ -15,6 +15,8 @@ mod compression;
 #[cfg(test)]
 mod compression_tests;
 mod content;
+#[cfg(test)]
+mod content_tests;
 mod context;
 mod launch_profile;
 mod library;
