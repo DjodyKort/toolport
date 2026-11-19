@@ -1055,7 +1055,7 @@ fn ct_eq(a: &str, b: &str) -> bool {
 /// to `/`, trim a trailing separator, and lowercase on Windows (its paths are
 /// case-insensitive). String-only so it works for a path that doesn't exist on this machine
 /// (the client reported it). Not canonicalization, just enough to compare two reported paths.
-fn normalize_path(p: &str) -> String {
+pub(crate) fn normalize_path(p: &str) -> String {
     let mut s = p.trim().replace('\\', "/");
     while s.len() > 1 && s.ends_with('/') {
         s.pop();
@@ -1070,7 +1070,7 @@ fn normalize_path(p: &str) -> String {
 /// base `/a/proj` matches `/a/proj` and `/a/proj/src` but never `/a/project`. Both must
 /// already be [`normalize_path`]-ed. An empty `base` matches nothing (an unset mapping path
 /// must not swallow every root).
-fn path_is_within(base: &str, root: &str) -> bool {
+pub(crate) fn path_is_within(base: &str, root: &str) -> bool {
     if base.is_empty() {
         return false;
     }

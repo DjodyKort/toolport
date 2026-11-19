@@ -403,3 +403,92 @@ fn test15_policy_leaves_the_users_own_denied_servers_alone() {
         json!([{"serverName": "mine"}])
     );
 }
+
+fn warned_folders(fx: &Fx, cwd: &str) -> Vec<String> {
+    let out = lp::ls(&fx.host, Some("bare"), Some(cwd)).unwrap();
+    out["profiles"][0]["folderWarnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|w| w["folder"].as_str().unwrap().to_string())
+        .collect()
+}
+
+fn route(fx: &Fx, folder: &str, set: &str) {
+    fx.host
+        .registry
+        .folder_routes
+        .borrow_mut()
+        .push((folder.to_string(), set.to_string()));
+}
+
+#[test]
+fn test16_only_the_longest_mapping_around_the_launch_folder_warns() {
+    let fx = fx("lp16");
+    fx.add("bare", Some("bare"), None, false);
+    fx.host
+        .registry
+        .access_sets
+        .borrow_mut()
+        .push(set("solo", &["srv-b"]));
+    let parent = fx.cwd.parent().unwrap().to_string_lossy().to_string();
+    let child = fx.cwd.to_string_lossy().to_string();
+    route(&fx, &parent, "wide");
+    route(&fx, &child, "solo");
+    assert_eq!(warned_folders(&fx, &child), std::slice::from_ref(&child));
+    assert_eq!(warned_folders(&fx, &format!("{child}/.git")), [child]);
+    assert_eq!(warned_folders(&fx, &parent), [parent]);
+}
+
+#[test]
+fn test17_a_nested_mapping_to_the_launch_profiles_own_set_leaves_no_warning_from_its_parent() {
+    let fx = fx("lp17");
+    fx.add("bare", Some("bare"), None, false);
+    route(&fx, &fx.cwd.parent().unwrap().to_string_lossy(), "wide");
+    route(&fx, &fx.cwd.to_string_lossy(), "bare");
+    assert!(warned_folders(&fx, fx.cwd.to_str().unwrap()).is_empty());
+}
+
+#[test]
+fn test18_a_trailing_slash_on_either_side_does_not_change_the_match() {
+    let fx = fx("lp18");
+    fx.add("bare", Some("bare"), None, false);
+    let folder = fx.cwd.to_string_lossy().to_string();
+    route(&fx, &format!("{folder}/"), "wide");
+    assert_eq!(warned_folders(&fx, &folder).len(), 1);
+    assert_eq!(warned_folders(&fx, &format!("{folder}/")).len(), 1);
+}
+
+#[test]
+fn test19_a_sibling_folder_sharing_the_name_prefix_is_not_inside_the_mapping() {
+    let fx = fx("lp19");
+    fx.add("bare", Some("bare"), None, false);
+    let mapped = fx.cwd.to_string_lossy().to_string();
+    let sibling = format!("{mapped}c");
+    fs::create_dir_all(&sibling).unwrap();
+    route(&fx, &mapped, "wide");
+    assert!(warned_folders(&fx, &sibling).is_empty());
+    assert_eq!(warned_folders(&fx, &mapped).len(), 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn test20_a_symlinked_spelling_the_gateway_would_not_match_gets_no_warning() {
+    let fx = fx("lp20");
+    fx.add("bare", Some("bare"), None, false);
+    let real = fx.cwd.to_string_lossy().to_string();
+    let link = fx.home.join("link-to-proj");
+    std::os::unix::fs::symlink(&fx.cwd, &link).unwrap();
+    let link = link.to_string_lossy().to_string();
+    route(&fx, &real, "wide");
+    assert!(
+        warned_folders(&fx, &link).is_empty(),
+        "the gateway matches the path as the client reports it"
+    );
+    assert!(warned_folders(&fx, &format!("{link}/.git")).is_empty());
+    assert_eq!(warned_folders(&fx, &real).len(), 1);
+    fx.host.registry.folder_routes.borrow_mut().clear();
+    route(&fx, &link, "wide");
+    assert!(warned_folders(&fx, &real).is_empty());
+    assert_eq!(warned_folders(&fx, &link).len(), 1);
+}

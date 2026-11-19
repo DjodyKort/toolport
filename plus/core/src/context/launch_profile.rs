@@ -17,7 +17,7 @@ use crate::op::OpError;
 use crate::reach::{self, FolderRow, Scope};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
-use toolport_plus_api::{AccessSetInfo, Host, RegistryView, ScopeKind};
+use toolport_plus_api::{AccessSetInfo, Host, RegistryView, ScopeKind, ScopeReach};
 
 pub const BASE_CLIENT: &str = "claude-code";
 pub const CLIENT_PREFIX: &str = "claude-code-";
@@ -145,8 +145,21 @@ fn launch_command(file: &Path) -> String {
     )
 }
 
-fn inside(cwd: &Path, folder: &str) -> bool {
-    cwd.starts_with(folder)
+/// The folder mappings a launch can fall under. Started in a folder, the gateway applies the one
+/// mapping its own matcher picks for the folder as spelled, so only that one counts; without a
+/// folder every mapping counts.
+fn mapped_folders(view: &dyn RegistryView, cwd: Option<&Path>) -> Vec<ScopeReach> {
+    match cwd {
+        Some(cwd) => view
+            .folder_route_for(&cwd.to_string_lossy())
+            .into_iter()
+            .collect(),
+        None => view
+            .scope_reach()
+            .into_iter()
+            .filter(|scope| scope.kind == ScopeKind::Folder)
+            .collect(),
+    }
 }
 
 fn warnings_for(
@@ -179,10 +192,9 @@ fn warnings_for(
         .into_iter()
         .map(|set| (set.id, set.name))
         .collect();
-    view.scope_reach()
+    mapped_folders(view, cwd)
         .iter()
-        .filter(|scope| scope.kind == ScopeKind::Folder && !scope.dangling)
-        .filter(|scope| cwd.is_none_or(|cwd| inside(cwd, &scope.key)))
+        .filter(|scope| !scope.dangling)
         .filter(|scope| scope.set_id.as_deref() != Some(set.id.as_str()))
         .filter_map(|scope| {
             let folder = FolderRow {

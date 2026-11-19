@@ -1,7 +1,7 @@
 use serde_json::json;
 use toolport_plus_api::ScopeKind;
 
-use crate::plus_adapter::view_scope_reach;
+use crate::plus_adapter::{view_folder_route_for, view_scope_reach};
 use crate::registry::Registry;
 
 fn registry(extra: serde_json::Value) -> Registry {
@@ -82,6 +82,49 @@ fn a_folder_mapping_resolves_the_way_the_gateway_resolves_a_root() {
         reg.profile_for_root("/w/proj/src").as_deref(),
         Some("focus")
     );
+}
+
+#[test]
+fn the_folder_route_for_a_root_is_the_mapping_the_gateway_picks() {
+    let reg = registry(json!({
+        "folderProfiles": [
+            {"path": "/w", "profile": "Work"},
+            {"path": "/w/proj/", "profile": "Focus"},
+            {"path": "/w/proj/deep", "profile": "nope"},
+            {"path": "", "profile": "Work"},
+            {"path": "C:\\Dev\\App", "profile": "Work"},
+        ],
+    }));
+    for root in [
+        "/w",
+        "/w/",
+        "/w/proj",
+        "/w/proj/src",
+        "/w/proj/deep/x",
+        "/w/projects",
+        "/w\\proj\\src",
+        "/wx",
+        "/other",
+        "",
+        "  /w/proj  ",
+        "C:/Dev/App/src",
+        "/w/link-to-proj",
+    ] {
+        let route = view_folder_route_for(&reg, root);
+        assert_eq!(
+            route
+                .as_ref()
+                .map(|scope| reg.resolve_profile_id(&scope.reference)),
+            reg.profile_for_root(root),
+            "root {root:?}"
+        );
+    }
+    let nested = view_folder_route_for(&reg, "/w/proj/src").unwrap();
+    assert_eq!(nested.key, "/w/proj/");
+    assert_eq!(nested.server_ids, ["b"]);
+    let dangling = view_folder_route_for(&reg, "/w/proj/deep/x").unwrap();
+    assert!(dangling.dangling);
+    assert!(view_folder_route_for(&reg, "/w/projects").is_some_and(|s| s.key == "/w"));
 }
 
 #[test]

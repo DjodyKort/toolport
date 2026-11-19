@@ -105,6 +105,21 @@ impl RegistryView for MemoryState {
         scopes
     }
 
+    fn folder_route_for(&self, root: &str) -> Option<ScopeReach> {
+        let root = route_text(root);
+        if root.is_empty() {
+            return None;
+        }
+        self.folder_routes
+            .iter()
+            .filter_map(|(path, reference)| {
+                let base = route_text(path);
+                route_covers(&base, &root).then_some((base.len(), path, reference))
+            })
+            .max_by_key(|(len, _, _)| *len)
+            .map(|(_, path, reference)| self.reach_of(ScopeKind::Folder, path, reference))
+    }
+
     fn direct_entries(&self) -> Result<crate::view::DirectEntries, String> {
         Ok(RegistryPlus::extract(&self.unknown_fields)?
             .direct_entries
@@ -118,6 +133,25 @@ impl RegistryView for MemoryState {
     fn client_discovery(&self, client_id: &str) -> Option<String> {
         self.client_discovery.get(client_id).cloned()
     }
+}
+
+/// The string comparison of upstream's `normalize_path` and `path_is_within`, which this crate
+/// cannot call; the adapter's tests hold the same cases against upstream's own matcher.
+fn route_text(path: &str) -> String {
+    let mut text = path.trim().replace('\\', "/");
+    while text.len() > 1 && text.ends_with('/') {
+        text.pop();
+    }
+    if cfg!(windows) {
+        text = text.to_ascii_lowercase();
+    }
+    text
+}
+
+fn route_covers(base: &str, root: &str) -> bool {
+    !base.is_empty()
+        && (root == base
+            || root.starts_with(base) && root.as_bytes().get(base.len()) == Some(&b'/'))
 }
 
 impl MemoryState {
@@ -2006,6 +2040,31 @@ impl crate::SetupHost for MemoryHost {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn folder_route_for_picks_the_longest_mapping_on_a_path_boundary() {
+        let state = MemoryState {
+            access_sets: vec![AccessSetInfo {
+                id: "wide".into(),
+                name: "Wide".into(),
+                server_ids: vec![],
+            }],
+            folder_routes: vec![
+                ("/a".into(), "wide".into()),
+                ("/a/b/".into(), "wide".into()),
+                ("/z".into(), "wide".into()),
+                ("".into(), "wide".into()),
+            ],
+            ..Default::default()
+        };
+        let key = |root: &str| state.folder_route_for(root).map(|scope| scope.key);
+        assert_eq!(key("/a/b/c").as_deref(), Some("/a/b/"));
+        assert_eq!(key("/a/b").as_deref(), Some("/a/b/"));
+        assert_eq!(key("/a/bc").as_deref(), Some("/a"));
+        assert_eq!(key("/a\\b\\c").as_deref(), Some("/a/b/"));
+        assert_eq!(key("/zz"), None);
+        assert_eq!(key(""), None);
+    }
 
     #[test]
     fn memory_transaction_drops_the_edit_when_the_closure_fails() {

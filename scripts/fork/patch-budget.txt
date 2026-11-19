@@ -107,6 +107,10 @@
 # oauth_controller.rs, 2 changed lines: `start_attempt` also exists in the plus build, so `toolportctl auth login`
 # starts a remote sign-in through `authenticate`, the call of the app's Sign in button, without the desktop feature.
 2	src-tauri/src/oauth_controller.rs
+# registry.rs, 2 lines (4 changed: two signatures, each removed and added): `normalize_path` and `path_is_within` become pub(crate), so the adapter answers "which
+# folder mapping covers this root" with the matcher `profile_for_root` uses, and the launch-profile folder
+# warnings agree with the gateway about what lies inside a mapped folder.
+4	src-tauri/src/registry.rs
 # registry_controller.rs, 2 lines: `catalog_server` becomes pub(crate), so the adapter adds a catalog entry
 # inside the fork's registry transaction (name check and add under one lock) instead of copying its body.
 # +2 lines (S11): `preview_client_setup` skips the entries Toolport recorded as direct entries

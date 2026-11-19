@@ -45,6 +45,13 @@ pub trait RegistryView {
     /// follows the default access and is not listed.
     fn scope_reach(&self) -> Vec<ScopeReach>;
 
+    /// The folder mapping the gateway applies to the root a client reports, as upstream's
+    /// `profile_for_root` picks it: the reported text is matched as a string on a path boundary,
+    /// separators and a trailing slash are ignored, the longest mapped folder wins, and the disk is
+    /// never consulted, so a symlinked spelling of a mapped folder matches nothing. `None` when no
+    /// mapping covers the root.
+    fn folder_route_for(&self, root: &str) -> Option<ScopeReach>;
+
     /// What `plus.directEntries` records: client id, then entry name.
     fn direct_entries(&self) -> Result<DirectEntries, String>;
 

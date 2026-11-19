@@ -159,6 +159,36 @@ pub(crate) fn view_scope_reach(registry: &crate::registry::Registry) -> Vec<Scop
     scopes
 }
 
+/// The mapping `Registry::profile_for_root` selects, found with the same matcher so the answer
+/// can never differ from the gateway's.
+pub(crate) fn view_folder_route_for(
+    registry: &crate::registry::Registry,
+    root: &str,
+) -> Option<ScopeReach> {
+    use crate::registry::{normalize_path, path_is_within};
+    let root = normalize_path(root);
+    if root.is_empty() {
+        return None;
+    }
+    registry
+        .folder_profiles
+        .iter()
+        .filter_map(|folder| {
+            let base = normalize_path(&folder.path);
+            path_is_within(&base, &root).then_some((base.len(), folder))
+        })
+        .max_by_key(|(len, _)| *len)
+        .map(|(_, folder)| {
+            scope_reach_of(
+                registry,
+                ScopeKind::Folder,
+                &folder.path,
+                &folder.profile,
+                &registry.resolve_profile_id(&folder.profile),
+            )
+        })
+}
+
 fn view_selfmcp_record(
     registry: &crate::registry::Registry,
 ) -> Result<Option<SelfMcpRecord>, String> {
@@ -188,6 +218,9 @@ macro_rules! registry_view {
             }
             fn scope_reach(&self) -> Vec<ScopeReach> {
                 view_scope_reach(self.$registry())
+            }
+            fn folder_route_for(&self, root: &str) -> Option<ScopeReach> {
+                view_folder_route_for(self.$registry(), root)
             }
             fn client_discovery(&self, client_id: &str) -> Option<String> {
                 self.$registry()
