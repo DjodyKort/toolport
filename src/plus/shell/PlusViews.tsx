@@ -1,28 +1,12 @@
 import { lazy, Suspense } from "react";
-import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import type { Registry, View } from "@/lib/types";
 import ContextScreen from "../context/ContextScreen";
 import ToolportPlusPage from "../settings/ToolportPlusPage";
 import TasksPage from "../tasks/TasksPage";
 
-import { isPlusView, PLUS_SCREENS, type PlusScreen } from "./views";
-
 const LibraryScreen = lazy(() => import("../library/LibraryScreen"));
 const SpendScreen = lazy(() => import("../spend/SpendScreen"));
-
-/** A page of the "Claude" group whose slice has not landed. It says what the page will do and
- * which slice delivers it, so a click on the sidebar entry never ends in a blank page. */
-function NotBuiltYet({ screen }: { screen: PlusScreen }) {
-  const Icon = screen.icon;
-  return (
-    <EmptyState
-      icon={<Icon />}
-      title={`${screen.title} arrives with slice ${screen.slice}`}
-      description={`${screen.what} Nothing on this page works yet.`}
-    />
-  );
-}
 
 export interface PlusViewsProps {
   view: View;
@@ -57,7 +41,6 @@ export default function PlusViews({
       </Suspense>
     );
   }
-  if (isPlusView(view)) return <NotBuiltYet screen={PLUS_SCREENS[view]} />;
   return (
     <ToolportPlusPage
       registry={registry}

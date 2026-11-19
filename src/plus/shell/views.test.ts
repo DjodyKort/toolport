@@ -22,11 +22,11 @@ describe("plus views", () => {
     }
   });
 
-  it("test02_every_placeholder_names_the_slice_that_delivers_it", () => {
-    expect(PLUS_SCREENS.library.slice).toBe("S4");
-    expect(PLUS_SCREENS.context.slice).toBe("S5");
-    expect(PLUS_SCREENS.tasks.slice).toBe("S6");
-    expect(PLUS_SCREENS.spend.slice).toBe("S10");
+  it("test02_every_page_of_the_group_has_a_title_and_a_subtitle", () => {
+    for (const view of PLUS_VIEWS) {
+      expect(PLUS_SCREENS[view].title.length).toBeGreaterThan(0);
+      expect(PLUS_SCREENS[view].subtitle.length).toBeGreaterThan(0);
+    }
     expect(PLUS_SCREENS.tasks.subtitle).toBe("Named jobs Toolport can run for you");
   });
 

@@ -21,9 +21,6 @@ export interface PlusScreen {
   icon: LucideIcon;
   title: string;
   subtitle: string;
-  /** The slice that delivers the real screen, named in the empty state. */
-  slice: string;
-  what: string;
 }
 
 export const PLUS_SCREENS: Record<PlusView, PlusScreen> = {
@@ -33,8 +30,6 @@ export const PLUS_SCREENS: Record<PlusView, PlusScreen> = {
     icon: BookOpen,
     title: "Library",
     subtitle: "What Claude Code can load, and where it comes from",
-    slice: "S4",
-    what: "Sync your skills, agents and styles to Claude Code, with one plan to review before anything is written.",
   },
   context: {
     view: "context",
@@ -42,8 +37,6 @@ export const PLUS_SCREENS: Record<PlusView, PlusScreen> = {
     icon: Gauge,
     title: "Context",
     subtitle: "What Claude loads in a folder, and what it costs",
-    slice: "S5",
-    what: "See what loads in this folder, how many tokens it costs, and switch the biggest items off.",
   },
   tasks: {
     view: "tasks",
@@ -51,8 +44,6 @@ export const PLUS_SCREENS: Record<PlusView, PlusScreen> = {
     icon: ListTodo,
     title: "Tasks",
     subtitle: "Named jobs Toolport can run for you",
-    slice: "S6",
-    what: "Run named jobs on a schedule or on demand, and read their history.",
   },
   spend: {
     view: "spend",
@@ -60,8 +51,6 @@ export const PLUS_SCREENS: Record<PlusView, PlusScreen> = {
     icon: Coins,
     title: "Spend",
     subtitle: "What Claude Code used on this machine, and what the MCP part of it was",
-    slice: "S10",
-    what: "See what Claude Code used by day, project, model and task, and what the MCP part of it was.",
   },
 };
 
