@@ -7,6 +7,7 @@
     "amber": [
       {
         "acked": false,
+        "commands": ["git -C ~/code/web status --short"],
         "id": "dirty:~/code/web",
         "kind": "dirty",
         "note": "0 changed, 2 untracked files",
@@ -16,6 +17,7 @@
     "blockers": [
       {
         "acked": false,
+        "commands": [],
         "id": "no-remote:~/code/scratch",
         "kind": "no-remote",
         "note": "has no remote: it exists only here",
@@ -23,6 +25,7 @@
       },
       {
         "acked": false,
+        "commands": ["git -C ~/code/web push origin main"],
         "id": "unpushed:~/code/web",
         "kind": "unpushed",
         "note": "1 commits are on no remote",
@@ -57,7 +60,20 @@
       "carry": 4
     },
     "ready": false,
-    "repos": 3
+    "repos": 3,
+    "sessions": {
+      "count": 1,
+      "fileSize": 0,
+      "repos": [
+        {
+          "fileSize": 0,
+          "name": "web",
+          "path": "~/code/web",
+          "sessions": 1
+        }
+      ]
+    },
+    "since": null
   },
   "tool": "setup_check"
 }

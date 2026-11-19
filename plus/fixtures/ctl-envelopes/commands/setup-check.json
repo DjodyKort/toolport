@@ -46,6 +46,17 @@
       "required": false,
       "sensitive": false,
       "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Also say which parts changed since the last export: the readable parts are built again and compared, which reads your repositories and memory once more",
+      "escalates": false,
+      "hidden": false,
+      "name": "--since",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
     }
   ],
   "group": "setup",

@@ -13,6 +13,7 @@
     "data": {
       "dryRun": true,
       "file": "<WORLD>/out/toolport-setup-<DATE>.zip",
+      "heldBackSealed": false,
       "name": "toolport-setup-<DATE>.zip",
       "notIncluded": [
         "your code and anything uncommitted, stashed or unpushed",
@@ -28,6 +29,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "repos",
           "info": {
             "noRemote": 1,
@@ -43,6 +45,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "servers",
           "info": {
             "secretValues": 0
@@ -56,6 +59,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "access",
           "info": {
             "accessSets": 1,
@@ -70,6 +74,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "library",
           "info": {},
           "label": "Skills library",
@@ -81,6 +86,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "tasks",
           "info": {},
           "label": "Tasks",
@@ -92,6 +98,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "settings",
           "info": {
             "bundles": 0,
@@ -108,6 +115,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "claudeUser",
           "info": {
             "filtered": 2,
@@ -123,6 +131,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "memory",
           "info": {
             "flagged": 0,
@@ -139,6 +148,7 @@
         "steps": [],
         "summary": "8 parts, about <N> bytes"
       },
+      "skipped": [],
       "totalSize": 0,
       "tree": [
         {

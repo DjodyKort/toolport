@@ -62,7 +62,8 @@
           "label": "alpha",
           "note": "already here, same",
           "part": "servers",
-          "state": "here"
+          "state": "here",
+          "takeable": false
         },
         {
           "hash": "<masked>",
@@ -70,21 +71,24 @@
           "label": "beta",
           "note": "already here, same",
           "part": "servers",
-          "state": "here"
+          "state": "here",
+          "takeable": false
         },
         {
           "id": "access",
           "label": "Clients and access sets",
           "note": "no access set to add",
           "part": "access",
-          "state": "here"
+          "state": "here",
+          "takeable": false
         },
         {
           "id": "tasks",
           "label": "Tasks",
           "note": "0 already here",
           "part": "tasks",
-          "state": "here"
+          "state": "here",
+          "takeable": false
         },
         {
           "hash": "<masked>",
@@ -92,7 +96,8 @@
           "label": "Toolport settings",
           "note": "same values",
           "part": "settings",
-          "state": "here"
+          "state": "here",
+          "takeable": false
         }
       ],
       "skipped": [],

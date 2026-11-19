@@ -6,6 +6,7 @@
       "dryRun": false,
       "file": "<WORLD>/out/setup.zip",
       "fileSize": 0,
+      "heldBackSealed": false,
       "madeAt": "<TIME>",
       "name": "setup.zip",
       "notIncluded": [
@@ -22,6 +23,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "repos",
           "info": {
             "noRemote": 1,
@@ -37,6 +39,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "servers",
           "info": {
             "secretValues": 0
@@ -50,6 +53,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "access",
           "info": {
             "accessSets": 1,
@@ -64,6 +68,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "library",
           "info": {},
           "label": "Skills library",
@@ -75,6 +80,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "tasks",
           "info": {},
           "label": "Tasks",
@@ -86,6 +92,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "settings",
           "info": {
             "bundles": 0,
@@ -102,6 +109,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "claudeUser",
           "info": {
             "filtered": 2,
@@ -117,6 +125,7 @@
           "error": null,
           "fileSize": 0,
           "flagged": [],
+          "heldBack": [],
           "id": "memory",
           "info": {
             "flagged": 0,
@@ -132,6 +141,7 @@
       "result": {
         "undo": "delete the file"
       },
+      "skipped": [],
       "tree": [
         {
           "fileSize": 0,

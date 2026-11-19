@@ -186,6 +186,7 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("setup check", m("--tick", Str, "Tick a thing you carry yourself: browser, keys, licenses, outside (repeatable)").repeats()),
     ("setup check", m("--untick", Str, "Untick it again (repeatable)").repeats()),
     ("setup check", m("--ack", Str, "Acknowledge a finding by its id (repeatable)").repeats()),
+    ("setup check", m("--since", Bool, "Also say which parts changed since the last export: the readable parts are built again and compared, which reads your repositories and memory once more")),
     ("sync setup", m("--git", Str, "A private git repository to keep the sealed file in; the hosted service of upstream Toolport is refused")),
     ("sync setup", m("--branch", Str, "The branch of the repository (default main)")),
     ("sync setup", m("--folder", Path, "A folder to keep the sealed file in, such as a synced directory")),

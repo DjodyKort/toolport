@@ -81,91 +81,104 @@
         "label": "docs → ~/code/docs",
         "note": "already here, same branch",
         "part": "repos",
-        "state": "here"
+        "state": "here",
+        "takeable": false
       },
       {
         "id": "repo:~/code/scratch",
         "label": "scratch → ~/code/scratch",
         "note": "already here, same branch",
         "part": "repos",
-        "state": "here"
+        "state": "here",
+        "takeable": false
       },
       {
         "id": "repo:~/code/web",
         "label": "web → ~/code/web",
         "note": "already here, same branch",
         "part": "repos",
-        "state": "here"
+        "state": "here",
+        "takeable": false
       },
       {
         "id": "server:alpha",
         "label": "alpha",
         "note": "already here, same",
         "part": "servers",
-        "state": "here"
+        "state": "here",
+        "takeable": false
       },
       {
         "id": "server:beta",
         "label": "beta",
         "note": "already here, same",
         "part": "servers",
-        "state": "here"
+        "state": "here",
+        "takeable": false
       },
       {
         "id": "access",
         "label": "Clients and access sets",
         "note": "no access set to add",
         "part": "access",
-        "state": "here"
+        "state": "here",
+        "takeable": false
       },
       {
         "id": "library",
         "label": "Skills library",
         "note": "the file holds no library to restore",
         "part": "library",
-        "state": "needs"
+        "state": "needs",
+        "takeable": false
       },
       {
         "id": "tasks",
         "label": "Tasks",
         "note": "0 already here",
         "part": "tasks",
-        "state": "here"
+        "state": "here",
+        "takeable": false
       },
       {
         "id": "settings",
         "label": "Toolport settings",
         "note": "same values",
         "part": "settings",
-        "state": "here"
+        "state": "here",
+        "takeable": false
       },
       {
         "id": "claude:CLAUDE.md",
         "label": "~/.claude/CLAUDE.md",
         "note": "already here, same",
         "part": "claudeUser",
-        "state": "here"
+        "state": "here",
+        "takeable": false
       },
       {
         "id": "claude:rules/style.md",
         "label": "~/.claude/rules/style.md",
         "note": "already here, same",
         "part": "claudeUser",
-        "state": "here"
+        "state": "here",
+        "takeable": false
       },
       {
         "id": "claude:settings.json",
         "label": "~/.claude/settings.json",
         "note": "the filtered copy is in the file; Claude Code settings are never written by a restore",
         "part": "claudeUser",
-        "state": "needs"
+        "state": "needs",
+        "takeable": false
       },
       {
         "id": "memory:<WORLD-SLUG>_remotes_web",
         "label": "Memory of web",
         "note": "0 to add, 2 already here, 0 differ (kept unless taken)",
         "part": "memory",
-        "state": "here"
+        "state": "here",
+        "takeable": false
       }
     ],
     "summary": {
