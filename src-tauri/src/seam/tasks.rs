@@ -77,6 +77,11 @@ pub fn arm(server_id: &str, tool: &str, name: &str) -> Option<OutgoingGuard> {
     let outgoing = REQUEST.with(|current| {
         let current = current.borrow();
         let request = current.as_ref()?;
+        // No session, no task: the call goes to the server as a plain one, which a receiver that
+        // does not take tasks is required to do with the `task` it is sent.
+        if request.session.is_empty() {
+            return None;
+        }
         request
             .tool
             .as_deref()
@@ -195,5 +200,47 @@ pub fn request(
     ) {
         Ok(result) => json!({ "jsonrpc": "2.0", "id": id, "result": result }),
         Err(error) => json!({ "jsonrpc": "2.0", "id": id, "error": error }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SERVER: &str = "sessionless-fixture";
+
+    fn tasks_offered() {
+        mcp_tasks::server_connected(
+            SERVER,
+            &json!({ "capabilities": { "tasks": {
+                "list": {}, "cancel": {}, "requests": { "tools": { "call": {} } } } } }),
+        );
+        let mut result = json!({ "protocolVersion": mcp_tasks::TASKS_VERSION, "capabilities": {} });
+        mcp_tasks::advertise(
+            &mut result,
+            &json!({ "params": {
+                "protocolVersion": mcp_tasks::TASKS_VERSION, "capabilities": { "tasks": {} } } }),
+            &|_| true,
+        );
+    }
+
+    fn task_call() -> Value {
+        json!({ "method": "tools/call",
+            "params": { "name": "fixture__job", "task": { "ttl": 1000 } } })
+    }
+
+    #[test]
+    fn a_call_from_a_client_without_a_session_is_sent_without_its_task() {
+        tasks_offered();
+        {
+            let _request = request_task(&task_call(), || None);
+            assert!(arm(SERVER, "job", "fixture__job").is_none());
+            assert_eq!(
+                with_task(json!({ "name": "job" })),
+                json!({ "name": "job" })
+            );
+        }
+        let _request = request_task(&task_call(), || Some("session-1".to_string()));
+        assert!(arm(SERVER, "job", "fixture__job").is_some());
     }
 }

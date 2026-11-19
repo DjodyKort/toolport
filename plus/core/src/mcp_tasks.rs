@@ -19,6 +19,7 @@ use serde_json::{json, Map, Value};
 
 pub const RELATED_TASK_KEY: &str = "io.modelcontextprotocol/related-task";
 pub const UNKNOWN_TASK: &str = "Toolport: task no longer available";
+pub const NO_SESSION: &str = "Toolport: tasks belong to a client session and this client has none, so it cannot create, list or read tasks. Send `initialize` first and keep the session";
 
 /// The revision that introduced tasks; clients and servers speak them only at this one.
 pub const TASKS_VERSION: &str = "2025-11-25";
@@ -27,6 +28,7 @@ const ID_PREFIX: &str = "tpt.";
 const MAX_REMEMBERED: usize = 4096;
 const UNTIMED_RETENTION: Duration = Duration::from_secs(24 * 60 * 60);
 const RETENTION_GRACE: Duration = Duration::from_secs(60);
+const INVALID_REQUEST: i64 = -32600;
 const INVALID_PARAMS: i64 = -32602;
 const INTERNAL_ERROR: i64 = -32603;
 
@@ -294,9 +296,20 @@ fn make_room(state: &mut State, now: Instant) {
 
 /// A server answered a task-augmented `tools/call` of `tool`. When the answer is a
 /// `CreateTaskResult`, its task id is replaced by the one the client gets and the task is
-/// remembered for `session`.
+/// remembered for `session`. Without a session nothing is remembered and the client gets an
+/// error result instead of an id it could never use: tasks of sessionless clients would all
+/// belong to one shared owner.
 pub fn created(server_id: &str, tool: &str, session: &str, result: &mut Value) {
     if result.get("content").is_some() {
+        return;
+    }
+    if session.is_empty() {
+        if result.get("task").is_some_and(Value::is_object) {
+            *result = json!({
+                "content": [{ "type": "text", "text": NO_SESSION }],
+                "isError": true,
+            });
+        }
         return;
     }
     let Some(task) = result.get_mut("task").filter(|task| task.is_object()) else {
@@ -392,6 +405,9 @@ struct Owned {
 }
 
 fn owned(exposed: &str, session: &str, in_scope: &dyn Fn(&str) -> bool) -> Option<Owned> {
+    if session.is_empty() {
+        return None;
+    }
     let (server, native) = decode(exposed)?;
     let state = state();
     let entry = state.remembered.get(exposed)?;
@@ -625,6 +641,9 @@ pub fn handle(
     shape: &mut dyn FnMut(&str, Value) -> Value,
     governance: &mut dyn Governance,
 ) -> Result<Value, Value> {
+    if session.is_empty() {
+        return Err(rpc_error(INVALID_REQUEST, NO_SESSION));
+    }
     match method {
         "tasks/list" => list(params, session, in_scope, forward, governance),
         "tasks/get" | "tasks/result" | "tasks/cancel" => by_id(
@@ -1155,7 +1174,6 @@ mod tests {
     fn test13_a_status_notification_reaches_the_creating_session_under_its_id() {
         let _held = guard();
         let exposed = create("alpha", "task-1", "s1");
-        create("alpha", "task-2", "");
         let delivered = Arc::new(Mutex::new(Vec::new()));
         let sink_log = Arc::clone(&delivered);
         set_sink(Arc::new(move |session, note| {
@@ -1171,7 +1189,6 @@ mod tests {
             })
         };
         status_seen("alpha", &note("task-1", "completed"));
-        status_seen("alpha", &note("task-2", "completed"));
         status_seen("alpha", &note("task-7", "completed"));
         status_seen("beta", &note("task-1", "completed"));
         status_seen(
@@ -1392,5 +1409,57 @@ mod tests {
         assert_eq!(watching.recorded[0].3, "refused");
         assert_eq!(watching.recorded[0].2, None);
         assert!(first["nextCursor"].is_string(), "beta is still to come");
+    }
+
+    #[test]
+    fn test30_a_client_without_a_session_cannot_create_list_or_read_tasks() {
+        let _held = guard();
+        let mut result = json!({ "task": { "taskId": "t-1", "status": "working", "ttl": 60000 } });
+        created("alpha", "tool", "", &mut result);
+        assert_eq!(result["isError"], true, "{result}");
+        assert_eq!(result["content"][0]["text"], NO_SESSION);
+        assert!(
+            result.get("task").is_none(),
+            "no id for a client that has no owner"
+        );
+        assert_eq!(
+            running("alpha"),
+            0,
+            "nothing is remembered for the empty session"
+        );
+
+        let mut plain = json!({ "content": [{ "type": "text", "text": "done" }] });
+        created("alpha", "tool", "", &mut plain);
+        assert_eq!(plain["content"][0]["text"], "done", "a plain result passes");
+
+        let mine = create("alpha", "task-2", "s1");
+        let mut forward = forwarding(|_, _, _, _| panic!("a refused request reaches no server"));
+        for (method, params) in [
+            ("tasks/list", json!({})),
+            ("tasks/get", json!({ "taskId": mine })),
+            ("tasks/result", json!({ "taskId": mine })),
+            ("tasks/cancel", json!({ "taskId": mine })),
+        ] {
+            let error = handle(
+                method,
+                &params,
+                "",
+                &all,
+                &mut forward,
+                &mut keep,
+                &mut Open,
+            )
+            .unwrap_err();
+            assert_eq!(error["code"], INVALID_REQUEST, "{method}");
+            assert_eq!(error["message"], NO_SESSION, "{method}");
+        }
+    }
+
+    #[test]
+    fn test31_a_task_of_a_session_is_not_reachable_with_the_empty_session() {
+        let _held = guard();
+        let mine = create("alpha", "task-3", "s1");
+        assert!(owned(&mine, "", &all).is_none());
+        assert!(owned(&mine, "s1", &all).is_some());
     }
 }
