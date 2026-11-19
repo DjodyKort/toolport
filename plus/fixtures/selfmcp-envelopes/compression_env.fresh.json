@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj"
+  },
+  "isError": false,
+  "result": {
+    "cwd": "<WORLD>/home/proj",
+    "env": {},
+    "launch": "plain",
+    "lines": ["HRCOMPRESS_LAUNCH=plain"],
+    "port": null,
+    "preset": "interactive",
+    "provider": "none"
+  },
+  "tool": "compression_env"
+}

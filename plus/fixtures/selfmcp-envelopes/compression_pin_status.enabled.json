@@ -1,0 +1,16 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "adopted": null,
+    "drift": false,
+    "dryRun": true,
+    "install": null,
+    "installed": null,
+    "pin": "0.29.0",
+    "refresh": null,
+    "requirement": "headroom-ai[proxy,code,ml]==0.29.0",
+    "set": false
+  },
+  "tool": "compression_pin_status"
+}

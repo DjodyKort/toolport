@@ -1,0 +1,95 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "cannotTell": "Counts hook calls, latency and how often the hook answered. It cannot see the size of the tool output a rewrite later saves; that needs the billed measurement in `compression verify`.",
+    "counters": [
+      {
+        "answered": 3,
+        "basis": "mechanical",
+        "calls": 6,
+        "failed": 0,
+        "firstCall": "<TIME>",
+        "lastCall": "<TIME>",
+        "maxLatencyMs": 50,
+        "medianLatencyMs": 40,
+        "p95LatencyMs": 50,
+        "provider": "rtk"
+      },
+      {
+        "answered": 1,
+        "basis": "mechanical",
+        "calls": 2,
+        "failed": 0,
+        "firstCall": "<TIME>",
+        "lastCall": "<TIME>",
+        "maxLatencyMs": 60,
+        "medianLatencyMs": 60,
+        "p95LatencyMs": 60,
+        "provider": "read-once"
+      }
+    ],
+    "entries": [
+      {
+        "command": "<WORLD>/home/.claude/hooks/rtk-hook.sh",
+        "file": "<WORLD>/home/.claude/settings.json",
+        "health": "foreign",
+        "provider": "rtk",
+        "state": "foreign",
+        "wrappedAt": "<TIME>"
+      },
+      {
+        "command": "<WORLD>/home/.claude/hooks/read-once-hook.sh",
+        "file": "<WORLD>/home/.claude/settings.json",
+        "health": "foreign",
+        "provider": "read-once",
+        "state": "foreign",
+        "wrappedAt": null
+      }
+    ],
+    "epochs": 3,
+    "paused": false,
+    "pausedSince": null,
+    "pausedUntil": null,
+    "trust": [
+      {
+        "provider": "headroom",
+        "trust": {
+          "closedEngine": false,
+          "installsGlobalHooks": false,
+          "needsEgressConsent": false,
+          "sendsCodeOffMachine": false
+        }
+      },
+      {
+        "provider": "rtk-only",
+        "trust": {
+          "closedEngine": false,
+          "installsGlobalHooks": true,
+          "needsEgressConsent": false,
+          "sendsCodeOffMachine": false
+        }
+      },
+      {
+        "provider": "parsec",
+        "trust": {
+          "closedEngine": true,
+          "installsGlobalHooks": true,
+          "needsEgressConsent": true,
+          "sendsCodeOffMachine": true
+        }
+      },
+      {
+        "provider": "none",
+        "trust": {
+          "closedEngine": false,
+          "installsGlobalHooks": false,
+          "needsEgressConsent": false,
+          "sendsCodeOffMachine": false
+        }
+      }
+    ],
+    "wrapped": 1
+  },
+  "tool": "compression_hooks_status"
+}

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "since": "<masked>"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "--since needs an RFC 3339 timestamp, e.g. <TIME>"
+    }
+  },
+  "text": "invalid_arguments: --since needs an RFC 3339 timestamp, e.g. <TIME>",
+  "tool": "compression_ledger_summary"
+}

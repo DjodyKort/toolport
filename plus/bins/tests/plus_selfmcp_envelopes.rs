@@ -3127,6 +3127,93 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "compression_presets",
+        &[
+            read("fresh", "compression_presets", "{}"),
+            setup("compression_enable", ENABLE_OFF_PORT),
+            read("enabled", "compression_presets", "{}"),
+            fails(
+                "refresh_is_not_offered",
+                "invalid_arguments",
+                "compression_presets",
+                r#"{"refresh":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "compression_doctor",
+        &[
+            read("fresh", "compression_doctor", "{}"),
+            setup("compression_enable", ENABLE_OFF_PORT),
+            read("enabled", "compression_doctor", "{}"),
+        ],
+    ),
+    case(
+        "compression_verify",
+        &[
+            read("empty", "compression_verify", "{}"),
+            hook("world", compression::measure_world),
+            read("sessions", "compression_verify", r#"{"min_turns":3}"#),
+            read(
+                "by_pin",
+                "compression_verify",
+                r#"{"by_pin":true,"limit":5}"#,
+            ),
+            fails(
+                "limit_not_a_number",
+                "invalid_arguments",
+                "compression_verify",
+                r#"{"limit":"five"}"#,
+            ),
+        ],
+    ),
+    case(
+        "compression_env",
+        &[
+            read("fresh", "compression_env", r#"{"cwd":"{home}/proj"}"#),
+            setup("compression_enable", ENABLE_OFF_PORT),
+            read("routed", "compression_env", r#"{"cwd":"{home}/proj"}"#),
+            fails("no_cwd", "invalid_arguments", "compression_env", "{}"),
+        ],
+    ),
+    case(
+        "compression_hooks_status",
+        &[
+            read("none", "compression_hooks_status", "{}"),
+            hook("home", compression::fixture_hooks),
+            read("fixture", "compression_hooks_status", "{}"),
+            hook("world", compression::measure_world),
+            read("paused_and_counted", "compression_hooks_status", "{}"),
+        ],
+    ),
+    case(
+        "compression_ledger_summary",
+        &[
+            read("empty", "compression_ledger_summary", "{}"),
+            hook("ledger", compression::ledger_world),
+            read("both", "compression_ledger_summary", "{}"),
+            read(
+                "since",
+                "compression_ledger_summary",
+                r#"{"provider":"headroom","since":"2026-11-10T00:00:00Z"}"#,
+            ),
+            fails(
+                "bad_since",
+                "invalid_arguments",
+                "compression_ledger_summary",
+                r#"{"since":"last week"}"#,
+            ),
+        ],
+    ),
+    case(
+        "compression_pin_status",
+        &[
+            read("fresh", "compression_pin_status", "{}"),
+            setup("compression_enable", ENABLE_OFF_PORT),
+            read("enabled", "compression_pin_status", "{}"),
+        ],
+    ),
+    case(
         "compression_hooks_pause",
         &[
             write("for", "compression_hooks_pause", r#"{"for":"1d"}"#),

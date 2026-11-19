@@ -176,7 +176,11 @@ fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
             "skills_search" => json!({"query": "demo"}),
             "tasks_get" => json!({"id": "portal-token"}),
             "context_bundle_show" => json!({"name": "acme-dev"}),
-            "context_bundle_status" | "context_loads" | "context_compose" | "context_status" => {
+            "context_bundle_status"
+            | "context_loads"
+            | "context_compose"
+            | "context_status"
+            | "compression_env" => {
                 json!({"cwd": world.home.display().to_string()})
             }
             "memory_ls" | "memory_status" | "memory_clear" | "memory_overview" | "sessions_ls" => {

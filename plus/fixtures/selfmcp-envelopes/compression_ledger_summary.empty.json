@@ -1,0 +1,11 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "launchesPath": "<WORLD>/data/compression-launches.jsonl",
+    "providers": [],
+    "savingsPath": "<WORLD>/data/compression-savings.jsonl",
+    "tokensSaved": 0
+  },
+  "tool": "compression_ledger_summary"
+}

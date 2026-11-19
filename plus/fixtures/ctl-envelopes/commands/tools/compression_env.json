@@ -1,0 +1,7 @@
+{
+  "command": "compression env",
+  "dryRun": "none",
+  "name": "compression_env",
+  "tier": "read",
+  "toolTier": 1
+}

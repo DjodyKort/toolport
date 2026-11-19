@@ -1,0 +1,66 @@
+{
+  "arguments": {
+    "by_pin": true,
+    "limit": 5
+  },
+  "isError": false,
+  "result": {
+    "buckets": {
+      "plain": {
+        "cacheCreate": 0,
+        "cacheRead": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "readRatio": null,
+        "readWrite": null,
+        "sessions": 0,
+        "turns": 0
+      },
+      "proxied": {
+        "cacheCreate": 0,
+        "cacheRead": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "readRatio": null,
+        "readWrite": null,
+        "sessions": 0,
+        "turns": 0
+      },
+      "unattributed": {
+        "cacheCreate": 54000,
+        "cacheRead": 540000,
+        "inputTokens": 2700,
+        "outputTokens": 10800,
+        "readRatio": 0.9090909090909091,
+        "readWrite": 10.0,
+        "sessions": 5,
+        "turns": 27
+      }
+    },
+    "byPin": [],
+    "checks": [
+      {
+        "detail": "compression disabled (provider none)",
+        "name": "engine",
+        "ok": true
+      },
+      {
+        "detail": "not used by provider none",
+        "name": "pin",
+        "ok": true
+      },
+      {
+        "detail": "not required for this provider",
+        "name": "shims",
+        "ok": true
+      }
+    ],
+    "provider": "none",
+    "transcripts": {
+      "count": 5,
+      "root": "<WORLD>/home/.claude/projects"
+    },
+    "verdict": null
+  },
+  "tool": "compression_verify"
+}

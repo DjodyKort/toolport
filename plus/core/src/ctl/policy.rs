@@ -1178,6 +1178,17 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("spend_setup_undo", W, "spend setup undo").on(),
     maps("compression_status", R, "compression status"),
     maps("compression_measure", R, "compression measure"),
+    maps("compression_presets", R, "compression presets"),
+    maps("compression_doctor", R, "compression doctor"),
+    maps("compression_verify", R, "compression verify"),
+    maps("compression_env", R, "compression env"),
+    maps("compression_hooks_status", R, "compression hooks status"),
+    maps(
+        "compression_ledger_summary",
+        R,
+        "compression ledger summary",
+    ),
+    maps("compression_pin_status", R, "compression pin"),
     maps("compression_hooks_pause", W, "compression hooks pause"),
     maps("compression_hooks_resume", W, "compression hooks resume"),
     maps(

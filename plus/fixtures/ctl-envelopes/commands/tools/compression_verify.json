@@ -1,0 +1,7 @@
+{
+  "command": "compression verify",
+  "dryRun": "none",
+  "name": "compression_verify",
+  "tier": "read",
+  "toolTier": 1
+}

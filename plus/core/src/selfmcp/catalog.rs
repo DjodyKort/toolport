@@ -1045,6 +1045,69 @@ pub const TOOLS: &[ToolDef] = &[
         compression::measure
     ),
     tool!(
+        "compression_presets",
+        1,
+        None,
+        "List the compression presets with their mode, savings profile, proxy port, number of declared knobs and the engine build their snapshot was taken from; the active one is marked. Refreshing the snapshots is not offered here",
+        [],
+        compression::presets
+    ),
+    tool!(
+        "compression_doctor",
+        1,
+        None,
+        "Check the compression setup: the policy file, the engine and its pin, the shims and the registry entry, each as ok or failed with a detail; also lists what an old policy file was migrated from. Probes the local proxy, changes nothing",
+        [],
+        compression::doctor
+    ),
+    tool!(
+        "compression_verify",
+        1,
+        None,
+        "The health checks of compression plus the prompt-cache read ratio of Claude Code transcripts, split into sessions that went through the proxy, plain ones and unattributed ones, with a pass or fail verdict for the proxied ones; reads transcripts and the launch ledger, writes nothing",
+        [
+            p("limit", Ty::Int, false, "Look at only this many transcripts"),
+            p("min_turns", Ty::Int, false, "Sessions with fewer turns are left out (default 5)"),
+            p("by_pin", Ty::Bool, false, "Also split the proxied sessions by the engine pin they ran with")
+        ],
+        compression::verify
+    ),
+    tool!(
+        "compression_env",
+        1,
+        None,
+        "The proxy environment a session started in a folder would get: the provider and preset that apply to it, whether it is routed through the proxy, the port and the variables",
+        [CWD],
+        compression::env
+    ),
+    tool!(
+        "compression_hooks_status",
+        1,
+        None,
+        "The rtk and read-once hook entries in Claude settings: whether each is wrapped, edited by hand or missing, whether the hooks are paused, and the counted calls with their median and 95th percentile latency",
+        [],
+        compression::hooks_status
+    ),
+    tool!(
+        "compression_ledger_summary",
+        1,
+        None,
+        "Summarise the launch and token-savings ledger per provider: launches routed and plain, the savings entries with tokens before and after, and what was saved",
+        [
+            p("provider", Ty::Str, false, "Only this provider"),
+            p("since", Ty::Str, false, "Only entries from this RFC 3339 timestamp on, e.g. 2026-11-01T00:00:00Z")
+        ],
+        compression::ledger_summary
+    ),
+    tool!(
+        "compression_pin_status",
+        1,
+        None,
+        "Show the engine build the compression policy pins, the requirement it installs, the build on this machine and whether the two drift apart. Moving the pin is compression_update",
+        [],
+        compression::pin_status
+    ),
+    tool!(
         "compression_hooks_pause",
         2,
         None,

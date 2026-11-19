@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "refresh": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "unknown argument: refresh"
+    }
+  },
+  "text": "invalid_arguments: unknown argument: refresh",
+  "tool": "compression_presets"
+}

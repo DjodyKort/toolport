@@ -44,5 +44,5 @@
   "summary": "Summarise the token-savings ledger (--provider, --since)",
   "surface": "screen",
   "tier": "read",
-  "tools": []
+  "tools": ["compression_ledger_summary"]
 }

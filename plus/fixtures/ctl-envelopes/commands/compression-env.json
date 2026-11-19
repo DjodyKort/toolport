@@ -33,5 +33,5 @@
   "summary": "Print the proxy env for a directory, for eval (--cwd)",
   "surface": "screen",
   "tier": "read",
-  "tools": []
+  "tools": ["compression_env"]
 }

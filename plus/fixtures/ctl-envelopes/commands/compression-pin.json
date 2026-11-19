@@ -61,5 +61,5 @@
   "summary": "Show or set the exact engine pin (--install, --refresh, --dry-run)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["compression_pin_status"]
 }

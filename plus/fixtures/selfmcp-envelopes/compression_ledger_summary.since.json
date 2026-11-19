@@ -1,0 +1,26 @@
+{
+  "arguments": {
+    "provider": "headroom",
+    "since": "<masked>"
+  },
+  "isError": false,
+  "result": {
+    "launchesPath": "<WORLD>/data/compression-launches.jsonl",
+    "providers": [
+      {
+        "launches": 1,
+        "plain": 1,
+        "provider": "headroom",
+        "routed": 0,
+        "savedPercent": 37.5,
+        "savingsEntries": 1,
+        "tokensAfter": 5000,
+        "tokensBefore": 8000,
+        "tokensSaved": 3000
+      }
+    ],
+    "savingsPath": "<WORLD>/data/compression-savings.jsonl",
+    "tokensSaved": 3000
+  },
+  "tool": "compression_ledger_summary"
+}

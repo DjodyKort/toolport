@@ -44,5 +44,5 @@
   "summary": "List presets (--refresh re-snapshots knobs, --dry-run)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["compression_presets"]
 }

@@ -1,0 +1,29 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj"
+  },
+  "isError": false,
+  "result": {
+    "cwd": "<WORLD>/home/proj",
+    "env": {
+      "ANTHROPIC_BASE_URL": "http://127.0.0.1:<PORT>",
+      "ENABLE_TOOL_SEARCH": "true",
+      "HEADROOM_MODE": "cache",
+      "HEADROOM_TELEMETRY": "off"
+    },
+    "launch": "route",
+    "lines": [
+      "export ANTHROPIC_BASE_URL=\"http://127.0.0.1:<PORT>\"",
+      "export ENABLE_TOOL_SEARCH=\"true\"",
+      "export HEADROOM_MODE=\"cache\"",
+      "export HEADROOM_TELEMETRY=\"off\"",
+      "HRCOMPRESS_PORT=29213",
+      "HRCOMPRESS_PRESET=interactive",
+      "HRCOMPRESS_LAUNCH=route"
+    ],
+    "port": 29213,
+    "preset": "interactive",
+    "provider": "headroom"
+  },
+  "tool": "compression_env"
+}

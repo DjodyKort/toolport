@@ -1,0 +1,37 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "checks": [
+      {
+        "detail": "headroom not on PATH (pin 0.29.0)",
+        "name": "engine binary",
+        "ok": false
+      },
+      {
+        "detail": "no ready proxy on :29213",
+        "name": "engine reachable",
+        "ok": false
+      },
+      {
+        "detail": "exact pin headroom-ai[proxy,code,ml]==0.29.0",
+        "name": "pin",
+        "ok": true
+      },
+      {
+        "detail": "snapshotted from another build: agent, balanced",
+        "name": "preset provenance",
+        "ok": false
+      },
+      {
+        "detail": "<WORLD>/data/compression-shims.zsh defines all 8 functions",
+        "name": "shims",
+        "ok": true
+      }
+    ],
+    "healthy": false,
+    "migrated": [],
+    "provider": "headroom"
+  },
+  "tool": "compression_doctor"
+}

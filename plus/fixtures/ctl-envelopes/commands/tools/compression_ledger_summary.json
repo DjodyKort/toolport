@@ -1,0 +1,7 @@
+{
+  "command": "compression ledger summary",
+  "dryRun": "none",
+  "name": "compression_ledger_summary",
+  "tier": "read",
+  "toolTier": 1
+}

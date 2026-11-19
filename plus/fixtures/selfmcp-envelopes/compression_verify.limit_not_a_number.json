@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "limit": "five"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "argument limit has the wrong type"
+    }
+  },
+  "text": "invalid_arguments: argument limit has the wrong type",
+  "tool": "compression_verify"
+}

@@ -1,0 +1,23 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "launchesPath": "<WORLD>/data/compression-launches.jsonl",
+    "providers": [
+      {
+        "launches": 2,
+        "plain": 1,
+        "provider": "headroom",
+        "routed": 1,
+        "savedPercent": 38.888888888888886,
+        "savingsEntries": 2,
+        "tokensAfter": 11000,
+        "tokensBefore": 18000,
+        "tokensSaved": 7000
+      }
+    ],
+    "savingsPath": "<WORLD>/data/compression-savings.jsonl",
+    "tokensSaved": 7000
+  },
+  "tool": "compression_ledger_summary"
+}

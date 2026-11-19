@@ -1,0 +1,7 @@
+{
+  "command": "compression doctor",
+  "dryRun": "none",
+  "name": "compression_doctor",
+  "tier": "read",
+  "toolTier": 1
+}

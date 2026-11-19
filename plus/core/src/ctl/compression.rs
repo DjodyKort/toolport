@@ -626,7 +626,7 @@ pub(super) fn ledger_record(paths: &Paths, rest: &[String]) -> Result<Output, Ct
     Ok(Output::new(data, human))
 }
 
-pub(super) fn ledger_summary(paths: &Paths, rest: &[String]) -> Result<Output, CtlError> {
+pub(crate) fn ledger_summary(paths: &Paths, rest: &[String]) -> Result<Output, CtlError> {
     let flags = LEDGER_SUMMARY.parse(rest)?;
     no_args(flags.operands())?;
     let since = match flags.one("--since") {

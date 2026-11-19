@@ -66,5 +66,5 @@
   "summary": "Check provider health, pin, shims and measure cache behaviour",
   "surface": "screen",
   "tier": "read",
-  "tools": []
+  "tools": ["compression_verify"]
 }

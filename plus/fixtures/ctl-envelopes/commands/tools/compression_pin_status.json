@@ -1,0 +1,7 @@
+{
+  "command": "compression pin",
+  "dryRun": "none",
+  "name": "compression_pin_status",
+  "tier": "read",
+  "toolTier": 1
+}

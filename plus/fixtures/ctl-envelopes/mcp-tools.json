@@ -2315,6 +2315,101 @@
           "tier": 1
         },
         {
+          "description": "List the compression presets with their mode, savings profile, proxy port, number of declared knobs and the engine build their snapshot was taken from; the active one is marked. Refreshing the snapshots is not offered here",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "compression_presets",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Check the compression setup: the policy file, the engine and its pin, the shims and the registry entry, each as ok or failed with a detail; also lists what an old policy file was migrated from. Probes the local proxy, changes nothing",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "compression_doctor",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "The health checks of compression plus the prompt-cache read ratio of Claude Code transcripts, split into sessions that went through the proxy, plain ones and unattributed ones, with a pass or fail verdict for the proxied ones; reads transcripts and the launch ledger, writes nothing",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "compression_verify",
+          "params": [
+            {
+              "description": "Look at only this many transcripts",
+              "name": "limit",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "description": "Sessions with fewer turns are left out (default 5)",
+              "name": "min_turns",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "description": "Also split the proxied sessions by the engine pin they ran with",
+              "name": "by_pin",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "The proxy environment a session started in a folder would get: the provider and preset that apply to it, whether it is routed through the proxy, the port and the variables",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "compression_env",
+          "params": [
+            {
+              "description": "The folder where Claude Code starts",
+              "name": "cwd",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "The rtk and read-once hook entries in Claude settings: whether each is wrapped, edited by hand or missing, whether the hooks are paused, and the counted calls with their median and 95th percentile latency",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "compression_hooks_status",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Summarise the launch and token-savings ledger per provider: launches routed and plain, the savings entries with tokens before and after, and what was saved",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "compression_ledger_summary",
+          "params": [
+            {
+              "description": "Only this provider",
+              "name": "provider",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Only entries from this RFC 3339 timestamp on, e.g. <TIME>",
+              "name": "since",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Show the engine build the compression policy pins, the requirement it installs, the build on this machine and whether the two drift apart. Moving the pin is compression_update",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "compression_pin_status",
+          "params": [],
+          "tier": 1
+        },
+        {
           "description": "Pause the compression hooks Toolport wrapped: they answer nothing, so Claude Code runs without rtk and read-once. With for or until the pause ends by itself, without an app running; without either it lasts until compression_hooks_resume. Applies from the next session",
           "dryRunDefault": false,
           "gate": "none",

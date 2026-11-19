@@ -239,6 +239,36 @@ pub fn measure_world(world: &World) {
     .unwrap();
 }
 
+/// Two launches (one routed through the proxy, one plain) and two savings entries of headroom.
+pub fn ledger_world(world: &World) {
+    let launches = [
+        json!({"ts": "2026-11-05T09:00:00Z", "cwd": "/work/demo", "provider": "headroom", "preset": "agent", "routed": true, "port": 29213, "pin": "0.5.7"}),
+        json!({"ts": "2026-11-12T09:00:00Z", "cwd": "/work/demo", "provider": "headroom", "preset": "agent", "routed": false, "port": null, "pin": "0.5.7"}),
+    ];
+    let savings = [
+        json!({"ts": "2026-11-05T10:00:00Z", "provider": "headroom", "source": "proxy", "session": "s1", "tokens_before": 10000, "tokens_after": 6000}),
+        json!({"ts": "2026-11-12T10:00:00Z", "provider": "headroom", "source": "proxy", "session": "s2", "tokens_before": 8000, "tokens_after": 5000}),
+    ];
+    let lines = |rows: &[Value]| {
+        rows.iter()
+            .map(Value::to_string)
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n"
+    };
+    std::fs::create_dir_all(&world.data).unwrap();
+    std::fs::write(
+        world.data.join("compression-launches.jsonl"),
+        lines(&launches),
+    )
+    .unwrap();
+    std::fs::write(
+        world.data.join("compression-savings.jsonl"),
+        lines(&savings),
+    )
+    .unwrap();
+}
+
 /// Claude settings that lost the hooks Toolport wrapped.
 pub fn lose_hooks(world: &World) {
     std::fs::write(

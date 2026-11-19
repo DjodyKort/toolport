@@ -1,0 +1,37 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "active": "interactive",
+    "presets": [
+      {
+        "active": true,
+        "knobCount": 0,
+        "mode": "cache",
+        "name": "interactive",
+        "port": 29213,
+        "savingsProfile": null,
+        "snapshotVersion": null
+      },
+      {
+        "active": false,
+        "knobCount": 0,
+        "mode": "token",
+        "name": "agent",
+        "port": 8788,
+        "savingsProfile": "agent-90",
+        "snapshotVersion": null
+      },
+      {
+        "active": false,
+        "knobCount": 0,
+        "mode": "token",
+        "name": "balanced",
+        "port": 8787,
+        "savingsProfile": "balanced",
+        "snapshotVersion": null
+      }
+    ]
+  },
+  "tool": "compression_presets"
+}

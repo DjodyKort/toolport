@@ -8,10 +8,11 @@ use super::ToolError;
 use crate::args::{flag, flag_or, str_trimmed};
 use crate::compression::hooks;
 use crate::compression::hooks_verify;
+use crate::compression::launch::SystemOps;
 use crate::compression::ledger::now_ms;
 use crate::compression::manage::{
     self, parse_mode, parse_provider, parse_telemetry, with_system, CmdError, EnableReq, Kind,
-    SealReq,
+    PinReq, SealReq,
 };
 use crate::compression::measure;
 use crate::compression::measure_csv;
@@ -57,6 +58,65 @@ fn port(args: &Value) -> Result<Option<u16>, ToolError> {
 
 pub(super) fn status(host: &dyn Host, _args: &Value) -> Outcome {
     with_system(host, |cx| Ok(manage::status(cx)?.data))
+}
+
+pub(super) fn presets(host: &dyn Host, _args: &Value) -> Outcome {
+    Ok(crate::ctl::compression::presets(host, &[])?.data)
+}
+
+pub(super) fn doctor(host: &dyn Host, _args: &Value) -> Outcome {
+    with_system(host, |cx| Ok(manage::doctor(cx, &SystemOps::new())?))
+}
+
+fn whole_number(args: &Value, key: &str) -> Result<Option<String>, ToolError> {
+    match args.get(key).filter(|v| !v.is_null()) {
+        None => Ok(None),
+        Some(value) => value.as_u64().map(|n| Some(n.to_string())).ok_or_else(|| {
+            ToolError::new("invalid_arguments", format!("{key} must be a whole number"))
+        }),
+    }
+}
+
+pub(super) fn verify(host: &dyn Host, args: &Value) -> Outcome {
+    let mut rest = Vec::new();
+    for (key, flag_name) in [("limit", "--limit"), ("min_turns", "--min-turns")] {
+        if let Some(number) = whole_number(args, key)? {
+            rest.extend([flag_name.to_string(), number]);
+        }
+    }
+    if flag(args, "by_pin") {
+        rest.push("--by-pin".to_string());
+    }
+    Ok(crate::ctl::compression::verify(host, &rest)?.data)
+}
+
+pub(super) fn env(host: &dyn Host, args: &Value) -> Outcome {
+    let cwd = required(args, "cwd")?;
+    with_system(host, |cx| Ok(manage::env(cx, cwd)?))
+}
+
+pub(super) fn hooks_status(host: &dyn Host, _args: &Value) -> Outcome {
+    hooks::status(host, &hook_paths(host)?).map_err(ToolError::backend)
+}
+
+pub(super) fn ledger_summary(host: &dyn Host, args: &Value) -> Outcome {
+    let mut rest = Vec::new();
+    for (key, flag_name) in [("provider", "--provider"), ("since", "--since")] {
+        if let Some(text) = str_trimmed(args, key) {
+            rest.extend([flag_name.to_string(), text.to_string()]);
+        }
+    }
+    Ok(crate::ctl::compression::ledger_summary(&hook_paths(host)?, &rest)?.data)
+}
+
+pub(super) fn pin_status(host: &dyn Host, _args: &Value) -> Outcome {
+    let req = PinReq {
+        version: None,
+        install: false,
+        refresh: false,
+        dry_run: true,
+    };
+    with_system(host, |cx| Ok(manage::pin(cx, &req)?))
 }
 
 pub(super) fn measure(host: &dyn Host, args: &Value) -> Outcome {
