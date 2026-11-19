@@ -1,0 +1,36 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "Removes the line marked toolport:context-shims; no other line changes",
+          "diff": {
+            "after": "",
+            "before": "[ -r \"<WORLD>/data/context-shims.zsh\" ] && source \"<WORLD>/data/context-shims.zsh\"  # toolport:context-shims"
+          },
+          "op": "update",
+          "path": "<WORLD>/home/.zshrc"
+        },
+        {
+          "detail": "A copy of the file is saved here first",
+          "op": "note",
+          "path": "<WORLD>/data/plus/context-backups/shell"
+        },
+        {
+          "detail": "The shell file Toolport owns; it is generated again by init",
+          "op": "delete",
+          "path": "<WORLD>/data/context-shims.zsh"
+        }
+      ],
+      "summary": "Turn off the launch wiring",
+      "undo": "toolportctl context wiring init",
+      "warnings": []
+    },
+    "result": null
+  },
+  "tool": "context_wiring_disable"
+}

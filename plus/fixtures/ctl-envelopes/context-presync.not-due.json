@@ -1,0 +1,14 @@
+{
+  "argv": ["context", "presync"],
+  "envelope": {
+    "command": "context presync",
+    "data": {
+      "nextAfter": 0,
+      "ran": false,
+      "reason": "interval not passed"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,14 @@
+{
+  "argv": ["context", "checkpoint-status", "--cwd", "{home}/clients"],
+  "envelope": {
+    "command": "context checkpoint-status",
+    "data": {
+      "checkpointAt": 44000,
+      "note": "No Claude session with usage was found yet.",
+      "session": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

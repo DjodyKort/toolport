@@ -1,0 +1,25 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "context",
+  "id": "context layers ls",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["context", "layers", "ls"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List the rule layers with where each lands and the state of what was deployed",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["context_layers_ls"]
+}

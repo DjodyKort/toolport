@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "at": 1,
+    "off": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "at and off cannot be used together"
+    }
+  },
+  "text": "invalid_arguments: at and off cannot be used together",
+  "tool": "context_checkpoint_config"
+}

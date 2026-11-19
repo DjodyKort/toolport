@@ -22,6 +22,7 @@ pub const MASKED_KEYS: &[&str] = &[
     "commitSha",
     "bundleBytes",
     "nextDueAt",
+    "nextAfter",
     "lastProbe",
     "planHash",
     "since",
@@ -96,6 +97,7 @@ pub fn normalize(world: &World, envelope: &Value) -> Value {
     let loopback_port = Regex::new(r"(?i)(127\.0\.0\.1(?::|%3A))\d+").unwrap();
     let pkce_challenge = Regex::new(r"code_challenge=[^&\x22]+").unwrap();
     let oauth_state = Regex::new(r"\bstate=[^&\x22]+").unwrap();
+    let shell_backup = Regex::new(r"zshrc-[0-9a-f]{12}\.bak").unwrap();
     let tool_count = Regex::new(r"\b\d+ tools, (\d+) resources").unwrap();
     let mut text = serde_json::to_string(envelope).unwrap();
     for root in world_roots(world) {
@@ -126,6 +128,9 @@ pub fn normalize(world: &World, envelope: &Value) -> Value {
         .replace_all(&text, r#""plan":"<PLAN>""#)
         .into_owned();
     let text = backup_stamp.replace_all(&text, "/<STAMP>-").into_owned();
+    let text = shell_backup
+        .replace_all(&text, "zshrc-<STAMP>.bak")
+        .into_owned();
     let text = loopback_port.replace_all(&text, "${1}<PORT>").into_owned();
     let text = pkce_challenge
         .replace_all(&text, "code_challenge=<PKCE>")

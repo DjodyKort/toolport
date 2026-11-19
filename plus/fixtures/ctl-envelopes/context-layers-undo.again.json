@@ -1,0 +1,14 @@
+{
+  "argv": ["context", "layers", "undo", "--dry-run"],
+  "envelope": {
+    "command": "context layers undo",
+    "data": {
+      "changed": [],
+      "dryRun": true,
+      "rows": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

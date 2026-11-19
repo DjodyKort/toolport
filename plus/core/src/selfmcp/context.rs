@@ -122,7 +122,14 @@ pub(super) fn bundle_show(host: &dyn Host, args: &Value) -> Result<Value, ToolEr
 }
 
 pub(super) fn sync(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
-    Ok(api::sync(host, flag_or(args, "dry_run", true))?)
+    Ok(api::sync_with(
+        host,
+        &api::SyncOpts {
+            dry_run: flag_or(args, "dry_run", true),
+            rules: flag(args, "rules"),
+            attended: true,
+        },
+    )?)
 }
 
 pub(super) fn bundle_config(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {

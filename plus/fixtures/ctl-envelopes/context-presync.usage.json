@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "presync", "now"],
+  "envelope": {
+    "command": "context presync",
+    "error": {
+      "code": "usage",
+      "message": "usage: context presync [--quiet] [--force]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

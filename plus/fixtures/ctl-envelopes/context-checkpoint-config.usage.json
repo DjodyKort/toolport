@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "checkpoint-config"],
+  "envelope": {
+    "command": "context checkpoint-config",
+    "error": {
+      "code": "usage",
+      "message": "usage: context checkpoint-config [--at <tokens before compaction> | --off] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

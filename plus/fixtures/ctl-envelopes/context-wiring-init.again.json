@@ -1,0 +1,20 @@
+{
+  "argv": ["context", "wiring", "init", "--dry-run"],
+  "envelope": {
+    "command": "context wiring init",
+    "data": {
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [],
+        "summary": "The launch wiring is already set up",
+        "undo": "toolportctl context wiring disable",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

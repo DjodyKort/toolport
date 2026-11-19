@@ -1,0 +1,24 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "checkpoint": null,
+    "checkpointAt": null,
+    "compactionAt": 200000,
+    "remainingToCompaction": 57988,
+    "session": {
+      "cwd": "<WORLD>/home/proj",
+      "id": "s1",
+      "lastActivityAt": "<TIME>",
+      "model": "claude-opus-4-8",
+      "stale": true
+    },
+    "usedBasis": "the input, cache read and cache creation tokens of the session's last request",
+    "usedTokens": 142012,
+    "window": {
+      "source": "model name",
+      "tokens": 200000
+    }
+  },
+  "tool": "context_checkpoint_status"
+}

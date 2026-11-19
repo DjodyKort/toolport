@@ -1,0 +1,76 @@
+{
+  "argv": ["context", "wiring", "status"],
+  "envelope": {
+    "command": "context wiring status",
+    "data": {
+      "checks": [
+        {
+          "detail": "The other wrapper wins, so layers are not refreshed before a launch. Move our source line below it; Toolport copies the file first.",
+          "id": "source-order",
+          "level": "look",
+          "title": "context-shims sourced BEFORE shell-wrapper.sh in ~/.zshrc"
+        },
+        {
+          "detail": "",
+          "id": "shims-file",
+          "level": "ok",
+          "title": "The shell file is written and current"
+        },
+        {
+          "detail": "No org file loads and no coexistence rules apply. Layers still deploy.",
+          "id": "org-tool",
+          "level": "ok",
+          "title": "The org tool is not installed"
+        }
+      ],
+      "home": "<WORLD>/home",
+      "intervalSecs": 14400,
+      "org": {
+        "file": "<WORLD>/home/.claude/CLAUDE.md",
+        "fileTokens": 3,
+        "folder": "<WORLD>/home/.local/share/corp-dev-tools",
+        "installed": false,
+        "intervalSecs": 14400,
+        "lastSyncedAt": null,
+        "matchesClone": null,
+        "name": "corp-dev-tools",
+        "tokenBasis": "estimate"
+      },
+      "presync": null,
+      "setUp": true,
+      "shell": {
+        "addedByToolport": true,
+        "exists": true,
+        "file": "<WORLD>/home/.zshrc",
+        "line": 1,
+        "linkTarget": null,
+        "sourced": true,
+        "sourcedBefore": ["shell-wrapper.sh"]
+      },
+      "shells": ["zsh"],
+      "shims": {
+        "current": true,
+        "exists": true,
+        "file": "<WORLD>/data/context-shims.zsh",
+        "functions": [
+          {
+            "name": "context_presync",
+            "summary": "Before a launch: pulls the org tool when it is due, then runs context sync. A failure only warns."
+          },
+          {
+            "name": "claude",
+            "summary": "Presync, then starts Claude with the default settings folder."
+          },
+          {
+            "name": "hrclaude",
+            "summary": "Only while a compression proxy is set up: presync, then Claude under that policy."
+          }
+        ]
+      },
+      "state": "look"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

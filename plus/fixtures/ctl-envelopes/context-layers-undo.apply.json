@@ -1,0 +1,20 @@
+{
+  "argv": ["context", "layers", "undo"],
+  "envelope": {
+    "command": "context layers undo",
+    "data": {
+      "changed": ["<WORLD>/home/clients/alpha/CLAUDE.local.md"],
+      "dryRun": false,
+      "rows": [
+        {
+          "action": "remove",
+          "folder": "<WORLD>/home/clients/alpha",
+          "layer": "client-alpha"
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

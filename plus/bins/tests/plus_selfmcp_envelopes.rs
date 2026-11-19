@@ -2190,6 +2190,105 @@ const CASES: &[Case] = &[
             read("with_bundles", "context_sync", "{}"),
         ],
     ),
+    prepared(
+        "context_layers_ls",
+        World::layers_files,
+        &[
+            read("ls", "context_layers_ls", "{}"),
+            setup("context_sync", r#"{"rules":true,"dry_run":false,"confirm":true}"#),
+            read("deployed", "context_layers_ls", "{}"),
+        ],
+    ),
+    prepared(
+        "context_layers_undo",
+        World::layers_files,
+        &[
+            read("nothing", "context_layers_undo", "{}"),
+            setup("context_sync", APPLY),
+            read("plan", "context_layers_undo", "{}"),
+            refused("refused", "context_layers_undo", UNCONFIRMED),
+            write("apply", "context_layers_undo", APPLY),
+        ],
+    ),
+    prepared(
+        "context_wiring_status",
+        World::layers_files,
+        &[
+            read("not_set_up", "context_wiring_status", "{}"),
+            setup("context_wiring_init", APPLY),
+            read("healthy", "context_wiring_status", "{}"),
+            hook("order", World::wiring_wrong_order),
+            read("look", "context_wiring_status", "{}"),
+        ],
+    ),
+    prepared(
+        "context_wiring_init",
+        World::layers_files,
+        &[
+            read("plan", "context_wiring_init", "{}"),
+            refused("refused", "context_wiring_init", UNCONFIRMED),
+            write("apply", "context_wiring_init", APPLY),
+            read("again", "context_wiring_init", "{}"),
+        ],
+    ),
+    prepared(
+        "context_wiring_disable",
+        World::layers_files,
+        &[
+            read("not_set_up", "context_wiring_disable", "{}"),
+            setup("context_wiring_init", APPLY),
+            read("plan", "context_wiring_disable", "{}"),
+            refused("refused", "context_wiring_disable", UNCONFIRMED),
+            write("apply", "context_wiring_disable", APPLY),
+        ],
+    ),
+    prepared(
+        "context_checkpoint_status",
+        World::checkpoint_files,
+        &[
+            read("session", "context_checkpoint_status", "{}"),
+            setup(
+                "context_checkpoint_config",
+                r#"{"at":44000,"dry_run":false,"confirm":true}"#,
+            ),
+            read("with_checkpoint", "context_checkpoint_status", "{}"),
+            read(
+                "other_folder",
+                "context_checkpoint_status",
+                r#"{"cwd":"{home}/clients"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "context_checkpoint_config",
+        World::checkpoint_files,
+        &[
+            read("plan", "context_checkpoint_config", r#"{"at":44000}"#),
+            refused(
+                "refused",
+                "context_checkpoint_config",
+                r#"{"at":44000,"dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "context_checkpoint_config",
+                r#"{"at":44000,"dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "too_large",
+                "invalid_arguments",
+                "context_checkpoint_config",
+                r#"{"at":2000000}"#,
+            ),
+            fails("needs_a_value", "invalid_arguments", "context_checkpoint_config", "{}"),
+            fails(
+                "both",
+                "invalid_arguments",
+                "context_checkpoint_config",
+                r#"{"at":1,"off":true}"#,
+            ),
+        ],
+    ),
     context_case(
         "context_bundle_save",
         &[

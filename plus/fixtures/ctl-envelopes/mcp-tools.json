@@ -4625,11 +4625,144 @@
           "tier": 2
         },
         {
-          "description": "Bring the generated context files up to date: apply the bundles bound to folders when auto_apply is on, and regenerate launch profile files and direct client entries that drifted. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "description": "Bring the generated context files up to date: apply the bundles bound to folders when auto_apply is on, deliver the folder layers into CLAUDE.local.md blocks (a block changed by hand is replaced and a copy kept), regenerate launch profile files, direct client entries and the shell file, and with rules=true deploy the global layers to ~/.claude/rules the way skills sync does. It never changes the shell startup file; context_wiring_init does that. dry_run is on by default (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "context_sync",
           "params": [
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Also deploy the global and glob layers to ~/.claude/rules",
+              "name": "rules",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "List the rule layers of the skills repository (rules/<name>/SKILL.md): scope (global, glob or folder), where each lands (a rule in ~/.claude/rules, or CLAUDE.local.md in the folders it names), its estimated tokens and the state of what was deployed: deployed, not-deployed, outdated, edited (changed by hand), shadowed (a hand-written file in the way), nowhere (no folder matches) or problem. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "context_layers_ls",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Put back what the last folder-layer deploy replaced and remove the blocks it added, in every folder where the block is still what the deploy wrote; a block changed since is left and named. Rules in ~/.claude/rules are undone with skills_undo. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "context_layers_undo",
+          "params": [
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Health of the launch wiring: whether the shell file in the data folder is written and current, whether the startup file sources it (and last, below other wrappers), the org tool and org file checks, and the last presync with its output. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "context_wiring_status",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Set up the launch wiring or fix its source order: write the shell file (claude() runs the presync first) and add one line, marked toolport:context-shims, at the end of ~/.zshrc after a copy of that file. No other line of the startup file changes; context_wiring_disable undoes it. dry_run is on by default and returns the plan (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "context_wiring_init",
+          "params": [
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Turn the launch wiring off: remove the line marked toolport:context-shims from ~/.zshrc, after a copy of it, and delete the shell file. A line added by hand stays. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "context_wiring_disable",
+          "params": [
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
+          "description": "How full the newest Claude session is: the tokens of its last request against the window it compacts at (from the model name, the user settings or CLAUDE_CODE_AUTO_COMPACT_WINDOW), and the checkpoint point when one is set. Reads the transcripts Spend already reads. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "context_checkpoint_status",
+          "params": [
+            {
+              "description": "Only the newest session that ran in this folder",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Set how many tokens before the compaction point the handoff is due (at), or switch the checkpoint off (off=true). Writes one key of context.json. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "context_checkpoint_config",
+          "params": [
+            {
+              "description": "Tokens before the compaction point",
+              "name": "at",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "description": "Switch the checkpoint off",
+              "name": "off",
+              "required": false,
+              "type": "boolean"
+            },
             {
               "description": "Report without writing; true unless you pass false to apply",
               "name": "dry_run",

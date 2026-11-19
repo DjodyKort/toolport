@@ -209,6 +209,75 @@ impl World {
         std::fs::create_dir_all(world.home.join("proj/.git/info")).unwrap();
     }
 
+    /// What the layer and wiring commands read, on top of `context_files`: a folder layer that
+    /// lands in one client folder and in none for another, a global layer, and a startup file.
+    pub fn layers_files(&self) {
+        self.context_files();
+        let put = |rel: &str, text: &str| {
+            let path = self.home.join(rel);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, text).unwrap();
+        };
+        let repo = ".config/mcpm/skills_repo/rules";
+        put(
+            ".config/mcpm/context.json",
+            "{\"clients_root\": \"~/clients\"}\n",
+        );
+        std::fs::create_dir_all(self.home.join("clients/alpha/.git/info")).unwrap();
+        std::fs::create_dir_all(self.home.join("clients/beta")).unwrap();
+        put(
+            &format!("{repo}/client-alpha/SKILL.md"),
+            "---\nname: client-alpha\ndescription: d\nactivation: always\nscope: folder\nfolders: [\"**/clients/alpha/**\"]\n---\n\n## alpha\n\nUse the staging database.\n",
+        );
+        put(
+            &format!("{repo}/client-gamma/SKILL.md"),
+            "---\nname: client-gamma\ndescription: d\nactivation: always\nscope: folder\nfolders: [\"**/clients/gamma/**\"]\n---\n\n## gamma\n",
+        );
+        put(
+            &format!("{repo}/personal/SKILL.md"),
+            "---\nname: personal\ndescription: d\nactivation: always\n---\n\n## Personal\n\nShort answers.\n",
+        );
+        put(
+            ".zshrc",
+            "export EDITOR=vim\nsource ~/tools/shell-wrapper.sh\n",
+        );
+    }
+
+    /// The startup file with the wiring line above the other wrapper, the order that loses.
+    pub fn wiring_wrong_order(&self) {
+        let line = toolport_plus::context::shell_rc::source_line(
+            &self.home,
+            &self.data.join(toolport_plus::context::shims::SHIMS_FILE),
+        );
+        std::fs::write(
+            self.home.join(".zshrc"),
+            format!("{line}\nsource ~/tools/shell-wrapper.sh\n"),
+        )
+        .unwrap();
+    }
+
+    /// One Claude session of the project, long ago, with two requests.
+    pub fn checkpoint_files(&self) {
+        self.context_files();
+        let cwd = self.home.join("proj").display().to_string();
+        let record = |id: &str, ts: &str, cache: u64| {
+            format!(
+                "{{\"sessionId\":\"s1\",\"cwd\":\"{cwd}\",\"timestamp\":\"{ts}\",\"message\":{{\"id\":\"{id}\",\"model\":\"claude-opus-4-8\",\"usage\":{{\"input_tokens\":12,\"output_tokens\":50,\"cache_read_input_tokens\":{cache},\"cache_creation_input_tokens\":2000}}}}}}\n"
+            )
+        };
+        let dir = self.home.join(".claude/projects/p-proj");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("s1.jsonl"),
+            format!(
+                "{}{}",
+                record("m1", "2026-01-05T10:00:00Z", 40_000),
+                record("m2", "2026-01-05T10:05:00Z", 140_000)
+            ),
+        )
+        .unwrap();
+    }
+
     /// What the memory and history commands read, on top of `context_files`: a project with
     /// auto memory, a linked worktree, sessions of three ages, a second repository whose memory
     /// is switched off by hand, `~/.claude.json` naming the folders Claude Code has run in, and

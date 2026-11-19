@@ -19,6 +19,7 @@ use super::catalog;
 use super::client_direct;
 use super::client_reach;
 use super::context;
+use super::context_wiring;
 use super::flags::{switch, value, Flag, Spec};
 use super::launch_profile;
 use super::library;
@@ -479,6 +480,28 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&context::SYNC])
         .skip("applies bundles to folders; the context goldens cover its --dry-run"),
+    row("context layers ls", R).spec(&[&context_wiring::LAYERS_LS]),
+    row("context layers undo", W)
+        .dry()
+        .spec(&[&context_wiring::DRY])
+        .skip("removes blocks from CLAUDE.local.md files; its --dry-run is a golden step"),
+    row("context wiring status", R).spec(&[&context_wiring::WIRING_STATUS]),
+    row("context wiring init", W)
+        .dry()
+        .spec(&[&context_wiring::DRY])
+        .skip("writes the shell file and one line of the startup file; its --dry-run is a golden step"),
+    row("context wiring disable", D)
+        .dry()
+        .spec(&[&context_wiring::DRY])
+        .skip("removes one line of the startup file and the shell file; its --dry-run is a golden step"),
+    row("context presync", W)
+        .spec(&[&context_wiring::PRESYNC])
+        .skip("pulls the org tool and runs a sync; the shell file calls it before a launch"),
+    row("context checkpoint-status", R).spec(&[&context_wiring::CHECKPOINT_STATUS]),
+    row("context checkpoint-config", W)
+        .dry()
+        .spec(&[&context_wiring::CHECKPOINT_CONFIG])
+        .skip("writes context.json; its --dry-run is a golden step"),
     row("context bundle ls", R).spec(&[&context::LS]),
     row("context bundle show", R)
         .spec(&[&context::SHOW])
@@ -1317,6 +1340,13 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("context_bundle_rm", D, "context bundle rm").on(),
     maps("context_bundle_launch", W, "context bundle launch"),
     maps("context_sync", W, "context sync").on(),
+    maps("context_layers_ls", R, "context layers ls"),
+    maps("context_layers_undo", W, "context layers undo").on(),
+    maps("context_wiring_status", R, "context wiring status"),
+    maps("context_wiring_init", W, "context wiring init").on(),
+    maps("context_wiring_disable", D, "context wiring disable").on(),
+    maps("context_checkpoint_status", R, "context checkpoint-status"),
+    maps("context_checkpoint_config", W, "context checkpoint-config").on(),
     maps("context_bundle_apply", W, "context bundle apply").param(),
     maps("context_bundle_undo", W, "context bundle undo").param(),
     maps("context_leave_out", W, "context leave-out").on(),

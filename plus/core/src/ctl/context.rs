@@ -392,7 +392,7 @@ pub fn leave_out(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
 const LOADS_USAGE: &str = "usage: context loads [--cwd <dir>] [--measured]";
 const STATUS_USAGE: &str = "usage: context status [--cwd <dir>]";
 const COMPOSE_USAGE: &str = "usage: context compose [--cwd <dir>]";
-const SYNC_USAGE: &str = "usage: context sync [--dry-run]";
+const SYNC_USAGE: &str = "usage: context sync [--dry-run] [--rules]";
 
 pub(super) const LOADS: Spec = Spec {
     flags: &[value("--cwd"), switch("--measured")],
@@ -413,7 +413,7 @@ pub(super) const CONTEXT_STATUS: Spec = Spec {
 };
 
 pub(super) const SYNC: Spec = Spec {
-    flags: &[switch("--dry-run")],
+    flags: &[switch("--dry-run"), switch("--rules")],
     operands: Operands::Max(0, SYNC_USAGE),
     ..LS
 };
@@ -495,7 +495,14 @@ pub fn compose(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
 
 pub fn sync(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = SYNC.parse(rest)?;
-    let data = api::sync(host, flags.on("--dry-run"))?;
+    let data = api::sync_with(
+        host,
+        &api::SyncOpts {
+            dry_run: flags.on("--dry-run"),
+            rules: flags.on("--rules"),
+            attended: true,
+        },
+    )?;
     let mut human = match data["bundles"].as_array() {
         Some(rows) => format!("{} bound bundle folder(s) handled\n", rows.len()),
         None => "bundle auto-apply is off\n".to_string(),
@@ -517,6 +524,35 @@ pub fn sync(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
                     .map(|reason| format!(" ({reason})"))
                     .unwrap_or_default()
             ));
+        }
+    }
+    for row in data["layers"]["rows"].as_array().into_iter().flatten() {
+        human.push_str(&format!(
+            "layer {} in {}: {}{}\n",
+            row["layer"].as_str().unwrap_or("?"),
+            row["folder"].as_str().unwrap_or("?"),
+            row["action"].as_str().unwrap_or("?"),
+            row["reason"]
+                .as_str()
+                .map(|reason| format!(" ({reason})"))
+                .unwrap_or_default()
+        ));
+    }
+    for row in data["rules"]["rows"].as_array().into_iter().flatten() {
+        human.push_str(&format!(
+            "rule {}: {}{}\n",
+            row["name"].as_str().unwrap_or("?"),
+            row["op"].as_str().unwrap_or("?"),
+            if row["held"] == Value::Bool(true) {
+                " (waits for a decision)"
+            } else {
+                ""
+            }
+        ));
+    }
+    if let Some(action) = data["shims"]["action"].as_str() {
+        if action != "unchanged" && action != "skipped" {
+            human.push_str(&format!("shell file: {action}\n"));
         }
     }
     Ok(Output::new(data, human))

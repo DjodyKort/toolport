@@ -1,0 +1,60 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "checks": [
+      {
+        "detail": "No org file loads and no coexistence rules apply. Layers still deploy.",
+        "id": "org-tool",
+        "level": "ok",
+        "title": "The org tool is not installed"
+      }
+    ],
+    "home": "<WORLD>/home",
+    "intervalSecs": 14400,
+    "org": {
+      "file": "<WORLD>/home/.claude/CLAUDE.md",
+      "fileTokens": 3,
+      "folder": "<WORLD>/home/.local/share/corp-dev-tools",
+      "installed": false,
+      "intervalSecs": 14400,
+      "lastSyncedAt": null,
+      "matchesClone": null,
+      "name": "corp-dev-tools",
+      "tokenBasis": "[redacted]"
+    },
+    "presync": null,
+    "setUp": false,
+    "shell": {
+      "addedByToolport": false,
+      "exists": true,
+      "file": "<WORLD>/home/.zshrc",
+      "line": null,
+      "linkTarget": null,
+      "sourced": false,
+      "sourcedBefore": []
+    },
+    "shells": ["zsh"],
+    "shims": {
+      "current": false,
+      "exists": false,
+      "file": "<WORLD>/data/context-shims.zsh",
+      "functions": [
+        {
+          "name": "context_presync",
+          "summary": "Before a launch: pulls the org tool when it is due, then runs context sync. A failure only warns."
+        },
+        {
+          "name": "claude",
+          "summary": "Presync, then starts Claude with the default settings folder."
+        },
+        {
+          "name": "hrclaude",
+          "summary": "Only while a compression proxy is set up: presync, then Claude under that policy."
+        }
+      ]
+    },
+    "state": "not_set_up"
+  },
+  "tool": "context_wiring_status"
+}

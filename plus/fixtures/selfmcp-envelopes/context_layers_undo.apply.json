@@ -1,0 +1,19 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "changed": ["<WORLD>/home/clients/alpha/CLAUDE.local.md"],
+    "dryRun": false,
+    "rows": [
+      {
+        "action": "remove",
+        "folder": "<WORLD>/home/clients/alpha",
+        "layer": "client-alpha"
+      }
+    ]
+  },
+  "tool": "context_layers_undo"
+}

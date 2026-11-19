@@ -6,6 +6,8 @@ use serde_json::{Map, Value};
 use std::path::Path;
 
 const KEY: &str = "bundleAutoApply";
+const WRAPPER_HASH_KEY: &str = "cf_wrapper_hash";
+const CHECKPOINT_KEY: &str = "checkpointAt";
 
 fn read(path: &Path) -> Map<String, Value> {
     match bundle_io::read_exact(path) {
@@ -103,4 +105,42 @@ pub fn set_launch_profile(
     let text = serde_json::to_string_pretty(&Value::Object(map)).map_err(|e| e.to_string())? + "\n";
     crate::fsx::atomic_write(path, &text, crate::fsx::Mode::KeepOrDefault)
         .map_err(|e| format!("{}: {e}", path.display()))
+}
+
+fn write_map(path: &Path, map: Map<String, Value>) -> Result<(), String> {
+    let text = serde_json::to_string_pretty(&Value::Object(map)).map_err(|e| e.to_string())? + "\n";
+    crate::fsx::atomic_write(path, &text, crate::fsx::Mode::KeepOrDefault)
+        .map_err(|e| format!("{}: {e}", path.display()))
+}
+
+/// Records the hash of the org tool's shell wrapper the first time it is seen; a recorded hash
+/// is never replaced, so a later change to the wrapper still shows. True when it was recorded.
+pub fn arm_wrapper_hash(path: &Path, hash: &str) -> Result<bool, String> {
+    let mut map = read(path);
+    if map
+        .get(WRAPPER_HASH_KEY)
+        .and_then(Value::as_str)
+        .is_some_and(|h| !h.is_empty())
+    {
+        return Ok(false);
+    }
+    map.insert(WRAPPER_HASH_KEY.into(), Value::String(hash.into()));
+    write_map(path, map).map(|()| true)
+}
+
+/// Tokens before the compaction point at which a long session should have its handoff written.
+pub fn checkpoint_at(path: &Path) -> Option<u64> {
+    read(path)
+        .get(CHECKPOINT_KEY)
+        .and_then(Value::as_u64)
+        .filter(|n| *n > 0)
+}
+
+pub fn set_checkpoint_at(path: &Path, at: Option<u64>) -> Result<(), String> {
+    let mut map = read(path);
+    match at {
+        Some(tokens) => map.insert(CHECKPOINT_KEY.into(), Value::from(tokens)),
+        None => map.remove(CHECKPOINT_KEY),
+    };
+    write_map(path, map)
 }

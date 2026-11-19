@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "at": 2000000
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "--at must be between 1 and 999999 tokens before compaction"
+    }
+  },
+  "text": "invalid_arguments: --at must be between 1 and 999999 tokens before compaction",
+  "tool": "context_checkpoint_config"
+}

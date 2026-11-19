@@ -1,0 +1,7 @@
+{
+  "command": "context wiring disable",
+  "dryRun": "default-on",
+  "name": "context_wiring_disable",
+  "tier": "destructive",
+  "toolTier": 4
+}

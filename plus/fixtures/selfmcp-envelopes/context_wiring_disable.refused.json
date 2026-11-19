@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "dry_run": false
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: context_wiring_disable (tier 4). Pass confirm=true to proceed. WARNING: this modifies remote state or removes entries."
+    }
+  },
+  "text": "refused: Refused: context_wiring_disable (tier 4). Pass confirm=true to proceed. WARNING: this modifies remote state or removes entries.",
+  "tool": "context_wiring_disable"
+}

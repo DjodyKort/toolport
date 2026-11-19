@@ -1,0 +1,59 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Tokens before the compaction point at which the handoff is due",
+      "escalates": false,
+      "hidden": false,
+      "name": "--at",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "Switch the checkpoint off",
+      "escalates": false,
+      "hidden": false,
+      "name": "--off",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "context",
+  "id": "context checkpoint-config",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["context", "checkpoint-config"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Set the tokens before compaction at which the handoff is due, or switch the checkpoint off (--at <tokens> | --off, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["context_checkpoint_config"]
+}

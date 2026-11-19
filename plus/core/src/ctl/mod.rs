@@ -19,6 +19,7 @@ pub(crate) mod compression;
 mod compression_cfg;
 mod compression_hooks;
 mod context;
+mod context_wiring;
 mod flags;
 mod launch_profile;
 mod library;
@@ -368,8 +369,50 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["context", "sync"],
-        "Apply the bound bundles when auto-apply is on and rewrite launch profile files and direct entries that went out of date (--dry-run); rule layers and shims are not built yet",
+        "Apply the bound bundles when auto-apply is on, deliver the folder layers, rewrite launch profile files, direct entries and the shell file that went out of date (--dry-run, --rules also deploys the global layers)",
         context::sync,
+    ),
+    cmd(
+        &["context", "layers", "ls"],
+        "List the rule layers with where each lands and the state of what was deployed",
+        context_wiring::layers_ls,
+    )
+    .no_options(),
+    cmd(
+        &["context", "layers", "undo"],
+        "Put back what the last folder-layer deploy replaced and remove the blocks it added (--dry-run)",
+        context_wiring::layers_undo,
+    ),
+    cmd(
+        &["context", "wiring", "status"],
+        "Health of the launch wiring: the shell file, the one line in the startup file, the org tool, the last presync",
+        context_wiring::wiring_status,
+    )
+    .no_options(),
+    cmd(
+        &["context", "wiring", "init"],
+        "Write the shell file and add one marked line to the startup file after a copy of it; also moves that line below another wrapper (--dry-run shows the plan)",
+        context_wiring::wiring_init,
+    ),
+    cmd(
+        &["context", "wiring", "disable"],
+        "Remove the marked line from the startup file and delete the shell file, after a copy of the startup file (--dry-run)",
+        context_wiring::wiring_disable,
+    ),
+    cmd(
+        &["context", "presync"],
+        "What `claude` runs before a launch: pull the org tool when due, then context sync (--quiet, --force)",
+        context_wiring::presync_run,
+    ),
+    cmd(
+        &["context", "checkpoint-status"],
+        "How full the newest Claude session is against the window it compacts at, and the checkpoint point (--cwd)",
+        context_wiring::checkpoint_status,
+    ),
+    cmd(
+        &["context", "checkpoint-config"],
+        "Set the tokens before compaction at which the handoff is due, or switch the checkpoint off (--at <tokens> | --off, --dry-run)",
+        context_wiring::checkpoint_config,
     ),
     cmd(
         &["context", "use"],
@@ -1377,7 +1420,9 @@ fn emit(
     } else if code == EXIT_OK
         || envelope.error.as_ref().map(|e| e.kind) == Some(ErrorKind::Unhealthy)
     {
-        let _ = writeln!(out, "{}", human.trim_end());
+        if !human.trim().is_empty() {
+            let _ = writeln!(out, "{}", human.trim_end());
+        }
     } else {
         let _ = writeln!(err, "{}", human.trim_end());
     }

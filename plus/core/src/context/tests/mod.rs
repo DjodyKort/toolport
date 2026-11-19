@@ -1,10 +1,15 @@
 mod bundle;
 mod bundle_apply;
 mod bundle_use;
+mod checkpoint;
 mod launch_profile;
+mod layers;
 mod leave_out;
 mod plugin_adapters;
 mod plugin_config;
 mod plugin_switch;
+mod presync;
 mod regenerate;
+mod wiring;
 mod worktrees;
+mod world;

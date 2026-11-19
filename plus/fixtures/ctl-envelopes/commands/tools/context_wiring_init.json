@@ -1,0 +1,7 @@
+{
+  "command": "context wiring init",
+  "dryRun": "default-on",
+  "name": "context_wiring_init",
+  "tier": "write",
+  "toolTier": 3
+}

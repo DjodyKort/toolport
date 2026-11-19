@@ -1,0 +1,17 @@
+{
+  "argv": ["context", "presync", "--force"],
+  "envelope": {
+    "command": "context presync",
+    "data": {
+      "durationMs": 0,
+      "nextAfter": 0,
+      "ok": true,
+      "orgPulled": false,
+      "ran": true,
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

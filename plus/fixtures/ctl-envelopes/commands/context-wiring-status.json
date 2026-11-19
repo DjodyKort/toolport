@@ -1,0 +1,25 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "context",
+  "id": "context wiring status",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["context", "wiring", "status"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Health of the launch wiring: the shell file, the one line in the startup file, the org tool, the last presync",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["context_wiring_status"]
+}

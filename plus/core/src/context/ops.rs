@@ -465,19 +465,53 @@ pub fn compose(host: &dyn Host, cwd: Option<&str>) -> Result<Value, OpError> {
     }))
 }
 
-/// `context sync`: the bundle part (apply the bound bundles when auto-apply is on) and the
-/// regeneration of launch profile files and direct entries that drifted. The layers deploy and
-/// the shell shims are not built yet and say so.
+/// What `context sync` is asked to do besides the parts that always run.
+#[derive(Clone, Copy, Debug)]
+pub struct SyncOpts {
+    pub dry_run: bool,
+    /// Also deploy the global and glob layers to `~/.claude/rules` (the engine of `skills sync`).
+    pub rules: bool,
+    /// A person confirmed this run: a layer block changed by hand is replaced and a block no
+    /// layer asks for any more is removed. The presync before a launch is not attended.
+    pub attended: bool,
+}
+
+/// `context sync`: the bundle part (apply the bound bundles when auto-apply is on), the layers
+/// delivered into folders, the regeneration of launch profile files and direct entries that
+/// drifted, and the shell file once the launch wiring is set up.
 pub fn sync(host: &dyn Host, dry_run: bool) -> Result<Value, OpError> {
+    sync_with(
+        host,
+        &SyncOpts {
+            dry_run,
+            rules: false,
+            attended: true,
+        },
+    )
+}
+
+fn part(result: Result<Value, OpError>) -> Value {
+    result.unwrap_or_else(|error| json!({ "rows": [], "upToDate": 0, "error": error.message }))
+}
+
+pub fn sync_with(host: &dyn Host, opts: &SyncOpts) -> Result<Value, OpError> {
+    let dry_run = opts.dry_run;
     let bundles = sync_bundles(host, dry_run);
     let regenerated = super::regenerate::run(host, dry_run);
+    let layers = part(super::layer_deploy::deploy(host, dry_run, opts.attended));
+    let rules = opts
+        .rules
+        .then(|| part(super::layer_list::deploy_rules(host, dry_run)));
+    let shims = part(super::wiring::refresh_shims(host, dry_run));
     Ok(json!({
         "dryRun": dry_run,
         "bundles": bundles,
         "autoApply": bundles.is_some(),
         "launchProfiles": regenerated["launchProfiles"],
         "directEntries": regenerated["directEntries"],
-        "deploy": { "built": false, "note": "rule layers and shims are not part of this build yet" },
+        "layers": layers,
+        "rules": rules,
+        "shims": shims,
     }))
 }
 

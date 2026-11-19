@@ -13,7 +13,7 @@ pub struct Layer {
 }
 
 /// The text between the opening fence and the next line that is only `---`, and what follows it.
-fn split_fenced(text: &str) -> Option<(&str, &str)> {
+pub(super) fn split_fenced(text: &str) -> Option<(&str, &str)> {
     let rest = text.strip_prefix("---")?;
     let start = rest.find('\n')? + 1;
     let mut at = start;

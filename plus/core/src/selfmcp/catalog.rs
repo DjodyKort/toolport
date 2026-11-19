@@ -4,7 +4,7 @@ use toolport_plus_api::Host;
 use super::{
     access, attention, backend, catalog_index, clients, compression, content, context,
     launch_profile, library, memory, plugins, reach, secret, server_repo, server_update, servers,
-    setup, skills, sources, spend, sync, tasks, ToolError,
+    setup, skills, sources, spend, sync, tasks, wiring, ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1960,9 +1960,72 @@ pub const TOOLS: &[ToolDef] = &[
         "context_sync",
         3,
         UnlessDryRun,
-        "Bring the generated context files up to date: apply the bundles bound to folders when auto_apply is on, and regenerate launch profile files and direct client entries that drifted. dry_run is on by default (apply with dry_run=false and confirm=true)",
-        [DRY_ON],
+        "Bring the generated context files up to date: apply the bundles bound to folders when auto_apply is on, deliver the folder layers into CLAUDE.local.md blocks (a block changed by hand is replaced and a copy kept), regenerate launch profile files, direct client entries and the shell file, and with rules=true deploy the global layers to ~/.claude/rules the way skills sync does. It never changes the shell startup file; context_wiring_init does that. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            DRY_ON,
+            p("rules", Ty::Bool, false, "Also deploy the global and glob layers to ~/.claude/rules")
+        ],
         context::sync
+    ),
+    tool!(
+        "context_layers_ls",
+        1,
+        None,
+        "List the rule layers of the skills repository (rules/<name>/SKILL.md): scope (global, glob or folder), where each lands (a rule in ~/.claude/rules, or CLAUDE.local.md in the folders it names), its estimated tokens and the state of what was deployed: deployed, not-deployed, outdated, edited (changed by hand), shadowed (a hand-written file in the way), nowhere (no folder matches) or problem. Read only",
+        [],
+        wiring::layers_ls
+    ),
+    tool!(
+        "context_layers_undo",
+        3,
+        UnlessDryRun,
+        "Put back what the last folder-layer deploy replaced and remove the blocks it added, in every folder where the block is still what the deploy wrote; a block changed since is left and named. Rules in ~/.claude/rules are undone with skills_undo. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [DRY_ON],
+        wiring::layers_undo
+    ),
+    tool!(
+        "context_wiring_status",
+        1,
+        None,
+        "Health of the launch wiring: whether the shell file in the data folder is written and current, whether the startup file sources it (and last, below other wrappers), the org tool and org file checks, and the last presync with its output. Read only",
+        [],
+        wiring::status
+    ),
+    tool!(
+        "context_wiring_init",
+        3,
+        UnlessDryRun,
+        "Set up the launch wiring or fix its source order: write the shell file (claude() runs the presync first) and add one line, marked toolport:context-shims, at the end of ~/.zshrc after a copy of that file. No other line of the startup file changes; context_wiring_disable undoes it. dry_run is on by default and returns the plan (apply with dry_run=false and confirm=true)",
+        [DRY_ON],
+        wiring::init
+    ),
+    tool!(
+        "context_wiring_disable",
+        4,
+        UnlessDryRun,
+        "Turn the launch wiring off: remove the line marked toolport:context-shims from ~/.zshrc, after a copy of it, and delete the shell file. A line added by hand stays. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [DRY_ON],
+        wiring::disable
+    ),
+    tool!(
+        "context_checkpoint_status",
+        1,
+        None,
+        "How full the newest Claude session is: the tokens of its last request against the window it compacts at (from the model name, the user settings or CLAUDE_CODE_AUTO_COMPACT_WINDOW), and the checkpoint point when one is set. Reads the transcripts Spend already reads. Read only",
+        [p("cwd", Ty::Str, false, "Only the newest session that ran in this folder")],
+        wiring::checkpoint_status
+    ),
+    tool!(
+        "context_checkpoint_config",
+        3,
+        UnlessDryRun,
+        "Set how many tokens before the compaction point the handoff is due (at), or switch the checkpoint off (off=true). Writes one key of context.json. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("at", Ty::Int, false, "Tokens before the compaction point"),
+            p("off", Ty::Bool, false, "Switch the checkpoint off"),
+            DRY_ON
+        ],
+        wiring::checkpoint_config
     ),
     tool!(
         "context_bundle_apply",

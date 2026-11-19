@@ -328,6 +328,24 @@ fn profile_value(
     })
 }
 
+/// The launch profiles of `context.json` and the `mcp.json` each one's launch passes, from the
+/// files alone: the shell file lists a profile even while the registry is not readable.
+pub fn profile_files(home: &Path) -> Vec<(String, PathBuf)> {
+    let roots = Roots::from_home(home);
+    config::launch_profiles(&roots.context_config_path())
+        .into_keys()
+        .map(|name| {
+            let file = home
+                .join(".config")
+                .join("toolport")
+                .join("profiles")
+                .join(&name)
+                .join(MCP_FILE);
+            (name, file)
+        })
+        .collect()
+}
+
 pub fn ls(host: &dyn Host, name: Option<&str>, cwd: Option<&str>) -> Result<Value, OpError> {
     let env = env(host)?;
     let cwd = checked_cwd(cwd)?;

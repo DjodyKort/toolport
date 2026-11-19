@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "checkpoint-config", "--at", "2000000"],
+  "envelope": {
+    "command": "context checkpoint-config",
+    "error": {
+      "code": "usage",
+      "message": "--at must be between 1 and 999999 tokens before compaction"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,7 @@
+{
+  "command": "context layers undo",
+  "dryRun": "default-on",
+  "name": "context_layers_undo",
+  "tier": "write",
+  "toolTier": 3
+}

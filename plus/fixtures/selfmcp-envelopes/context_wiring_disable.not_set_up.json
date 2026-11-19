@@ -1,0 +1,16 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "plan": {
+      "effects": {},
+      "steps": [],
+      "summary": "The launch wiring is not set up",
+      "undo": "toolportctl context wiring init",
+      "warnings": []
+    },
+    "result": null
+  },
+  "tool": "context_wiring_disable"
+}

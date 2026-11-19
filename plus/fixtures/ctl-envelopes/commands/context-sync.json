@@ -13,6 +13,17 @@
       "required": false,
       "sensitive": false,
       "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Also deploy the global and glob layers to ~/.claude/rules, the way skills sync does",
+      "escalates": false,
+      "hidden": false,
+      "name": "--rules",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
     }
   ],
   "group": "context",
@@ -30,7 +41,7 @@
     "flag": "--dry-run",
     "mode": "flag"
   },
-  "summary": "Apply the bound bundles when auto-apply is on and rewrite launch profile files and direct entries that went out of date (--dry-run); rule layers and shims are not built yet",
+  "summary": "Apply the bound bundles when auto-apply is on, deliver the folder layers, rewrite launch profile files, direct entries and the shell file that went out of date (--dry-run, --rules also deploys the global layers)",
   "surface": "screen",
   "tier": "write",
   "tools": ["context_sync"]

@@ -1,0 +1,32 @@
+{
+  "argv": ["context", "checkpoint-status"],
+  "envelope": {
+    "command": "context checkpoint-status",
+    "data": {
+      "checkpoint": {
+        "point": 156000,
+        "reached": false,
+        "remaining": 13988
+      },
+      "checkpointAt": 44000,
+      "compactionAt": 200000,
+      "remainingToCompaction": 57988,
+      "session": {
+        "cwd": "<WORLD>/home/proj",
+        "id": "s1",
+        "lastActivityAt": "<TIME>",
+        "model": "claude-opus-4-8",
+        "stale": true
+      },
+      "usedBasis": "the input, cache read and cache creation tokens of the session's last request",
+      "usedTokens": 142012,
+      "window": {
+        "source": "model name",
+        "tokens": 200000
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,7 @@
+{
+  "command": "context layers ls",
+  "dryRun": "none",
+  "name": "context_layers_ls",
+  "tier": "read",
+  "toolTier": 1
+}

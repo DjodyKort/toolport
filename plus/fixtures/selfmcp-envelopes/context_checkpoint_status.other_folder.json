@@ -1,0 +1,12 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/clients"
+  },
+  "isError": false,
+  "result": {
+    "checkpointAt": 44000,
+    "note": "No Claude session with usage was found yet.",
+    "session": null
+  },
+  "tool": "context_checkpoint_status"
+}

@@ -1,0 +1,37 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Show what would be put back and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "context",
+  "id": "context layers undo",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["context", "layers", "undo"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Put back what the last folder-layer deploy replaced and remove the blocks it added (--dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["context_layers_undo"]
+}

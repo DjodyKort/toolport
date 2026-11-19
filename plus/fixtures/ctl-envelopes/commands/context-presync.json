@@ -1,0 +1,48 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Print nothing unless the presync failed",
+      "escalates": false,
+      "hidden": false,
+      "name": "--quiet",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Run now even if the interval has not passed",
+      "escalates": false,
+      "hidden": false,
+      "name": "--force",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "context",
+  "id": "context presync",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["context", "presync"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "What `claude` runs before a launch: pull the org tool when due, then context sync (--quiet, --force)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

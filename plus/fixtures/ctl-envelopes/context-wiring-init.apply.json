@@ -1,0 +1,49 @@
+{
+  "argv": ["context", "wiring", "init"],
+  "envelope": {
+    "command": "context wiring init",
+    "data": {
+      "dryRun": false,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "The shell file Toolport owns: claude() runs the presync first, one function per launch profile",
+            "diff": {
+              "after": "# Managed by `toolportctl context` — do not edit by hand.\n# Sourced from your shell file by the line marked `toolport:context-shims`.\n\ncontext_presync() {\n    command -v toolportctl >/dev/null 2>&1 || return 0\n    command toolportctl context presync --quiet 2>/dev/null || print -u2 \"toolportctl: the presync failed; Claude starts anyway (toolportctl context wiring status)\"\n    return 0\n}\n\nclaude() { context_presync; command claude \"$@\"; }\n\nif (( $+functions[hrclaude] )); then\n    hrclaude() { context_presync; command toolportctl compression run -- \"$@\"; }\nfi\n",
+              "before": ""
+            },
+            "op": "create",
+            "path": "<WORLD>/data/context-shims.zsh"
+          },
+          {
+            "detail": "Adds one line at the end of the file, marked toolport:context-shims; no other line changes",
+            "diff": {
+              "after": "[ -r \"<WORLD>/data/context-shims.zsh\" ] && source \"<WORLD>/data/context-shims.zsh\"  # toolport:context-shims",
+              "before": ""
+            },
+            "op": "update",
+            "path": "<WORLD>/home/.zshrc"
+          },
+          {
+            "detail": "A copy of the file is saved here first",
+            "op": "note",
+            "path": "<WORLD>/data/plus/context-backups/shell"
+          }
+        ],
+        "summary": "Set up the launch wiring",
+        "undo": "toolportctl context wiring disable",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": ["<WORLD>/data/plus/context-backups/shell/zshrc-<STAMP>.bak"],
+        "changed": ["<WORLD>/data/context-shims.zsh", "<WORLD>/home/.zshrc"],
+        "undo": "toolportctl context wiring disable"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

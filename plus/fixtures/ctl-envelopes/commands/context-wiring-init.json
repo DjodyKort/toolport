@@ -1,0 +1,37 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "context",
+  "id": "context wiring init",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["context", "wiring", "init"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Write the shell file and add one marked line to the startup file after a copy of it; also moves that line below another wrapper (--dry-run shows the plan)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["context_wiring_init"]
+}

@@ -1,0 +1,10 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "changed": [],
+    "dryRun": true,
+    "rows": []
+  },
+  "tool": "context_layers_undo"
+}

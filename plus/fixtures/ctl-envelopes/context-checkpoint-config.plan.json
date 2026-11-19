@@ -1,0 +1,31 @@
+{
+  "argv": ["context", "checkpoint-config", "--at", "44000", "--dry-run"],
+  "envelope": {
+    "command": "context checkpoint-config",
+    "data": {
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "Sets checkpointAt in context.json; every other key stays",
+            "diff": {
+              "after": "44000 tokens before compaction",
+              "before": "off"
+            },
+            "keys": ["checkpointAt"],
+            "op": "update",
+            "path": "<WORLD>/home/.config/mcpm/context.json"
+          }
+        ],
+        "summary": "Checkpoint: 44000 tokens before compaction",
+        "undo": "toolportctl context checkpoint-config --off",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

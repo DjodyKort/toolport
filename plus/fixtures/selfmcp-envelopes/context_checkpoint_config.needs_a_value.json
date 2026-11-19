@@ -1,0 +1,12 @@
+{
+  "arguments": {},
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "give at (tokens before compaction) or off"
+    }
+  },
+  "text": "invalid_arguments: give at (tokens before compaction) or off",
+  "tool": "context_checkpoint_config"
+}

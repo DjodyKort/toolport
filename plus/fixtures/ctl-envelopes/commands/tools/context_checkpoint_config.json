@@ -1,0 +1,7 @@
+{
+  "command": "context checkpoint-config",
+  "dryRun": "default-on",
+  "name": "context_checkpoint_config",
+  "tier": "write",
+  "toolTier": 3
+}

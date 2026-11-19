@@ -116,6 +116,43 @@ pub fn scan(roots: &[PathBuf]) -> BTreeMap<String, TranscriptSession> {
     out
 }
 
+/// How many of the most recently written transcripts [`latest`] looks at.
+const LATEST_LOOKED_AT: usize = 40;
+
+/// The session of the most recently written transcript, optionally the newest one of a folder.
+/// Only the newest files are parsed, so the answer does not wait for the whole history.
+pub fn latest(roots: &[PathBuf], cwd: Option<&Path>) -> Option<TranscriptSession> {
+    let mut files: Vec<(SystemTime, PathBuf)> = transcript_files(roots)
+        .into_iter()
+        .filter_map(|path| Some((key_of(&path)?.1, path)))
+        .collect();
+    files.sort_by_key(|file| std::cmp::Reverse(file.0));
+    let wanted = cwd.map(|dir| std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf()));
+    for (_, path) in files.into_iter().take(LATEST_LOOKED_AT) {
+        let Some(key) = key_of(&path) else { continue };
+        let parsed = cached(&path, key).unwrap_or_else(|| {
+            let parsed = parse_file(&path);
+            CACHE
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .get_or_insert_with(HashMap::new)
+                .insert(path.clone(), (key, parsed.clone()));
+            parsed
+        });
+        let Some(session) = parsed else { continue };
+        let same_folder = wanted.as_ref().is_none_or(|dir| {
+            session.cwd.as_deref().is_some_and(|c| {
+                let given = Path::new(c);
+                std::fs::canonicalize(given).unwrap_or_else(|_| given.to_path_buf()) == *dir
+            })
+        });
+        if same_folder {
+            return Some(session);
+        }
+    }
+    None
+}
+
 fn parse_file(path: &Path) -> Option<TranscriptSession> {
     let text = std::fs::read_to_string(path).ok()?;
     let stem = path.file_stem()?.to_string_lossy().into_owned();

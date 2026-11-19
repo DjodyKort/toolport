@@ -253,6 +253,18 @@ fn context_files(world: &World) {
     world.context_files();
 }
 
+fn layers_files(world: &World) {
+    world.layers_files();
+}
+
+fn wiring_wrong_order(world: &World) {
+    world.wiring_wrong_order();
+}
+
+fn checkpoint_files(world: &World) {
+    world.checkpoint_files();
+}
+
 fn memory_files(world: &World) {
     world.memory_files();
 }
@@ -3410,6 +3422,104 @@ const CASES: &[Case] = &[
                 &["context", "bundle", "config", "--auto-apply", "on"],
             ),
             read("auto-preview", &["context", "sync", "--dry-run"]),
+        ],
+    ),
+    case(
+        "context layers ls",
+        &[
+            hook("files", layers_files),
+            read("ls", &["context", "layers", "ls"]),
+            setup("deploy", &["context", "sync", "--rules"]),
+            read("deployed", &["context", "layers", "ls"]),
+        ],
+    ),
+    case(
+        "context layers undo",
+        &[
+            hook("files", layers_files),
+            read("nothing", &["context", "layers", "undo", "--dry-run"]),
+            setup("deploy", &["context", "sync"]),
+            read("plan", &["context", "layers", "undo", "--dry-run"]),
+            apply("apply", &["context", "layers", "undo"]),
+            read("again", &["context", "layers", "undo", "--dry-run"]),
+        ],
+    ),
+    case(
+        "context wiring status",
+        &[
+            hook("files", layers_files),
+            read("not-set-up", &["context", "wiring", "status"]),
+            setup("init", &["context", "wiring", "init"]),
+            read("healthy", &["context", "wiring", "status"]),
+            hook("order", wiring_wrong_order),
+            read("look", &["context", "wiring", "status"]),
+        ],
+    ),
+    case(
+        "context wiring init",
+        &[
+            hook("files", layers_files),
+            read("plan", &["context", "wiring", "init", "--dry-run"]),
+            apply("apply", &["context", "wiring", "init"]),
+            read("again", &["context", "wiring", "init", "--dry-run"]),
+            hook("order", wiring_wrong_order),
+            read("fix-plan", &["context", "wiring", "init", "--dry-run"]),
+            usage("usage", &["context", "wiring", "init", "now"]),
+        ],
+    ),
+    case(
+        "context wiring disable",
+        &[
+            hook("files", layers_files),
+            read("not-set-up", &["context", "wiring", "disable", "--dry-run"]),
+            setup("init", &["context", "wiring", "init"]),
+            read("plan", &["context", "wiring", "disable", "--dry-run"]),
+            apply("apply", &["context", "wiring", "disable"]),
+        ],
+    ),
+    case(
+        "context presync",
+        &[
+            hook("files", layers_files),
+            hook("sets", launch_profile_sets),
+            apply("run", &["context", "presync", "--force"]),
+            read("not-due", &["context", "presync"]),
+            usage("usage", &["context", "presync", "now"]),
+        ],
+    ),
+    case(
+        "context checkpoint-status",
+        &[
+            hook("files", checkpoint_files),
+            read("session", &["context", "checkpoint-status"]),
+            setup("set", &["context", "checkpoint-config", "--at", "44000"]),
+            read("with-checkpoint", &["context", "checkpoint-status"]),
+            read(
+                "other-folder",
+                &["context", "checkpoint-status", "--cwd", "{home}/clients"],
+            ),
+        ],
+    ),
+    case(
+        "context checkpoint-config",
+        &[
+            hook("files", checkpoint_files),
+            read(
+                "plan",
+                &["context", "checkpoint-config", "--at", "44000", "--dry-run"],
+            ),
+            apply("apply", &["context", "checkpoint-config", "--at", "44000"]),
+            apply("off", &["context", "checkpoint-config", "--off"]),
+            read(
+                "too-large",
+                &["context", "checkpoint-config", "--at", "2000000"],
+            )
+            .exit(2),
+            usage("usage", &["context", "checkpoint-config"]),
+            usage(
+                "both",
+                &["context", "checkpoint-config", "--at", "1", "--off"],
+            ),
         ],
     ),
     case(

@@ -1,0 +1,35 @@
+{
+  "argv": ["context", "wiring", "init", "--dry-run"],
+  "envelope": {
+    "command": "context wiring init",
+    "data": {
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "Moves our line to the end of the file, below shell-wrapper.sh; no other line changes",
+            "diff": {
+              "after": "[ -r \"<WORLD>/data/context-shims.zsh\" ] && source \"<WORLD>/data/context-shims.zsh\"  # toolport:context-shims",
+              "before": "[ -r \"<WORLD>/data/context-shims.zsh\" ] && source \"<WORLD>/data/context-shims.zsh\"  # toolport:context-shims"
+            },
+            "op": "update",
+            "path": "<WORLD>/home/.zshrc"
+          },
+          {
+            "detail": "A copy of the file is saved here first",
+            "op": "note",
+            "path": "<WORLD>/data/plus/context-backups/shell"
+          }
+        ],
+        "summary": "Fix the source order of the launch wiring",
+        "undo": "toolportctl context wiring disable",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

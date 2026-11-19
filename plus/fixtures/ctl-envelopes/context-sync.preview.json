@@ -5,10 +5,6 @@
     "data": {
       "autoApply": false,
       "bundles": null,
-      "deploy": {
-        "built": false,
-        "note": "rule layers and shims are not part of this build yet"
-      },
       "directEntries": {
         "rows": [],
         "upToDate": 0
@@ -17,6 +13,20 @@
       "launchProfiles": {
         "rows": [],
         "upToDate": 0
+      },
+      "layers": {
+        "backups": [],
+        "changed": [],
+        "files": [],
+        "rows": [],
+        "undo": null,
+        "upToDate": 0
+      },
+      "rules": null,
+      "shims": {
+        "action": "skipped",
+        "file": "<WORLD>/data/context-shims.zsh",
+        "reason": "the launch wiring is not set up"
       }
     },
     "ok": true,

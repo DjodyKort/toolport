@@ -1,0 +1,7 @@
+{
+  "command": "context wiring status",
+  "dryRun": "none",
+  "name": "context_wiring_status",
+  "tier": "read",
+  "toolTier": 1
+}

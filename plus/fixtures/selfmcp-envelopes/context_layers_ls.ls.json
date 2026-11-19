@@ -1,0 +1,94 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "layers": [
+      {
+        "delivery": "copy",
+        "detail": "Not written to the destination yet.",
+        "folderPatterns": [],
+        "globs": [],
+        "imports": [],
+        "name": "acme-knowledge",
+        "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/acme-knowledge/SKILL.md",
+        "problems": [],
+        "scope": "global",
+        "state": "not-deployed",
+        "target": {
+          "file": "<WORLD>/home/.claude/rules/acme-knowledge.md",
+          "kind": "rules"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 6
+        }
+      },
+      {
+        "delivery": "copy",
+        "detail": "Not written to every folder yet.",
+        "folderPatterns": ["**/clients/alpha/**"],
+        "globs": [],
+        "imports": [],
+        "name": "client-alpha",
+        "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-alpha/SKILL.md",
+        "problems": [],
+        "scope": "folder",
+        "state": "not-deployed",
+        "target": {
+          "deployed": 0,
+          "file": "CLAUDE.local.md",
+          "folders": ["<WORLD>/home/clients/alpha"],
+          "kind": "folders"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 8
+        }
+      },
+      {
+        "delivery": "copy",
+        "detail": "No folder matches this layer's folders, so it is deployed nowhere. Fix the pattern or delete the layer.",
+        "folderPatterns": ["**/clients/gamma/**"],
+        "globs": [],
+        "imports": [],
+        "name": "client-gamma",
+        "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-gamma/SKILL.md",
+        "problems": [],
+        "scope": "folder",
+        "state": "nowhere",
+        "target": {
+          "deployed": 0,
+          "file": "CLAUDE.local.md",
+          "folders": [],
+          "kind": "folders"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 2
+        }
+      },
+      {
+        "delivery": "copy",
+        "detail": "Not written to the destination yet.",
+        "folderPatterns": [],
+        "globs": [],
+        "imports": [],
+        "name": "personal",
+        "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/personal/SKILL.md",
+        "problems": [],
+        "scope": "global",
+        "state": "not-deployed",
+        "target": {
+          "file": "<WORLD>/home/.claude/rules/personal.md",
+          "kind": "rules"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 6
+        }
+      }
+    ],
+    "library": "<WORLD>/home/.config/mcpm/skills_repo/rules"
+  },
+  "tool": "context_layers_ls"
+}

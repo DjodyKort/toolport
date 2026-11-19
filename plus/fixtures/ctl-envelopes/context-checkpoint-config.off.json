@@ -1,0 +1,36 @@
+{
+  "argv": ["context", "checkpoint-config", "--off"],
+  "envelope": {
+    "command": "context checkpoint-config",
+    "data": {
+      "dryRun": false,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "Sets checkpointAt in context.json; every other key stays",
+            "diff": {
+              "after": "off",
+              "before": "44000 tokens before compaction"
+            },
+            "keys": ["checkpointAt"],
+            "op": "update",
+            "path": "<WORLD>/home/.config/mcpm/context.json"
+          }
+        ],
+        "summary": "Checkpoint: off",
+        "undo": "toolportctl context checkpoint-config --at 44000",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["<WORLD>/home/.config/mcpm/context.json"],
+        "undo": "toolportctl context checkpoint-config --at 44000"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
