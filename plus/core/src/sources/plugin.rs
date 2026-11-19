@@ -50,8 +50,9 @@ impl SourceDetector for PluginDetector {
             };
             let reachable = fsx::is_dir(&path);
             let mut items: Vec<Item> = Vec::new();
+            let mut links: Vec<String> = Vec::new();
             if reachable {
-                for found in layout::scan_layout(&path, ctx.budget) {
+                for found in layout::scan_layout_untrusted(&path, ctx.budget, &mut links) {
                     if let Some(parsed) = item::parse_file(ctx.cache, found.kind, &found.path) {
                         items.push(item::make_item(
                             &place,
@@ -85,7 +86,10 @@ impl SourceDetector for PluginDetector {
                 state,
                 detail,
                 freshness: None,
-                warnings: Vec::new(),
+                warnings: links
+                    .into_iter()
+                    .map(|rel| format!("{rel} is a symbolic link, so it is not read"))
+                    .collect(),
                 enabled: Some(enabled),
             };
             out.sources.push(meta.finish(&items, ctx.now));

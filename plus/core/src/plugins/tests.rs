@@ -199,6 +199,74 @@ fn a_plugin_source_that_leaves_the_clone_is_skipped() {
     assert!(market.warnings[0].contains("not a folder inside the clone"));
 }
 
+#[cfg(unix)]
+#[test]
+fn a_plugin_that_is_a_link_or_holds_links_leaks_nothing_into_the_listing() {
+    use std::os::unix::fs::symlink;
+    let fx = Fx::new();
+    let outside = fx.clone.parent().unwrap().join("outside");
+    put(&outside.join("plugin/skills/leak/SKILL.md"), "TOPSECRET");
+    put(
+        &outside.join("plugin/.claude-plugin/plugin.json"),
+        r#"{"version": "TOPSECRET"}"#,
+    );
+    put(&outside.join("hooks.json"), "{}");
+    put(
+        &fx.clone.join(".claude-plugin/marketplace.json"),
+        r#"{"name": "acme", "plugins": [
+            {"name": "linked", "source": "./plugins/linked"},
+            {"name": "inner", "source": "./plugins/inner"},
+            {"name": "through", "source": "./plugins/linked/skills"},
+            {"name": "up", "source": "./plugins/../../outside/plugin"},
+            {"name": "slash", "source": "./plugins//inner"},
+            {"name": "absolute", "source": "/tmp"}]}"#,
+    );
+    symlink(outside.join("plugin"), fx.clone.join("plugins/linked")).unwrap();
+    put(&fx.clone.join("plugins/inner/skills/own/SKILL.md"), "x");
+    symlink(
+        outside.join("plugin/skills"),
+        fx.clone.join("plugins/inner/agents"),
+    )
+    .unwrap();
+    symlink(
+        outside.join("plugin/.claude-plugin/plugin.json"),
+        fx.clone.join("plugins/inner/plugin.json"),
+    )
+    .unwrap();
+    std::fs::create_dir_all(fx.clone.join("plugins/inner/.claude-plugin")).unwrap();
+    symlink(
+        outside.join("plugin/.claude-plugin/plugin.json"),
+        fx.clone.join("plugins/inner/.claude-plugin/plugin.json"),
+    )
+    .unwrap();
+    symlink(
+        outside.join("hooks.json"),
+        fx.clone.join("plugins/inner/hooks"),
+    )
+    .unwrap();
+    let market = marketplace::read(&fx.clone).unwrap().unwrap();
+    let names: Vec<&str> = market.plugins.iter().map(|p| p.name.as_str()).collect();
+    assert_eq!(names, ["inner"]);
+    let inner = market.plugin("inner").unwrap();
+    assert_eq!(inner.skills, ["own"]);
+    assert!(inner.agents.is_empty());
+    assert_eq!(inner.version, None);
+    assert!(!inner.hooks);
+    assert_eq!(market.warnings.len(), 5, "{:?}", market.warnings);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_marketplace_file_that_is_a_link_is_not_read() {
+    use std::os::unix::fs::symlink;
+    let fx = Fx::new();
+    let real = fx.clone.parent().unwrap().join("market.json");
+    std::fs::rename(fx.clone.join(marketplace::FILE), &real).unwrap();
+    symlink(&real, fx.clone.join(marketplace::FILE)).unwrap();
+    assert!(marketplace::read(&fx.clone).is_none());
+    assert!(!marketplace::is_marketplace(&fx.clone));
+}
+
 #[test]
 fn a_marketplace_name_that_looks_like_a_flag_or_an_id_is_refused() {
     for bad in ["", "-x", ".hidden", "a@b", "a b"] {

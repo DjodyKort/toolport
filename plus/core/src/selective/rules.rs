@@ -5,10 +5,10 @@
 use super::discover::hash_path;
 use super::slice::copy_tree;
 use super::store::{Item, Kind, Linked, State};
-use crate::context::fsx;
 use crate::fsx::{atomic_write, atomic_write_bytes, Mode};
 use crate::skills::origin::{forget_origin, record_origin, ORIGINS_FILE, TAP_PREFIX};
 use crate::skills::parser::{split_frontmatter, valid_name};
+use crate::untrusted;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 use std::collections::{BTreeMap, BTreeSet};
@@ -444,9 +444,9 @@ fn install(
         .source_path
         .as_deref()
         .ok_or_else(|| format!("rule:{} has no file in the source", row.id))?;
-    let file = root.join(relative);
-    let text = fsx::read_text(&file, MAX_RULE + 1)
-        .filter(|t| t.len() <= MAX_RULE)
+    let text = untrusted::below(root, relative)
+        .ok()
+        .and_then(|file| untrusted::read_text(&file, MAX_RULE as u64))
         .ok_or_else(|| format!("rule:{} cannot be read from the source", row.id))?;
     if !journal.library.join(BUCKET).exists() {
         journal.made_dir = true;

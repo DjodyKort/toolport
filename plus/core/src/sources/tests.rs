@@ -874,3 +874,6 @@ fn removing_the_last_configured_root_drops_the_key_and_keeps_the_others() {
         "0000000000000000000000000000000000000000000000000000000000000000"
     );
 }
+
+#[cfg(unix)]
+mod hostile;

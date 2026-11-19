@@ -5,6 +5,7 @@
 use super::clock::Clock;
 use super::json::{self, J};
 use super::parser::{discover_skills, Skill, SkillType};
+use crate::untrusted;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -182,7 +183,7 @@ pub fn extract_bundle(
         if entry.name == BUNDLE_MANIFEST || entry.name.ends_with('/') {
             continue;
         }
-        if unsafe_entry(&entry.name) {
+        if unsafe_entry(&entry.name) || untrusted::check_rel(&entry.name).is_err() {
             report.skipped.push(entry.name.clone());
             continue;
         }
@@ -197,6 +198,7 @@ pub fn extract_bundle(
         if let Some(parent) = dest.parent() {
             fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
         }
+        untrusted::check_write(target, &dest)?;
         fs::write(&dest, &entry.data).map_err(|e| format!("{}: {e}", dest.display()))?;
     }
     for key in ["skills", "rules"] {

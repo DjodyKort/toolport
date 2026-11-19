@@ -15,6 +15,7 @@ use super::taps::{
     load_taps, parse_source, plain_segment, redact, save_taps, tap_dir, taps_path, taps_root,
     valid_tap_name, Tap,
 };
+use crate::untrusted::{self, Limits, Links};
 use serde_yaml::Value as Yaml;
 use std::collections::BTreeSet;
 use std::fs;
@@ -22,7 +23,6 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 const LOCK_WAIT: Duration = Duration::from_secs(330);
-const MAX_DEPTH: usize = 64;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
@@ -518,54 +518,22 @@ fn bucket(kind: SkillType) -> &'static str {
     }
 }
 
-/// Copies regular files and directories; symlinks, `.git` and special files are left behind.
-fn copy_tree(
-    from: &Path,
-    to: &Path,
-    depth: usize,
-    skipped: &mut Vec<String>,
-) -> Result<usize, String> {
-    if depth > MAX_DEPTH {
-        return Err(format!("{} is nested too deeply", from.display()));
-    }
-    fs::create_dir_all(to).map_err(|e| format!("{}: {e}", to.display()))?;
-    let mut files = 0;
-    let mut entries: Vec<_> = fs::read_dir(from)
-        .map_err(|e| format!("{}: {e}", from.display()))?
-        .flatten()
-        .collect();
-    entries.sort_by_key(|e| e.file_name());
-    for entry in entries {
-        let kind = entry.file_type().map_err(|e| e.to_string())?;
-        let (source, dest) = (entry.path(), to.join(entry.file_name()));
-        if kind.is_symlink() {
-            skipped.push(source.to_string_lossy().into_owned());
-        } else if kind.is_dir() {
-            if entry.file_name() != ".git" {
-                files += copy_tree(&source, &dest, depth + 1, skipped)?;
-            }
-        } else if kind.is_file() {
-            fs::copy(&source, &dest).map_err(|e| format!("{}: {e}", source.display()))?;
-            files += 1;
-        }
-    }
-    Ok(files)
+/// Copies regular files and directories; symlinks, `.git` and special files are left behind. A
+/// skill folder over the item limits (files, bytes, depth) is refused.
+fn copy_tree(from: &Path, to: &Path, skipped: &mut Vec<String>) -> Result<usize, String> {
+    let copied = untrusted::copy_tree(from, to, Links::Skip, &Limits::ITEM, &[".git"])?;
+    skipped.extend(
+        copied
+            .skipped
+            .iter()
+            .map(|rel| from.join(rel).to_string_lossy().into_owned()),
+    );
+    Ok(copied.files)
 }
 
-fn count_files(from: &Path, depth: usize) -> usize {
-    if depth > MAX_DEPTH {
-        return 0;
-    }
-    fs::read_dir(from)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .map(|e| match e.file_type() {
-            Ok(t) if t.is_dir() && e.file_name() != ".git" => count_files(&e.path(), depth + 1),
-            Ok(t) if t.is_file() => 1,
-            _ => 0,
-        })
-        .sum()
+fn count_files(from: &Path) -> Result<usize, String> {
+    let tree = untrusted::walk(from, Links::Skip, &Limits::ITEM, &[".git"])?;
+    Ok(tree.files().count())
 }
 
 fn stage_and_place(
@@ -578,7 +546,7 @@ fn stage_and_place(
     let _ = fs::remove_dir_all(&staging);
     fs::create_dir_all(parent)
         .map_err(|e| TapError::backend(format!("{}: {e}", parent.display())))?;
-    let placed = copy_tree(skill.source_dir(), &staging, 0, skipped).and_then(|files| {
+    let placed = copy_tree(skill.source_dir(), &staging, skipped).and_then(|files| {
         fs::rename(&staging, dest)
             .map(|_| files)
             .map_err(|e| e.to_string())
@@ -690,9 +658,8 @@ pub fn install(env: &Env, spec: &str, opts: &InstallOptions) -> Result<InstallRe
         if exists(&dest) || !taken.insert(dest.clone()) {
             report.skills.push(planned(0, false));
         } else if opts.dry_run {
-            report
-                .skills
-                .push(planned(count_files(skill.source_dir(), 0), true));
+            let files = count_files(skill.source_dir()).map_err(TapError::backend)?;
+            report.skills.push(planned(files, true));
         } else {
             let files = stage_and_place(skill, &dest, &mut report.symlinks_skipped)?;
             super::origin::record_origin(

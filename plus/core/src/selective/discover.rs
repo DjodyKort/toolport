@@ -3,10 +3,10 @@
 //! command text, so a changed command is a changed item.
 
 use super::store::Kind;
-use crate::context::fsx::{self, Kind as FileKind};
 use crate::hashing::{finish_lock_hash, lock_hash};
 use crate::sources::budget::Budget;
-use crate::sources::layout;
+use crate::sources::layout::{self, Trust};
+use crate::untrusted::{self, Limits, Links};
 use regex::Regex;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -17,9 +17,6 @@ use std::time::Duration;
 const HOOKS_FILE: &str = "hooks/hooks.json";
 const SCAN_TIME: Duration = Duration::from_secs(30);
 const MAX_ENTRIES: usize = 50_000;
-const MAX_FILES: usize = 2_000;
-const MAX_BYTES: usize = 20 * 1024 * 1024;
-const MAX_FILE: usize = 4 * 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Found {
@@ -37,58 +34,22 @@ pub struct Discovery {
     pub warnings: Vec<String>,
 }
 
-struct Tally {
-    files: usize,
-    bytes: usize,
-}
-
-fn feed(hasher: &mut Sha256, base: &Path, rel: &str, tally: &mut Tally) -> Result<(), String> {
-    let path = if rel.is_empty() {
-        base.to_path_buf()
-    } else {
-        base.join(rel)
-    };
-    for entry in fsx::list_dir(&path) {
-        if entry.symlink {
-            continue;
-        }
-        let child = if rel.is_empty() {
-            entry.name.clone()
-        } else {
-            format!("{rel}/{}", entry.name)
-        };
-        match entry.kind {
-            FileKind::Dir => feed(hasher, base, &child, tally)?,
-            FileKind::File => {
-                tally.files += 1;
-                let bytes = fsx::read_bytes(&entry.path, MAX_FILE + 1)
-                    .ok_or_else(|| format!("{child} cannot be read"))?;
-                tally.bytes += bytes.len();
-                if tally.files > MAX_FILES || bytes.len() > MAX_FILE || tally.bytes > MAX_BYTES {
-                    return Err(format!("{child}: the folder is too large to select from"));
-                }
-                hasher.update(child.as_bytes());
-                hasher.update([0]);
-                hasher.update(&bytes);
-                hasher.update([0]);
-            }
-            FileKind::Other => {}
-        }
-    }
-    Ok(())
-}
-
-/// The hash of a file, or of a folder's files and their relative names (symlinks are left out).
+/// The hash of a file, or of a folder's files and their relative names. A link anywhere in it is
+/// an error: nothing a source offers may lead outside the source.
 pub fn hash_path(path: &Path) -> Result<String, String> {
-    if fsx::is_file(path) {
-        let bytes = fsx::read_bytes(path, MAX_FILE + 1)
-            .filter(|b| b.len() <= MAX_FILE)
-            .ok_or_else(|| format!("{} cannot be read", path.display()))?;
+    if untrusted::is_file(path) {
+        let bytes = untrusted::read_bytes(path, untrusted::MAX_FILE_BYTES)?;
         return Ok(lock_hash(bytes));
     }
+    let tree = untrusted::walk(path, Links::Reject, &Limits::ITEM, &[])?;
     let mut hasher = Sha256::new();
-    let mut tally = Tally { files: 0, bytes: 0 };
-    feed(&mut hasher, path, "", &mut tally)?;
+    for (rel, file, _) in tree.files() {
+        let bytes = untrusted::read_bytes(file, untrusted::MAX_FILE_BYTES)?;
+        hasher.update(rel.as_bytes());
+        hasher.update([0]);
+        hasher.update(&bytes);
+        hasher.update([0]);
+    }
     Ok(finish_lock_hash(hasher))
 }
 
@@ -97,13 +58,19 @@ pub fn hook_hash(handler: &Value) -> String {
 }
 
 fn hooks(root: &Path, out: &mut Discovery) {
-    let file = root.join(HOOKS_FILE);
-    if !fsx::is_file(&file) {
+    let file = match untrusted::below(root, HOOKS_FILE) {
+        Ok(file) => file,
+        Err(why) => {
+            out.warnings.push(format!(
+                "{HOOKS_FILE} is not read, so its hooks are not offered: {why}"
+            ));
+            return;
+        }
+    };
+    if !untrusted::is_file(&file) {
         return;
     }
-    let Some(doc) =
-        fsx::read_text(&file, MAX_FILE).and_then(|t| serde_json::from_str::<Value>(&t).ok())
-    else {
+    let Some(doc) = untrusted::read_json(&file, untrusted::MAX_FILE_BYTES) else {
         out.warnings.push(format!(
             "{HOOKS_FILE} is not valid JSON, so its hooks are not offered"
         ));
@@ -162,7 +129,14 @@ fn hooks(root: &Path, out: &mut Discovery) {
 pub fn discover(root: &Path) -> Discovery {
     let mut out = Discovery::default();
     let budget = Budget::new(SCAN_TIME, 6, Some(MAX_ENTRIES));
-    for found in layout::scan_layout(root, &budget) {
+    let mut links = Vec::new();
+    let scanned = layout::scan_layout_as(root, &budget, Trust::Untrusted, &mut links);
+    out.warnings.extend(
+        links
+            .into_iter()
+            .map(|rel| format!("{rel} is a symbolic link, so it is not offered")),
+    );
+    for found in scanned {
         let Some(kind) = Kind::parse(found.kind) else {
             continue;
         };
@@ -222,7 +196,9 @@ pub fn support_hash(root: &Path, paths: &[String]) -> Option<String> {
     for rel in paths {
         hasher.update(rel.as_bytes());
         hasher.update([0]);
-        let hash = hash_path(&root.join(rel)).unwrap_or_default();
+        let hash = untrusted::below(root, rel)
+            .and_then(|path| hash_path(&path))
+            .unwrap_or_default();
         hasher.update(hash.as_bytes());
         hasher.update([0]);
     }

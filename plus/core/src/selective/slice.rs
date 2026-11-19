@@ -5,8 +5,9 @@
 
 use super::discover::support_paths;
 use super::store::{Item, Kind, SourceSel};
-use crate::context::fsx::{self, Kind as FileKind};
-use crate::fsx::{atomic_write, atomic_write_bytes, Mode};
+use crate::context::fsx;
+use crate::fsx::{atomic_write, Mode};
+use crate::untrusted::{self, Limits, Links};
 use serde_json::{json, Map, Value};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -35,37 +36,18 @@ pub fn slice_dir(base: &Path, slice: &str) -> PathBuf {
     market_root(base).join(slice)
 }
 
-#[cfg(unix)]
-fn mode_of(path: &Path) -> Mode {
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::metadata(path)
-        .map(|m| Mode::Exact(m.permissions().mode() & 0o777))
-        .unwrap_or(Mode::Private)
-}
-
-#[cfg(not(unix))]
-fn mode_of(_: &Path) -> Mode {
-    Mode::Private
-}
-
-/// Copies a file or a folder's files; symlinks are not followed.
+/// Copies a file or a folder's files. A source is somebody else's checkout, so nothing in it is
+/// followed: a link anywhere, a file count or size over the limits, or a destination that would
+/// leave `to` is an error.
 pub fn copy_tree(from: &Path, to: &Path) -> Result<(), String> {
-    if fsx::is_file(from) {
-        let bytes = std::fs::read(from).map_err(|e| format!("{}: {e}", from.display()))?;
-        return atomic_write_bytes(to, &bytes, mode_of(from))
-            .map_err(|e| format!("{}: {e}", to.display()));
-    }
-    std::fs::create_dir_all(to).map_err(|e| format!("{}: {e}", to.display()))?;
-    for entry in fsx::list_dir(from) {
-        if entry.symlink {
-            continue;
-        }
-        match entry.kind {
-            FileKind::Dir | FileKind::File => copy_tree(&entry.path, &to.join(&entry.name))?,
-            FileKind::Other => {}
-        }
-    }
-    Ok(())
+    untrusted::copy_tree(from, to, Links::Reject, &Limits::ITEM, &[]).map(|_| ())
+}
+
+fn copy_item(from_root: &Path, to_root: &Path, rel: &str) -> Result<(), String> {
+    let from = untrusted::below(from_root, rel)?;
+    let to = untrusted::below(to_root, rel)?;
+    untrusted::check_write(to_root, &to)?;
+    copy_tree(&from, &to)
 }
 
 fn included(sel: &SourceSel) -> impl Iterator<Item = &Item> {
@@ -101,15 +83,14 @@ pub fn build(
         } else {
             pinned
         };
-        copy_tree(&from.join(rel), &staging.join(rel))?;
+        copy_item(from, staging, rel)?;
     }
     for rel in support_paths(&hook_handlers(sel)) {
         let from = [latest, pinned]
             .into_iter()
-            .map(|root| root.join(&rel))
-            .find(|p| p.exists())
+            .find(|root| untrusted::kind(&root.join(&rel)).is_some())
             .ok_or_else(|| format!("{rel} is missing, and a ticked hook runs it"))?;
-        copy_tree(&from, &staging.join(&rel))?;
+        copy_item(from, staging, &rel)?;
     }
     Ok(())
 }

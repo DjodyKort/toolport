@@ -44,4 +44,5 @@ pub mod sync;
 pub mod tasks;
 #[cfg(test)]
 mod testutil;
+pub mod untrusted;
 pub mod vault_backup;

@@ -209,3 +209,42 @@ fn test08_the_home_folder_is_shortened_in_commands() {
     let data = inventory::hooks(&world(&tree2), None, None, &HookFilter::default());
     assert_eq!(data["hooks"][0]["command"], "~/bin/own.sh");
 }
+
+#[cfg(unix)]
+#[test]
+fn test10_show_does_not_read_components_through_links() {
+    use std::os::unix::fs::symlink;
+    let tree = tree(enabled());
+    let plugin = tree.claude.join("plugins/cache/ecc");
+    let outside = tree.dir.path().join("outside");
+    put(
+        &outside.join("secret.json"),
+        r#"{"description": "TOPSECRET"}"#,
+    );
+    put(
+        &outside.join("hooks.json"),
+        r#"{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "TOPSECRET"}]}]}}"#,
+    );
+    put(&outside.join("skills/leak/SKILL.md"), "TOPSECRET");
+    for rel in [
+        ".claude-plugin/plugin.json",
+        "hooks/hooks.json",
+        ".mcp.json",
+    ] {
+        std::fs::remove_file(plugin.join(rel)).unwrap();
+    }
+    symlink(
+        outside.join("secret.json"),
+        plugin.join(".claude-plugin/plugin.json"),
+    )
+    .unwrap();
+    symlink(outside.join("hooks.json"), plugin.join("hooks/hooks.json")).unwrap();
+    symlink(outside.join("secret.json"), plugin.join(".mcp.json")).unwrap();
+    std::fs::remove_dir_all(plugin.join("skills")).unwrap();
+    symlink(outside.join("skills"), plugin.join("skills")).unwrap();
+    let data = inventory::show(&world(&tree), None, "ecc@ecc", None).unwrap();
+    assert!(!data.to_string().contains("TOPSECRET"), "{data}");
+    assert_eq!(data["components"]["skills"], json!([]));
+    assert_eq!(data["hooks"], json!([]));
+    assert_eq!(data["description"], Value::Null);
+}

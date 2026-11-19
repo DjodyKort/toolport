@@ -2,7 +2,8 @@
 
 use super::item::{self, Placement};
 use super::layout;
-use super::library::scan_skills_repo;
+use super::layout::Trust;
+use super::library::scan_skills_repo_as;
 use super::model::{Item, Origin, SourceMeta};
 use super::{DetectorOutput, ScanCtx, SourceDetector};
 use crate::context::fsx;
@@ -36,17 +37,18 @@ impl SourceDetector for TapDetector {
             let dir = tap_dir(&root, &tap);
             let cloned = fsx::is_dir(&dir);
             let mut items: Vec<Item> = Vec::new();
+            let mut links: Vec<String> = Vec::new();
             if cloned {
                 let plugin_files: Vec<_> = match marketplace::read(&dir) {
                     Some(Ok(market)) => market
                         .plugins
                         .iter()
-                        .flat_map(|p| layout::scan_layout(&p.dir, ctx.budget))
+                        .flat_map(|p| layout::scan_layout_untrusted(&p.dir, ctx.budget, &mut links))
                         .filter(|f| f.kind != "rule")
                         .collect(),
                     _ => Vec::new(),
                 };
-                let files = scan_skills_repo(&dir, ctx)
+                let files = scan_skills_repo_as(&dir, ctx, Trust::Untrusted, &mut links)
                     .into_iter()
                     .filter(|f| f.kind != "agent")
                     .chain(plugin_files);
@@ -89,7 +91,10 @@ impl SourceDetector for TapDetector {
                 state,
                 detail,
                 freshness: None,
-                warnings: Vec::new(),
+                warnings: links
+                    .into_iter()
+                    .map(|rel| format!("{rel} is a symbolic link, so it is not read"))
+                    .collect(),
                 enabled: None,
             };
             out.sources.push(meta.finish(&items, ctx.now));

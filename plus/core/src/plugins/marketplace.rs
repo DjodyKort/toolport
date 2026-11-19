@@ -1,14 +1,15 @@
 //! A plugin marketplace inside a tap clone: `.claude-plugin/marketplace.json` and the plugins it
 //! lists by relative path. Read-only; nothing that resolves outside the clone is followed.
 
-use super::read_json;
-use crate::context::fsx::{self, Kind};
+use crate::context::fsx;
+use crate::untrusted::{self, Kind};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
 pub const FILE: &str = ".claude-plugin/marketplace.json";
 const PLUGIN_FILE: &str = ".claude-plugin/plugin.json";
 const MAX_NAME: usize = 64;
+const JSON_CAP: u64 = 4 * 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Plugin {
@@ -49,18 +50,27 @@ pub fn valid_name(name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
 }
 
+fn file_in(root: &Path, rel: &str) -> Option<PathBuf> {
+    untrusted::below(root, rel)
+        .ok()
+        .filter(|path| untrusted::is_file(path))
+}
+
+fn json_in(root: &Path, rel: &str) -> Option<Value> {
+    untrusted::read_json(&file_in(root, rel)?, JSON_CAP)
+}
+
 pub fn is_marketplace(clone: &Path) -> bool {
-    fsx::is_file(&clone.join(FILE))
+    file_in(clone, FILE).is_some()
 }
 
 /// `None` when the clone has no marketplace file; `Some(Err)` when it has one that cannot be used.
 pub fn read(clone: &Path) -> Option<Result<Marketplace, String>> {
-    let file = clone.join(FILE);
-    fsx::is_file(&file).then(|| parse(clone, &file))
+    file_in(clone, FILE).map(|_| parse(clone))
 }
 
-fn parse(clone: &Path, file: &Path) -> Result<Marketplace, String> {
-    let doc = read_json(file).ok_or_else(|| format!("{FILE} is not valid JSON"))?;
+fn parse(clone: &Path) -> Result<Marketplace, String> {
+    let doc = json_in(clone, FILE).ok_or_else(|| format!("{FILE} is not valid JSON"))?;
     let name = doc
         .get("name")
         .and_then(Value::as_str)
@@ -108,17 +118,20 @@ fn parse(clone: &Path, file: &Path) -> Result<Marketplace, String> {
     })
 }
 
+/// The folder a marketplace entry names, as long as every part of it is a real folder inside
+/// `root` (the clone, already resolved).
 fn inside(root: &Path, source: &str) -> Option<PathBuf> {
-    let rel = source.strip_prefix("./")?;
-    if rel.split('/').any(|part| part == "..") {
-        return None;
-    }
-    let dir = fsx::canonical(&root.join(rel));
-    (dir.starts_with(root) && fsx::is_dir(&dir)).then_some(dir)
+    let rel = source.strip_prefix("./")?.trim_end_matches('/');
+    let dir = if rel.is_empty() {
+        root.to_path_buf()
+    } else {
+        untrusted::below(root, rel).ok()?
+    };
+    untrusted::is_dir(&dir).then_some(dir)
 }
 
 fn plugin_at(name: &str, dir: PathBuf, entry: &Value) -> Plugin {
-    let manifest = read_json(&dir.join(PLUGIN_FILE));
+    let manifest = json_in(&dir, PLUGIN_FILE);
     let text = |key: &str| {
         manifest
             .as_ref()
@@ -127,12 +140,12 @@ fn plugin_at(name: &str, dir: PathBuf, entry: &Value) -> Plugin {
             .and_then(Value::as_str)
             .map(String::from)
     };
-    let skills = fsx::list_dir(&dir.join("skills"))
+    let skills = untrusted::list_dir(&dir.join("skills"))
         .into_iter()
-        .filter(|e| e.kind == Kind::Dir && fsx::is_file(&e.path.join("SKILL.md")))
+        .filter(|e| e.kind == Kind::Dir && untrusted::is_file(&e.path.join("SKILL.md")))
         .map(|e| e.name)
         .collect();
-    let agents = fsx::list_dir(&dir.join("agents"))
+    let agents = untrusted::list_dir(&dir.join("agents"))
         .into_iter()
         .filter(|e| e.kind == Kind::File)
         .filter_map(|e| e.name.strip_suffix(".md").map(String::from))
@@ -147,7 +160,7 @@ fn plugin_at(name: &str, dir: PathBuf, entry: &Value) -> Plugin {
             .or_else(|| text("description")),
         skills,
         agents,
-        hooks: fsx::is_file(&dir.join("hooks/hooks.json")),
+        hooks: file_in(&dir, "hooks/hooks.json").is_some(),
         dir,
     }
 }

@@ -5,7 +5,7 @@
 
 use super::gitx;
 use super::item::{self, Placement};
-use super::layout::{self, Found};
+use super::layout::{self, Found, Trust};
 use super::model::{estimated_tokens, Freshness, Item, Origin, SourceMeta, Tokens};
 use super::{DetectorOutput, ScanCtx, SourceDetector};
 use crate::context::fsx::{self, Kind};
@@ -15,6 +15,7 @@ use crate::skills::api::invisible_reason;
 use crate::skills::parser::{parse_skill_file, SkillType};
 use crate::skills::transpilers::registry;
 use crate::skills::TranspilerRegistry;
+use crate::untrusted;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
@@ -43,31 +44,72 @@ pub(super) fn candidates(ctx: &ScanCtx) -> Vec<PathBuf> {
 
 /// `skills/<n>/SKILL.md`, `rules/<n>/SKILL.md`, `agents/<n>/AGENT.md` and `commands/<n>.md`.
 pub(super) fn scan_skills_repo(root: &Path, ctx: &ScanCtx) -> Vec<Found> {
+    scan_skills_repo_as(root, ctx, Trust::Own, &mut Vec::new())
+}
+
+/// [`scan_skills_repo`] with the trust of the folder; links that an untrusted scan leaves out are
+/// named in `links`.
+pub(super) fn scan_skills_repo_as(
+    root: &Path,
+    ctx: &ScanCtx,
+    trust: Trust,
+    links: &mut Vec<String>,
+) -> Vec<Found> {
     let mut out = Vec::new();
     for (dir, file, kind) in [
         ("skills", "SKILL.md", "skill"),
         ("rules", "SKILL.md", "rule"),
         ("agents", "AGENT.md", "agent"),
     ] {
-        for entry in fsx::list_dir(&root.join(dir)) {
+        let base = root.join(dir);
+        let entries: Vec<(String, PathBuf, bool)> = match trust {
+            Trust::Own => fsx::list_dir(&base)
+                .into_iter()
+                .map(|e| (e.name, e.path, e.kind == Kind::Dir))
+                .collect(),
+            Trust::Untrusted => untrusted::list_dir(&base)
+                .into_iter()
+                .filter_map(|e| match e.kind {
+                    untrusted::Kind::Link => {
+                        links.push(format!("{dir}/{}", e.name));
+                        None
+                    }
+                    kind => Some((e.name, e.path, kind == untrusted::Kind::Dir)),
+                })
+                .collect(),
+        };
+        for (name, path, is_dir) in entries {
             if !ctx.budget.tick() {
                 return out;
             }
-            let path = entry.path.join(file);
-            if entry.kind == Kind::Dir && fsx::is_file(&path) {
+            let path = path.join(file);
+            let present = match trust {
+                Trust::Own => fsx::is_file(&path),
+                Trust::Untrusted => {
+                    if untrusted::kind(&path) == Some(untrusted::Kind::Link) {
+                        links.push(format!("{dir}/{name}/{file}"));
+                    }
+                    untrusted::is_file(&path)
+                }
+            };
+            if is_dir && present {
                 out.push(Found {
                     kind,
-                    fallback: entry.name.clone(),
-                    rel: format!("{dir}/{}/{file}", entry.name),
+                    rel: format!("{dir}/{name}/{file}"),
+                    fallback: name,
                     path,
                 });
             }
         }
     }
     let commands = root.join("commands");
-    if fsx::is_dir(&commands) {
+    let has_commands = match trust {
+        Trust::Own => fsx::is_dir(&commands),
+        Trust::Untrusted => untrusted::is_dir(&commands),
+    };
+    if has_commands {
         out.extend(
-            layout::scan_layout(root, ctx.budget)
+            layout::scan_layout_as(root, ctx.budget, trust, links)
                 .into_iter()
                 .filter(|f| f.kind == "command"),
         );

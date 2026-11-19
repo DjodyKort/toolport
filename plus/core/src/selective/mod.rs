@@ -23,6 +23,8 @@ mod tests;
 #[cfg(all(test, unix))]
 mod tests_history;
 #[cfg(all(test, unix))]
+mod tests_hostile;
+#[cfg(all(test, unix))]
 mod tests_rules;
 
 pub use ops::Env;

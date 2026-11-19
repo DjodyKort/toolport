@@ -344,6 +344,12 @@ pub fn parse_skill_file(path: &Path) -> Result<Skill, String> {
     if !path.exists() {
         return Err(format!("Skill file not found: {}", path.display()));
     }
+    let len = std::fs::metadata(path)
+        .map_err(|e| format!("{}: {e}", path.display()))?
+        .len();
+    if len > crate::untrusted::MAX_FILE_BYTES {
+        return Err(format!("{} is too large to read", path.display()));
+    }
     let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let content = String::from_utf8(bytes).map_err(|e| format!("{}: {e}", path.display()))?;
     let (fm_data, body) = parse_frontmatter(&content)?;

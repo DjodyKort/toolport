@@ -11,10 +11,12 @@ use serde_json::{json, Map, Value};
 
 use super::claude::ClaudeRunner;
 use super::installed::{self, Installed};
-use super::read_json;
 use super::settings::{Layers, Scope};
 use crate::context::fsx;
 use crate::op::OpError;
+use crate::untrusted;
+
+const JSON_CAP: u64 = 4 * 1024 * 1024;
 
 const TOOLS: [&str; 4] = ["Bash", "Edit", "Write", "Read"];
 const TOOLPORT_MARKERS: [&str; 2] = ["--toolport-hook", "--toolport-guard"];
@@ -32,27 +34,28 @@ fn shorten(world: &World, text: &str) -> String {
     text.replace(home.as_ref(), "~")
 }
 
+/// The names in a folder of a plugin (somebody else's files): links are not followed.
 fn names_in(dir: &Path, want_dirs: bool) -> Vec<String> {
-    let mut names: Vec<String> = std::fs::read_dir(dir)
+    untrusted::list_dir(dir)
         .into_iter()
-        .flatten()
-        .flatten()
         .filter_map(|entry| {
-            let path = entry.path();
-            let name = entry.file_name().to_string_lossy().into_owned();
             if want_dirs {
-                path.join("SKILL.md").is_file().then_some(name)
+                (entry.kind == untrusted::Kind::Dir
+                    && untrusted::is_file(&entry.path.join("SKILL.md")))
+                .then_some(entry.name)
             } else {
-                name.strip_suffix(".md").map(String::from)
+                entry.name.strip_suffix(".md").map(String::from)
             }
         })
-        .collect();
-    names.sort();
-    names
+        .collect()
 }
 
-fn keys_of(file: &Path, key: &str) -> Vec<String> {
-    let Some(doc) = read_json(file) else {
+fn plugin_json(root: &Path, rel: &str) -> Option<Value> {
+    untrusted::read_json(&untrusted::below(root, rel).ok()?, JSON_CAP)
+}
+
+fn keys_of(root: &Path, rel: &str, key: &str) -> Vec<String> {
+    let Some(doc) = plugin_json(root, rel) else {
         return Vec::new();
     };
     let mut keys: Vec<String> = doc
@@ -173,7 +176,7 @@ fn plugin_hook_entries(world: &World, plugin: &Installed) -> Vec<Value> {
         return Vec::new();
     };
     let file = root.join("hooks/hooks.json");
-    let Some(doc) = read_json(&file) else {
+    let Some(doc) = plugin_json(root, "hooks/hooks.json") else {
         return Vec::new();
     };
     let hooks = doc.get("hooks").cloned().unwrap_or(Value::Null);
@@ -226,8 +229,8 @@ fn row(world: &World, plugin: &Installed, layers: &Layers, via: installed::Via) 
             "agents": names_in(&root.join("agents"), false).len(),
             "commands": names_in(&root.join("commands"), false).len(),
             "hooks": hooks,
-            "mcpServers": keys_of(&root.join(".mcp.json"), "mcpServers").len(),
-            "lspServers": keys_of(&root.join(".lsp.json"), "lspServers").len(),
+            "mcpServers": keys_of(&root, ".mcp.json", "mcpServers").len(),
+            "lspServers": keys_of(&root, ".lsp.json", "lspServers").len(),
         },
         "errors": plugin.errors,
         "from": via.as_str(),
@@ -262,8 +265,8 @@ pub fn show(
     let layers = layers(world, cwd);
     let mut data = row(world, plugin, &layers, listing.via);
     let root: PathBuf = plugin.install_path.clone().unwrap_or_default();
-    let manifest = read_json(&root.join(".claude-plugin/plugin.json")).unwrap_or(Value::Null);
-    let mcp: Vec<Value> = keys_of(&root.join(".mcp.json"), "mcpServers")
+    let manifest = plugin_json(&root, ".claude-plugin/plugin.json").unwrap_or(Value::Null);
+    let mcp: Vec<Value> = keys_of(&root, ".mcp.json", "mcpServers")
         .into_iter()
         .map(|name| {
             json!({
@@ -279,7 +282,7 @@ pub fn show(
             "skills": names_in(&root.join("skills"), true),
             "agents": names_in(&root.join("agents"), false),
             "commands": names_in(&root.join("commands"), false),
-            "lspServers": keys_of(&root.join(".lsp.json"), "lspServers"),
+            "lspServers": keys_of(&root, ".lsp.json", "lspServers"),
         },
         "hooks": plugin_hook_entries(world, plugin),
         "mcpServers": mcp,
