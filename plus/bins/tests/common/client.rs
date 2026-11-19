@@ -19,18 +19,22 @@ pub struct Client {
     lines: mpsc::Receiver<String>,
     next_id: i64,
     forbidden: Vec<String>,
+    stderr: std::path::PathBuf,
 }
 
 impl Client {
     /// `forbidden` strings must appear in no line the server writes.
     pub fn spawn(world: &World, forbidden: &[&str]) -> Self {
+        let stderr = world.base.with_extension("selfmcp-stderr");
         let mut command = Command::new(env!("CARGO_BIN_EXE_toolport-selfmcp"));
         command
             .current_dir(&world.repo)
             .env_clear()
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null());
+            .stderr(Stdio::from(
+                std::fs::File::create(&stderr).expect("create the stderr capture"),
+            ));
         for (key, value) in world.env() {
             command.env(key, value);
         }
@@ -51,6 +55,7 @@ impl Client {
             lines,
             next_id: 0,
             forbidden: forbidden.iter().map(|s| s.to_string()).collect(),
+            stderr,
         }
     }
 
@@ -129,6 +134,14 @@ impl Client {
         let deadline = Instant::now() + RESPONSE_TIMEOUT;
         loop {
             if let Some(status) = self.child.try_wait().unwrap() {
+                let logged = std::fs::read_to_string(&self.stderr).unwrap_or_default();
+                let _ = std::fs::remove_file(&self.stderr);
+                for secret in &self.forbidden {
+                    assert!(
+                        !logged.contains(secret.as_str()),
+                        "a secret value leaked in the server's log"
+                    );
+                }
                 return status;
             }
             assert!(

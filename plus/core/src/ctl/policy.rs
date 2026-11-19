@@ -1231,6 +1231,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("clients_list", R),
     maps("auth_probe", R, "auth probe"),
     maps("secret_check", R, "secret get"),
+    maps("secret_set", W, "secret set").on(),
+    maps("secret_rm", D, "secret rm").on(),
     maps("client_direct_ls", R, "client direct ls"),
     maps("client_direct_check", R, "client direct check"),
     maps("client_direct_add", W, "client direct add").on(),

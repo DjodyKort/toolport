@@ -66,26 +66,6 @@ fn resolve_target(
     })
 }
 
-fn is_remote(record: &ServerRecord) -> bool {
-    matches!(record.text("transport"), Some("http" | "sse"))
-}
-
-/// Launch inputs are vaulted without declaring an environment variable; every other key is an
-/// environment secret.
-fn is_launch_secret(record: &ServerRecord, key: &str) -> bool {
-    record
-        .extra
-        .get("launch")
-        .and_then(|launch| launch.get("inputs"))
-        .and_then(|inputs| inputs.as_array())
-        .is_some_and(|inputs| {
-            inputs.iter().any(|input| {
-                input.get("key").and_then(|k| k.as_str()) == Some(key)
-                    && input.get("secret").and_then(|s| s.as_bool()) == Some(true)
-            })
-        })
-}
-
 fn strip_line_ending(mut value: String) -> String {
     if value.ends_with('\n') {
         value.pop();
@@ -148,22 +128,15 @@ fn set_from(
         .record
         .as_ref()
         .expect("must_exist resolved a record");
-    let access_token = target.key == HTTP_AUTH_KEY;
-    if access_token && !is_remote(record) {
+    if target.key == HTTP_AUTH_KEY && !servers::is_remote(record) {
         return Err(CtlError::usage(format!(
             "{HTTP_AUTH_KEY} is the bearer token of a remote server; {} is not one",
             target.server
         )));
     }
     let value = read_value(host, flags.one("--value-env"), reader, interactive)?;
-    let stored = if access_token {
-        host.store_access_token(&target.server, &value)
-    } else if is_launch_secret(record, &target.key) {
-        host.store_launch_secret(&target.server, &target.key, &value)
-    } else {
-        host.store_env_secret(&target.server, &target.key, &value)
-    };
-    stored.map_err(|e| CtlError::failed("vault", e))?;
+    servers::store_secret(host, record, &target.key, &value)
+        .map_err(|e| CtlError::failed("vault", e))?;
     Ok(Output::new(
         json!({"server": target.server, "key": target.key, "stored": true}),
         format!("Stored {} for {}", target.key, target.server),
@@ -200,12 +173,8 @@ pub fn get(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
 pub fn rm(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = Spec::PLAIN.parse(rest)?;
     let target = resolve_target(host, flags.operands(), RM_USAGE, false)?;
-    let removed = match &target.record {
-        Some(_) if target.key == HTTP_AUTH_KEY => host.clear_access_token(&target.server),
-        Some(_) => host.remove_env_secret(&target.server, &target.key),
-        None => host.delete_server_secret(&target.server, &target.key),
-    };
-    removed.map_err(|e| CtlError::failed("vault", e))?;
+    servers::remove_secret(host, &target.server, target.record.as_ref(), &target.key)
+        .map_err(|e| CtlError::failed("vault", e))?;
     Ok(Output::new(
         json!({"server": target.server, "key": target.key, "removed": true}),
         format!("Removed {} for {}", target.key, target.server),

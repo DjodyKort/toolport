@@ -53,6 +53,56 @@ pub fn valid_secret_key(key: &str) -> bool {
             && key != toolport_plus_api::HTTP_AUTH_KEY))
 }
 
+pub fn is_remote(record: &ServerRecord) -> bool {
+    matches!(record.text("transport"), Some("http" | "sse"))
+}
+
+/// Launch inputs are vaulted without declaring an environment variable; every other key is an
+/// environment secret.
+fn is_launch_secret(record: &ServerRecord, key: &str) -> bool {
+    record
+        .extra
+        .get("launch")
+        .and_then(|launch| launch.get("inputs"))
+        .and_then(|inputs| inputs.as_array())
+        .is_some_and(|inputs| {
+            inputs.iter().any(|input| {
+                input.get("key").and_then(|k| k.as_str()) == Some(key)
+                    && input.get("secret").and_then(|s| s.as_bool()) == Some(true)
+            })
+        })
+}
+
+/// Picks the upstream vault operation for the key of a declared server.
+pub fn store_secret(
+    host: &dyn Host,
+    record: &ServerRecord,
+    key: &str,
+    value: &str,
+) -> Result<(), String> {
+    if key == toolport_plus_api::HTTP_AUTH_KEY {
+        host.store_access_token(&record.id, value)
+    } else if is_launch_secret(record, key) {
+        host.store_launch_secret(&record.id, key, value)
+    } else {
+        host.store_env_secret(&record.id, key, value)
+    }
+}
+
+/// `record` is `None` for a vault entry whose server is gone.
+pub fn remove_secret(
+    host: &dyn Host,
+    server: &str,
+    record: Option<&ServerRecord>,
+    key: &str,
+) -> Result<(), String> {
+    match record {
+        Some(_) if key == toolport_plus_api::HTTP_AUTH_KEY => host.clear_access_token(server),
+        Some(_) => host.remove_env_secret(server, key),
+        None => host.delete_server_secret(server, key),
+    }
+}
+
 /// The value of an `on`/`off` switch given as text.
 pub fn parse_switch(raw: &str) -> Result<bool, String> {
     match raw.trim().to_ascii_lowercase().as_str() {

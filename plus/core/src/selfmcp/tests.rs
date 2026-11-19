@@ -38,7 +38,8 @@ fn no_tool_takes_a_credential_value_so_a_secret_never_passes_through_a_model() {
         "api_key",
         "credential",
     ];
-    const SECRET_TOOLS: [&str; 1] = ["secret_check"];
+    const SECRET_TOOLS: [&str; 3] = ["secret_check", "secret_set", "secret_rm"];
+    const ALLOWED: [(&str, &str); 1] = [("secret_set", "value")];
     for tool in TOOLS {
         assert!(
             !tool.name.contains("secret") || SECRET_TOOLS.contains(&tool.name),
@@ -47,13 +48,20 @@ fn no_tool_takes_a_credential_value_so_a_secret_never_passes_through_a_model() {
         );
         for param in tool.params {
             assert!(
-                !CREDENTIAL_PARAMS.contains(&param.name),
+                !CREDENTIAL_PARAMS.contains(&param.name)
+                    || ALLOWED.contains(&(tool.name, param.name)),
                 "{}: parameter {} would carry a credential",
                 tool.name,
                 param.name
             );
         }
     }
+    let allowed: Vec<_> = TOOLS
+        .iter()
+        .flat_map(|tool| tool.params.iter().map(move |p| (tool.name, p.name)))
+        .filter(|pair| CREDENTIAL_PARAMS.contains(&pair.1))
+        .collect();
+    assert_eq!(allowed, ALLOWED);
 }
 
 #[test]

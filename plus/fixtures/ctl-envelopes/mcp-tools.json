@@ -3514,6 +3514,78 @@
           "tier": 1
         },
         {
+          "description": "Store or replace a server's vault secret. dry_run is on by default and names the server and the key, never the value (apply with dry_run=false, confirm=true and value). Every apply call asks the person for approval in the Toolport app, each time and never remembered; without a running app it is refused. The value is accepted only on apply and is never returned or logged",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "secret_set",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "The secret's key, e.g. API_TOKEN; __http_auth__ is the access token of a remote server",
+              "name": "key",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "The secret value, only with dry_run=false",
+              "name": "value",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Remove a vault secret of a server. dry_run is on by default and names the server and the key (apply with dry_run=false and confirm=true). Every apply call asks the person for approval in the Toolport app, each time and never remembered",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "secret_rm",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "The secret's key, e.g. API_TOKEN",
+              "name": "key",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
           "description": "List the direct client entries Toolport wrote, with their state: ok, stale, customized, missing, orphan, unrecorded or relocated",
           "dryRunDefault": false,
           "gate": "none",

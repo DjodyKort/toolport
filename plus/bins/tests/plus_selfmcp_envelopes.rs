@@ -23,7 +23,7 @@ use common::library_world::{self, library_home};
 use common::server_repo_world::{server_repo, server_repo_diverged, server_repo_with_peers};
 use common::taps_world;
 use common::tasks_world::{scheduler_home, tasks_home};
-use common::world::{World, FAKE_SECRET, SECRET_KEY};
+use common::world::{World, FAKE_SECRET, SECRET_KEY, SET_SENTINEL};
 use common::{golden, normalize};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -83,6 +83,16 @@ const fn write(label: &'static str, tool: &'static str, args: &'static str) -> C
     Call {
         writes: true,
         ..read(label, tool, args)
+    }
+}
+
+impl Call {
+    /// A call whose arguments carry a value that must stay out of the golden files.
+    const fn unrecorded(self) -> Self {
+        Self {
+            golden: false,
+            ..self
+        }
     }
 }
 
@@ -1562,6 +1572,75 @@ const CASES: &[Case] = &[
                 "invalid_arguments",
                 "secret_check",
                 r#"{"name":"alpha"}"#,
+            ),
+        ],
+    ),
+    case(
+        "secret_set",
+        &[
+            read("preview", "secret_set", r#"{"name":"alpha","key":"API_TOKEN"}"#),
+            hook("vault", vault_a_secret),
+            read(
+                "replaces",
+                "secret_set",
+                r#"{"name":"alpha","key":"API_TOKEN"}"#,
+            ),
+            fails(
+                "value_on_preview",
+                "invalid_arguments",
+                "secret_set",
+                r#"{"name":"alpha","key":"API_TOKEN","value":"{sentinel}"}"#,
+            )
+            .unrecorded(),
+            refused(
+                "unconfirmed",
+                "secret_set",
+                r#"{"name":"alpha","key":"API_TOKEN","value":"{sentinel}","dry_run":false}"#,
+            )
+            .unrecorded(),
+            fails(
+                "no_broker",
+                "approval_unavailable",
+                "secret_set",
+                r#"{"name":"alpha","key":"API_TOKEN","value":"{sentinel}","dry_run":false,"confirm":true}"#,
+            )
+            .unrecorded(),
+            fails(
+                "no_value",
+                "invalid_arguments",
+                "secret_set",
+                r#"{"name":"alpha","key":"API_TOKEN","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "unknown_server",
+                "not_found",
+                "secret_set",
+                r#"{"name":"ghost","key":"API_TOKEN"}"#,
+            ),
+            fails(
+                "token_of_a_local_server",
+                "invalid_arguments",
+                "secret_set",
+                r#"{"name":"alpha","key":"__http_auth__"}"#,
+            ),
+        ],
+    ),
+    case(
+        "secret_rm",
+        &[
+            read("unset", "secret_rm", r#"{"name":"alpha","key":"API_TOKEN"}"#),
+            hook("vault", vault_a_secret),
+            read("set", "secret_rm", r#"{"name":"alpha","key":"API_TOKEN"}"#),
+            refused(
+                "unconfirmed",
+                "secret_rm",
+                r#"{"name":"alpha","key":"API_TOKEN","dry_run":false}"#,
+            ),
+            fails(
+                "no_broker",
+                "approval_unavailable",
+                "secret_rm",
+                r#"{"name":"alpha","key":"API_TOKEN","dry_run":false,"confirm":true}"#,
             ),
         ],
     ),
@@ -3728,7 +3807,8 @@ fn arguments(world: &World, case: &Case, call: &Call) -> Value {
         .replace("{home}", &world.path(&world.home))
         .replace("{repo}", &world.repo.to_string_lossy())
         .replace("{data}", &world.data.to_string_lossy())
-        .replace("{base}", &world.base.to_string_lossy());
+        .replace("{base}", &world.base.to_string_lossy())
+        .replace("{sentinel}", SET_SENTINEL);
     serde_json::from_str(&expanded)
         .unwrap_or_else(|e| panic!("{} {}: arguments are not JSON: {e}", case.tool, call.label))
 }
@@ -3893,7 +3973,7 @@ fn run_case(case: &Case) {
     if let Some(prepare) = case.prepare {
         prepare(&world);
     }
-    let mut client = Client::spawn(&world, &[FAKE_SECRET, SECRET_KEY]);
+    let mut client = Client::spawn(&world, &[FAKE_SECRET, SECRET_KEY, SET_SENTINEL]);
     client.handshake();
     for call in case.calls {
         if let Some(prepare) = call.hook {
@@ -3984,7 +4064,7 @@ fn every_tool_call_matches_its_golden_result() {
 #[test]
 fn every_resource_matches_its_golden_result() {
     let world = World::new("resources");
-    let mut client = Client::spawn(&world, &[FAKE_SECRET, SECRET_KEY]);
+    let mut client = Client::spawn(&world, &[FAKE_SECRET, SECRET_KEY, SET_SENTINEL]);
     client.handshake();
     let before = world.snapshot();
     let mut seen = BTreeSet::new();
@@ -4128,19 +4208,19 @@ fn no_output_carries_the_vault_key_or_a_server_secret() {
         if let Some(prepare) = case.prepare {
             prepare(&world);
         }
-        let mut client = Client::spawn(&world, &[FAKE_SECRET, SECRET_KEY]);
+        let mut client = Client::spawn(&world, &[FAKE_SECRET, SECRET_KEY, SET_SENTINEL]);
         client.handshake();
         for call in case.calls {
             let reply = client.call(call.tool, arguments(&world, case, call));
             let text = reply.0.to_string();
-            for secret in [FAKE_SECRET, SECRET_KEY] {
+            for secret in [FAKE_SECRET, SECRET_KEY, SET_SENTINEL] {
                 assert!(!text.contains(secret), "{} {}", case.tool, call.label);
             }
         }
         for def in RESOURCES {
             let content = client.read(def.uri);
             let text = content.to_string();
-            for secret in [FAKE_SECRET, SECRET_KEY] {
+            for secret in [FAKE_SECRET, SECRET_KEY, SET_SENTINEL] {
                 assert!(!text.contains(secret), "{}", def.uri);
             }
         }
@@ -4148,7 +4228,7 @@ fn no_output_carries_the_vault_key_or_a_server_secret() {
     }
     for entry in std::fs::read_dir(golden::selfmcp_root()).unwrap().flatten() {
         let text = std::fs::read_to_string(entry.path()).unwrap();
-        for secret in [FAKE_SECRET, SECRET_KEY] {
+        for secret in [FAKE_SECRET, SECRET_KEY, SET_SENTINEL] {
             assert!(
                 !text.contains(secret),
                 "golden {} contains a secret value",

@@ -10,6 +10,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use serde_json::{json, Value};
 
 pub const SECRET_KEY: &str = "abababababababababababababababababababababababababababababababab";
+/// The value a test hands to `secret_set`: it must appear in no result, log or golden.
+pub const SET_SENTINEL: &str = "SENTINEL-selfmcp-set-value-0c4e9a-do-not-print";
 pub const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 /// The mock server: its `auth` command exits 0 as a server that is already signed in does.
 const MOCK_SCRIPT: &str = "#!/bin/sh\n[ \"$1\" = auth ] && exit 0\nexit 2\n";

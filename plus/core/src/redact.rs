@@ -45,6 +45,31 @@ pub fn scrub(value: Value) -> Value {
     scrub_with(value, &live_secrets())
 }
 
+const MIN_SUPPLIED_LEN: usize = 4;
+
+/// Masks values the caller handed in as well as the live ones, so a tool that took a secret as an
+/// argument cannot hand it back in a result or an error by mistake.
+pub fn supplied(values: &[&str]) -> Vec<String> {
+    let mut all = live_secrets();
+    all.extend(
+        values
+            .iter()
+            .filter(|v| v.len() >= MIN_SUPPLIED_LEN)
+            .map(|v| v.to_string()),
+    );
+    all
+}
+
+pub fn scrub_supplied(value: Value, secrets: &[String]) -> Value {
+    scrub_with(value, secrets)
+}
+
+pub fn scrub_text_supplied(text: String, secrets: &[String]) -> String {
+    secrets
+        .iter()
+        .fold(text, |acc, secret| acc.replace(secret.as_str(), MASK))
+}
+
 fn scrub_with(value: Value, secrets: &[String]) -> Value {
     match value {
         Value::Object(map) => Value::Object(

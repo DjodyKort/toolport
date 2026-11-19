@@ -3,6 +3,7 @@
 //! command, so the two surfaces share one implementation.
 
 mod access;
+mod approval;
 mod attention;
 mod backend;
 mod catalog;
@@ -19,6 +20,8 @@ mod memory;
 mod reach;
 pub mod register;
 mod secret;
+#[cfg(test)]
+mod secret_tests;
 mod server_repo;
 mod servers;
 mod setup;
@@ -232,8 +235,15 @@ pub fn call_tool(host: &dyn Host, name: &str, args: &Value) -> Result<Value, Too
     if !gate_passes(tool, args) {
         return Err(refusal(tool));
     }
-    let value = backend::run_tool(host, tool, args)?;
-    Ok(redact::scrub(value))
+    let supplied = secret::supplied_values(tool, args);
+    let masks = redact::supplied(&supplied);
+    match backend::run_tool(host, tool, args) {
+        Ok(value) => Ok(redact::scrub_supplied(value, &masks)),
+        Err(error) => Err(ToolError::new(
+            error.kind,
+            redact::scrub_text_supplied(error.message, &masks),
+        )),
+    }
 }
 
 pub fn read_resource(host: &dyn Host, uri: &str) -> Result<(String, &'static str), ToolError> {

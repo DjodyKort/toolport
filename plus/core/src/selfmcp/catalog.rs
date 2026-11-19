@@ -1571,6 +1571,31 @@ pub const TOOLS: &[ToolDef] = &[
         secret::check
     ),
     tool!(
+        "secret_set",
+        3,
+        UnlessDryRun,
+        "Store or replace a server's vault secret. dry_run is on by default and names the server and the key, never the value (apply with dry_run=false, confirm=true and value). Every apply call asks the person for approval in the Toolport app, each time and never remembered; without a running app it is refused. The value is accepted only on apply and is never returned or logged",
+        [
+            NAME,
+            p("key", Ty::Str, true, "The secret's key, e.g. API_TOKEN; __http_auth__ is the access token of a remote server"),
+            p("value", Ty::Str, false, "The secret value, only with dry_run=false"),
+            DRY_ON
+        ],
+        secret::set
+    ),
+    tool!(
+        "secret_rm",
+        4,
+        UnlessDryRun,
+        "Remove a vault secret of a server. dry_run is on by default and names the server and the key (apply with dry_run=false and confirm=true). Every apply call asks the person for approval in the Toolport app, each time and never remembered",
+        [
+            NAME,
+            p("key", Ty::Str, true, "The secret's key, e.g. API_TOKEN"),
+            DRY_ON
+        ],
+        secret::rm
+    ),
+    tool!(
         "client_direct_ls",
         1,
         None,
