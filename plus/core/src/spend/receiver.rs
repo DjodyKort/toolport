@@ -8,8 +8,9 @@ use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, AtomicUsize, Ordering}
 use std::sync::Arc;
 use std::time::Duration;
 
+use super::config;
 use super::otlp;
-use super::store::Store;
+use super::store::{AppendError, Store};
 
 pub const MAX_BODY_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_CONNECTIONS: usize = 16;
@@ -41,6 +42,9 @@ pub struct Counters {
     pub rejected: AtomicU64,
     pub dropped: AtomicU64,
     pub last_event_ms: AtomicI64,
+    /// Set when a batch was refused because the events file is at its cap; whoever prunes
+    /// clears it.
+    pub store_full: AtomicBool,
     active: AtomicUsize,
 }
 
@@ -61,7 +65,7 @@ impl Receiver {
         let (stop_flag, shared) = (Arc::clone(&stop), Arc::clone(&counters));
         let thread = std::thread::Builder::new()
             .name("spend-receiver".into())
-            .spawn(move || accept_loop(listener, dir, limits, stop_flag, shared))?;
+            .spawn(move || accept_loop(listener, port, dir, limits, stop_flag, shared))?;
         Ok(Self {
             port,
             stop,
@@ -90,6 +94,7 @@ impl Drop for Receiver {
 
 fn accept_loop(
     listener: TcpListener,
+    port: u16,
     dir: PathBuf,
     limits: Limits,
     stop: Arc<AtomicBool>,
@@ -110,7 +115,7 @@ fn accept_loop(
                 counters.active.fetch_add(1, Ordering::SeqCst);
                 let (dir, counters) = (dir.clone(), Arc::clone(&counters));
                 let spawned = std::thread::Builder::new().spawn(move || {
-                    handle(stream, &dir, limits, &counters);
+                    handle(stream, port, &dir, limits, &counters);
                     counters.active.fetch_sub(1, Ordering::SeqCst);
                 });
                 if spawned.is_err() {
@@ -125,8 +130,12 @@ fn accept_loop(
 
 /// Answers 503 on the accept thread. The request is read for a moment after the answer: a socket
 /// closed with unread bytes is reset, and the reset makes the client drop the answer it got.
-fn turn_away(mut stream: &TcpStream) {
+fn turn_away(stream: &TcpStream) {
     respond(stream, 503, "Service Unavailable", "too many connections");
+    drain(stream);
+}
+
+fn drain(mut stream: &TcpStream) {
     let _ = stream.shutdown(std::net::Shutdown::Write);
     let until = std::time::Instant::now() + TURN_AWAY_LINGER;
     let _ = stream.set_read_timeout(Some(TURN_AWAY_LINGER));
@@ -153,58 +162,102 @@ fn respond(mut stream: &TcpStream, code: u16, reason: &str, body: &str) {
     );
 }
 
-fn handle(mut stream: TcpStream, dir: &std::path::Path, limits: Limits, counters: &Counters) {
+fn handle(
+    mut stream: TcpStream,
+    port: u16,
+    dir: &std::path::Path,
+    limits: Limits,
+    counters: &Counters,
+) {
     let _ = stream.set_read_timeout(Some(IO_TIMEOUT));
     let _ = stream.set_write_timeout(Some(IO_TIMEOUT));
     counters.requests.fetch_add(1, Ordering::Relaxed);
-    match read_request(&mut stream, limits.max_body) {
-        Ok(request) => {
-            let Some(signal) = otlp::signal_of(&request.path) else {
-                return reject(&stream, counters, 404, "Not Found", "unknown path");
-            };
-            if request.method != "POST" {
-                return reject(&stream, counters, 405, "Method Not Allowed", "use POST");
-            }
-            if request.content_type.contains("protobuf") || request.gzip {
-                return reject(
-                    &stream,
-                    counters,
-                    415,
-                    "Unsupported Media Type",
-                    "only uncompressed OTLP/HTTP JSON is accepted",
-                );
-            }
-            match otlp::parse(&signal, &request.body) {
-                Ok(events) => {
-                    let count = events.len() as u64;
-                    if Store::new(dir).append(&events).is_err() {
-                        counters.dropped.fetch_add(count, Ordering::Relaxed);
-                        return reject(
-                            &stream,
-                            counters,
-                            500,
-                            "Internal Server Error",
-                            "store write failed",
-                        );
-                    }
-                    if count > 0 {
-                        counters.events.fetch_add(count, Ordering::Relaxed);
-                        counters
-                            .last_event_ms
-                            .store(super::now_ms(), Ordering::Relaxed);
-                    }
-                    respond(&stream, 200, "OK", "");
-                }
-                Err(message) => reject(&stream, counters, 400, "Bad Request", &message),
-            }
+    let request = match read_request(&mut stream, port, limits.max_body) {
+        Ok(request) => request,
+        Err((code, reason, message)) => {
+            reject(&stream, counters, code, reason, message);
+            drain(&stream);
+            return;
         }
-        Err((code, reason, message)) => reject(&stream, counters, code, reason, message),
+    };
+    let Some(signal) = otlp::signal_of(&request.path) else {
+        return reject(&stream, counters, 404, "Not Found", "unknown path");
+    };
+    if request.method != "POST" {
+        return reject(&stream, counters, 405, "Method Not Allowed", "use POST");
+    }
+    if request.gzip || !is_json(&request.content_type) {
+        return reject(
+            &stream,
+            counters,
+            415,
+            "Unsupported Media Type",
+            "only uncompressed OTLP/HTTP JSON (application/json) is accepted",
+        );
+    }
+    match otlp::parse(&signal, &request.body) {
+        Ok(events) => {
+            let count = events.len() as u64;
+            let cap = config::load(dir).max_bytes();
+            match Store::new(dir).append(&events, cap) {
+                Ok(()) => {}
+                Err(AppendError::Full) => {
+                    counters.dropped.fetch_add(count, Ordering::Relaxed);
+                    counters.store_full.store(true, Ordering::SeqCst);
+                    return reject(
+                        &stream,
+                        counters,
+                        507,
+                        "Insufficient Storage",
+                        "the spend store is full",
+                    );
+                }
+                Err(AppendError::Failed(_)) => {
+                    counters.dropped.fetch_add(count, Ordering::Relaxed);
+                    return reject(
+                        &stream,
+                        counters,
+                        500,
+                        "Internal Server Error",
+                        "store write failed",
+                    );
+                }
+            }
+            if count > 0 {
+                counters.events.fetch_add(count, Ordering::Relaxed);
+                counters
+                    .last_event_ms
+                    .store(super::now_ms(), Ordering::Relaxed);
+            }
+            respond(&stream, 200, "OK", "");
+        }
+        Err(message) => reject(&stream, counters, 400, "Bad Request", &message),
     }
 }
 
 fn reject(stream: &TcpStream, counters: &Counters, code: u16, reason: &str, message: &str) {
     counters.rejected.fetch_add(1, Ordering::Relaxed);
     respond(stream, code, reason, message);
+}
+
+/// `application/json`, with or without parameters such as `; charset=utf-8`.
+fn is_json(content_type: &str) -> bool {
+    content_type
+        .split(';')
+        .next()
+        .is_some_and(|media| media.trim() == "application/json")
+}
+
+/// A page in a browser can send a request to 127.0.0.1, but the `Host` it sends names the page's
+/// own site after a DNS rebinding, so only the loopback names with this receiver's port pass.
+fn host_allowed(host: &str, port: u16) -> bool {
+    let Some((name, given)) = host.rsplit_once(':') else {
+        return false;
+    };
+    given == port.to_string()
+        && ["127.0.0.1", "localhost", "[::1]"]
+            .iter()
+            .any(|allowed| name.eq_ignore_ascii_case(allowed))
 }
 
 struct Request {
@@ -217,7 +270,7 @@ struct Request {
 
 type Refusal = (u16, &'static str, &'static str);
 
-fn read_request(stream: &mut TcpStream, max_body: usize) -> Result<Request, Refusal> {
+fn read_request(stream: &mut TcpStream, port: u16, max_body: usize) -> Result<Request, Refusal> {
     let mut buffer = Vec::new();
     let mut chunk = [0u8; 4096];
     let header_end = loop {
@@ -244,6 +297,8 @@ fn read_request(stream: &mut TcpStream, max_body: usize) -> Result<Request, Refu
     );
     let (mut length, mut content_type, mut gzip, mut chunked) =
         (0usize, String::new(), false, false);
+    let mut hosts: Vec<&str> = Vec::new();
+    let mut browser_origin = false;
     for line in lines {
         let Some((name, value)) = line.split_once(':') else {
             continue;
@@ -258,8 +313,24 @@ fn read_request(stream: &mut TcpStream, max_body: usize) -> Result<Request, Refu
             "content-type" => content_type = value.to_ascii_lowercase(),
             "content-encoding" => gzip = !value.eq_ignore_ascii_case("identity"),
             "transfer-encoding" => chunked = true,
+            "host" => hosts.push(value),
+            "origin" => browser_origin |= !value.eq_ignore_ascii_case("null"),
             _ => {}
         }
+    }
+    if !matches!(hosts.as_slice(), [host] if host_allowed(host, port)) {
+        return Err((
+            403,
+            "Forbidden",
+            "the host must be 127.0.0.1, localhost or [::1] with this port",
+        ));
+    }
+    if browser_origin {
+        return Err((
+            403,
+            "Forbidden",
+            "requests from a web page are not accepted",
+        ));
     }
     if chunked {
         return Err((411, "Length Required", "send a content-length"));

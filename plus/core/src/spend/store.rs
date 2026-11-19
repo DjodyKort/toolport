@@ -66,6 +66,22 @@ pub struct Stats {
     pub daily_lines: usize,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AppendError {
+    /// The events file is at its size cap.
+    Full,
+    Failed(String),
+}
+
+impl std::fmt::Display for AppendError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Full => f.write_str("the spend store is full"),
+            Self::Failed(why) => f.write_str(why),
+        }
+    }
+}
+
 pub struct Store {
     dir: PathBuf,
 }
@@ -93,19 +109,31 @@ impl Store {
         crate::tasks::store::lock(&self.dir.join(LOCK_FILE), LOCK_WAIT)
     }
 
-    pub fn append(&self, events: &[Event]) -> Result<(), String> {
+    /// Adds the events unless the file would grow past `max_bytes`; the whole batch is refused
+    /// then, because a half-written batch cannot be told from a complete one.
+    pub fn append(&self, events: &[Event], max_bytes: u64) -> Result<(), AppendError> {
         if events.is_empty() {
             return Ok(());
         }
         let mut text = String::new();
         for event in events {
-            text.push_str(&serde_json::to_string(event).map_err(|e| e.to_string())?);
+            let line =
+                serde_json::to_string(event).map_err(|e| AppendError::Failed(e.to_string()))?;
+            text.push_str(&line);
             text.push('\n');
         }
-        fs::create_dir_all(&self.dir).map_err(|e| e.to_string())?;
-        let _lock = self.lock().ok_or("the spend store is locked")?;
-        let mut file = open_private_append(&self.events_path()).map_err(|e| e.to_string())?;
-        file.write_all(text.as_bytes()).map_err(|e| e.to_string())
+        fs::create_dir_all(&self.dir).map_err(|e| AppendError::Failed(e.to_string()))?;
+        let _lock = self
+            .lock()
+            .ok_or_else(|| AppendError::Failed("the spend store is locked".to_string()))?;
+        let size = fs::metadata(self.events_path()).map_or(0, |m| m.len());
+        if size.saturating_add(text.len() as u64) > max_bytes {
+            return Err(AppendError::Full);
+        }
+        let mut file = open_private_append(&self.events_path())
+            .map_err(|e| AppendError::Failed(e.to_string()))?;
+        file.write_all(text.as_bytes())
+            .map_err(|e| AppendError::Failed(e.to_string()))
     }
 
     /// Every readable event; a line that does not parse is skipped and counted.
@@ -169,7 +197,8 @@ impl Store {
 
     /// Removes events older than `retention_days`, then the oldest ones until the file fits
     /// `max_bytes`. What is removed is folded into the daily totals first, so the totals
-    /// survive. `project_of` names the folder of a session whose events carry none.
+    /// survive. `project_of` names the folder of a session whose events carry none; it runs while
+    /// the store is locked, so it must look in a map that is already built.
     pub fn prune(
         &self,
         now: i64,
@@ -239,9 +268,17 @@ impl Store {
                 kept.push('\n');
             }
         }
-        self.write_daily(&daily)?;
         crate::fsx::atomic_write(&self.events_path(), &kept, crate::fsx::Mode::Private)
             .map_err(|e| format!("cannot write {}: {e}", self.events_path().display()))?;
+        if let Err(why) = self.write_daily(&daily) {
+            // The removed events are in no daily line yet, so they go back into the file.
+            let restored =
+                crate::fsx::atomic_write(&self.events_path(), &text, crate::fsx::Mode::Private);
+            return Err(match restored {
+                Ok(()) => why,
+                Err(e) => format!("{why}; the events file could not be restored: {e}"),
+            });
+        }
         Ok(report)
     }
 

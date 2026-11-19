@@ -18,6 +18,7 @@ use super::{now_ms, spend_dir};
 pub const STATE_FILE: &str = "receiver.json";
 const HEARTBEAT_FRESH_MS: i64 = 20_000;
 const PRUNE_EVERY_MS: i64 = 3_600_000;
+const FULL_HEADROOM_DIVISOR: u64 = 10;
 const APP_TICK: std::time::Duration = std::time::Duration::from_secs(5);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -153,10 +154,15 @@ pub fn tick(dir: &Path, roots: &[PathBuf], owner: Owner, now: i64) {
             error: None,
         },
     );
-    if now - running.last_prune_ms >= PRUNE_EVERY_MS {
+    let full = c.store_full.swap(false, Relaxed);
+    if full || now - running.last_prune_ms >= PRUNE_EVERY_MS {
         running.last_prune_ms = now;
         drop(guard);
-        let _ = prune_with(dir, roots, &cfg, now, false);
+        let _ = if full {
+            prune_full(dir, roots, &cfg, now)
+        } else {
+            prune_with(dir, roots, &cfg, now, false)
+        };
     }
 }
 
@@ -200,20 +206,39 @@ pub fn prune_with(
     now: i64,
     dry_run: bool,
 ) -> Result<super::store::PruneReport, String> {
-    let sessions = std::cell::OnceCell::new();
-    let project_of = |id: &str| {
-        sessions
-            .get_or_init(|| transcript::scan(roots))
-            .get(id)
-            .and_then(|s| s.cwd.clone())
-    };
-    Store::new(dir).prune(
-        now,
-        cfg.retention_days,
-        cfg.max_bytes(),
-        &project_of,
-        dry_run,
-    )
+    prune_capped(dir, roots, cfg, cfg.max_bytes(), now, dry_run)
+}
+
+/// Prunes to below the cap, not to it: a file that fits the cap exactly refused the last batch
+/// and would refuse the next one too.
+pub(crate) fn prune_full(
+    dir: &Path,
+    roots: &[PathBuf],
+    cfg: &SpendConfig,
+    now: i64,
+) -> Result<super::store::PruneReport, String> {
+    let cap = cfg.max_bytes() - cfg.max_bytes() / FULL_HEADROOM_DIVISOR;
+    prune_capped(dir, roots, cfg, cap, now, false)
+}
+
+/// The transcripts are read before the store is locked: a first scan can take a while, and the
+/// receiver waits on the same lock to append.
+fn prune_capped(
+    dir: &Path,
+    roots: &[PathBuf],
+    cfg: &SpendConfig,
+    max_bytes: u64,
+    now: i64,
+    dry_run: bool,
+) -> Result<super::store::PruneReport, String> {
+    let store = Store::new(dir);
+    let preview = store.prune(now, cfg.retention_days, max_bytes, &|_| None, true)?;
+    if dry_run || preview.removed_events == 0 {
+        return Ok(super::store::PruneReport { dry_run, ..preview });
+    }
+    let sessions = transcript::scan(roots);
+    let project_of = |id: &str| sessions.get(id).and_then(|s| s.cwd.clone());
+    store.prune(now, cfg.retention_days, max_bytes, &project_of, false)
 }
 
 pub fn spawn_app<H: Host + Send + 'static>(host: H) {

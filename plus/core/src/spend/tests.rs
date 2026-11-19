@@ -163,11 +163,14 @@ fn test07_prune_drops_old_events_and_the_daily_totals_keep_them() {
     let store = Store::new(dir.path());
     let old = NOW - 40 * MS_PER_DAY;
     store
-        .append(&[
-            token_event("old", TOKEN_INPUT, 500.0, old),
-            cost_event("old", 1.5, old),
-            token_event("new", TOKEN_INPUT, 7.0, NOW),
-        ])
+        .append(
+            &[
+                token_event("old", TOKEN_INPUT, 500.0, old),
+                cost_event("old", 1.5, old),
+                token_event("new", TOKEN_INPUT, 7.0, NOW),
+            ],
+            u64::MAX,
+        )
         .unwrap();
     let preview = store.prune(NOW, 30, u64::MAX, &|_| None, true).unwrap();
     assert_eq!((preview.removed_events, preview.dry_run), (2, true));
@@ -196,7 +199,7 @@ fn test08_prune_removes_the_oldest_events_first_when_over_the_size_cap() {
     let events: Vec<Event> = (0..20)
         .map(|i| token_event(&format!("s{i}"), TOKEN_INPUT, 1.0, NOW - (20 - i) * 1000))
         .collect();
-    store.append(&events).unwrap();
+    store.append(&events, u64::MAX).unwrap();
     let size = std::fs::metadata(store.events_path()).unwrap().len();
     let report = store.prune(NOW, 30, size / 2, &|_| None, false).unwrap();
     assert!(report.removed_events >= 10 && report.kept_bytes <= size / 2);
@@ -210,7 +213,7 @@ fn test09_a_line_that_does_not_parse_is_skipped_and_counted() {
     let dir = TempDir::new().unwrap();
     let store = Store::new(dir.path());
     store
-        .append(&[token_event("a", TOKEN_INPUT, 1.0, NOW)])
+        .append(&[token_event("a", TOKEN_INPUT, 1.0, NOW)], u64::MAX)
         .unwrap();
     let mut file = std::fs::OpenOptions::new()
         .append(true)
@@ -287,10 +290,13 @@ fn test11_a_session_with_otel_events_is_not_counted_again_from_its_transcript() 
         &format!("{ts}T01:00:00Z"),
     );
     store
-        .append(&[
-            token_event("dup", TOKEN_INPUT, 1.0, NOW),
-            cost_event("dup", 0.1, NOW),
-        ])
+        .append(
+            &[
+                token_event("dup", TOKEN_INPUT, 1.0, NOW),
+                cost_event("dup", 0.1, NOW),
+            ],
+            u64::MAX,
+        )
         .unwrap();
     let roots = transcript::roots_under(home.path(), None);
     let summary = report::summary(
@@ -319,10 +325,13 @@ fn test12_pruned_otel_sessions_are_not_double_counted_from_transcripts() {
         &format!("{}T01:00:00Z", day_of(old)),
     );
     store
-        .append(&[
-            token_event("gone", TOKEN_INPUT, 40.0, old),
-            cost_event("gone", 0.3, old),
-        ])
+        .append(
+            &[
+                token_event("gone", TOKEN_INPUT, 40.0, old),
+                cost_event("gone", 0.3, old),
+            ],
+            u64::MAX,
+        )
         .unwrap();
     store
         .prune(NOW, 1, u64::MAX, &|_| Some("/work/repo".into()), false)
@@ -350,7 +359,7 @@ fn test13_costs_group_by_model_project_and_task_with_interactive_rows() {
         token_event("manual", TOKEN_INPUT, 5.0, NOW + 4 * 3_600_000),
         cost_event("manual", 2.0, NOW + 4 * 3_600_000),
     ]);
-    store.append(&a).unwrap();
+    store.append(&a, u64::MAX).unwrap();
     let runs = vec![RunSpan {
         task: "nightly".into(),
         start_ms: NOW - 1000,
@@ -558,7 +567,7 @@ fn post(port: u16, path: &str, body: &[u8], extra: &str) -> String {
     stream
         .set_read_timeout(Some(std::time::Duration::from_secs(5)))
         .unwrap();
-    let head = format!("POST {path} HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{extra}\r\n", body.len());
+    let head = format!("POST {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{extra}\r\n", body.len());
     stream.write_all(head.as_bytes()).unwrap();
     stream.write_all(body).unwrap();
     let mut reply = String::new();
@@ -603,7 +612,15 @@ fn test22_receiver_refuses_oversized_bodies_other_paths_and_other_methods() {
     )
     .starts_with("HTTP/1.1 415"));
     let mut stream = TcpStream::connect(("127.0.0.1", receiver.port())).unwrap();
-    stream.write_all(b"GET /v1/logs HTTP/1.1\r\n\r\n").unwrap();
+    stream
+        .write_all(
+            format!(
+                "GET /v1/logs HTTP/1.1\r\nHost: 127.0.0.1:{}\r\n\r\n",
+                receiver.port()
+            )
+            .as_bytes(),
+        )
+        .unwrap();
     let mut reply = String::new();
     let _ = stream.read_to_string(&mut reply);
     assert!(reply.starts_with("HTTP/1.1 405"));
@@ -700,12 +717,15 @@ fn test27_tiles_carry_all_three_ranges_with_delta_and_estimated_days() {
     let dir = TempDir::new().unwrap();
     let store = Store::new(dir.path());
     store
-        .append(&[
-            token_event("a", TOKEN_INPUT, 10.0, NOW),
-            cost_event("a", 2.0, NOW),
-            token_event("b", TOKEN_INPUT, 10.0, NOW - MS_PER_DAY),
-            cost_event("b", 1.0, NOW - MS_PER_DAY),
-        ])
+        .append(
+            &[
+                token_event("a", TOKEN_INPUT, 10.0, NOW),
+                cost_event("a", 2.0, NOW),
+                token_event("b", TOKEN_INPUT, 10.0, NOW - MS_PER_DAY),
+                cost_event("b", 1.0, NOW - MS_PER_DAY),
+            ],
+            u64::MAX,
+        )
         .unwrap();
     let summary = report::summary(
         &inputs(&store, &[], vec![]),
@@ -851,7 +871,7 @@ fn test33_undo_can_delete_the_collected_data_only_when_no_profile_stays_set_up()
     setup::apply(&host, &spend, 4318, &[], &[], "now").unwrap();
     let store = Store::new(&spend);
     store
-        .append(&[token_event("s-1", TOKEN_INPUT, 5.0, NOW)])
+        .append(&[token_event("s-1", TOKEN_INPUT, 5.0, NOW)], u64::MAX)
         .unwrap();
     std::fs::write(
         store.daily_path(),
@@ -881,10 +901,13 @@ fn test34_a_session_without_a_matching_run_is_interactive_and_folded_totals_stay
     let dir = TempDir::new().unwrap();
     let store = Store::new(dir.path());
     store
-        .append(&[
-            token_event("by-hand", TOKEN_INPUT, 5.0, NOW),
-            cost_event("by-hand", 2.0, NOW),
-        ])
+        .append(
+            &[
+                token_event("by-hand", TOKEN_INPUT, 5.0, NOW),
+                cost_event("by-hand", 2.0, NOW),
+            ],
+            u64::MAX,
+        )
         .unwrap();
     std::fs::write(
         store.daily_path(),
@@ -941,13 +964,16 @@ fn test36_model_and_task_filters_narrow_every_figure_and_the_session_list_names_
         ..cost_event(session, value, ts)
     };
     store
-        .append(&[
-            token_event("in-run", TOKEN_INPUT, 10.0, NOW),
-            cost_event("in-run", 1.0, NOW),
-            token_event("in-run", TOKEN_OUTPUT, 5.0, NOW + 90_000),
-            cost_event("manual", 2.0, NOW + 4 * 3_600_000),
-            other_model("manual", 0.5, NOW + 4 * 3_600_000 + 60_000),
-        ])
+        .append(
+            &[
+                token_event("in-run", TOKEN_INPUT, 10.0, NOW),
+                cost_event("in-run", 1.0, NOW),
+                token_event("in-run", TOKEN_OUTPUT, 5.0, NOW + 90_000),
+                cost_event("manual", 2.0, NOW + 4 * 3_600_000),
+                other_model("manual", 0.5, NOW + 4 * 3_600_000 + 60_000),
+            ],
+            u64::MAX,
+        )
         .unwrap();
     let runs = vec![RunSpan {
         task: "nightly".into(),
@@ -1011,3 +1037,6 @@ fn test36_model_and_task_filters_narrow_every_figure_and_the_session_list_names_
     assert_eq!(nothing["sessionList"].as_array().unwrap().len(), 0);
     assert!(report::summary(&query, Range::Days7, &Filter::default())["sessionList"].is_null());
 }
+
+#[cfg(unix)]
+mod receiver;
