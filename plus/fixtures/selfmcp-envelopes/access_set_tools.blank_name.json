@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "server": "alpha",
+    "set": "wide",
+    "tools": [" "]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "a tool name is empty"
+    }
+  },
+  "text": "invalid_arguments: a tool name is empty",
+  "tool": "access_set_tools"
+}

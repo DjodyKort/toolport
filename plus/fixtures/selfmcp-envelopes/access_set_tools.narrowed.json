@@ -1,0 +1,26 @@
+{
+  "arguments": {
+    "set": "wide"
+  },
+  "isError": false,
+  "result": {
+    "accessSets": [
+      {
+        "id": "wide",
+        "name": "Wide",
+        "narrowed": [
+          {
+            "listed": true,
+            "server": {
+              "id": "srv-alpha",
+              "name": "alpha"
+            },
+            "tools": ["read", "list"]
+          }
+        ]
+      }
+    ],
+    "rule": "A server with no entry in a set exposes all its tools; an entry lists the only tools it exposes, and an empty entry none. The names are the tool names the server itself reports."
+  },
+  "tool": "access_set_tools"
+}

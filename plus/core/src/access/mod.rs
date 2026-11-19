@@ -11,6 +11,10 @@ use crate::context::plan::{Effects, PlanV1, ResultV1, Step};
 use crate::op::OpError;
 use crate::servers;
 
+mod tools;
+
+pub use tools::{tools_ls, tools_set, ToolChange, ToolsArgs};
+
 const BINDING_RULE: &str = "A folder route outranks a client's own access set: inside a routed folder the gateway uses the folder's set for every client.";
 
 /// What happens to the clients and folders that still name a set being deleted.

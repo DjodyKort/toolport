@@ -419,6 +419,12 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&access::DEFAULT])
         .args(&[opt("set")])
         .skip("changes the default access; its --dry-run is a golden step"),
+    row("access-set tools", W)
+        .reads(&["--tool", "--all", "--none"])
+        .dry()
+        .spec(&[&access::TOOLS])
+        .args(&[opt("set"), opt("server")])
+        .smoke(&[]),
     row("client scope", W)
         .dry()
         .spec(&[&access::SCOPE])
@@ -1198,6 +1204,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("access_set_add", W, "access-set add").on(),
     maps("access_set_rm", D, "access-set rm").on(),
     maps("access_set_default", W, "access-set default").on(),
+    maps("access_set_tools", W, "access-set tools").on(),
     maps("client_scope", W, "client scope").on(),
     maps("folder_route_ls", R, "folder route ls"),
     maps("folder_route_add", W, "folder route add").on(),

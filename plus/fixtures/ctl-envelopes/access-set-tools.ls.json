@@ -1,0 +1,34 @@
+{
+  "argv": ["access-set", "tools"],
+  "envelope": {
+    "command": "access-set tools",
+    "data": {
+      "accessSets": [
+        {
+          "id": "default",
+          "name": "Default",
+          "narrowed": []
+        },
+        {
+          "id": "bare",
+          "name": "Bare",
+          "narrowed": []
+        },
+        {
+          "id": "wide",
+          "name": "Wide",
+          "narrowed": []
+        },
+        {
+          "id": "empty",
+          "name": "Empty",
+          "narrowed": []
+        }
+      ],
+      "rule": "A server with no entry in a set exposes all its tools; an entry lists the only tools it exposes, and an empty entry none. The names are the tool names the server itself reports."
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

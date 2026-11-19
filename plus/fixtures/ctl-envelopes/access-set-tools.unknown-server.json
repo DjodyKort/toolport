@@ -1,0 +1,13 @@
+{
+  "argv": ["access-set", "tools", "wide", "nope", "--all", "--dry-run"],
+  "envelope": {
+    "command": "access-set tools",
+    "error": {
+      "code": "not_found",
+      "message": "no server 'nope'"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

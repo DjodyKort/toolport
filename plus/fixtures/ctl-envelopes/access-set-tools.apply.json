@@ -1,0 +1,42 @@
+{
+  "argv": ["access-set", "tools", "wide", "alpha", "--tool", "read", "--tool", "list"],
+  "envelope": {
+    "command": "access-set tools",
+    "data": {
+      "accessSet": {
+        "id": "wide",
+        "name": "Wide"
+      },
+      "before": null,
+      "dryRun": false,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "expose only read, list of alpha in Wide",
+            "op": "registry"
+          }
+        ],
+        "summary": "Limit alpha in Wide to 2 tool(s)",
+        "undo": "toolportctl access-set tools Wide alpha --all",
+        "warnings": [
+          "tool names are not checked against what the server lists; a misspelt name hides that tool"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["registry"],
+        "undo": "toolportctl access-set tools Wide alpha --all"
+      },
+      "server": {
+        "id": "srv-alpha",
+        "name": "alpha"
+      },
+      "tools": ["read", "list"]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

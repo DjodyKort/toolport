@@ -1,0 +1,13 @@
+{
+  "argv": ["access-set", "tools", "wide", "--tool", "x"],
+  "envelope": {
+    "command": "access-set tools",
+    "error": {
+      "code": "usage",
+      "message": "usage: access-set tools [<set>] | <set> <server> (--tool <name>... | --all | --none) [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

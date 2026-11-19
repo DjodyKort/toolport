@@ -1138,6 +1138,76 @@ const CASES: &[Case] = &[
         ],
     ),
     prepared(
+        "access_set_tools",
+        folder_routing_world,
+        &[
+            read("list", "access_set_tools", "{}"),
+            read(
+                "preview",
+                "access_set_tools",
+                r#"{"set":"wide","server":"alpha","tools":["read","list"]}"#,
+            ),
+            refused(
+                "refused",
+                "access_set_tools",
+                r#"{"set":"wide","server":"alpha","tools":["read"],"dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "access_set_tools",
+                r#"{"set":"wide","server":"alpha","tools":["read","list"],"dry_run":false,"confirm":true}"#,
+            ),
+            read("narrowed", "access_set_tools", r#"{"set":"wide"}"#),
+            write(
+                "restore",
+                "access_set_tools",
+                r#"{"set":"wide","server":"alpha","all":true,"dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "not_listed",
+                "conflict",
+                "access_set_tools",
+                r#"{"set":"focus","server":"beta","all":true}"#,
+            ),
+            fails(
+                "unknown_set",
+                "not_found",
+                "access_set_tools",
+                r#"{"set":"nope","server":"alpha","all":true}"#,
+            ),
+            fails(
+                "unknown_server",
+                "not_found",
+                "access_set_tools",
+                r#"{"set":"wide","server":"nope","all":true}"#,
+            ),
+            fails(
+                "both",
+                "invalid_arguments",
+                "access_set_tools",
+                r#"{"set":"wide","server":"alpha","tools":["x"],"all":true}"#,
+            ),
+            fails(
+                "neither",
+                "invalid_arguments",
+                "access_set_tools",
+                r#"{"set":"wide","server":"alpha"}"#,
+            ),
+            fails(
+                "no_server",
+                "invalid_arguments",
+                "access_set_tools",
+                r#"{"set":"wide","tools":["x"]}"#,
+            ),
+            fails(
+                "blank_name",
+                "invalid_arguments",
+                "access_set_tools",
+                r#"{"set":"wide","server":"alpha","tools":[" "]}"#,
+            ),
+        ],
+    ),
+    prepared(
         "client_scope",
         folder_routing_world,
         &[

@@ -3047,6 +3047,51 @@
           "tier": 3
         },
         {
+          "description": "Show which tools each access set narrows (no server given), or choose the tools of one server that a set exposes: tools lists the only ones exposed (an empty list exposes none), all=true removes the list so every tool is exposed again. Names are not checked against what the server lists. dry_run is on by default and returns the plan (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "access_set_tools",
+          "params": [
+            {
+              "description": "Access set id or name; every set when listing",
+              "name": "set",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Server id or name; leave out to list",
+              "name": "server",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "The only tool names of the server the set exposes",
+              "name": "tools",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Expose every tool of the server again",
+              "name": "all",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "Bind a client to an access set, or none=true so it follows the default access. A folder route still outranks the binding. dry_run is on by default (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",

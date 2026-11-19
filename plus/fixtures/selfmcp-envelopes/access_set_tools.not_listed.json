@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "all": true,
+    "server": "beta",
+    "set": "focus"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "beta is not listed in Focus; list it there before narrowing its tools"
+    }
+  },
+  "text": "conflict: beta is not listed in Focus; list it there before narrowing its tools",
+  "tool": "access_set_tools"
+}

@@ -1,0 +1,7 @@
+{
+  "command": "access-set tools",
+  "dryRun": "default-on",
+  "name": "access_set_tools",
+  "tier": "write",
+  "toolTier": 3
+}

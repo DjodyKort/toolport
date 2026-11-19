@@ -5,8 +5,8 @@ use serde_json::Value;
 use toolport_plus_api::Host;
 
 use super::ToolError;
-use crate::access::{self, AddArgs, Change, Orphans, RmArgs};
-use crate::args::{flag, flag_or, nonempty_strings, str_trimmed};
+use crate::access::{self, AddArgs, Change, Orphans, RmArgs, ToolChange, ToolsArgs};
+use crate::args::{flag, flag_or, list, nonempty_strings, str_trimmed};
 
 fn required<'a>(args: &'a Value, key: &str) -> Result<&'a str, ToolError> {
     str_trimmed(args, key)
@@ -101,5 +101,44 @@ pub(super) fn route_rm(host: &dyn Host, args: &Value) -> Result<Value, ToolError
         host,
         required(args, "folder")?,
         flag_or(args, "dry_run", true),
+    )?)
+}
+
+pub(super) fn set_tools(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    let invalid = |message: &str| ToolError::new("invalid_arguments", message);
+    let tools = match list(args, "tools") {
+        None => None,
+        Some(items) => Some(
+            items
+                .iter()
+                .map(|item| item.as_str().map(String::from))
+                .collect::<Option<Vec<_>>>()
+                .ok_or_else(|| invalid("tools must be a list of tool names"))?,
+        ),
+    };
+    let Some(server) = str_trimmed(args, "server") else {
+        if tools.is_some() || flag(args, "all") {
+            return Err(invalid("server is required to change a tool list"));
+        }
+        return Ok(access::tools_ls(host, str_trimmed(args, "set"))?);
+    };
+    let change = match (&tools, flag(args, "all")) {
+        (Some(_), true) => return Err(invalid("give tools or all=true, not both")),
+        (Some(tools), false) => ToolChange::Only(tools),
+        (None, true) => ToolChange::All,
+        (None, false) => {
+            return Err(invalid(
+                "give tools (an empty list exposes none) or all=true",
+            ))
+        }
+    };
+    Ok(access::tools_set(
+        host,
+        &ToolsArgs {
+            set: required(args, "set")?,
+            server,
+            change,
+            dry_run: flag_or(args, "dry_run", true),
+        },
     )?)
 }

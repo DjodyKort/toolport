@@ -1,0 +1,42 @@
+{
+  "argv": ["access-set", "tools", "wide", "alpha", "--none"],
+  "envelope": {
+    "command": "access-set tools",
+    "data": {
+      "accessSet": {
+        "id": "wide",
+        "name": "Wide"
+      },
+      "before": ["read", "list"],
+      "dryRun": false,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "set an empty tool list for alpha in Wide",
+            "op": "registry"
+          }
+        ],
+        "summary": "Expose no tool of alpha in Wide",
+        "undo": "toolportctl access-set tools Wide alpha --tool read --tool list",
+        "warnings": [
+          "alpha exposes no tool in Wide, so a client bound to it cannot call the server"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["registry"],
+        "undo": "toolportctl access-set tools Wide alpha --tool read --tool list"
+      },
+      "server": {
+        "id": "srv-alpha",
+        "name": "alpha"
+      },
+      "tools": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

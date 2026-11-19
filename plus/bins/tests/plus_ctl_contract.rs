@@ -1285,6 +1285,77 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "access-set tools",
+        &[
+            hook("sets", launch_profile_sets),
+            read("ls", &["access-set", "tools"]),
+            read(
+                "plan",
+                &[
+                    "access-set",
+                    "tools",
+                    "wide",
+                    "alpha",
+                    "--tool",
+                    "read",
+                    "--tool",
+                    "list",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "access-set",
+                    "tools",
+                    "wide",
+                    "alpha",
+                    "--tool",
+                    "read",
+                    "--tool",
+                    "list",
+                ],
+            ),
+            read("one-set", &["access-set", "tools", "wide"]),
+            apply("none", &["access-set", "tools", "wide", "alpha", "--none"]),
+            apply("all", &["access-set", "tools", "wide", "alpha", "--all"]),
+            read(
+                "not-listed",
+                &["access-set", "tools", "focus", "beta", "--all", "--dry-run"],
+            )
+            .exit(1),
+            read(
+                "unknown-set",
+                &["access-set", "tools", "nope", "alpha", "--all", "--dry-run"],
+            )
+            .exit(1),
+            read(
+                "unknown-server",
+                &["access-set", "tools", "wide", "nope", "--all", "--dry-run"],
+            )
+            .exit(1),
+            read(
+                "both",
+                &[
+                    "access-set",
+                    "tools",
+                    "wide",
+                    "alpha",
+                    "--tool",
+                    "x",
+                    "--all",
+                ],
+            )
+            .exit(2),
+            read("nothing", &["access-set", "tools", "wide", "alpha"]).exit(2),
+            read(
+                "tool-without-server",
+                &["access-set", "tools", "wide", "--tool", "x"],
+            )
+            .exit(2),
+        ],
+    ),
+    case(
         "client scope",
         &[
             hook("sets", launch_profile_sets),

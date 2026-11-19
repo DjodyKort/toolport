@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "all": true,
+    "server": "alpha",
+    "set": "wide",
+    "tools": ["x"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "give tools or all=true, not both"
+    }
+  },
+  "text": "invalid_arguments: give tools or all=true, not both",
+  "tool": "access_set_tools"
+}

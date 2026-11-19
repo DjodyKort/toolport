@@ -1352,6 +1352,20 @@ pub const TOOLS: &[ToolDef] = &[
         access::set_default
     ),
     tool!(
+        "access_set_tools",
+        3,
+        UnlessDryRun,
+        "Show which tools each access set narrows (no server given), or choose the tools of one server that a set exposes: tools lists the only ones exposed (an empty list exposes none), all=true removes the list so every tool is exposed again. Names are not checked against what the server lists. dry_run is on by default and returns the plan (apply with dry_run=false and confirm=true)",
+        [
+            p("set", Ty::Str, false, "Access set id or name; every set when listing"),
+            p("server", Ty::Str, false, "Server id or name; leave out to list"),
+            p("tools", Ty::StrList, false, "The only tool names of the server the set exposes"),
+            p("all", Ty::Bool, false, "Expose every tool of the server again"),
+            DRY_ON
+        ],
+        access::set_tools
+    ),
+    tool!(
         "client_scope",
         3,
         UnlessDryRun,

@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "server": "alpha",
+    "set": "wide"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "give tools (an empty list exposes none) or all=true"
+    }
+  },
+  "text": "invalid_arguments: give tools (an empty list exposes none) or all=true",
+  "tool": "access_set_tools"
+}

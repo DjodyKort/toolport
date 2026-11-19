@@ -1,0 +1,42 @@
+{
+  "arguments": {
+    "all": true,
+    "confirm": true,
+    "dry_run": false,
+    "server": "alpha",
+    "set": "wide"
+  },
+  "isError": false,
+  "result": {
+    "accessSet": {
+      "id": "wide",
+      "name": "Wide"
+    },
+    "before": ["read", "list"],
+    "dryRun": false,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "remove the tool list of alpha in Wide",
+          "op": "registry"
+        }
+      ],
+      "summary": "Expose every tool of alpha in Wide",
+      "undo": "toolportctl access-set tools Wide alpha --tool read --tool list",
+      "warnings": []
+    },
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": ["registry"],
+      "undo": "toolportctl access-set tools Wide alpha --tool read --tool list"
+    },
+    "server": {
+      "id": "srv-alpha",
+      "name": "alpha"
+    },
+    "tools": null
+  },
+  "tool": "access_set_tools"
+}

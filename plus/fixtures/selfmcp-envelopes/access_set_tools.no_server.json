@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "set": "wide",
+    "tools": ["x"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "server is required to change a tool list"
+    }
+  },
+  "text": "invalid_arguments: server is required to change a tool list",
+  "tool": "access_set_tools"
+}

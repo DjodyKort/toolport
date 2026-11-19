@@ -225,6 +225,11 @@ pub const COMMANDS: &[Command] = &[
         access::set_default,
     ),
     cmd(
+        &["access-set", "tools"],
+        "List the tools each access set narrows, or set which tools of a server a set exposes; --all restores every tool, --none exposes none ([<set>] | <set> <server> (--tool <name>... | --all | --none), --dry-run)",
+        access::set_tools,
+    ),
+    cmd(
         &["client", "scope"],
         "Bind a client to an access set, or --none to follow the default access again (<client> (<set> | --none), --dry-run)",
         access::client_scope,

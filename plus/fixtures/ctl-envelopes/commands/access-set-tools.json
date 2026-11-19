@@ -1,0 +1,81 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Expose this tool of the server and no other; repeat for several",
+      "escalates": true,
+      "hidden": false,
+      "name": "--tool",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Remove the tool list: every tool of the server is exposed again",
+      "escalates": true,
+      "hidden": false,
+      "name": "--all",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Expose no tool of the server in this set",
+      "escalates": true,
+      "hidden": false,
+      "name": "--none",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "access-set",
+  "id": "access-set tools",
+  "kind": "command",
+  "maxOperands": 2,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "set",
+      "required": false,
+      "variadic": false
+    },
+    {
+      "name": "server",
+      "required": false,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["access-set", "tools"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "List the tools each access set narrows, or set which tools of a server a set exposes; --all restores every tool, --none exposes none ([<set>] | <set> <server> (--tool <name>... | --all | --none), --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["access_set_tools"]
+}

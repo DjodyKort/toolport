@@ -1,0 +1,40 @@
+{
+  "argv": ["access-set", "tools", "wide", "alpha", "--all"],
+  "envelope": {
+    "command": "access-set tools",
+    "data": {
+      "accessSet": {
+        "id": "wide",
+        "name": "Wide"
+      },
+      "before": [],
+      "dryRun": false,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "remove the tool list of alpha in Wide",
+            "op": "registry"
+          }
+        ],
+        "summary": "Expose every tool of alpha in Wide",
+        "undo": "toolportctl access-set tools Wide alpha --none",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["registry"],
+        "undo": "toolportctl access-set tools Wide alpha --none"
+      },
+      "server": {
+        "id": "srv-alpha",
+        "name": "alpha"
+      },
+      "tools": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -354,3 +354,128 @@ fn test18_the_reads_answer_empty_without_a_registry_and_the_writes_are_refused()
     let error = default(&host, Change::Clear, false).unwrap_err();
     assert_eq!(error.kind, ErrorKind::Failed("access_sets"));
 }
+
+fn with_registry_file(host: &mut MemoryHost, scope: Value) -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("registry.json");
+    std::fs::write(
+        &path,
+        json!({"profiles": [{"id": "focus", "name": "Focus", "toolScope": scope}]}).to_string(),
+    )
+    .unwrap();
+    host.registry.path = Some(path);
+    dir
+}
+
+fn only<'a>(tools: &'a [String]) -> ToolsArgs<'a> {
+    ToolsArgs {
+        set: "Focus",
+        server: "a",
+        change: ToolChange::Only(tools),
+        dry_run: false,
+    }
+}
+
+#[test]
+fn test19_tools_ls_lists_only_the_servers_a_set_narrows() {
+    let mut host = world();
+    let _dir = with_registry_file(&mut host, json!({"a": ["read", "list"], "b": []}));
+    let data = tools_ls(&host, None).unwrap();
+    assert_eq!(data["accessSets"][0]["narrowed"], json!([]));
+    let focus = tools_ls(&host, Some("focus")).unwrap();
+    let narrowed = &focus["accessSets"][0]["narrowed"];
+    assert_eq!(narrowed[0]["server"]["name"], "A");
+    assert_eq!(narrowed[0]["tools"], json!(["read", "list"]));
+    assert_eq!(narrowed[1]["tools"], json!([]));
+    assert_eq!(narrowed[1]["listed"], false);
+}
+
+#[test]
+fn test20_tools_set_previews_then_narrows_and_names_the_command_that_undoes_it() {
+    let mut host = world();
+    let _dir = with_registry_file(&mut host, json!({"a": ["old"]}));
+    let tools = vec!["read".to_string(), " read ".to_string(), "list".to_string()];
+    let preview = tools_set(
+        &host,
+        &ToolsArgs {
+            dry_run: true,
+            ..only(&tools)
+        },
+    )
+    .unwrap();
+    assert_eq!(preview["tools"], json!(["read", "list"]));
+    assert!(host.registry.tool_scopes.borrow().is_empty());
+    let done = tools_set(&host, &only(&tools)).unwrap();
+    assert_eq!(
+        host.registry.tool_scopes.borrow()["focus"]["a"],
+        ["read", "list"]
+    );
+    assert_eq!(
+        done["result"]["undo"],
+        "toolportctl access-set tools Focus A --tool old"
+    );
+}
+
+#[test]
+fn test21_tools_set_all_removes_the_list_and_none_exposes_no_tool() {
+    let mut host = world();
+    let _dir = with_registry_file(&mut host, json!({}));
+    let none = tools_set(&host, &only(&[])).unwrap();
+    assert_eq!(host.registry.tool_scopes.borrow()["focus"]["a"].len(), 0);
+    assert_eq!(
+        none["result"]["undo"],
+        "toolportctl access-set tools Focus A --all"
+    );
+    assert!(none["plan"]["warnings"][0]
+        .as_str()
+        .unwrap()
+        .contains("exposes no tool"));
+}
+
+#[test]
+fn test21b_tools_set_all_removes_the_list_so_every_tool_is_exposed_again() {
+    let mut host = world();
+    let _dir = with_registry_file(&mut host, json!({"a": ["x"]}));
+    host.registry.tool_scopes.borrow_mut().insert(
+        "focus".into(),
+        [("a".to_string(), vec!["x".to_string()])].into(),
+    );
+    let all = tools_set(
+        &host,
+        &ToolsArgs {
+            change: ToolChange::All,
+            ..only(&[])
+        },
+    )
+    .unwrap();
+    assert_eq!(all["tools"], Value::Null);
+    assert_eq!(
+        all["result"]["undo"],
+        "toolportctl access-set tools Focus A --tool x"
+    );
+    assert!(host.registry.tool_scopes.borrow().is_empty());
+}
+
+#[test]
+fn test22_tools_set_refuses_a_server_the_set_does_not_list_an_empty_name_and_a_no_op_writes_nothing(
+) {
+    let mut host = world();
+    let _dir = with_registry_file(&mut host, json!({"a": ["read"]}));
+    let tools = vec!["read".to_string()];
+    let outside = ToolsArgs {
+        server: "b",
+        ..only(&tools)
+    };
+    assert_eq!(
+        tools_set(&host, &outside).unwrap_err().kind,
+        ErrorKind::Conflict
+    );
+    let blank = vec![" ".to_string()];
+    assert_eq!(
+        tools_set(&host, &only(&blank)).unwrap_err().kind,
+        ErrorKind::Usage
+    );
+    let same = tools_set(&host, &only(&tools)).unwrap();
+    assert_eq!(same["result"]["applied"], false);
+    assert!(host.registry.tool_scopes.borrow().is_empty());
+}
