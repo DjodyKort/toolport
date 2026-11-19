@@ -1,19 +1,22 @@
 //! `setup_parts` (tier 1), `setup_export` (tier 3) and the other `setup_*` tools: the same
 //! operations as `toolportctl setup ...`, over `crate::setup`. A sealed part needs a passphrase,
 //! and a passphrase in a tool argument would sit in a transcript, so these tools never export
-//! secrets or sessions and never apply a restore: a person does that in the app.
+//! secrets, never write sessions and never apply a restore: a person does that in the app. The
+//! `sessions` part only lists the repositories that have saved conversations, after the person
+//! approves that call.
 
 use std::path::PathBuf;
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use toolport_plus_api::Host;
 
-use super::ToolError;
+use super::{approval, ToolError};
 use crate::args::{flag, flag_or, nonempty_strings, str_nonempty};
 use crate::op::{ErrorKind, OpError};
 use crate::setup::export::{self, Options};
 use crate::setup::{parse_parts, Ctx, PartId};
 
+const SESSIONS_PREVIEW_ONLY: &str = "the sessions are sealed with a passphrase that only a person types, so this tool only lists them; a person writes the file with toolportctl setup export --sessions --passphrase-stdin";
 const PERSON_ONLY: &str = "secrets and sessions are sealed with a passphrase and only a person exports them, in the app or with toolportctl";
 
 fn tool_error(error: OpError) -> ToolError {
@@ -29,7 +32,7 @@ pub(super) fn with_ctx<R>(
     run: impl FnOnce(&Ctx<'_>) -> Result<R, OpError>,
 ) -> Result<R, ToolError> {
     let _guard = crate::fsx::enter(crate::fsx::Paths {
-        home: None,
+        home: crate::fsx::home(),
         data_dir: host.data_dir(),
     });
     let ctx = Ctx::new(host).map_err(|e| ToolError::new("not_found", e))?;
@@ -55,6 +58,18 @@ pub(super) fn export(host: &dyn Host, args: &Value) -> Result<Value, ToolError> 
     }
     if opts.parts.iter().any(|p| p.sealed()) {
         return Err(ToolError::new("refused", PERSON_ONLY));
+    }
+    let sessions = flag(args, "sessions");
+    let session_repos = nonempty_strings(args, "session_repo").unwrap_or_default();
+    if !session_repos.is_empty() && !sessions {
+        return Err(ToolError::new(
+            "invalid_arguments",
+            "session_repo goes with sessions",
+        ));
+    }
+    if sessions {
+        opts.parts.insert(PartId::History);
+        opts.session_repos = session_repos;
     }
     opts.roots = roots(args);
     opts.worktrees = !flag(args, "no_worktrees");
@@ -87,13 +102,52 @@ pub(super) fn export(host: &dyn Host, args: &Value) -> Result<Value, ToolError> 
             ));
         }
     }
+    if sessions && opts.peek.is_some() {
+        return Err(ToolError::new(
+            "invalid_arguments",
+            "peek does not go with sessions",
+        ));
+    }
+    if sessions && !opts.dry_run {
+        return Err(ToolError::new("refused", SESSIONS_PREVIEW_ONLY));
+    }
     if !opts.dry_run && opts.out.is_none() {
         return Err(ToolError::new(
             "invalid_arguments",
             "out is needed to write the file",
         ));
     }
-    with_ctx(host, |ctx| export::run(ctx, &opts, None))
+    let mut data = with_ctx(host, |ctx| export::run(ctx, &opts, None))?;
+    if sessions {
+        approve_sessions_listing(host, &data)?;
+        data["plan"]["warnings"] = json!([SESSIONS_PREVIEW_ONLY]);
+    }
+    Ok(data)
+}
+
+fn approve_sessions_listing(host: &dyn Host, data: &Value) -> Result<(), ToolError> {
+    let part = data["parts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|part| part["id"] == PartId::History.id());
+    let mut steps = vec![
+        "list the repositories that have saved conversations, with their counts and sizes; no conversation text is read or shown"
+            .to_string(),
+    ];
+    for repo in part
+        .and_then(|part| part["info"]["repos"].as_array())
+        .into_iter()
+        .flatten()
+    {
+        steps.push(format!(
+            "{}: {} conversations, {} bytes",
+            repo["name"].as_str().unwrap_or(""),
+            repo["sessions"],
+            repo["fileSize"]
+        ));
+    }
+    approval::ask(host, "setup_export sessions", steps, json!([]))
 }
 
 pub(super) fn inspect(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {

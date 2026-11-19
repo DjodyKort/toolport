@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "out": "<WORLD>/out/s.zip",
+    "roots": ["<WORLD>/home/code"],
+    "sessions": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "the sessions are sealed with a passphrase that only a person types, so this tool only lists them; a person writes the file with toolportctl setup export --sessions --passphrase-stdin"
+    }
+  },
+  "text": "refused: the sessions are sealed with a passphrase that only a person types, so this tool only lists them; a person writes the file with toolportctl setup export --sessions --passphrase-stdin",
+  "tool": "setup_export"
+}

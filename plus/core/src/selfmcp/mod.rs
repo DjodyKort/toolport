@@ -25,6 +25,8 @@ mod secret_tests;
 mod server_repo;
 mod servers;
 mod setup;
+#[cfg(test)]
+mod setup_tests;
 mod skills;
 mod sources;
 mod spend;

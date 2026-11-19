@@ -2002,7 +2002,7 @@ pub const TOOLS: &[ToolDef] = &[
         "setup_export",
         3,
         UnlessDryRun,
-        "Write one setup zip with the readable parts: dry_run is on by default and only lists what would go in (apply with dry_run=false and confirm=true). Secrets and sessions are sealed with a passphrase and are never exported through this tool; a person does that in the app or with toolportctl",
+        "Write one setup zip with the readable parts: dry_run is on by default and only lists what would go in (apply with dry_run=false and confirm=true). Secrets are never exported through this tool. sessions=true adds the sessions part as a listing only: every call asks the person for approval in the Toolport app, each time and never remembered, and answers with the repositories that have saved conversations, their counts and sizes, never their text; the sessions are sealed with a passphrase, so a person writes them with toolportctl",
         [
             p("parts", Ty::Str, false, "all, or a comma separated list of repos, servers, access, library, tasks, settings, claudeUser, memory"),
             p("out", Ty::Str, false, "File to write, or a folder to get toolport-setup-<date>.zip in; an existing file is never replaced"),
@@ -2013,6 +2013,8 @@ pub const TOOLS: &[ToolDef] = &[
             p("library_zip", Ty::Bool, false, "Also zip the uncommitted skills and rules of the library"),
             p("without", Ty::StrList, false, "Sub-choices to leave out: claude-instructions, claude-settings, claude-plugins, claude-own, memory-auto, memory-switches, memory-instructions"),
             p("peek", Ty::Str, false, "With dry_run: show what one part would hold"),
+            p("sessions", Ty::Bool, false, "Add the sessions part to the listing; preview only and every call needs the person's approval"),
+            p("session_repo", Ty::StrList, false, "With sessions: only these repository names"),
             DRY_ON
         ],
         setup::export

@@ -3021,6 +3021,24 @@ const CASES: &[Case] = &[
                 "setup_export",
                 r#"{"parts":"all,secrets","out":"{base}/out","dry_run":true}"#,
             ),
+            fails(
+                "sessions_no_broker",
+                "approval_unavailable",
+                "setup_export",
+                r#"{"roots":["{home}/code"],"sessions":true}"#,
+            ),
+            fails(
+                "sessions_apply",
+                "refused",
+                "setup_export",
+                r#"{"out":"{base}/out/s.zip","roots":["{home}/code"],"sessions":true,"dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "session_repo_alone",
+                "invalid_arguments",
+                "setup_export",
+                r#"{"roots":["{home}/code"],"session_repo":["web"]}"#,
+            ),
             write(
                 "apply",
                 "setup_export",

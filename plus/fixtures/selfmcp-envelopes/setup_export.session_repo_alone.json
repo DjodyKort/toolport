@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "roots": ["<WORLD>/home/code"],
+    "session_repo": ["web"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "session_repo goes with sessions"
+    }
+  },
+  "text": "invalid_arguments: session_repo goes with sessions",
+  "tool": "setup_export"
+}
