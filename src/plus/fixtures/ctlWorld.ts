@@ -14,7 +14,7 @@ import {
   type LaunchProfileWorldOptions,
 } from "./launchProfileWorld";
 import { createLibraryWorld, type LibraryWorldOptions } from "./libraryWorld";
-import { createSetupWorld } from "./setupWorld";
+import { createSetupWorld, type SetupWorldOptions } from "./setupWorld";
 import { createSyncWorld, type SyncWorldOptions } from "./syncWorld";
 import { createServerWorld, type ServerWorldOptions } from "./serverWorld";
 import { createSpendWorld, type SpendWorldOptions } from "./spendWorld";
@@ -73,6 +73,8 @@ export interface WorldOptions {
   memory?: MemoryWorldOptions;
   /** The local registry index the Settings card reads. */
   catalog?: CatalogWorldOptions;
+  /** The Export, Restore and Reset views of Setup & backup: failed steps, a file without a sealed part. */
+  setup?: SetupWorldOptions;
   /** The Sync view of Setup & backup: set up or not, locked keychain, conflicts, the remote. */
   sync?: SyncWorldOptions;
   /** The clients that can hold a direct entry and the entries they hold. */
@@ -100,7 +102,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
     return off ?? [];
   });
   const compressionWorld = createCompressionWorld(options.compression);
-  const setupWorld = createSetupWorld();
+  const setupWorld = createSetupWorld(options.setup);
   const syncWorld = createSyncWorld(options.sync);
   const libraryWorld = createLibraryWorld(options.library);
   const memoryWorld = createMemoryWorld(options.memory);

@@ -1,6 +1,6 @@
 {
   "route": "setup",
   "status": "built",
-  "summary": "Check a setup file against this machine, then restore from the plan; existing servers and repositories are kept (setup inspect, setup restore; setup_inspect, setup_restore)",
+  "summary": "Check a setup file against this machine, choose the parts, see the plan, choose per conflict whether the file's copy replaces yours (default keep mine), then restore from the plan (setup inspect, setup restore; setup_inspect, setup_restore)",
   "test": "src/plus/setup/SetupPage.test.tsx"
 }

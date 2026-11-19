@@ -1,6 +1,6 @@
 {
   "route": "setup",
   "status": "built",
-  "summary": "The checklist before a reset: unpushed work, dirty repositories and what you carry over yourself (setup check; setup_check)",
+  "summary": "The checklist before a reset: unpushed work with push commands to copy, dirty repositories, the sessions that would go, how old the last export is, what it covers and what changed since, and what you carry over yourself (setup check; setup_check)",
   "test": "src/plus/setup/SetupPage.test.tsx"
 }

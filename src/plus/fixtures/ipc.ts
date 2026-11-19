@@ -188,6 +188,12 @@ export function plusFixtureFromSearch(search: string) {
     library: libraryFromSearch(params),
     attention: attentionFromSearch(params),
     spend: spendFromSearch(params),
+    setup: {
+      failures: params.has("plus-setup-failures"),
+      plain: params.has("plus-setup-plain"),
+      empty: params.has("plus-setup-empty"),
+      broken: (params.get("plus-setup-broken") ?? "").split(",").filter(Boolean),
+    },
   });
 }
 
