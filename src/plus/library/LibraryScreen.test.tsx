@@ -449,7 +449,7 @@ describe("Library screen, Sync tab", () => {
     expect(await screen.findByRole("tab", { name: "Sync" })).toBeVisible();
   });
 
-  it("test19_the_plugins_tab_says_it_is_planned_and_the_tabs_move_with_the_arrow_keys", async () => {
+  it("test19_the_tabs_move_with_the_arrow_keys_and_the_plugins_tab_lists_the_installed_plugins", async () => {
     setup();
     await planReady();
     const sync = screen.getByRole("tab", { name: "Sync" });
@@ -459,8 +459,10 @@ describe("Library screen, Sync tab", () => {
       "aria-selected",
       "true",
     );
-    expect(screen.getByText("Planned")).toBeVisible();
-    expect(screen.getByText(/arrive in a later slice/)).toBeVisible();
+    expect(
+      await screen.findByRole("region", { name: "Installed plugins" }),
+    ).toBeVisible();
+    expect(screen.queryByText("Planned")).toBeNull();
   });
 
   it("test20_nothing_in_the_screen_offers_the_removed_targets", async () => {

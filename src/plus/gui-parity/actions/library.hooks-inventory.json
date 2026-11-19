@@ -1,5 +1,6 @@
 {
-  "route": "library-later",
-  "status": "planned",
-  "summary": "Every hook Claude Code would run in a folder by owner, event and tool, with the counts per tool, the owners that share a PreToolUse tool and a filter by tool and owner: the Hooks section of Library > Plugins and the inventory of Context > Hooks & compression (hooks ls, hooks_ls)"
+  "route": "library",
+  "status": "built",
+  "summary": "Every hook Claude Code would run in a folder by owner, event and tool, with the counts per tool, the owners that share a PreToolUse tool and a filter by tool and owner: the Hooks section of Library > Plugins and the inventory of Context > Hooks & compression (hooks ls, hooks_ls)",
+  "test": "src/plus/library/PluginsTab.test.tsx"
 }

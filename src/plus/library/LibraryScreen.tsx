@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from "react";
+import { lazy, Suspense, useRef, useState, type KeyboardEvent } from "react";
 import { MoreHorizontal, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,9 +10,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AttentionBanner } from "../attention/AttentionBanner";
 import { useLoad } from "../servers/useLoad";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import AgentsStyles from "./AgentsStyles";
 import { listAgents, listSources, listStyles } from "./commands";
-import PluginsTab from "./PluginsTab";
 import SkillDetail from "./SkillDetail";
 import SourcesTab from "./SourcesTab";
 import SyncTab from "./SyncTab";
@@ -22,6 +22,8 @@ import {
   ImportBundleDialog,
   NewSkillDialog,
 } from "./writes";
+
+const PluginsTab = lazy(() => import("./PluginsTab"));
 
 const TABS = [
   { id: "sync", label: "Sync" },
@@ -47,6 +49,7 @@ export default function LibraryScreen() {
   const [skill, setSkill] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [epoch, setEpoch] = useState(0);
+  const [choose, setChoose] = useState<string | null>(null);
   const tabs = useRef<HTMLDivElement>(null);
   const agents = useLoad(() => optional(listAgents), epoch);
   const styles = useLoad(() => optional(listStyles), epoch);
@@ -57,6 +60,14 @@ export default function LibraryScreen() {
     sources: sources.data?.sources.length ?? 0,
   };
   const refresh = () => setEpoch((n) => n + 1);
+  const go = (next: TabId) => {
+    setChoose(null);
+    setTab(next);
+  };
+  const chooseItems = (source: string) => {
+    setChoose(source);
+    setTab("sources");
+  };
 
   function move(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const last = TABS.length - 1;
@@ -72,7 +83,7 @@ export default function LibraryScreen() {
               : null;
     if (next === null) return;
     event.preventDefault();
-    setTab(TABS[next].id);
+    go(TABS[next].id);
     tabs.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
   }
 
@@ -99,7 +110,7 @@ export default function LibraryScreen() {
               aria-selected={tab === item.id}
               aria-controls="library-panel"
               tabIndex={tab === item.id ? 0 : -1}
-              onClick={() => setTab(item.id)}
+              onClick={() => go(item.id)}
               onKeyDown={(event) => move(event, index)}
               className="shrink-0 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted aria-selected:bg-muted aria-selected:text-foreground"
             >
@@ -140,8 +151,12 @@ export default function LibraryScreen() {
       <div id="library-panel" role="tabpanel" aria-labelledby={`library-tab-${tab}`}>
         {tab === "sync" && <SyncTab key={epoch} onOpenSkill={setSkill} />}
         {tab === "agents" && <AgentsStyles key={epoch} />}
-        {tab === "plugins" && <PluginsTab />}
-        {tab === "sources" && <SourcesTab key={epoch} />}
+        {tab === "plugins" && (
+          <Suspense fallback={<SkeletonRows label="Reading the installed plugins" />}>
+            <PluginsTab onChooseItems={chooseItems} />
+          </Suspense>
+        )}
+        {tab === "sources" && <SourcesTab key={`${epoch}-${choose}`} choose={choose} />}
       </div>
       {dialog === "new" && (
         <NewSkillDialog onClose={() => setDialog(null)} onDone={refresh} />

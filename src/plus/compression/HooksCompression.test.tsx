@@ -74,7 +74,22 @@ describe("Hooks & compression tab", () => {
         name: /Show why parsec is locked|Why headroom is off/,
       }),
     ).toHaveLength(2);
-    expect(screen.getByText("Inventory not available in this build")).toBeVisible();
+    expect(screen.queryByText("Inventory not available in this build")).toBeNull();
+    const inventory = await screen.findByRole("region", { name: "Hook inventory" });
+    expect(await within(inventory).findByText("node scripts/guard.js")).toBeVisible();
+    expect(ranArgv()).toContainEqual(["hooks", "ls"]);
+  });
+
+  it("test01b_the_inventory_filters_by_tool_and_owner_and_never_runs_a_hook", async () => {
+    setup();
+    const inventory = await screen.findByRole("region", { name: "Hook inventory" });
+    await within(inventory).findByText("node scripts/guard.js");
+    await userEvent.click(within(inventory).getByRole("button", { name: "Bash" }));
+    expect(inventory).toHaveTextContent("2 processes start before one Bash call");
+    await userEvent.click(within(inventory).getByRole("button", { name: /^plugins/ }));
+    expect(within(inventory).queryByText("~/bin/own.sh")).toBeNull();
+    expect(within(inventory).getByText("node scripts/guard.js")).toBeVisible();
+    expect(inventory).toHaveTextContent("it never runs a hook");
   });
 
   it("test02_preview_adoption_shows_the_lines_that_change_and_writes_nothing", async () => {

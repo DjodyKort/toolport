@@ -749,7 +749,7 @@ function SourceList({ sources }: { sources: Loaded<SourcesData> }) {
   );
 }
 
-export default function SourcesTab() {
+export default function SourcesTab({ choose = null }: { choose?: string | null }) {
   const sources = useLoad(listSources, "sources");
   const library = useLoad(async () => {
     try {
@@ -759,7 +759,7 @@ export default function SourcesTab() {
     }
   }, "library");
   const installed = new Set((library.data?.skills ?? []).map((s) => s.name));
-  const [choosing, setChoosing] = useState<string | null>(null);
+  const [choosing, setChoosing] = useState<string | null>(choose);
   if (choosing) {
     return (
       <Suspense fallback={<SkeletonRows rows={4} label="Reading the source" />}>

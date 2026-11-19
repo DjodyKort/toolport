@@ -5,6 +5,7 @@ import { createCatalogWorld, type CatalogWorldOptions } from "./catalogWorld";
 import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
 import { createCompressionWorld, type CompressionWorldOptions } from "./compressionWorld";
 import { createContextWorld, type ContextWorldOptions } from "./contextWorld";
+import { createPluginsWorld, type PluginsWorldOptions } from "./pluginsWorld";
 import { createMemoryWorld, type MemoryWorldOptions } from "./memoryWorld";
 import { createDirectWorld, type DirectWorldOptions } from "./directWorld";
 import { createReachWorld, type ReachWorldOptions } from "./reachWorld";
@@ -62,6 +63,8 @@ export interface WorldOptions {
   attention?: AttentionWorldOptions;
   /** The Context screen's folders, bundles and measurements. */
   context?: ContextWorldOptions;
+  /** The installed plugins, their hooks, servers and options for the Library's Plugins tab. */
+  plugins?: PluginsWorldOptions;
   /** The hook entries, the pause and the measurements of the Hooks & compression tab. */
   compression?: CompressionWorldOptions;
   /** The Library screen's library, plan, remote, taps and sources. */
@@ -91,6 +94,11 @@ export function createCtlWorld(options: WorldOptions = {}) {
   const serverWorld = createServerWorld({ setIds: accessSets, ...options.servers });
   const taskWorld = createTaskWorld(options.tasks);
   const contextWorld = createContextWorld(options.context);
+  const pluginsWorld = createPluginsWorld(options.plugins, (cwd) => {
+    const status = contextWorld.run(["context", "status", "--cwd", cwd]);
+    const off = (status.data as { pluginsOff?: string[] } | undefined)?.pluginsOff;
+    return off ?? [];
+  });
   const compressionWorld = createCompressionWorld(options.compression);
   const setupWorld = createSetupWorld();
   const syncWorld = createSyncWorld(options.sync);
@@ -351,6 +359,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
     direct: directWorld,
     access: accessWorld,
     spend: spendWorld,
+    plugins: pluginsWorld,
     run(argv: string[], stdin?: string): CtlReply {
       const key = argv.filter((a) => a !== "--json");
       const [first, second] = key;
@@ -364,6 +373,10 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "task") return taskWorld.run(key.slice(1), stdin);
       if (first === "context" && second === "launch-profile") {
         return launchProfileWorld.run(key);
+      }
+      if (first === "hooks") return pluginsWorld.run(key);
+      if (first === "plugins" && second !== "off" && second !== "on") {
+        return pluginsWorld.run(key);
       }
       if (first === "context" || first === "plugins") return contextWorld.run(key);
       if (first === "memory" || first === "sessions") return memoryWorld.run(key);

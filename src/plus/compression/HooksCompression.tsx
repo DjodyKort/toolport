@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { StatusCard } from "@/components/ui/status-card";
 import { toastError } from "@/lib/toast";
-import { Group, RowShell } from "../context/StackRows";
+import { useFolder } from "../context/useFolder";
+import { Group } from "../context/StackRows";
+import { HooksInventory } from "../library/PluginHooks";
 import { useLoad } from "../servers/useLoad";
 import { errorText } from "../settings/useCtl";
 import {
@@ -63,6 +65,7 @@ function Verified({ result }: { result: Verification }) {
 }
 
 function Overview({ onMeasurements }: { onMeasurements: () => void }) {
+  const { folder } = useFolder();
   const hooks = useLoad(hooksStatus, "hooks");
   const policy = useLoad(compressionStatus, "policy");
   const [busy, setBusy] = useState(false);
@@ -298,11 +301,7 @@ function Overview({ onMeasurements }: { onMeasurements: () => void }) {
       </Group>
 
       <Group title="Everything that runs around a tool call">
-        <RowShell
-          title="Inventory not available in this build"
-          badge={<Badge variant="off">unavailable</Badge>}
-          subtitle="The list of every hook that runs around a tool call, with who owns each one, needs the plugin reader, which arrives with the plugins slice. The two compression hooks above are read straight from settings.json."
-        />
+        <HooksInventory folder={folder} bare />
       </Group>
 
       <AdvancedPanel status={policy.data} />
