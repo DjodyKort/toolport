@@ -133,6 +133,7 @@ pub fn package_facts(pins: &[package::Pinned], store: &Store) -> Vec<PackageFact
                 .get(&pin.target.source())
                 .and_then(|check| check.latest.clone()),
             manual: pin.manual.clone(),
+            digest_tag: pin.target.followed_tag().map(String::from),
         })
         .collect()
 }

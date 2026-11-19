@@ -6,6 +6,7 @@
 pub mod journal;
 pub mod lookup;
 pub mod release;
+pub mod source;
 pub mod update;
 pub mod version;
 
@@ -58,6 +59,13 @@ pub struct Target {
 }
 
 impl Target {
+    /// The tag a digest pin follows; `None` for a pin that names a version.
+    pub fn followed_tag(&self) -> Option<&str> {
+        self.flavor
+            .strip_prefix('@')
+            .filter(|_| self.kind == Kind::Docker)
+    }
+
     /// The name the lookup is recorded under in the update check.
     pub fn source(&self) -> String {
         if self.flavor.is_empty() {
@@ -65,6 +73,24 @@ impl Target {
         } else {
             format!("package:{}:{}:{}", self.kind.word(), self.name, self.flavor)
         }
+    }
+}
+
+/// Whether `latest` is another release than `pinned`: a later version, or for a digest pin any
+/// other digest, since a tag moves to a new image and not to a higher number.
+pub fn changed(digest: bool, latest: &str, pinned: &str) -> bool {
+    if digest {
+        latest != pinned
+    } else {
+        version::newer(latest, pinned)
+    }
+}
+
+/// A digest as shown to a person: `sha256:` and the first twelve digits.
+pub fn shown_version(version: &str) -> String {
+    match version.strip_prefix("sha256:") {
+        Some(hex) if hex.len() > 12 => format!("sha256:{}...", &hex[..12]),
+        _ => version.to_string(),
     }
 }
 
@@ -259,10 +285,26 @@ fn pypi_pin(spec: &str) -> Option<(String, String)> {
     (valid_name(name, false) && version::exact(version)).then(|| (name.into(), version.into()))
 }
 
-/// The Docker Hub repository of an image reference and its tag; `None` for another registry,
-/// an image pinned by digest, or one with no tag or `latest`.
+/// Whether `digest` is an image digest as `image@<digest>` names one.
+pub fn valid_digest(digest: &str) -> bool {
+    digest.strip_prefix("sha256:").is_some_and(|hex| {
+        hex.len() == 64
+            && hex
+                .chars()
+                .all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
+    })
+}
+
+/// The Docker Hub repository of an image reference with what it pins and the flavor of the
+/// lookup: a tag shaped like `1.2.3` pins that tag; `<tag>@sha256:...` pins the digest and follows
+/// the tag it names (flavor `@<tag>`). `None` for another registry, a bare digest with no tag to
+/// follow, or a tag that is no version (`latest`).
 fn docker_pin(image: &str) -> Option<(String, String, String)> {
-    if image.contains('@') {
+    let (image, digest) = match image.split_once('@') {
+        Some((image, digest)) => (image, Some(digest)),
+        None => (image, None),
+    };
+    if digest.is_some_and(|digest| !valid_digest(digest)) {
         return None;
     }
     let image = ["docker.io/", "index.docker.io/", "registry-1.docker.io/"]
@@ -284,8 +326,13 @@ fn docker_pin(image: &str) -> Option<(String, String, String)> {
     } else {
         format!("library/{path}")
     };
-    let flavor = version::tag_flavor(tag)?;
-    Some((repository, tag.to_string(), flavor))
+    match digest {
+        Some(digest) => Some((repository, digest.to_string(), format!("@{tag}"))),
+        None => {
+            let flavor = version::tag_flavor(tag)?;
+            Some((repository, tag.to_string(), flavor))
+        }
+    }
 }
 
 pub(crate) fn recorded_docker(server: &ServerRecord) -> Option<String> {
@@ -387,6 +434,20 @@ fn locate(server: &ServerRecord) -> Option<Found> {
     })
 }
 
+/// The registry a package runner fetches from on every start, for a server that names a package
+/// without pinning it; such a server has no version to judge.
+pub fn automatic(server: &ServerRecord) -> Option<Kind> {
+    let transport = server.text("transport").unwrap_or("stdio");
+    if REMOTE_TRANSPORTS.contains(&transport) || locate(server).is_some() {
+        return None;
+    }
+    let command = server.text("command")?;
+    match runner(command, &server.strings("args")) {
+        Some((kind @ (Kind::Npm | Kind::Pypi), _)) => Some(kind),
+        _ => None,
+    }
+}
+
 /// The package version a server's arguments or its GitHub release source pin, nothing when it is
 /// not pinned exactly.
 pub fn pinned(server: &ServerRecord) -> Option<Pinned> {
@@ -414,7 +475,10 @@ fn swap_version(spec: &str, kind: Kind, to: &str) -> Option<String> {
             (None, Some(at)) => Some(format!("{}@{to}", &spec[..at])),
             _ => None,
         },
-        Kind::Docker => spec.rfind(':').map(|at| format!("{}:{to}", &spec[..at])),
+        Kind::Docker => match spec.rfind('@') {
+            Some(at) => Some(format!("{}@{to}", &spec[..at])),
+            None => spec.rfind(':').map(|at| format!("{}:{to}", &spec[..at])),
+        },
         Kind::Github => None,
     }
 }

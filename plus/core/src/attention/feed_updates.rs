@@ -40,6 +40,8 @@ pub struct PackageFacts {
     /// Why Toolport cannot move the server to another version itself; the row then says what to
     /// do by hand instead of offering the update.
     pub manual: Option<String>,
+    /// The tag a digest pin follows; set when the pin is an image digest and not a version.
+    pub digest_tag: Option<String>,
 }
 
 /// A selected source whose pinned commit is no longer in the remote's history.
@@ -196,11 +198,26 @@ fn rewritten_row(source: &RewrittenFacts) -> Item {
 
 fn package_row(package: &PackageFacts) -> Option<Item> {
     let latest = package.latest.as_deref()?;
-    if !crate::servers::package::version::newer(latest, &package.pinned) {
+    if !crate::servers::package::changed(package.digest_tag.is_some(), latest, &package.pinned) {
         return None;
     }
     let github = package.registry == "github";
-    let (title, found) = if github {
+    let shown = crate::servers::package::shown_version;
+    let (title, found) = if let Some(tag) = &package.digest_tag {
+        (
+            format!(
+                "{}: {}:{tag} has a new image, pinned to {}",
+                package.server,
+                package.package,
+                shown(&package.pinned)
+            ),
+            format!(
+                "The server's arguments pin image digest {} on Docker Hub; tag {tag} now points at {}.",
+                shown(&package.pinned),
+                shown(latest)
+            ),
+        )
+    } else if github {
         (
             format!(
                 "{}: release {latest} of {} is out, installed {}",
@@ -243,7 +260,7 @@ fn package_row(package: &PackageFacts) -> Option<Item> {
                         package.package
                     )
                 } else {
-                    format!("Edit the pin to {latest} by hand.")
+                    format!("Edit the pin to {} by hand.", shown(latest))
                 }
             ),
             Action::open("Open Servers", Screen::Servers),
@@ -252,7 +269,9 @@ fn package_row(package: &PackageFacts) -> Option<Item> {
     Some(Item {
         id: format!(
             "updates:package:{}:{}>{}",
-            package.server, package.pinned, latest
+            package.server,
+            shown(&package.pinned),
+            shown(latest)
         ),
         urgency: Urgency::WorthALook,
         title,
@@ -260,7 +279,7 @@ fn package_row(package: &PackageFacts) -> Option<Item> {
         source: SOURCE,
         since: None,
         action: Some(action),
-        skip: Some(format!("Skip {latest}")),
+        skip: Some(format!("Skip {}", shown(latest))),
     })
 }
 

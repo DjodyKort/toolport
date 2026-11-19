@@ -98,6 +98,8 @@ pub struct Plan {
     pub from: String,
     pub to: String,
     pub downgrade: bool,
+    /// The pin is an image digest that follows a tag, not a version number.
+    pub digest: bool,
     /// The registry was asked in this plan whether the version exists.
     pub verified: bool,
     pub changes: Vec<Change>,
@@ -180,6 +182,19 @@ fn wanted(
         .map(str::trim)
         .filter(|to| !to.is_empty());
     if let Some(to) = explicit {
+        if target.followed_tag().is_some() {
+            if !super::valid_digest(to) {
+                return Err(OpError::usage(format!(
+                    "'{to}' is not an image digest; give one such as sha256:<64 hex digits>"
+                )));
+            }
+            return Ok(Wanted {
+                to: to.to_string(),
+                explicit: true,
+                verified: false,
+                refusal: None,
+            });
+        }
         if !version::exact(to) {
             return Err(OpError::usage(format!(
                 "'{to}' is not one version; give an exact one such as 1.4.2"
@@ -272,35 +287,57 @@ fn plan_hash(plan: &Plan) -> String {
     ))
 }
 
+impl Plan {
+    fn base(server: &ServerRecord, pin: &Pinned) -> Self {
+        Plan {
+            server_id: server.id.clone(),
+            server_name: server.name.clone(),
+            kind: pin.target.kind,
+            package: pin.target.name.clone(),
+            from: pin.version.clone(),
+            to: String::new(),
+            downgrade: false,
+            digest: pin.target.followed_tag().is_some(),
+            verified: false,
+            changes: Vec::new(),
+            arg: None,
+            source_tag: None,
+            release: None,
+            refusal: None,
+            in_flight: None,
+            hash: String::new(),
+        }
+    }
+}
+
 /// What an update would do right now.
 pub fn plan(host: &dyn Host, args: &UpdateArgs, ask_gateways: bool) -> Result<Plan, OpError> {
     let servers = read_servers(host)?;
     let (server, pin) = pin_of(&servers, &args.key)?;
     let base = base_of(host)?;
     let want = wanted(host, &base, &pin, args)?;
+    let digest = pin.target.followed_tag().is_some();
     let mut plan = Plan {
-        server_id: server.id.clone(),
-        server_name: server.name.clone(),
-        kind: pin.target.kind,
-        package: pin.target.name.clone(),
-        from: pin.version.clone(),
         to: want.to.clone(),
-        downgrade: want.explicit && version::newer(&pin.version, &want.to),
+        downgrade: !digest && want.explicit && version::newer(&pin.version, &want.to),
         verified: want.verified,
-        changes: Vec::new(),
-        arg: None,
-        source_tag: None,
-        release: None,
         refusal: want.refusal,
-        in_flight: None,
-        hash: String::new(),
+        ..Plan::base(&server, &pin)
     };
     if plan.refusal.is_none() {
-        let same = !version::newer(&plan.to, &plan.from) && !version::newer(&plan.from, &plan.to);
-        if same || (!want.explicit && !version::newer(&plan.to, &plan.from)) {
+        let same = if digest {
+            plan.to == plan.from
+        } else {
+            !version::newer(&plan.to, &plan.from) && !version::newer(&plan.from, &plan.to)
+        };
+        if same || (!want.explicit && !super::changed(digest, &plan.to, &plan.from)) {
             plan.refusal = refuse(
                 "up_to_date",
-                format!("{} is already on {}", plan.package, plan.from),
+                format!(
+                    "{} is already on {}",
+                    plan.package,
+                    super::shown_version(&plan.from)
+                ),
             );
         }
     }
@@ -429,6 +466,7 @@ impl Plan {
             "from": self.from,
             "to": self.to,
             "downgrade": self.downgrade,
+            "digest": self.digest,
             "verified": self.verified,
             "changes": self.changes.iter().map(Change::to_value).collect::<Vec<_>>(),
             "release": self.release.as_ref().map(|r| json!({
@@ -451,7 +489,7 @@ impl Plan {
             "{} runs {} {} ({})\n",
             self.server_name,
             self.package,
-            self.from,
+            super::shown_version(&self.from),
             self.kind.word()
         );
         if let Some(refusal) = &self.refusal {
@@ -465,8 +503,8 @@ impl Plan {
             } else {
                 "Update"
             },
-            self.from,
-            self.to,
+            super::shown_version(&self.from),
+            super::shown_version(&self.to),
             if self.verified {
                 ""
             } else {
@@ -550,10 +588,17 @@ impl Done {
         let mut out = if self.changed {
             format!(
                 "{verb} {}: {} {} to {}.\n",
-                self.server_name, self.package, self.from, self.to
+                self.server_name,
+                self.package,
+                super::shown_version(&self.from),
+                super::shown_version(&self.to)
             )
         } else {
-            format!("{} is already on {}.\n", self.server_name, self.from)
+            format!(
+                "{} is already on {}.\n",
+                self.server_name,
+                super::shown_version(&self.from)
+            )
         };
         if let Some((status, detail)) = &self.restart {
             out.push_str(&format!("Restart ({status}): {detail}\n"));
@@ -810,7 +855,9 @@ impl UndoPlan {
             Some(refusal) => format!("Cannot go back: {}.\n", refusal.message),
             None => format!(
                 "Would put {} back from {} to {}, then restart it.\n",
-                self.server_name, self.applied.to, self.applied.from
+                self.server_name,
+                super::shown_version(&self.applied.to),
+                super::shown_version(&self.applied.from)
             ),
         }
     }
@@ -936,5 +983,257 @@ pub fn undo(host: &dyn Host, args: &UpdateArgs) -> Result<Done, OpError> {
         restart,
         warnings,
         undo: format!("toolportctl server update {}", plan.server_name),
+    })
+}
+
+/// Every server's change in one plan, for one confirm; each server keeps its own plan and hash.
+#[derive(Clone, Debug)]
+pub struct BatchPlan {
+    pub plans: Vec<Plan>,
+    pub hash: String,
+}
+
+impl UpdateArgs {
+    fn for_server(&self, key: &str) -> UpdateArgs {
+        UpdateArgs {
+            key: key.to_string(),
+            to: None,
+            dry_run: self.dry_run,
+            fetch: self.fetch,
+            plan_hash: None,
+            allow_unverified: self.allow_unverified,
+            restart: self.restart,
+            timing: self.timing,
+            restart_wait: self.restart_wait,
+            platform: self.platform,
+        }
+    }
+}
+
+fn batch_hash(plans: &[Plan]) -> String {
+    lock_hash(
+        plans
+            .iter()
+            .map(|plan| format!("{}={}", plan.server_id, plan.hash))
+            .collect::<Vec<_>>()
+            .join("\n"),
+    )
+}
+
+/// The plan of each named server, or with no names of every enabled server that pins a package
+/// and has an update. A registry that cannot be reached refuses that server only.
+pub fn plan_batch(
+    host: &dyn Host,
+    keys: &[String],
+    args: &UpdateArgs,
+) -> Result<BatchPlan, OpError> {
+    let servers = read_servers(host)?;
+    let all = keys.is_empty();
+    let names: Vec<String> = if all {
+        super::pins(&servers)
+            .into_iter()
+            .map(|pin| pin.server_name)
+            .collect()
+    } else {
+        keys.to_vec()
+    };
+    let mut plans: Vec<Plan> = Vec::new();
+    for name in names {
+        let (server, pin) = pin_of(&servers, &name)?;
+        if plans.iter().any(|plan| plan.server_id == server.id) {
+            continue;
+        }
+        let one = args.for_server(&name);
+        let plan = match plan(host, &one, false) {
+            Ok(plan) => plan,
+            Err(error) if error.kind.code() == "lookup_failed" => Plan {
+                refusal: refuse("lookup_failed", error.message),
+                ..Plan::base(&server, &pin)
+            },
+            Err(error) => return Err(error),
+        };
+        let quiet = plan
+            .refusal
+            .as_ref()
+            .is_some_and(|r| matches!(r.code, "up_to_date" | "not_checked"));
+        if !(all && quiet) {
+            plans.push(plan);
+        }
+    }
+    plans.sort_by(|a, b| a.server_name.cmp(&b.server_name));
+    let hash = batch_hash(&plans);
+    Ok(BatchPlan { plans, hash })
+}
+
+impl BatchPlan {
+    pub fn to_value(&self) -> Value {
+        let names: Vec<&str> = self.plans.iter().map(|p| p.server_name.as_str()).collect();
+        json!({
+            "count": self.plans.len(),
+            "plans": self.plans.iter().map(Plan::to_value).collect::<Vec<_>>(),
+            "planHash": self.hash,
+            "apply": format!(
+                "toolportctl server update {} --plan-hash {}",
+                names.join(" "),
+                self.hash
+            ),
+            "undo": format!("toolportctl server update {} --undo", names.join(" ")),
+        })
+    }
+
+    pub fn human(&self) -> String {
+        if self.plans.is_empty() {
+            return "No server has an update waiting.\n".into();
+        }
+        let mut out = format!("{} server(s) can be updated:\n", self.plans.len());
+        for plan in &self.plans {
+            out.push_str(&format!(
+                "\n{}",
+                plan.human().replace("Apply with:", "Alone:")
+            ));
+        }
+        out.push_str(&format!(
+            "\nApply them all with: toolportctl server update {} --plan-hash {}\n",
+            self.plans
+                .iter()
+                .map(|p| p.server_name.as_str())
+                .collect::<Vec<_>>()
+                .join(" "),
+            self.hash
+        ));
+        out
+    }
+}
+
+/// What happened to one server of a batch.
+#[derive(Debug)]
+pub struct BatchItem {
+    pub server: String,
+    pub id: String,
+    pub outcome: Result<Done, OpError>,
+}
+
+#[derive(Debug)]
+pub struct BatchDone {
+    pub items: Vec<BatchItem>,
+    pub undo: String,
+}
+
+impl BatchDone {
+    pub fn failed(&self) -> bool {
+        self.items.iter().any(|item| match &item.outcome {
+            Ok(done) => done.failed(),
+            Err(_) => true,
+        })
+    }
+
+    pub fn to_value(&self) -> Value {
+        let changed = self
+            .items
+            .iter()
+            .filter(|i| i.outcome.as_ref().is_ok_and(|d| d.changed))
+            .count();
+        json!({
+            "applied": changed,
+            "failed": self.items.iter().filter(|i| i.outcome.is_err()).count(),
+            "results": self.items.iter().map(|item| match &item.outcome {
+                Ok(done) => json!({"server": item.server, "id": item.id, "ok": !done.failed(), "result": done.to_value(), "error": null}),
+                Err(error) => json!({"server": item.server, "id": item.id, "ok": false, "result": null,
+                    "error": {"code": error.kind.code(), "message": error.message}}),
+            }).collect::<Vec<_>>(),
+            "undo": self.undo,
+        })
+    }
+
+    pub fn human(&self, verb: &str) -> String {
+        let mut out = String::new();
+        for item in &self.items {
+            match &item.outcome {
+                Ok(done) => out.push_str(&done.human(verb)),
+                Err(error) => out.push_str(&format!("{}: {}\n", item.server, error.message)),
+            }
+        }
+        out
+    }
+}
+
+/// Applies the plan of each server in turn: one that fails or is refused is reported and the
+/// others still go on. `args.plan_hash` is the hash of the combined plan the person reviewed.
+pub fn apply_batch(
+    host: &dyn Host,
+    keys: &[String],
+    args: &UpdateArgs,
+) -> Result<BatchDone, OpError> {
+    let batch = plan_batch(host, keys, args)?;
+    if args.plan_hash.as_deref().is_some_and(|h| h != batch.hash) {
+        return Err(OpError::conflict(
+            "the plan has changed since it was reviewed; review it again",
+        )
+        .with_details(json!({"planHash": batch.hash})));
+    }
+    let mut items = Vec::new();
+    for plan in &batch.plans {
+        let mut one = args.for_server(&plan.server_name);
+        one.to = (!plan.to.is_empty()).then(|| plan.to.clone());
+        one.plan_hash = Some(plan.hash.clone());
+        items.push(BatchItem {
+            server: plan.server_name.clone(),
+            id: plan.server_id.clone(),
+            outcome: apply(host, &one),
+        });
+    }
+    let names: Vec<&str> = batch.plans.iter().map(|p| p.server_name.as_str()).collect();
+    Ok(BatchDone {
+        items,
+        undo: format!("toolportctl server update {} --undo", names.join(" ")),
+    })
+}
+
+/// The servers whose update is on record, when no name is given.
+fn journaled(host: &dyn Host, keys: &[String]) -> Result<Vec<String>, OpError> {
+    if !keys.is_empty() {
+        return Ok(keys.to_vec());
+    }
+    let journal = Journal::read(&base_of(host)?).map_err(journal_error)?;
+    let servers = read_servers(host)?;
+    Ok(servers
+        .iter()
+        .filter(|server| journal.applied.contains_key(&server.id))
+        .map(|server| server.name.clone())
+        .collect())
+}
+
+/// What taking back the update of each server would do.
+pub fn undo_plan_batch(host: &dyn Host, keys: &[String]) -> Result<Vec<UndoPlan>, OpError> {
+    journaled(host, keys)?
+        .iter()
+        .map(|name| undo_plan(host, name))
+        .collect()
+}
+
+/// Puts back the update of each server in turn; one that cannot be put back is reported and the
+/// others still go on.
+pub fn undo_batch(
+    host: &dyn Host,
+    keys: &[String],
+    args: &UpdateArgs,
+) -> Result<BatchDone, OpError> {
+    let names = journaled(host, keys)?;
+    let mut items = Vec::new();
+    for name in &names {
+        let one = args.for_server(name);
+        let servers = read_servers(host)?;
+        let id = find(&servers, name)
+            .map(|s| s.id.clone())
+            .unwrap_or_default();
+        items.push(BatchItem {
+            server: name.clone(),
+            id,
+            outcome: undo(host, &one),
+        });
+    }
+    Ok(BatchDone {
+        items,
+        undo: format!("toolportctl server update {}", names.join(" ")),
     })
 }

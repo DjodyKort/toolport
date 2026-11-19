@@ -47,6 +47,9 @@ pub fn latest(http: &dyn HttpAccess, target: &Target) -> Result<Option<String>, 
     if target.kind == Kind::Github {
         return release::latest(http, target);
     }
+    if let Some(tag) = target.followed_tag() {
+        return tag_digest(http, target, tag);
+    }
     let (url, host) = url(target);
     egress::check(host)?;
     let mut request = HttpRequest::get(url).timeout(TIMEOUT);
@@ -120,4 +123,29 @@ pub fn exists(http: &dyn HttpAccess, target: &Target, version: &str) -> Result<b
         _ if reply.is_success() => Ok(true),
         status => Err(format!("{host} answered {status}")),
     }
+}
+
+/// The digest the tag a digest pin follows points at now; `Ok(None)` when the tag is gone.
+fn tag_digest(http: &dyn HttpAccess, target: &Target, tag: &str) -> Result<Option<String>, String> {
+    let host = "hub.docker.com";
+    egress::check(host)?;
+    let url = format!(
+        "https://hub.docker.com/v2/repositories/{}/tags/{tag}",
+        target.name
+    );
+    let reply = fetch_json(http, HttpRequest::get(url).timeout(TIMEOUT))
+        .map_err(|error| format!("{host}: {error}"))?;
+    if reply.status == 404 {
+        return Ok(None);
+    }
+    if !reply.is_success() {
+        return Err(format!("{host} answered {}", reply.status));
+    }
+    let body = reply
+        .json
+        .ok_or_else(|| format!("{host} answered something that is not JSON"))?;
+    Ok(body["digest"]
+        .as_str()
+        .filter(|digest| super::valid_digest(digest))
+        .map(String::from))
 }

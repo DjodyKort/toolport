@@ -766,3 +766,431 @@ fn test32_the_plan_and_the_result_carry_no_other_argument_of_the_server() {
         assert!(!text.contains("hunter2"), "{text}");
     }
 }
+
+const DIGEST_OLD: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const DIGEST_NEW: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+fn image_server() -> ServerRecord {
+    server(
+        "srv-img",
+        "img",
+        "docker",
+        &[
+            "run",
+            "-i",
+            "--rm",
+            &format!("acme/files:latest@{DIGEST_OLD}"),
+        ],
+    )
+}
+
+fn docker_digest_target() -> Target {
+    Target {
+        kind: Kind::Docker,
+        name: "acme/files".into(),
+        flavor: "@latest".into(),
+    }
+}
+
+fn tag_json(digest: &str) -> Result<HttpResponse, HttpError> {
+    answer(200, &format!(r#"{{"name":"latest","digest":"{digest}"}}"#))
+}
+
+#[test]
+fn test40_an_image_pinned_by_digest_follows_the_tag_it_names() {
+    let pin = pinned(&image_server()).unwrap();
+    assert_eq!(pin.target, docker_digest_target());
+    assert_eq!(pin.version, DIGEST_OLD);
+    assert_eq!(pin.target.followed_tag(), Some("latest"));
+    assert_eq!(pin.manual, None);
+    assert_eq!(pin.target.source(), "package:docker:acme/files:@latest");
+    for image in [
+        format!("acme/files@{DIGEST_OLD}"),
+        "acme/files:latest@sha256:abcd".to_string(),
+        format!("ghcr.io/acme/files:latest@{DIGEST_OLD}"),
+    ] {
+        let record = server("s", "s", "docker", &["run", "--rm", &image]);
+        assert_eq!(pinned(&record), None, "{image}");
+    }
+    assert_eq!(
+        rewrite(&image_server(), DIGEST_NEW).map(|rw| (rw.index, rw.after)),
+        Ok((3, format!("acme/files:latest@{DIGEST_NEW}")))
+    );
+    assert!(rewrite(&image_server(), "sha256:short").is_err());
+}
+
+#[test]
+fn test41_the_digest_a_tag_points_at_comes_from_the_hub_and_a_gone_tag_is_no_answer() {
+    let http = ScriptedHttp::answering(vec![
+        tag_json(DIGEST_NEW),
+        answer(404, "{}"),
+        answer(200, r#"{"name":"latest","digest":"junk"}"#),
+    ]);
+    assert_eq!(
+        lookup::latest(&http, &docker_digest_target())
+            .unwrap()
+            .as_deref(),
+        Some(DIGEST_NEW)
+    );
+    assert_eq!(lookup::latest(&http, &docker_digest_target()), Ok(None));
+    assert_eq!(lookup::latest(&http, &docker_digest_target()), Ok(None));
+    assert_eq!(
+        http.requests.borrow()[0].url,
+        "https://hub.docker.com/v2/repositories/acme/files/tags/latest"
+    );
+}
+
+#[test]
+fn test42_a_digest_pin_is_planned_applied_and_put_back_like_a_version() {
+    let world = World::new("digest");
+    let host = world.host(vec![image_server()], vec![tag_json(DIGEST_NEW)]);
+    let go = UpdateArgs {
+        fetch: true,
+        ..args("img")
+    };
+    let plan = update::plan(&host, &go, false).unwrap();
+    assert!(plan.digest && plan.refusal.is_none() && !plan.downgrade);
+    assert_eq!(
+        plan.to_value()["changes"],
+        json!([{"field": "args[3]", "from": format!("acme/files:latest@{DIGEST_OLD}"),
+                "to": format!("acme/files:latest@{DIGEST_NEW}")}])
+    );
+    let human = plan.human();
+    assert!(
+        human.contains("Update sha256:aaaaaaaaaaaa... to sha256:bbbbbbbbbbbb..."),
+        "{human}"
+    );
+    assert!(
+        !human.lines().take(2).any(|line| line.contains(DIGEST_NEW)),
+        "digests are shortened in the summary; the registry change keeps them whole"
+    );
+    let done = update::apply(
+        &host,
+        &UpdateArgs {
+            to: Some(DIGEST_NEW.into()),
+            plan_hash: Some(plan.hash.clone()),
+            ..args("img")
+        },
+    )
+    .unwrap();
+    assert!(done.changed);
+    assert_eq!(
+        arguments(&host, "srv-img")[3],
+        format!("acme/files:latest@{DIGEST_NEW}")
+    );
+    assert_eq!(
+        pinned(&host.registry.servers.borrow()[0]).unwrap().version,
+        DIGEST_NEW
+    );
+    update::undo(&host, &args("img")).unwrap();
+    assert_eq!(
+        arguments(&host, "srv-img")[3],
+        format!("acme/files:latest@{DIGEST_OLD}")
+    );
+}
+
+#[test]
+fn test43_the_same_digest_is_up_to_date_and_only_a_digest_is_taken_as_a_version() {
+    let world = World::new("digest-same");
+    let host = world.host(vec![image_server()], vec![tag_json(DIGEST_OLD)]);
+    let plan = update::plan(
+        &host,
+        &UpdateArgs {
+            fetch: true,
+            ..args("img")
+        },
+        false,
+    )
+    .unwrap();
+    assert_eq!(plan.refusal.unwrap().code, "up_to_date");
+    let error = update::plan(
+        &host,
+        &UpdateArgs {
+            to: Some("1.2.3".into()),
+            ..args("img")
+        },
+        false,
+    )
+    .unwrap_err();
+    assert!(error.message.contains("is not an image digest"));
+}
+
+#[test]
+fn test44_a_new_digest_is_one_skippable_row_and_the_same_digest_is_none() {
+    let world = World::new("digest-row");
+    let host = world.host(vec![image_server()], vec![]);
+    let rows = |host: &MemoryHost| {
+        crate::attention::snapshot(host)
+            .items
+            .into_iter()
+            .filter(|item| item.id.starts_with("updates:package:"))
+            .collect::<Vec<_>>()
+    };
+    record_lookup(
+        &world.data,
+        1_000,
+        &docker_digest_target(),
+        &Ok(Some(DIGEST_OLD.into())),
+    )
+    .unwrap();
+    assert!(rows(&host).is_empty());
+    record_lookup(
+        &world.data,
+        2_000,
+        &docker_digest_target(),
+        &Ok(Some(DIGEST_NEW.into())),
+    )
+    .unwrap();
+    let found = rows(&host);
+    assert_eq!(found.len(), 1);
+    assert_eq!(
+        found[0].id,
+        "updates:package:img:sha256:aaaaaaaaaaaa...>sha256:bbbbbbbbbbbb..."
+    );
+    assert_eq!(
+        found[0].title,
+        "img: acme/files:latest has a new image, pinned to sha256:aaaaaaaaaaaa..."
+    );
+    assert_eq!(found[0].action.as_ref().unwrap().label, "Update");
+}
+
+fn two_servers() -> Vec<ServerRecord> {
+    vec![
+        files(),
+        server("srv-tools", "tools", "uvx", &["tools-mcp==0.9.1"]),
+    ]
+}
+
+fn pypi_target() -> Target {
+    Target {
+        kind: Kind::Pypi,
+        name: "tools-mcp".into(),
+        flavor: String::new(),
+    }
+}
+
+#[test]
+fn test50_several_servers_share_one_plan_whose_hash_covers_each_of_them() {
+    let world = World::new("batch");
+    let host = world.host(two_servers(), vec![]);
+    world.checked(&npm_target(), "1.5.0");
+    world.checked(&pypi_target(), "1.0.0");
+    let batch = update::plan_batch(&host, &[], &args("")).unwrap();
+    assert_eq!(
+        batch
+            .plans
+            .iter()
+            .map(|p| p.server_name.as_str())
+            .collect::<Vec<_>>(),
+        ["files", "tools"]
+    );
+    assert!(batch.plans.iter().all(|p| p.refusal.is_none()));
+    let value = batch.to_value();
+    assert_eq!(value["count"], 2);
+    assert!(value["apply"]
+        .as_str()
+        .unwrap()
+        .contains("files tools --plan-hash"));
+    world.checked(&pypi_target(), "1.1.0");
+    assert_ne!(
+        update::plan_batch(&host, &[], &args("")).unwrap().hash,
+        batch.hash
+    );
+}
+
+#[test]
+fn test51_all_leaves_out_servers_with_nothing_to_update_and_a_list_keeps_them_with_the_reason() {
+    let world = World::new("batch-all");
+    let host = world.host(two_servers(), vec![]);
+    world.checked(&npm_target(), "1.5.0");
+    let all = update::plan_batch(&host, &[], &args("")).unwrap();
+    assert_eq!(all.plans.len(), 1, "tools was never checked");
+    let named = update::plan_batch(
+        &host,
+        &["files".into(), "tools".into(), "files".into()],
+        &args(""),
+    )
+    .unwrap();
+    assert_eq!(named.plans.len(), 2, "a server named twice counts once");
+    assert_eq!(named.plans[1].refusal.as_ref().unwrap().code, "not_checked");
+    assert_eq!(
+        update::plan_batch(&host, &["ghost".into()], &args(""))
+            .unwrap_err()
+            .kind
+            .code(),
+        "not_found"
+    );
+}
+
+#[test]
+fn test52_one_confirm_applies_every_server_and_one_failure_does_not_stop_the_others() {
+    let world = World::new("batch-apply");
+    let mut recipe = server(
+        "srv-recipe",
+        "recipe",
+        "npx",
+        &["-y", "@scope/recipe@2.0.0"],
+    );
+    recipe
+        .extra
+        .insert("launch".into(), json!({"inputs": [], "bindings": []}));
+    let mut servers = two_servers();
+    servers.push(recipe);
+    let host = world.host(servers, vec![]);
+    world.checked(&npm_target(), "1.5.0");
+    world.checked(&pypi_target(), "1.0.0");
+    world.checked(
+        &Target {
+            name: "@scope/recipe".into(),
+            ..npm_target()
+        },
+        "2.1.0",
+    );
+    let batch = update::plan_batch(&host, &[], &args("")).unwrap();
+    let stale = update::apply_batch(
+        &host,
+        &[],
+        &UpdateArgs {
+            plan_hash: Some("sha256:0000000000000000".into()),
+            ..args("")
+        },
+    )
+    .unwrap_err();
+    assert_eq!(stale.kind.code(), "conflict");
+    assert_eq!(arguments(&host, "srv-files")[1], "@scope/files@1.4.2");
+
+    let done = update::apply_batch(
+        &host,
+        &[],
+        &UpdateArgs {
+            plan_hash: Some(batch.hash.clone()),
+            ..args("")
+        },
+    )
+    .unwrap();
+    let outcome = |name: &str| done.items.iter().find(|i| i.server == name).unwrap();
+    assert!(outcome("files").outcome.as_ref().unwrap().changed);
+    assert!(outcome("tools").outcome.as_ref().unwrap().changed);
+    assert_eq!(
+        outcome("recipe").outcome.as_ref().unwrap_err().kind.code(),
+        "update_refused"
+    );
+    assert!(done.failed());
+    assert_eq!(arguments(&host, "srv-files")[1], "@scope/files@1.5.0");
+    assert_eq!(arguments(&host, "srv-tools")[0], "tools-mcp==1.0.0");
+    let value = done.to_value();
+    assert_eq!(
+        (value["applied"].clone(), value["failed"].clone()),
+        (json!(2), json!(1))
+    );
+    assert_eq!(Journal::read(&world.data).unwrap().applied.len(), 2);
+}
+
+#[test]
+fn test53_one_undo_puts_back_every_update_on_record_and_names_those_that_cannot_go() {
+    let world = World::new("batch-undo");
+    let host = world.host(two_servers(), vec![]);
+    world.checked(&npm_target(), "1.5.0");
+    world.checked(&pypi_target(), "1.0.0");
+    update::apply_batch(&host, &[], &args("")).unwrap();
+    host.registry.servers.borrow_mut()[1]
+        .extra
+        .insert("args".into(), json!(["tools-mcp==2.0.0"]));
+    let previews = update::undo_plan_batch(&host, &[]).unwrap();
+    assert_eq!(previews.len(), 2);
+    assert!(previews.iter().any(|p| p.refusal.is_some()));
+    let done = update::undo_batch(&host, &[], &args("")).unwrap();
+    assert_eq!(done.items.len(), 2);
+    assert_eq!(arguments(&host, "srv-files")[1], "@scope/files@1.4.2");
+    assert_eq!(arguments(&host, "srv-tools")[0], "tools-mcp==2.0.0");
+    assert!(done.failed());
+    assert_eq!(Journal::read(&world.data).unwrap().applied.len(), 1);
+}
+
+#[test]
+fn test54_a_registry_that_cannot_be_reached_refuses_its_server_and_not_the_batch() {
+    let world = World::new("batch-offline");
+    let host = world.host(
+        two_servers(),
+        vec![
+            answer(200, r#"{"version":"1.5.0"}"#),
+            Err(HttpError::Connect("no route".into())),
+        ],
+    );
+    let batch = update::plan_batch(
+        &host,
+        &[],
+        &UpdateArgs {
+            fetch: true,
+            ..args("")
+        },
+    )
+    .unwrap();
+    assert_eq!(batch.plans.len(), 2);
+    assert!(batch.plans[0].refusal.is_none());
+    let refusal = batch.plans[1].refusal.as_ref().unwrap();
+    assert_eq!(refusal.code, "lookup_failed");
+    assert!(refusal.message.contains("no route"));
+}
+
+#[test]
+fn test60_the_source_row_says_what_each_local_server_runs_and_what_is_known_about_it() {
+    use super::source::{rows, State};
+    let world = World::new("source");
+    let mut remote = server("srv-remote", "remote", "npx", &["x"]);
+    remote.extra.insert("transport".into(), json!("http"));
+    let mut servers = two_servers();
+    servers.push(server("srv-free", "free", "npx", &["-y", "free-files"]));
+    servers.push(server("srv-script", "script", "node", &["server.js"]));
+    servers.push(image_server());
+    servers.push(remote);
+    let host = world.host(servers, vec![]);
+    world.checked(&npm_target(), "1.5.0");
+    record_lookup(&world.data, 1_000, &pypi_target(), &Err("no route".into())).unwrap();
+    record_lookup(
+        &world.data,
+        1_000,
+        &docker_digest_target(),
+        &Ok(Some(DIGEST_OLD.into())),
+    )
+    .unwrap();
+    let found = rows(&host, None).unwrap();
+    let state = |name: &str| found.iter().find(|r| r.server == name).unwrap();
+    assert_eq!(state("files").state, State::UpdateAvailable);
+    assert_eq!(state("files").latest.as_deref(), Some("1.5.0"));
+    assert_eq!(state("files").checked_at, Some(1_000));
+    assert_eq!(state("tools").state, State::Error);
+    assert_eq!(state("tools").error.as_deref(), Some("no route"));
+    assert_eq!(state("free").state, State::Automatic);
+    assert_eq!(state("script").state, State::Unknown);
+    assert_eq!(state("img").state, State::UpToDate);
+    assert_eq!(state("img").tracks.as_deref(), Some("latest"));
+    assert!(
+        found.iter().all(|r| r.server != "remote"),
+        "a remote server has no code to update"
+    );
+    assert!(
+        host.http.requests.borrow().is_empty(),
+        "the row asks nobody"
+    );
+    assert_eq!(rows(&host, Some("files")).unwrap().len(), 1);
+    assert_eq!(
+        rows(&host, Some("remote")).unwrap_err().kind.code(),
+        "not_found"
+    );
+    assert!(state("files").human().contains("1.5.0 is out"));
+}
+
+#[test]
+fn test61_a_pin_never_looked_up_is_unchecked_and_one_toolport_cannot_rewrite_says_so() {
+    use super::source::{rows, State};
+    let world = World::new("source-manual");
+    let mut recipe = files();
+    recipe
+        .extra
+        .insert("launch".into(), json!({"inputs": [], "bindings": []}));
+    let host = world.host(vec![recipe], vec![]);
+    let row = rows(&host, Some("files")).unwrap().remove(0);
+    assert_eq!(row.state, State::Unchecked);
+    assert!(row.manual.unwrap().contains("launch recipe"));
+}
