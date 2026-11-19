@@ -135,10 +135,14 @@ fn build_all(
             PartId::Library => parts::library_part(&b),
             PartId::Tasks => parts::tasks_part(&b),
             PartId::Settings => parts::settings_part(&b),
-            PartId::ClaudeUser => parts::claude_user_part(&b),
+            PartId::ClaudeUser => {
+                let (part, held) = parts::claude_user_part(&b);
+                flagged.extend(held);
+                part
+            }
             PartId::Memory => {
                 let (part, held) = parts::memory_part(&b);
-                flagged = held;
+                flagged.extend(held);
                 part
             }
             PartId::History => parts::history_part(&b, passphrase),
@@ -218,6 +222,7 @@ fn part_json(part: &Part) -> Value {
         "fileSize": part.bytes(),
         "notes": part.notes,
         "flagged": part.flagged,
+        "heldBack": part.held,
         "info": part.info,
         "error": part.error,
     })
@@ -451,6 +456,7 @@ pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Va
             "tree": tree,
             "totalSize": total,
             "notIncluded": not_included(&opts.parts),
+            "heldBackSealed": opts.secrets_on(),
             "plan": {"summary": format!("{} parts, about {} bytes", parts.len(), total), "steps": []},
         }));
     }
@@ -499,6 +505,7 @@ pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Va
         "tree": tree,
         "verified": true,
         "notIncluded": not_included(&opts.parts),
+        "heldBackSealed": opts.secrets_on(),
         "result": {"undo": "delete the file"},
     });
     if opts.seal_file {

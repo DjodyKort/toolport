@@ -68,6 +68,19 @@ impl Entry {
     }
 }
 
+/// A file the secret scan held out of a readable part, named for the screen: where it is and what
+/// the scan found, never the text.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Held {
+    pub file: String,
+    pub kind: &'static str,
+    pub reason: &'static str,
+}
+
+pub const HELD_CLAUDE_USER: &str = "claude-user";
+pub const HELD_INSTRUCTION: &str = "instruction";
+pub const HELD_MEMORY: &str = "memory";
+
 #[derive(Clone, Debug)]
 pub struct Part {
     pub id: PartId,
@@ -77,6 +90,8 @@ pub struct Part {
     pub notes: Vec<String>,
     /// Memory files that look like they hold a token (names only).
     pub flagged: Vec<String>,
+    /// The same files with what the scan found in each.
+    pub held: Vec<Held>,
     /// What the part reports about itself for the parts list (sizes, sub-counts).
     pub info: Value,
     /// The part could not be read at all.
@@ -93,6 +108,7 @@ impl Part {
             count: 0,
             notes: Vec::new(),
             flagged: Vec::new(),
+            held: Vec::new(),
             info: Value::Object(Map::new()),
             error: None,
             sized_only: None,
@@ -537,11 +553,14 @@ fn plugin_list(claude_home: &Path) -> Value {
     json!({"version": 1, "plugins": plugins, "marketplaces": marketplaces})
 }
 
-fn looks_secret(bytes: &[u8]) -> bool {
-    scan::looks_secret_text(&String::from_utf8_lossy(bytes))
+/// What the scan found in these bytes, if anything.
+fn looks_secret(bytes: &[u8]) -> Option<&'static str> {
+    scan::secret_kind(&String::from_utf8_lossy(bytes))
 }
 
-pub fn claude_user_part(b: &Build<'_>) -> Part {
+/// The part, and the files the scan held back with their bytes when Secrets is ticked, which seals
+/// them instead of leaving them out.
+pub fn claude_user_part(b: &Build<'_>) -> (Part, Vec<Flagged>) {
     let mut part = Part::new(PartId::ClaudeUser);
     let home = &b.ctx.claude_home;
     // Files copied as they are; the rest below is built here and holds no foreign text.
@@ -581,16 +600,33 @@ pub fn claude_user_part(b: &Build<'_>) -> Part {
             copied.push(Entry::bytes("claude-user/keybindings.json", bytes));
         }
     }
+    let sealing = b.opts.secrets_on();
     let mut held: Vec<String> = Vec::new();
-    for entry in copied {
-        match &entry.body {
-            Body::Bytes(bytes) if looks_secret(bytes) => {
-                held.push(format!(
-                    "~/.claude/{}",
-                    entry.name.trim_start_matches("claude-user/")
-                ));
+    let mut sealed: Vec<Flagged> = Vec::new();
+    for Entry { name, body } in copied {
+        let reason = match &body {
+            Body::Bytes(bytes) => looks_secret(bytes),
+            Body::File(_) => None,
+        };
+        match (reason, body) {
+            (Some(reason), Body::Bytes(bytes)) => {
+                let rel = name.trim_start_matches("claude-user/").to_string();
+                held.push(format!("~/.claude/{rel}"));
+                part.held.push(Held {
+                    file: format!("~/.claude/{rel}"),
+                    kind: HELD_CLAUDE_USER,
+                    reason,
+                });
+                if sealing {
+                    sealed.push(Flagged {
+                        kind: HELD_CLAUDE_USER,
+                        dir: String::new(),
+                        name: rel,
+                        bytes: Zeroizing::new(bytes),
+                    });
+                }
             }
-            _ => files.push(entry),
+            (_, body) => files.push(Entry { name, body }),
         }
     }
     part.count = files.len() as u64;
@@ -607,18 +643,25 @@ pub fn claude_user_part(b: &Build<'_>) -> Part {
     }
     if !held.is_empty() {
         part.notes.push(format!(
-            "{} files in ~/.claude look like they hold a token and stay out of the file",
-            held.len()
+            "{} files in ~/.claude look like they hold a token: {}",
+            held.len(),
+            if sealing {
+                "they go into the encrypted part"
+            } else {
+                "they stay out of the file"
+            }
         ));
         part.flagged = held;
     }
     part.entries = files;
-    part
+    (part, sealed)
 }
 
-/// A memory file held back for the sealed part.
+/// A file held back for the sealed part. `dir` is the repository folder of a memory or instruction
+/// file and empty for a Claude Code user file, whose `name` is then its path under `~/.claude`.
 #[derive(Clone, Debug)]
 pub struct Flagged {
+    pub kind: &'static str,
     pub dir: String,
     pub name: String,
     pub bytes: Zeroizing<Vec<u8>>,
@@ -673,12 +716,18 @@ pub fn memory_part(b: &Build<'_>) -> (Part, Vec<Flagged>) {
         let mut kept_names = Vec::new();
         let mut flagged_names = Vec::new();
         for file in auto {
-            if looks_secret(&file.bytes) {
+            if let Some(reason) = looks_secret(&file.bytes) {
                 flagged_names.push(file.name.clone());
                 part.flagged.push(format!("{}/{}", repo.name, file.name));
+                part.held.push(Held {
+                    file: format!("{}/{}", repo.name, file.name),
+                    kind: HELD_MEMORY,
+                    reason,
+                });
                 let bytes = Zeroizing::new(file.bytes);
                 if sealing {
                     flagged_files.push(Flagged {
+                        kind: HELD_MEMORY,
                         dir: dir.clone(),
                         name: file.name,
                         bytes,
@@ -695,9 +744,22 @@ pub fn memory_part(b: &Build<'_>) -> (Part, Vec<Flagged>) {
         let mut instruction_names = Vec::new();
         let mut instructions_held = Vec::new();
         for KeptFile { name, bytes } in instructions {
-            if looks_secret(&bytes) {
-                let _wiped = Zeroizing::new(bytes);
+            if let Some(reason) = looks_secret(&bytes) {
+                let bytes = Zeroizing::new(bytes);
                 part.flagged.push(format!("{}/{name}", repo.name));
+                part.held.push(Held {
+                    file: format!("{}/{name}", repo.name),
+                    kind: HELD_INSTRUCTION,
+                    reason,
+                });
+                if sealing {
+                    flagged_files.push(Flagged {
+                        kind: HELD_INSTRUCTION,
+                        dir: dir.clone(),
+                        name: name.clone(),
+                        bytes,
+                    });
+                }
                 instructions_held.push(name);
                 continue;
             }
@@ -742,7 +804,12 @@ pub fn memory_part(b: &Build<'_>) -> (Part, Vec<Flagged>) {
     }
     if instructions_held_total > 0 {
         part.notes.push(format!(
-            "{instructions_held_total} instruction files look like they hold a token and stay out of the file"
+            "{instructions_held_total} instruction files look like they hold a token: {}",
+            if sealing {
+                "they go into the encrypted part"
+            } else {
+                "they stay out of the file"
+            }
         ));
     }
     part.entries.insert(
@@ -873,6 +940,12 @@ struct SecretsDoc<'a> {
     values: Vec<SecretRow<'a>>,
     #[serde(rename = "memoryFiles")]
     memory_files: Vec<MemoryRow<'a>>,
+    /// Instruction files of a repository, by the folder the file's `memory/index.json` names.
+    #[serde(rename = "instructionFiles")]
+    instruction_files: Vec<MemoryRow<'a>>,
+    /// Claude Code user files, by their path under `~/.claude`.
+    #[serde(rename = "claudeFiles")]
+    claude_files: Vec<ClaudeRow<'a>>,
 }
 
 #[derive(Serialize)]
@@ -886,6 +959,12 @@ struct SecretRow<'a> {
 #[derive(Serialize)]
 struct MemoryRow<'a> {
     dir: &'a str,
+    name: &'a str,
+    hex: HexBytes<'a>,
+}
+
+#[derive(Serialize)]
+struct ClaudeRow<'a> {
     name: &'a str,
     hex: HexBytes<'a>,
 }
@@ -918,6 +997,17 @@ impl std::io::Write for CountingSink {
     }
 }
 
+fn of_kind<'a>(flagged: &'a [Flagged], kind: &'static str) -> impl Iterator<Item = MemoryRow<'a>> {
+    flagged
+        .iter()
+        .filter(move |f| f.kind == kind)
+        .map(|f| MemoryRow {
+            dir: &f.dir,
+            name: &f.name,
+            hex: HexBytes(&f.bytes),
+        })
+}
+
 /// The document that gets sealed. It is serialised twice, the first time only to size the buffer,
 /// because a buffer that grows leaves its earlier, smaller copies in freed memory.
 fn secrets_plain(values: &[StaticSecret], flagged: &[Flagged]) -> Zeroizing<Vec<u8>> {
@@ -932,10 +1022,12 @@ fn secrets_plain(values: &[StaticSecret], flagged: &[Flagged]) -> Zeroizing<Vec<
                 value: &s.value,
             })
             .collect(),
-        memory_files: flagged
+        memory_files: of_kind(flagged, HELD_MEMORY).collect(),
+        instruction_files: of_kind(flagged, HELD_INSTRUCTION).collect(),
+        claude_files: flagged
             .iter()
-            .map(|f| MemoryRow {
-                dir: &f.dir,
+            .filter(|f| f.kind == HELD_CLAUDE_USER)
+            .map(|f| ClaudeRow {
                 name: &f.name,
                 hex: HexBytes(&f.bytes),
             })
@@ -993,6 +1085,7 @@ mod tests {
 
     fn flagged(bytes: &[u8]) -> Flagged {
         Flagged {
+            kind: HELD_MEMORY,
             dir: "web".into(),
             name: "leak.md".into(),
             bytes: Zeroizing::new(bytes.to_vec()),

@@ -31,6 +31,7 @@ fn manifest_key(id: PartId) -> (&'static str, &'static str) {
         PartId::Settings => ("file", "settings.json"),
         PartId::ClaudeUser => ("dir", "claude-user/"),
         PartId::Memory => ("dir", "memory/"),
+        PartId::Secrets => ("file", "secrets.enc"),
         other => panic!("not needed by these tests: {other:?}"),
     }
 }
@@ -48,13 +49,17 @@ fn setup_file(world: &World, name: &str, parts: Vec<(PartId, Entries)>) -> PathB
             .collect();
         part.count = entries.len() as u64;
         let (key, file) = manifest_key(*id);
-        rows.push(json!({
+        let mut row = json!({
             "id": id.id(),
             key: file,
             "sha256": part.hash().unwrap(),
             "bytes": part.bytes(),
             "count": part.count,
-        }));
+        });
+        if id.sealed() {
+            row["encrypted"] = json!(true);
+        }
+        rows.push(row);
     }
     let manifest = json!({"format": FORMAT, "version": VERSION, "parts": rows});
     zip.add(MANIFEST, &serde_json::to_vec_pretty(&manifest).unwrap())
@@ -669,4 +674,220 @@ fn test11_everything_an_export_writes_comes_back_through_the_lists() {
     assert!(clone.join("CLAUDE.local.md").exists());
     assert!(clone.join(".claude/rules/deep/style.md").exists());
     assert!(!clone.join(".claude/rules/notes.txt").exists());
+}
+
+#[cfg(feature = "cipher")]
+mod sealed_claude_files {
+    use std::path::PathBuf;
+
+    use super::super::crypto::{self, Cost};
+    use super::super::tests::{token, PASS};
+    use super::super::PartId;
+    use super::*;
+
+    const CHEAP: Cost = Cost {
+        memory_kib: 64,
+        iterations: 1,
+        lanes: 1,
+    };
+
+    fn hex_of(text: &str) -> String {
+        super::super::hex(text.as_bytes())
+    }
+
+    fn secrets_entry(doc: &Value) -> (String, Vec<u8>) {
+        crypto::TEST_COST.with(|cost| cost.set(Some(CHEAP)));
+        let sealed = crypto::seal_bytes(PASS, &serde_json::to_vec(doc).unwrap()).unwrap();
+        ("secrets.enc".to_string(), sealed)
+    }
+
+    fn with_passphrase(file: &Path, apply: Option<&str>) -> RestoreOptions {
+        RestoreOptions {
+            file: file.into(),
+            passphrase: Some(PASS.into()),
+            apply: apply.is_some(),
+            plan: apply.map(Into::into),
+            ..Default::default()
+        }
+    }
+
+    fn plan_and_apply_unlocked(to: &World, file: &Path) -> (Value, Value) {
+        let dry = restore::run(&to.ctx(), &with_passphrase(file, None)).unwrap();
+        let hash = dry["plan"].as_str().unwrap().to_string();
+        let applied = restore::run(&to.ctx(), &with_passphrase(file, Some(&hash))).unwrap();
+        (dry, applied)
+    }
+
+    #[test]
+    fn test12_files_the_scan_held_back_come_back_to_their_own_places_from_the_sealed_part() {
+        crypto::TEST_COST.with(|cost| cost.set(Some(CHEAP)));
+        let from = World::new();
+        let web = from.repo("web");
+        let leaky_global = format!("deploy with {}\n", token());
+        let leaky_rule = format!("export KEY={}\n", token());
+        let leaky_local = format!("token {}\n", token());
+        from.claude("CLAUDE.md", &leaky_global);
+        from.claude("rules/nested/deploy.md", &leaky_rule);
+        from.claude("rules/style.md", "short answers\n");
+        from.put(&web.join("AGENTS.md"), &leaky_local);
+        from.put(&web.join(".claude/rules/key.md"), &leaky_rule);
+        let mut opts = options(&from);
+        opts.parts.insert(PartId::Secrets);
+        let data = export::run(&from.ctx(), &opts, Some(PASS)).unwrap();
+        let file = PathBuf::from(data["file"].as_str().unwrap());
+        let bytes = std::fs::read(&file).unwrap();
+        assert!(!bytes
+            .windows(token().len())
+            .any(|w| w == token().as_bytes()));
+
+        let to = World::new();
+        let (dry, applied) = plan_and_apply_unlocked(&to, &file);
+        assert!(refused(&dry).is_empty(), "{dry}");
+        assert_eq!(applied["failed"], 0, "{applied}");
+        let claude = to.home.join(".claude");
+        for (rel, want) in [
+            ("CLAUDE.md", leaky_global.as_str()),
+            ("rules/nested/deploy.md", leaky_rule.as_str()),
+            ("rules/style.md", "short answers\n"),
+        ] {
+            assert_eq!(
+                std::fs::read_to_string(claude.join(rel)).unwrap(),
+                want,
+                "{rel}"
+            );
+        }
+        let clone = to.home.join("code/web");
+        assert_eq!(
+            std::fs::read_to_string(clone.join("AGENTS.md")).unwrap(),
+            leaky_local
+        );
+        assert_eq!(
+            std::fs::read_to_string(clone.join(".claude/rules/key.md")).unwrap(),
+            leaky_rule
+        );
+    }
+
+    #[test]
+    fn test13_without_the_passphrase_the_held_back_files_stay_in_the_file() {
+        crypto::TEST_COST.with(|cost| cost.set(Some(CHEAP)));
+        let from = World::new();
+        from.repo("web");
+        from.claude("CLAUDE.md", &format!("deploy with {}\n", token()));
+        let mut opts = options(&from);
+        opts.parts.insert(PartId::Secrets);
+        let data = export::run(&from.ctx(), &opts, Some(PASS)).unwrap();
+        let file = PathBuf::from(data["file"].as_str().unwrap());
+        let to = World::new();
+        let before = to.snapshot();
+        let (dry, _) = plan_and_apply(&to, &file);
+        assert!(!dry["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["id"] == "claude:CLAUDE.md"));
+        assert!(!to.home.join(".claude/CLAUDE.md").exists());
+        assert!(!changed(&to, &before)
+            .iter()
+            .any(|f| f.ends_with("CLAUDE.md")));
+    }
+
+    #[test]
+    fn test14_a_sealed_entry_outside_the_lists_is_refused_and_nothing_else_is_touched() {
+        let to = World::new();
+        to.repo("web");
+        let outside = to.dir.path().join("outside.md");
+        let ok = hex_of("fine\n");
+        let claude_names = [
+            "CLAUDE.md",
+            "rules/ok.md",
+            "settings.json",
+            "settings.local.json",
+            ".credentials.json",
+            "hooks/evil.sh",
+            "rules/./dot.md",
+            "../escape.md",
+            "/abs.md",
+        ];
+        let instruction_names = [
+            "CLAUDE.md",
+            ".git/hooks/pre-commit",
+            ".git/config",
+            ".claude/settings.json",
+            "notes.txt",
+            "../CLAUDE.md",
+        ];
+        let doc = json!({
+            "version": 1,
+            "values": [],
+            "memoryFiles": [],
+            "claudeFiles": claude_names
+                .iter()
+                .map(|n| json!({"name": n, "hex": ok}))
+                .collect::<Vec<_>>(),
+            "instructionFiles": instruction_names
+                .iter()
+                .map(|n| json!({"dir": "web-1", "name": n, "hex": ok}))
+                .chain([json!({"dir": "elsewhere", "name": "CLAUDE.md", "hex": ok})])
+                .collect::<Vec<_>>(),
+        });
+        let file = setup_file(
+            &to,
+            "sealed.zip",
+            vec![
+                (
+                    PartId::ClaudeUser,
+                    vec![text("claude-user/rules/plain.md", "plain\n")],
+                ),
+                (
+                    PartId::Memory,
+                    memory_part(
+                        json!([memory_repo("web-1", "~/code/web", &[])]),
+                        json!([]),
+                        Vec::new(),
+                    ),
+                ),
+                (PartId::Secrets, vec![secrets_entry(&doc)]),
+            ],
+        );
+        let hooks = to.home.join("code/web/.git/hooks/pre-commit");
+        let config_before = std::fs::read(to.home.join("code/web/.git/config")).unwrap();
+        let before = to.snapshot();
+        let (dry, applied) = plan_and_apply_unlocked(&to, &file);
+        let mut want: Vec<String> = [
+            "claude:.credentials.json",
+            "claude:../escape.md",
+            "claude:/abs.md",
+            "claude:hooks/evil.sh",
+            "claude:rules/./dot.md",
+            "claude:settings.json",
+            "claude:settings.local.json",
+            "memory:web-1/instructions/.claude/settings.json",
+            "memory:web-1/instructions/.git/config",
+            "memory:web-1/instructions/.git/hooks/pre-commit",
+            "memory:web-1/instructions/../CLAUDE.md",
+            "memory:web-1/instructions/notes.txt",
+            "memory:elsewhere/instructions/CLAUDE.md",
+        ]
+        .map(String::from)
+        .to_vec();
+        want.sort();
+        assert_eq!(refused(&dry), want);
+        assert_eq!(refused(&applied), want);
+        assert_eq!(applied["failed"], 0, "{applied}");
+        assert_eq!(
+            changed(&to, &before),
+            [
+                "home/.claude/CLAUDE.md",
+                "home/.claude/rules/ok.md",
+                "home/.claude/rules/plain.md",
+                "home/code/web/CLAUDE.md"
+            ]
+        );
+        assert!(!hooks.exists());
+        assert!(!outside.exists());
+        assert_eq!(
+            std::fs::read(to.home.join("code/web/.git/config")).unwrap(),
+            config_before
+        );
+    }
 }

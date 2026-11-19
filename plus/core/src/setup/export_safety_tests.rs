@@ -361,21 +361,121 @@ mod held_back {
         );
     }
 
-    #[cfg(feature = "cipher")]
     #[test]
-    fn test10_secrets_on_does_not_carry_the_held_back_files_into_the_sealed_part() {
-        use super::super::{crypto, PartId};
+    fn test10_a_held_back_file_is_named_with_what_the_scan_found_and_never_the_text() {
         let world = World::new();
         let repo = world.repo("web");
         world.claude("CLAUDE.md", &format!("deploy with {}\n", token()));
+        world.claude("rules/pw.md", "password = hunter2hunter2hunter2\n");
         world.put(&repo.join("AGENTS.md"), &format!("token {}\n", token()));
-        let mut opts = options(&world);
-        opts.parts.insert(PartId::Secrets);
-        let data = export::run(&world.ctx(), &opts, Some(super::super::tests::PASS)).unwrap();
-        let file = PathBuf::from(data["file"].as_str().unwrap());
-        assert!(!holds(&file, &token()));
-        let sealed = ZipFile::open(&file).unwrap().read("secrets.enc").unwrap();
-        let plain = crypto::open_bytes(super::super::tests::PASS, &sealed).unwrap();
-        assert!(!String::from_utf8_lossy(&plain).contains(&token()));
+        let (data, _) = exported(&world);
+        assert_eq!(data["heldBackSealed"], false);
+        assert_eq!(
+            part(&data, "claudeUser")["heldBack"],
+            json!([
+                {"file": "~/.claude/CLAUDE.md", "kind": "claude-user", "reason": "a GitHub token"},
+                {"file": "~/.claude/rules/pw.md", "kind": "claude-user",
+                 "reason": "a password, token or key assigned a value"},
+            ])
+        );
+        assert_eq!(
+            part(&data, "memory")["heldBack"],
+            json!([{"file": "web/AGENTS.md", "kind": "instruction", "reason": "a GitHub token"}])
+        );
+        assert!(!data.to_string().contains(&token()));
+        assert!(!data.to_string().contains("hunter2"));
+    }
+
+    #[cfg(feature = "cipher")]
+    mod sealed {
+        use super::super::super::crypto::{self, Cost};
+        use super::super::super::tests::PASS;
+        use super::super::super::{unhex, PartId};
+        use super::*;
+
+        const CHEAP: Cost = Cost {
+            memory_kib: 64,
+            iterations: 1,
+            lanes: 1,
+        };
+
+        fn export_with_secrets(world: &World) -> (Value, PathBuf) {
+            crypto::TEST_COST.with(|cost| cost.set(Some(CHEAP)));
+            let mut opts = options(world);
+            opts.parts.insert(PartId::Secrets);
+            let data = export::run(&world.ctx(), &opts, Some(PASS)).unwrap();
+            let file = PathBuf::from(data["file"].as_str().unwrap());
+            (data, file)
+        }
+
+        fn unsealed(file: &std::path::Path) -> Value {
+            let sealed = ZipFile::open(file).unwrap().read("secrets.enc").unwrap();
+            serde_json::from_slice(&crypto::open_bytes(PASS, &sealed).unwrap()).unwrap()
+        }
+
+        fn bytes_of(row: &Value) -> String {
+            String::from_utf8(unhex(row["hex"].as_str().unwrap()).unwrap()).unwrap()
+        }
+
+        #[test]
+        fn test11_secrets_on_carries_the_held_back_files_in_the_sealed_part_only() {
+            let world = World::new();
+            let repo = world.repo("web");
+            let global = format!("deploy with {}\n", token());
+            let local = format!("token {}\n", token());
+            world.claude("CLAUDE.md", &global);
+            world.claude("rules/style.md", "short answers\n");
+            world.put(&repo.join("AGENTS.md"), &local);
+            world.put(&repo.join("CLAUDE.local.md"), "local notes\n");
+            let (data, file) = export_with_secrets(&world);
+            assert_eq!(data["heldBackSealed"], true);
+            assert!(!holds(&file, &token()));
+            let all = entry_names(&file);
+            assert!(!all
+                .iter()
+                .any(|n| n.ends_with("CLAUDE.md") && n.starts_with("claude-user")));
+            assert!(!all.iter().any(|n| n.ends_with("AGENTS.md")));
+            assert!(all.contains(&"claude-user/rules/style.md".to_string()));
+
+            let doc = unsealed(&file);
+            let claude = doc["claudeFiles"].as_array().unwrap();
+            assert_eq!(claude.len(), 1);
+            assert_eq!(claude[0]["name"], "CLAUDE.md");
+            assert_eq!(bytes_of(&claude[0]), global);
+            let instructions = doc["instructionFiles"].as_array().unwrap();
+            assert_eq!(instructions.len(), 1);
+            assert_eq!(instructions[0]["name"], "AGENTS.md");
+            assert_eq!(bytes_of(&instructions[0]), local);
+            let index: Value = serde_json::from_slice(
+                &ZipFile::open(&file)
+                    .unwrap()
+                    .read("memory/index.json")
+                    .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(index["repos"][0]["dir"], instructions[0]["dir"]);
+            assert_eq!(
+                part(&data, "claudeUser")["notes"][0],
+                "1 files in ~/.claude look like they hold a token: they go into the encrypted part"
+            );
+        }
+
+        #[test]
+        fn test12_without_secrets_the_sealed_document_is_not_even_built_for_them() {
+            let world = World::new();
+            let repo = world.repo("web");
+            world.session_of(&repo, "abc", "a transcript\n");
+            world.claude("CLAUDE.md", &format!("deploy with {}\n", token()));
+            let mut opts = options(&world);
+            opts.parts.insert(PartId::History);
+            let data = export::run(&world.ctx(), &opts, Some(PASS)).unwrap();
+            let file = PathBuf::from(data["file"].as_str().unwrap());
+            assert!(!entry_names(&file).contains(&"secrets.enc".to_string()));
+            assert!(!holds(&file, &token()));
+            assert_eq!(
+                part(&data, "claudeUser")["heldBack"][0]["file"],
+                "~/.claude/CLAUDE.md"
+            );
+        }
     }
 }

@@ -7,22 +7,33 @@ use std::sync::OnceLock;
 use regex::Regex;
 use serde_json::{Map, Value};
 
-fn token_shapes() -> &'static Regex {
-    static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| {
-        Regex::new(
-            r"(?x)
-            AKIA[0-9A-Z]{16}
-            | gh[pousr]_[A-Za-z0-9]{30,}
-            | github_pat_[A-Za-z0-9_]{20,}
-            | sk-[A-Za-z0-9_-]{20,}
-            | xox[abprs]-[A-Za-z0-9-]{10,}
-            | AIza[0-9A-Za-z_-]{35}
-            | eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.
-            | -----BEGIN\ [A-Z\ ]*PRIVATE\ KEY-----
-            | (?i:(?:api[_-]?key|secret|token|passw(?:or)?d|passwd|credential)s?)\s*[:=]\s*['\x22]?[A-Za-z0-9_\-./+=]{12,}",
-        )
-        .expect("secret shapes")
+/// The shapes a secret takes in text, each with the words that say what was found. The words never
+/// carry the match itself.
+const SHAPES: [(&str, &str); 9] = [
+    ("an AWS access key", r"AKIA[0-9A-Z]{16}"),
+    ("a GitHub token", r"gh[pousr]_[A-Za-z0-9]{30,}"),
+    ("a GitHub token", r"github_pat_[A-Za-z0-9_]{20,}"),
+    ("an API key (sk-)", r"sk-[A-Za-z0-9_-]{20,}"),
+    ("a Slack token", r"xox[abprs]-[A-Za-z0-9-]{10,}"),
+    ("a Google API key", r"AIza[0-9A-Za-z_-]{35}"),
+    (
+        "a signed token (JWT)",
+        r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.",
+    ),
+    ("a private key", r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+    (
+        "a password, token or key assigned a value",
+        r"(?i:(?:api[_-]?key|secret|token|passw(?:or)?d|passwd|credential)s?)\s*[:=]\s*['\x22]?[A-Za-z0-9_\-./+=]{12,}",
+    ),
+];
+
+fn token_shapes() -> &'static [(&'static str, Regex)] {
+    static SET: OnceLock<Vec<(&'static str, Regex)>> = OnceLock::new();
+    SET.get_or_init(|| {
+        SHAPES
+            .iter()
+            .map(|(label, pattern)| (*label, Regex::new(pattern).expect("secret shape")))
+            .collect()
     })
 }
 
@@ -34,9 +45,18 @@ fn sensitive_key() -> &'static Regex {
     })
 }
 
+/// What the text holds that is shaped like a token, a key or an assigned secret, in words that
+/// do not repeat it.
+pub fn secret_kind(text: &str) -> Option<&'static str> {
+    token_shapes()
+        .iter()
+        .find(|(_, re)| re.is_match(text))
+        .map(|(label, _)| *label)
+}
+
 /// True when the text holds something shaped like a token, a key or an assigned secret.
 pub fn looks_secret_text(text: &str) -> bool {
-    token_shapes().is_match(text)
+    secret_kind(text).is_some()
 }
 
 /// True for the name of a setting that is meant to hold a secret.
@@ -138,6 +158,19 @@ mod tests {
             "remember that the token is rotated monthly"
         ));
         assert!(!looks_secret_text("the user prefers short answers"));
+    }
+
+    #[test]
+    fn the_kind_names_what_was_found_and_never_the_match() {
+        let text = format!("use {} here", token());
+        let kind = secret_kind(&text).unwrap();
+        assert_eq!(kind, "a GitHub token");
+        assert!(!kind.contains(&token()));
+        assert_eq!(
+            secret_kind("password = hunter2hunter2hunter2"),
+            Some("a password, token or key assigned a value")
+        );
+        assert_eq!(secret_kind("short answers"), None);
     }
 
     #[test]

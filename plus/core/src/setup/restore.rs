@@ -642,7 +642,13 @@ fn library_row(opened: &mut Opened, rows: &mut Vec<Row>) {
     });
 }
 
-fn claude_rows(ctx: &Ctx<'_>, opened: &mut Opened, opts: &RestoreOptions, rows: &mut Vec<Row>) {
+fn claude_rows(
+    ctx: &Ctx<'_>,
+    opened: &mut Opened,
+    opts: &RestoreOptions,
+    secrets: Option<&Value>,
+    rows: &mut Vec<Row>,
+) {
     for name in opened.names_under("claude-user/") {
         let Some(rel) = name.strip_prefix("claude-user/") else {
             continue;
@@ -698,6 +704,40 @@ fn claude_rows(ctx: &Ctx<'_>, opened: &mut Opened, opts: &RestoreOptions, rows: 
             path,
             bytes,
         ));
+    }
+    // Held out of the readable part because the scan found a secret in them, and sealed with the
+    // secrets: they come back to the same places and only to those.
+    for file in secrets
+        .and_then(|s| s["claudeFiles"].as_array())
+        .into_iter()
+        .flatten()
+    {
+        let (Some(rel), Some(bytes)) =
+            (file["name"].as_str(), file["hex"].as_str().and_then(unhex))
+        else {
+            continue;
+        };
+        let id = format!("claude:{rel}");
+        let label = format!("~/.claude/{rel}");
+        if rows.iter().any(|r| r.id == id) {
+            continue;
+        }
+        let path = safe_path::plain_parts(rel).and_then(|parts| {
+            safe_path::claude_user(&parts)?;
+            safe_path::confined(&ctx.claude_home, &parts)
+        });
+        match path {
+            Ok(path) => rows.push(file_row(
+                opts,
+                id,
+                PartId::ClaudeUser,
+                label,
+                &ctx.claude_home,
+                path,
+                bytes,
+            )),
+            Err(why) => rows.push(Row::refuse(id, PartId::ClaudeUser, &label, why)),
+        }
     }
 }
 
@@ -864,6 +904,32 @@ fn memory_rows(
                 )),
             }
         }
+        for flagged in secrets
+            .and_then(|s| s["instructionFiles"].as_array())
+            .into_iter()
+            .flatten()
+            .filter(|f| f["dir"].as_str() == Some(dir))
+        {
+            let (Some(file), Some(bytes)) = (
+                flagged["name"].as_str(),
+                flagged["hex"].as_str().and_then(unhex),
+            ) else {
+                continue;
+            };
+            let dest = safe_path::plain_parts(file).and_then(|parts| {
+                safe_path::instruction(&parts)?;
+                safe_path::confined(&abs, &parts)
+            });
+            match dest {
+                Ok(dest) => place(dest, bytes, &abs, true, &mut writes),
+                Err(why) => rows.push(Row::refuse(
+                    format!("memory:{dir}/instructions/{file}"),
+                    PartId::Memory,
+                    &format!("{path}/{file}"),
+                    why,
+                )),
+            }
+        }
         let state = if differ > 0 {
             STATE_CONFLICT
         } else if add > 0 {
@@ -878,6 +944,27 @@ fn memory_rows(
             row.step = Some(Step::Files(writes));
         }
         rows.push(row);
+    }
+    let known: BTreeSet<&str> = index["repos"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|r| r["dir"].as_str())
+        .collect();
+    for orphan in secrets
+        .and_then(|s| s["instructionFiles"].as_array())
+        .into_iter()
+        .flatten()
+        .filter(|f| f["dir"].as_str().is_none_or(|d| !known.contains(d)))
+    {
+        let dir = orphan["dir"].as_str().unwrap_or_default();
+        let name = orphan["name"].as_str().unwrap_or_default();
+        rows.push(Row::refuse(
+            format!("memory:{dir}/instructions/{name}"),
+            PartId::Memory,
+            name,
+            "its repository is not in the file",
+        ));
     }
     for switch in index["switches"].as_array().into_iter().flatten() {
         let path = switch["path"].as_str().unwrap_or_default();
@@ -988,7 +1075,7 @@ fn build(ctx: &Ctx<'_>, opened: &mut Opened, opts: &RestoreOptions) -> Result<Pl
             PartId::Library => library_row(opened, &mut rows),
             PartId::Tasks => task_rows(ctx, opened, &mut rows)?,
             PartId::Settings => settings_rows(ctx, opened, opts, &mut rows)?,
-            PartId::ClaudeUser => claude_rows(ctx, opened, opts, &mut rows),
+            PartId::ClaudeUser => claude_rows(ctx, opened, opts, secrets.as_ref(), &mut rows),
             PartId::Memory => memory_rows(
                 ctx,
                 opened,
