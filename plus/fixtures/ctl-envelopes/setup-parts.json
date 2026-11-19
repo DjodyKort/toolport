@@ -102,6 +102,7 @@
           "id": "claudeUser",
           "info": {
             "filtered": 2,
+            "flagged": 0,
             "plugins": 0
           },
           "label": "Claude Code user files",

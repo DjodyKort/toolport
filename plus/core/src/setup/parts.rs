@@ -534,15 +534,21 @@ fn plugin_list(claude_home: &Path) -> Value {
     json!({"version": 1, "plugins": plugins, "marketplaces": marketplaces})
 }
 
+fn looks_secret(bytes: &[u8]) -> bool {
+    scan::looks_secret_text(&String::from_utf8_lossy(bytes))
+}
+
 pub fn claude_user_part(b: &Build<'_>) -> Part {
     let mut part = Part::new(PartId::ClaudeUser);
     let home = &b.ctx.claude_home;
+    // Files copied as they are; the rest below is built here and holds no foreign text.
+    let mut copied: Vec<Entry> = Vec::new();
     let mut files: Vec<Entry> = Vec::new();
     if b.on("claude-instructions") {
         if let Ok(bytes) = fs::read(home.join("CLAUDE.md")) {
-            files.push(Entry::bytes("claude-user/CLAUDE.md", bytes));
+            copied.push(Entry::bytes("claude-user/CLAUDE.md", bytes));
         }
-        user_files(&home.join("rules"), "claude-user/rules", &mut files);
+        user_files(&home.join("rules"), "claude-user/rules", &mut copied);
     }
     let mut removed: Vec<String> = Vec::new();
     if b.on("claude-settings") {
@@ -566,14 +572,26 @@ pub fn claude_user_part(b: &Build<'_>) -> Part {
     }
     if b.on("claude-own") {
         for dir in ["agents", "commands", "output-styles", "workflows"] {
-            user_files(&home.join(dir), &format!("claude-user/{dir}"), &mut files);
+            user_files(&home.join(dir), &format!("claude-user/{dir}"), &mut copied);
         }
         if let Ok(bytes) = fs::read(home.join("keybindings.json")) {
-            files.push(Entry::bytes("claude-user/keybindings.json", bytes));
+            copied.push(Entry::bytes("claude-user/keybindings.json", bytes));
+        }
+    }
+    let mut held: Vec<String> = Vec::new();
+    for entry in copied {
+        match &entry.body {
+            Body::Bytes(bytes) if looks_secret(bytes) => {
+                held.push(format!(
+                    "~/.claude/{}",
+                    entry.name.trim_start_matches("claude-user/")
+                ));
+            }
+            _ => files.push(entry),
         }
     }
     part.count = files.len() as u64;
-    part.info = json!({"plugins": plugins, "filtered": removed.len()});
+    part.info = json!({"plugins": plugins, "filtered": removed.len(), "flagged": held.len()});
     if !removed.is_empty() {
         part.notes.push(format!(
             "{} values of settings.json were left out",
@@ -583,6 +601,13 @@ pub fn claude_user_part(b: &Build<'_>) -> Part {
             "claude-user/removed.json",
             &json!({"version": 1, "removed": removed}),
         ));
+    }
+    if !held.is_empty() {
+        part.notes.push(format!(
+            "{} files in ~/.claude look like they hold a token and stay out of the file",
+            held.len()
+        ));
+        part.flagged = held;
     }
     part.entries = files;
     part
@@ -620,6 +645,7 @@ pub fn memory_part(b: &Build<'_>) -> (Part, Vec<Flagged>) {
     let mut switches = Vec::new();
     let mut memory_files = 0u64;
     let mut instruction_files = 0u64;
+    let mut instructions_held_total = 0u64;
     let sealing = b.opts.secrets_on();
     for (repo, (key, dir)) in b.repos.iter().zip(&dirs) {
         if repo.error.is_some() {
@@ -664,7 +690,13 @@ pub fn memory_part(b: &Build<'_>) -> (Part, Vec<Flagged>) {
             ));
         }
         let mut instruction_names = Vec::new();
+        let mut instructions_held = Vec::new();
         for KeptFile { name, bytes } in instructions {
+            if looks_secret(&bytes) {
+                part.flagged.push(format!("{}/{name}", repo.name));
+                instructions_held.push(name);
+                continue;
+            }
             instruction_names.push(name.clone());
             part.entries.push(Entry::bytes(
                 &format!("memory/{dir}/instructions/{name}"),
@@ -673,6 +705,7 @@ pub fn memory_part(b: &Build<'_>) -> (Part, Vec<Flagged>) {
         }
         memory_files += kept_names.len() as u64;
         instruction_files += instruction_names.len() as u64;
+        instructions_held_total += instructions_held.len() as u64;
         index.push(json!({
             "dir": dir,
             "key": key,
@@ -681,6 +714,7 @@ pub fn memory_part(b: &Build<'_>) -> (Part, Vec<Flagged>) {
             "path": repo.path,
             "files": kept_names,
             "instructions": instruction_names,
+            "instructionsHeld": instructions_held,
             "flagged": flagged_names,
         }));
     }
@@ -691,15 +725,20 @@ pub fn memory_part(b: &Build<'_>) -> (Part, Vec<Flagged>) {
         "switches": switches.len(),
         "flagged": part.flagged.len(),
     });
-    if !part.flagged.is_empty() {
+    let memory_held = part.flagged.len() as u64 - instructions_held_total;
+    if memory_held > 0 {
         part.notes.push(format!(
-            "{} memory files look like they hold a token: {}",
-            part.flagged.len(),
+            "{memory_held} memory files look like they hold a token: {}",
             if sealing {
                 "they go into the encrypted part"
             } else {
                 "they stay out of the file"
             }
+        ));
+    }
+    if instructions_held_total > 0 {
+        part.notes.push(format!(
+            "{instructions_held_total} instruction files look like they hold a token and stay out of the file"
         ));
     }
     part.entries.insert(

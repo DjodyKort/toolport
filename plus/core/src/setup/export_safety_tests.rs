@@ -227,3 +227,155 @@ fn test06_a_restore_sweeps_the_scratch_of_runs_that_are_gone() {
     assert!(stale.iter().all(|dir| !dir.exists()), "{stale:?}");
     assert!(live.exists() && unrelated.exists());
 }
+
+mod held_back {
+    use serde_json::{json, Value};
+
+    use super::super::tests::token;
+    use super::super::zipio::ZipFile;
+    use super::*;
+
+    fn exported(world: &World) -> (Value, PathBuf) {
+        let data = export::run(&world.ctx(), &options(world), None).unwrap();
+        let file = PathBuf::from(data["file"].as_str().unwrap());
+        (data, file)
+    }
+
+    fn entry_names(file: &std::path::Path) -> Vec<String> {
+        ZipFile::open(file)
+            .unwrap()
+            .names()
+            .map(String::from)
+            .collect()
+    }
+
+    fn part<'a>(data: &'a Value, id: &str) -> &'a Value {
+        data["parts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["id"] == id)
+            .unwrap()
+    }
+
+    fn holds(file: &std::path::Path, needle: &str) -> bool {
+        std::fs::read(file)
+            .unwrap()
+            .windows(needle.len())
+            .any(|w| w == needle.as_bytes())
+    }
+
+    #[test]
+    fn test07_claude_user_files_that_look_like_they_hold_a_token_stay_out_and_are_named() {
+        let world = World::new();
+        world.claude("CLAUDE.md", &format!("deploy with {}\n", token()));
+        world.claude("rules/style.md", "short answers\n");
+        world.claude("rules/nested/leak.md", "password = hunter2hunter2hunter2\n");
+        world.claude("agents/mine.md", "an agent\n");
+        world.claude("commands/deploy.md", &format!("curl -H 'x: {}'\n", token()));
+        world.claude("keybindings.json", &json!({"key": token()}).to_string());
+        let (data, file) = exported(&world);
+
+        let all = entry_names(&file);
+        for kept in ["claude-user/rules/style.md", "claude-user/agents/mine.md"] {
+            assert!(all.contains(&kept.to_string()), "{kept} in {all:?}");
+        }
+        for held in [
+            "claude-user/CLAUDE.md",
+            "claude-user/rules/nested/leak.md",
+            "claude-user/commands/deploy.md",
+            "claude-user/keybindings.json",
+        ] {
+            assert!(!all.contains(&held.to_string()), "{held} in {all:?}");
+        }
+        assert!(!holds(&file, &token()));
+        assert!(!holds(&file, "hunter2hunter2hunter2"));
+
+        let claude = part(&data, "claudeUser");
+        assert_eq!(claude["count"], 2);
+        assert_eq!(
+            claude["flagged"],
+            json!([
+                "~/.claude/CLAUDE.md",
+                "~/.claude/rules/nested/leak.md",
+                "~/.claude/commands/deploy.md",
+                "~/.claude/keybindings.json"
+            ])
+        );
+        assert!(claude["notes"][0].as_str().unwrap().contains("4 files"));
+    }
+
+    #[test]
+    fn test08_memory_instruction_files_that_look_like_they_hold_a_token_stay_out_and_are_named() {
+        let world = World::new();
+        let repo = world.repo("web");
+        world.put(&repo.join("CLAUDE.local.md"), "local notes\n");
+        world.put(&repo.join("AGENTS.md"), &format!("token {}\n", token()));
+        world.put(
+            &repo.join(".claude/rules/deploy.md"),
+            &format!("export KEY={}\n", token()),
+        );
+        world.put(&repo.join(".claude/rules/style.md"), "short answers\n");
+        let (data, file) = exported(&world);
+
+        let index: Value = serde_json::from_slice(
+            &ZipFile::open(&file)
+                .unwrap()
+                .read("memory/index.json")
+                .unwrap(),
+        )
+        .unwrap();
+        let repo_entry = &index["repos"][0];
+        assert_eq!(
+            repo_entry["instructions"],
+            json!(["CLAUDE.local.md", ".claude/rules/style.md"])
+        );
+        assert_eq!(
+            repo_entry["instructionsHeld"],
+            json!(["AGENTS.md", ".claude/rules/deploy.md"])
+        );
+        let all = entry_names(&file);
+        assert!(!all.iter().any(|n| n.ends_with("AGENTS.md")));
+        assert!(!all.iter().any(|n| n.ends_with("deploy.md")));
+        assert!(!holds(&file, &token()));
+
+        let memory = part(&data, "memory");
+        assert_eq!(
+            memory["flagged"],
+            json!(["web/AGENTS.md", "web/.claude/rules/deploy.md"])
+        );
+        assert!(memory["notes"][0]
+            .as_str()
+            .unwrap()
+            .contains("2 instruction files"));
+    }
+
+    #[test]
+    fn test09_the_parts_listing_names_the_held_back_files_too() {
+        let world = World::new();
+        world.claude("rules/leak.md", &format!("{}\n", token()));
+        let data = export::list(&world.ctx(), &[world.home.join("code")]).unwrap();
+        assert_eq!(
+            part(&data, "claudeUser")["flagged"],
+            json!(["~/.claude/rules/leak.md"])
+        );
+    }
+
+    #[cfg(feature = "cipher")]
+    #[test]
+    fn test10_secrets_on_does_not_carry_the_held_back_files_into_the_sealed_part() {
+        use super::super::{crypto, PartId};
+        let world = World::new();
+        let repo = world.repo("web");
+        world.claude("CLAUDE.md", &format!("deploy with {}\n", token()));
+        world.put(&repo.join("AGENTS.md"), &format!("token {}\n", token()));
+        let mut opts = options(&world);
+        opts.parts.insert(PartId::Secrets);
+        let data = export::run(&world.ctx(), &opts, Some(super::super::tests::PASS)).unwrap();
+        let file = PathBuf::from(data["file"].as_str().unwrap());
+        assert!(!holds(&file, &token()));
+        let sealed = ZipFile::open(&file).unwrap().read("secrets.enc").unwrap();
+        let plain = crypto::open_bytes(super::super::tests::PASS, &sealed).unwrap();
+        assert!(!String::from_utf8_lossy(&plain).contains(&token()));
+    }
+}
