@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "plan_hash": "0000000000000000"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "the plan changed since it was shown (a client file or the gateway differs); run it with dry_run again"
+    }
+  },
+  "text": "conflict: the plan changed since it was shown (a client file or the gateway differs); run it with dry_run again",
+  "tool": "clients_sync"
+}

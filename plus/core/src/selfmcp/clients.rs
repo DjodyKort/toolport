@@ -5,7 +5,7 @@ use toolport_plus_api::{Host, ScopeKind};
 
 use super::ToolError;
 use crate::args::{flag, flag_or, str_arg};
-use crate::direct::{self, Args};
+use crate::direct::{self, gateway, Args};
 
 type Outcome = Result<Value, ToolError>;
 
@@ -44,6 +44,15 @@ pub(super) fn add(host: &dyn Host, args: &Value) -> Outcome {
 
 pub(super) fn rm(host: &dyn Host, args: &Value) -> Outcome {
     Ok(direct::remove(host, &args_of(args)?)?)
+}
+
+pub(super) fn sync(host: &dyn Host, args: &Value) -> Outcome {
+    let args = gateway::SyncArgs {
+        client: str_arg(args, "client"),
+        dry_run: flag_or(args, "dry_run", true),
+        plan_hash: str_arg(args, "plan_hash"),
+    };
+    Ok(gateway::sync(host, &args)?)
 }
 
 pub(super) fn list(host: &dyn Host, _args: &Value) -> Outcome {

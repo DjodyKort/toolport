@@ -1,0 +1,28 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "changed": false,
+    "clients": [
+      {
+        "client": "claude-code",
+        "clientName": "Claude Code",
+        "path": "<WORLD>/home/.claude.json",
+        "state": "ok"
+      }
+    ],
+    "dryRun": true,
+    "plan": {
+      "effects": {},
+      "steps": [],
+      "summary": "Refresh the gateway entry of 0 client(s)",
+      "undo": "restore the backup the write reports for each client file",
+      "warnings": [
+        "Only a gateway entry a client already holds is rewritten; a backup of each client file is made first"
+      ]
+    },
+    "planHash": "<masked>",
+    "result": null
+  },
+  "tool": "clients_sync"
+}

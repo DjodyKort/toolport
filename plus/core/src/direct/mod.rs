@@ -13,6 +13,7 @@ use crate::context::hash::sha256_hex;
 use crate::context::plan::{Diff, Effects, PlanV1, ResultV1, Step};
 use crate::op::OpError;
 
+pub mod gateway;
 pub mod launcher;
 
 pub const TRADEOFF: &str = "A direct entry bypasses the Toolport gateway: its tools are not \

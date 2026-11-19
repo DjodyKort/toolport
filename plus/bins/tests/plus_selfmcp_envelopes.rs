@@ -1371,6 +1371,33 @@ const CASES: &[Case] = &[
         ],
     ),
     prepared(
+        "clients_sync",
+        drifted_gateway_entry,
+        &[
+            read("plan", "clients_sync", "{}"),
+            read("one", "clients_sync", r#"{"client":"claude-code"}"#),
+            refused("refused", "clients_sync", r#"{"dry_run":false}"#),
+            fails(
+                "stale_plan",
+                "conflict",
+                "clients_sync",
+                r#"{"dry_run":false,"confirm":true,"plan_hash":"0000000000000000"}"#,
+            ),
+            fails(
+                "unknown",
+                "not_found",
+                "clients_sync",
+                r#"{"client":"nope"}"#,
+            ),
+            write(
+                "apply",
+                "clients_sync",
+                r#"{"dry_run":false,"confirm":true}"#,
+            ),
+            read("again", "clients_sync", "{}"),
+        ],
+    ),
+    prepared(
         "client_direct_rm",
         claude_code_home,
         &[
@@ -3890,6 +3917,14 @@ fn claude_code_home(world: &World) {
     std::fs::write(
         world.home.join(".claude.json"),
         r#"{"theme": "dark", "mcpServers": {"legacy-lint": {"command": "lint", "args": []}}}"#,
+    )
+    .unwrap();
+}
+
+fn drifted_gateway_entry(world: &World) {
+    std::fs::write(
+        world.home.join(".claude.json"),
+        r#"{"theme": "dark", "mcpServers": {"legacy-lint": {"command": "lint", "args": []}, "toolport": {"command": "/old/place/toolport-gateway", "args": [], "env": {"TOOLPORT_CLIENT_ID": "claude-code"}}}}"#,
     )
     .unwrap();
 }

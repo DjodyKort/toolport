@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "client": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "unknown client 'nope'"
+    }
+  },
+  "text": "not_found: unknown client 'nope'",
+  "tool": "clients_sync"
+}

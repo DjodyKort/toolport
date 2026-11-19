@@ -1229,6 +1229,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("folder_route_rm", D, "folder route rm").on(),
     maps("clients_reach", R, "client reach"),
     own("clients_list", R),
+    own("clients_sync", W).on(),
     maps("auth_probe", R, "auth probe"),
     maps("secret_check", R, "secret get"),
     maps("secret_set", W, "secret set").on(),

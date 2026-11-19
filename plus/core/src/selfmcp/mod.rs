@@ -9,6 +9,8 @@ mod backend;
 mod catalog;
 mod catalog_index;
 mod clients;
+#[cfg(test)]
+mod clients_sync_tests;
 mod compression;
 #[cfg(test)]
 mod compression_tests;

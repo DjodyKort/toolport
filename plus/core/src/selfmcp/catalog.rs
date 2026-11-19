@@ -1620,6 +1620,18 @@ pub const TOOLS: &[ToolDef] = &[
         clients::add
     ),
     tool!(
+        "clients_sync",
+        3,
+        UnlessDryRun,
+        "Point the gateway entry a client already holds at the installed toolport-gateway when it has drifted (the program moved or the client id is missing). Writes only the entry named toolport, never adds it to a client without one, never touches a scoped install or an entry with other settings, never an individual server (D-016: one gateway entry per client). dry_run is on by default and returns the plan with its hash (apply with dry_run=false, plan_hash and confirm=true); without client every client that holds the entry is checked",
+        [
+            p("client", Ty::Str, false, "Client id, as clients_list shows; every client with a gateway entry when omitted"),
+            DRY_ON,
+            PLAN_HASH
+        ],
+        clients::sync
+    ),
+    tool!(
         "client_direct_rm",
         4,
         UnlessDryRun,

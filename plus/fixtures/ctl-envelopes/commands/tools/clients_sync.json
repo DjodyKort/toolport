@@ -1,0 +1,7 @@
+{
+  "command": null,
+  "dryRun": "default-on",
+  "name": "clients_sync",
+  "tier": "write",
+  "toolTier": 3
+}

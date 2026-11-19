@@ -1,0 +1,47 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "changed": true,
+    "clients": [
+      {
+        "client": "claude-code",
+        "clientName": "Claude Code",
+        "path": "<WORLD>/home/.claude.json",
+        "state": "stale"
+      }
+    ],
+    "dryRun": false,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "point Claude Code's 'toolport' entry at the installed gateway and leave every other entry alone",
+          "diff": {
+            "after": "+ \"toolport\": {\"args\":[],\"command\":\"<BIN>/toolport-gateway\",\"env\":{\"TOOLPORT_CLIENT_ID\":\"claude-code\"}}",
+            "before": "command: /old/place/toolport-gateway"
+          },
+          "keys": ["entry"],
+          "op": "merge",
+          "path": "<WORLD>/home/.claude.json"
+        }
+      ],
+      "summary": "Refresh the gateway entry of 1 client(s)",
+      "undo": "restore the backup the write reports for each client file",
+      "warnings": [
+        "Only a gateway entry a client already holds is rewritten; a backup of each client file is made first"
+      ]
+    },
+    "planHash": "<masked>",
+    "result": {
+      "applied": true,
+      "backups": ["<WORLD>/data/backups/claude-code/<STAMP>-.claude.json"],
+      "changed": ["<WORLD>/home/.claude.json"],
+      "undo": "restore the backup the write reports for each client file"
+    }
+  },
+  "tool": "clients_sync"
+}
