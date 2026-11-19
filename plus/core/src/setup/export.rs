@@ -443,6 +443,14 @@ pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Va
         return Ok(peek(part));
     }
 
+    // A sessions part with nothing in it has no file to seal: it is left out and said so.
+    let (empty, parts): (Vec<Part>, Vec<Part>) = parts
+        .into_iter()
+        .partition(|p| p.id == PartId::History && p.count == 0);
+    let skipped: Vec<&str> = empty
+        .iter()
+        .map(|_| "sessions: none found for the chosen repositories")
+        .collect();
     let tree = tree_of(&parts);
     let total: u64 = parts.iter().map(Part::bytes).sum();
     let summary: Vec<Value> = parts.iter().map(part_json).collect();
@@ -457,6 +465,7 @@ pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Va
             "totalSize": total,
             "notIncluded": not_included(&opts.parts),
             "heldBackSealed": opts.secrets_on(),
+            "skipped": skipped,
             "plan": {"summary": format!("{} parts, about {} bytes", parts.len(), total), "steps": []},
         }));
     }
@@ -506,6 +515,7 @@ pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Va
         "verified": true,
         "notIncluded": not_included(&opts.parts),
         "heldBackSealed": opts.secrets_on(),
+        "skipped": skipped,
         "result": {"undo": "delete the file"},
     });
     if opts.seal_file {

@@ -387,6 +387,36 @@ mod held_back {
     }
 
     #[cfg(feature = "cipher")]
+    #[test]
+    fn test13_sessions_ticked_with_none_to_export_leave_the_part_out_and_say_so() {
+        use super::super::crypto::{self, Cost};
+        use super::super::PartId;
+        crypto::TEST_COST.with(|cost| {
+            cost.set(Some(Cost {
+                memory_kib: 64,
+                iterations: 1,
+                lanes: 1,
+            }))
+        });
+        let world = World::new();
+        world.repo("web");
+        let mut opts = options(&world);
+        opts.parts.insert(PartId::History);
+        let data = export::run(&world.ctx(), &opts, Some(super::super::tests::PASS)).unwrap();
+        let file = PathBuf::from(data["file"].as_str().unwrap());
+        assert!(!entry_names(&file).contains(&"history.enc".to_string()));
+        assert!(data["parts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|p| p["id"] != "history"));
+        assert_eq!(
+            data["skipped"],
+            json!(["sessions: none found for the chosen repositories"])
+        );
+    }
+
+    #[cfg(feature = "cipher")]
     mod sealed {
         use super::super::super::crypto::{self, Cost};
         use super::super::super::tests::PASS;
