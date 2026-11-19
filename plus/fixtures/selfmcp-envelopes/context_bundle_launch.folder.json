@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj",
+    "name": "acme-dev"
+  },
+  "isError": false,
+  "result": {
+    "bundle": "acme-dev",
+    "command": "claude --settings <WORLD>/home/.config/toolport/profiles/acme-dev.settings.json",
+    "cwd": "<WORLD>/home/proj",
+    "notes": [
+      "layers.add (acme-knowledge) rides CLAUDE.local.md, which --settings cannot carry; `context bundle apply` delivers it"
+    ],
+    "settingsFile": "<WORLD>/home/.config/toolport/profiles/acme-dev.settings.json"
+  },
+  "tool": "context_bundle_launch"
+}

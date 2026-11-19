@@ -39,5 +39,5 @@
   "summary": "Write the --settings file of a bundle and print the claude command (<name>, --cwd)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["context_bundle_launch"]
 }

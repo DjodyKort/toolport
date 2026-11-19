@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "mode": "add",
+    "name": "docs"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: context_bundle_save (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: context_bundle_save (tier 3). Pass confirm=true to proceed.",
+  "tool": "context_bundle_save"
+}

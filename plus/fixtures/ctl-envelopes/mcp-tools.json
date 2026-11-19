@@ -3804,6 +3804,147 @@
           "tier": 3
         },
         {
+          "description": "Create (mode=add) or change (mode=edit) a context bundle: profiles/<name>.yaml in the skills repository, nothing else; committing it stays with a person. A list you give replaces that list, one you leave out stays. The plan shows the yaml before and after and, under names, the access set the bundle pairs with and the folder patterns it binds: with context_bundle_config auto_apply on, context_sync applies the bundle in every folder that matches a bind pattern without anyone asking. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "context_bundle_save",
+          "params": [
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "The bundle's name (profiles/<name>.yaml)",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "add creates a new bundle, edit changes an existing one",
+              "name": "mode",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "One line about the bundle",
+              "name": "description",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Access set paired with the bundle, by name or id; empty removes the pairing (add defaults to the set with the same name)",
+              "name": "servers",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Skills (globs allowed) the bundle turns off",
+              "name": "skills_off",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Skills the bundle keeps as a name without the description",
+              "name": "skills_name_only",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Skills to keep; every other library skill is turned off",
+              "name": "skills_allow",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Plugin ids (name@marketplace) the bundle turns off",
+              "name": "plugins_off",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Rule layers added to the folder's CLAUDE.local.md",
+              "name": "layers_add",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "CLAUDE.md globs added to claudeMdExcludes",
+              "name": "layers_exclude",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Agents the bundle denies",
+              "name": "agents_off",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Folder patterns the bundle is meant for (a * matches within a path, ~ is the home directory); used by auto-apply",
+              "name": "bind",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Delete a context bundle's definition (profiles/<name>.yaml in the skills repository). A bundle that is applied in a folder is refused: undo it there first. Files the bundle already wrote into folders stay until context_bundle_undo. dry_run is on by default and returns the plan with the file and how to get it back (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "context_bundle_rm",
+          "params": [
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "The bundle's name (profiles/<name>.yaml)",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
+          "description": "Write a settings file for a bundle to ~/.config/toolport/profiles/<name>.settings.json and return the claude command that starts a session with it, which skills, plugins and CLAUDE.md files it hides; starts nothing and leaves the folder's own files alone. layers.add cannot ride a settings file and is named in the notes",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "context_bundle_launch",
+          "params": [
+            {
+              "description": "The bundle's name (profiles/<name>.yaml)",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "The folder the session will start in; the home directory when omitted",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 2
+        },
+        {
           "description": "Bring the generated context files up to date: apply the bundles bound to folders when auto_apply is on, and regenerate launch profile files and direct client entries that drifted. dry_run is on by default (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",

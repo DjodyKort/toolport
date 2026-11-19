@@ -1,0 +1,7 @@
+{
+  "command": "context bundle rm",
+  "dryRun": "default-on",
+  "name": "context_bundle_rm",
+  "tier": "destructive",
+  "toolTier": 4
+}

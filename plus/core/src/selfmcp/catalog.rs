@@ -1680,6 +1680,50 @@ pub const TOOLS: &[ToolDef] = &[
         context::bundle_config
     ),
     tool!(
+        "context_bundle_save",
+        3,
+        UnlessDryRun,
+        "Create (mode=add) or change (mode=edit) a context bundle: profiles/<name>.yaml in the skills repository, nothing else; committing it stays with a person. A list you give replaces that list, one you leave out stays. The plan shows the yaml before and after and, under names, the access set the bundle pairs with and the folder patterns it binds: with context_bundle_config auto_apply on, context_sync applies the bundle in every folder that matches a bind pattern without anyone asking. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            DRY_ON,
+            p("name", Ty::Str, true, "The bundle's name (profiles/<name>.yaml)"),
+            p("mode", Ty::Str, true, "add creates a new bundle, edit changes an existing one"),
+            p("description", Ty::Str, false, "One line about the bundle"),
+            p("servers", Ty::Str, false, "Access set paired with the bundle, by name or id; empty removes the pairing (add defaults to the set with the same name)"),
+            p("skills_off", Ty::StrList, false, "Skills (globs allowed) the bundle turns off"),
+            p("skills_name_only", Ty::StrList, false, "Skills the bundle keeps as a name without the description"),
+            p("skills_allow", Ty::StrList, false, "Skills to keep; every other library skill is turned off"),
+            p("plugins_off", Ty::StrList, false, "Plugin ids (name@marketplace) the bundle turns off"),
+            p("layers_add", Ty::StrList, false, "Rule layers added to the folder's CLAUDE.local.md"),
+            p("layers_exclude", Ty::StrList, false, "CLAUDE.md globs added to claudeMdExcludes"),
+            p("agents_off", Ty::StrList, false, "Agents the bundle denies"),
+            p("bind", Ty::StrList, false, "Folder patterns the bundle is meant for (a * matches within a path, ~ is the home directory); used by auto-apply")
+        ],
+        context::bundle_save
+    ),
+    tool!(
+        "context_bundle_rm",
+        4,
+        UnlessDryRun,
+        "Delete a context bundle's definition (profiles/<name>.yaml in the skills repository). A bundle that is applied in a folder is refused: undo it there first. Files the bundle already wrote into folders stay until context_bundle_undo. dry_run is on by default and returns the plan with the file and how to get it back (apply with dry_run=false and confirm=true)",
+        [
+            DRY_ON,
+            p("name", Ty::Str, true, "The bundle's name (profiles/<name>.yaml)")
+        ],
+        context::bundle_rm
+    ),
+    tool!(
+        "context_bundle_launch",
+        2,
+        None,
+        "Write a settings file for a bundle to ~/.config/toolport/profiles/<name>.settings.json and return the claude command that starts a session with it, which skills, plugins and CLAUDE.md files it hides; starts nothing and leaves the folder's own files alone. layers.add cannot ride a settings file and is named in the notes",
+        [
+            p("name", Ty::Str, true, "The bundle's name (profiles/<name>.yaml)"),
+            p("cwd", Ty::Str, false, "The folder the session will start in; the home directory when omitted")
+        ],
+        context::bundle_launch
+    ),
+    tool!(
         "context_sync",
         3,
         UnlessDryRun,

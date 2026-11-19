@@ -1,0 +1,46 @@
+{
+  "arguments": {
+    "bind": [],
+    "confirm": true,
+    "dry_run": false,
+    "mode": "edit",
+    "name": "docs",
+    "skills_off": ["long-guide"]
+  },
+  "isError": false,
+  "result": {
+    "created": false,
+    "dryRun": false,
+    "issues": [],
+    "name": "docs",
+    "names": {
+      "bind": [],
+      "servers": "Default"
+    },
+    "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/docs.yaml",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "change bundle docs",
+          "diff": {
+            "after": "format: 1\nname: docs\nservers: Default\nskills:\n  off:\n  - long-guide\n",
+            "before": "format: 1\nname: docs\nservers: Default\nskills:\n  off:\n  - scratch-1\nbind:\n- ~/docs/*\n"
+          },
+          "op": "update",
+          "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/docs.yaml"
+        }
+      ],
+      "summary": "Edit bundle docs",
+      "undo": "git checkout -- <WORLD>/home/.config/mcpm/skills_repo/profiles/docs.yaml (the file is yours to commit)",
+      "warnings": []
+    },
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": ["<WORLD>/home/.config/mcpm/skills_repo/profiles/docs.yaml"],
+      "undo": "git checkout -- <WORLD>/home/.config/mcpm/skills_repo/profiles/docs.yaml (the file is yours to commit)"
+    }
+  },
+  "tool": "context_bundle_save"
+}

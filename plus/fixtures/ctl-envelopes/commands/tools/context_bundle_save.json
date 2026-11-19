@@ -1,0 +1,7 @@
+{
+  "command": "context bundle add",
+  "dryRun": "default-on",
+  "name": "context_bundle_save",
+  "tier": "write",
+  "toolTier": 3
+}

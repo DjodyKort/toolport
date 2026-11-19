@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "name": "acme-dev"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "unknown bundle: acme-dev"
+    }
+  },
+  "text": "not_found: unknown bundle: acme-dev",
+  "tool": "context_bundle_rm"
+}

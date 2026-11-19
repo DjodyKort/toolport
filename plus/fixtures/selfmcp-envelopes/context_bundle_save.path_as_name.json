@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "mode": "add",
+    "name": "../escape"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "not a bundle name: ../escape (letters, digits, - _ . and at most 64 characters)"
+    }
+  },
+  "text": "invalid_arguments: not a bundle name: ../escape (letters, digits, - _ . and at most 64 characters)",
+  "tool": "context_bundle_save"
+}

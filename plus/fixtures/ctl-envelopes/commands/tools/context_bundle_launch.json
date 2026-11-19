@@ -1,0 +1,7 @@
+{
+  "command": "context bundle launch",
+  "dryRun": "none",
+  "name": "context_bundle_launch",
+  "tier": "write",
+  "toolTier": 2
+}

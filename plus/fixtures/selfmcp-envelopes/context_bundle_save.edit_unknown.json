@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "bind": ["~/x"],
+    "mode": "edit",
+    "name": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "unknown bundle: nope"
+    }
+  },
+  "text": "not_found: unknown bundle: nope",
+  "tool": "context_bundle_save"
+}

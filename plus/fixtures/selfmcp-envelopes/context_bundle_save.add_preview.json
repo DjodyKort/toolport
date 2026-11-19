@@ -1,0 +1,41 @@
+{
+  "arguments": {
+    "bind": ["~/docs/*"],
+    "description": "Docs work",
+    "mode": "add",
+    "name": "docs",
+    "servers": "Default",
+    "skills_off": ["scratch-1"]
+  },
+  "isError": false,
+  "result": {
+    "created": true,
+    "dryRun": true,
+    "issues": [],
+    "name": "docs",
+    "names": {
+      "bind": ["~/docs/*"],
+      "servers": "Default"
+    },
+    "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/docs.yaml",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "write the new bundle docs",
+          "diff": {
+            "after": "format: 1\nname: docs\ndescription: Docs work\nservers: Default\nskills:\n  off:\n  - scratch-1\nbind:\n- ~/docs/*\n",
+            "before": ""
+          },
+          "op": "create",
+          "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/docs.yaml"
+        }
+      ],
+      "summary": "Add bundle docs",
+      "undo": "toolportctl context bundle rm docs",
+      "warnings": []
+    },
+    "result": null
+  },
+  "tool": "context_bundle_save"
+}

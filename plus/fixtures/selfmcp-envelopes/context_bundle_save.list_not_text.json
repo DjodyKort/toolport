@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "bind": "~/docs",
+    "mode": "add",
+    "name": "docs"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "argument bind has the wrong type"
+    }
+  },
+  "text": "invalid_arguments: argument bind has the wrong type",
+  "tool": "context_bundle_save"
+}

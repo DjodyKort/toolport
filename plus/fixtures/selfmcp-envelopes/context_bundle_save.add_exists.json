@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "mode": "add",
+    "name": "docs"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "bundle docs exists already (<WORLD>/home/.config/mcpm/skills_repo/profiles/docs.yaml); use mode=edit"
+    }
+  },
+  "text": "conflict: bundle docs exists already (<WORLD>/home/.config/mcpm/skills_repo/profiles/docs.yaml); use mode=edit",
+  "tool": "context_bundle_save"
+}

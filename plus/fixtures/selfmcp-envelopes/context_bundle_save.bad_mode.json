@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "mode": "merge",
+    "name": "docs"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "mode must be add or edit"
+    }
+  },
+  "text": "invalid_arguments: mode must be add or edit",
+  "tool": "context_bundle_save"
+}

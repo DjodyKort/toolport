@@ -1,14 +1,16 @@
-//! `context_bundle_ls|show|status` (tier 1), `context_bundle_apply|undo` and `context_leave_out`
-//! (tier 2), `context_sync` and `context_bundle_config` (tier 3): the same operations as
+//! `context_bundle_ls|show|status` (tier 1), `context_bundle_apply|undo`, `context_bundle_launch`
+//! and `context_leave_out` (tier 2), `context_sync`, `context_bundle_config` and
+//! `context_bundle_save` (tier 3), `context_bundle_rm` (tier 4): the same operations as
 //! `toolportctl context`, over `crate::context::ops`. Calling a tier 2 tool is the approval; a
-//! model that wants the plan first passes `dry_run`, and the tier 3 tools and
+//! model that wants the plan first passes `dry_run`, and the tier 3 and 4 tools and
 //! `context_leave_out` preview unless told otherwise.
 
 use serde_json::Value;
 use toolport_plus_api::Host;
 
 use super::ToolError;
-use crate::args::{flag, flag_or, str_arg};
+use crate::args::{flag, flag_or, nonempty_strings, str_arg};
+use crate::context::bundle::{self, Edit};
 use crate::context::leave_out::{Op, Target};
 use crate::context::ops as api;
 
@@ -140,4 +142,86 @@ pub(super) fn bundle_config(host: &dyn Host, args: &Value) -> Result<Value, Tool
         return Ok(current);
     }
     Ok(api::config(host, Some(wanted))?)
+}
+
+fn text_list(args: &Value, key: &str) -> Result<Option<Vec<String>>, ToolError> {
+    match args.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Array(items)) if items.iter().all(Value::is_string) => {
+            Ok(Some(nonempty_strings(args, key).unwrap_or_default()))
+        }
+        Some(_) => Err(invalid(format!("{key} must be a list of strings"))),
+    }
+}
+
+fn in_tool_words(error: crate::op::OpError) -> ToolError {
+    let mut error = ToolError::from(error);
+    error.message = error
+        .message
+        .replace("use `context bundle edit`", "use mode=edit")
+        .replace(
+            "undo it there or pass --force",
+            "undo it there with context_bundle_undo first",
+        );
+    error
+}
+
+pub(super) fn bundle_save(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    let create = match str_arg(args, "mode").map(str::trim) {
+        Some("add") => true,
+        Some("edit") => false,
+        _ => return Err(invalid("mode must be add or edit")),
+    };
+    let name = required(args, "name")?;
+    let edit = Edit {
+        description: str_arg(args, "description").map(String::from),
+        servers: str_arg(args, "servers").map(|s| s.trim().to_string()),
+        skills_off: text_list(args, "skills_off")?,
+        skills_name_only: text_list(args, "skills_name_only")?,
+        skills_allow: text_list(args, "skills_allow")?,
+        plugins_off: text_list(args, "plugins_off")?,
+        layers_add: text_list(args, "layers_add")?,
+        layers_exclude: text_list(args, "layers_exclude")?,
+        agents_off: text_list(args, "agents_off")?,
+        bind: text_list(args, "bind")?,
+    };
+    let mut saved = api::save(
+        host,
+        name,
+        edit,
+        None,
+        create,
+        flag_or(args, "dry_run", true),
+    )
+    .map_err(in_tool_words)?;
+    let after = saved["plan"]["steps"][0]["diff"]["after"]
+        .as_str()
+        .unwrap_or_default();
+    if let Ok(parsed) = bundle::parse(name, after) {
+        saved["names"] = serde_json::json!({
+            "servers": parsed.servers,
+            "bind": parsed.bind,
+        });
+    }
+    Ok(saved)
+}
+
+pub(super) fn bundle_rm(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    api::rm(
+        host,
+        required(args, "name")?,
+        false,
+        flag_or(args, "dry_run", true),
+    )
+    .map_err(in_tool_words)
+}
+
+pub(super) fn bundle_launch(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    Ok(api::launch(
+        host,
+        required(args, "name")?,
+        str_arg(args, "cwd")
+            .map(str::trim)
+            .filter(|c| !c.is_empty()),
+    )?)
 }

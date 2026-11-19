@@ -1,0 +1,38 @@
+{
+  "arguments": {
+    "bind": ["~/docs/*", "~/notes"],
+    "mode": "edit",
+    "name": "docs"
+  },
+  "isError": false,
+  "result": {
+    "created": false,
+    "dryRun": true,
+    "issues": [],
+    "name": "docs",
+    "names": {
+      "bind": ["~/docs/*", "~/notes"],
+      "servers": "Default"
+    },
+    "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/docs.yaml",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "change bundle docs",
+          "diff": {
+            "after": "format: 1\nname: docs\nservers: Default\nskills:\n  off:\n  - scratch-1\nbind:\n- ~/docs/*\n- ~/notes\n",
+            "before": "format: 1\nname: docs\nservers: Default\nskills:\n  off:\n  - scratch-1\nbind:\n- ~/docs/*\n"
+          },
+          "op": "update",
+          "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/docs.yaml"
+        }
+      ],
+      "summary": "Edit bundle docs",
+      "undo": "git checkout -- <WORLD>/home/.config/mcpm/skills_repo/profiles/docs.yaml (the file is yours to commit)",
+      "warnings": []
+    },
+    "result": null
+  },
+  "tool": "context_bundle_save"
+}

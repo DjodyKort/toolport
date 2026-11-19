@@ -50,5 +50,5 @@
   "summary": "Delete a bundle definition; refuses while applied unless --force (<name>, --force, --dry-run)",
   "surface": "screen",
   "tier": "destructive",
-  "tools": []
+  "tools": ["context_bundle_rm"]
 }

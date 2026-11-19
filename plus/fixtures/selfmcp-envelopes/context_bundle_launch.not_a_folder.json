@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/absent",
+    "name": "acme-dev"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "<WORLD>/home/absent does not exist"
+    }
+  },
+  "text": "invalid_arguments: <WORLD>/home/absent does not exist",
+  "tool": "context_bundle_launch"
+}

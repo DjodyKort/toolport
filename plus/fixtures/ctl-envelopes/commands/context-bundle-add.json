@@ -160,5 +160,5 @@
   "summary": "Write a new bundle (<name>, --from-folder, --description, --skills-off, --skills-name-only, --skills-allow, --plugins-off, --layers-add, --layers-exclude, --agents-off, --servers, --bind, --dry-run)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["context_bundle_save"]
 }

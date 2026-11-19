@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "name": "acme-dev"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "bundle acme-dev is applied in <WORLD>/home/proj; undo it there with context_bundle_undo first"
+    }
+  },
+  "text": "conflict: bundle acme-dev is applied in <WORLD>/home/proj; undo it there with context_bundle_undo first",
+  "tool": "context_bundle_rm"
+}

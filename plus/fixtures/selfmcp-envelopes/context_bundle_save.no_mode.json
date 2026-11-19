@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "docs"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "missing required argument: mode"
+    }
+  },
+  "text": "invalid_arguments: missing required argument: mode",
+  "tool": "context_bundle_save"
+}
