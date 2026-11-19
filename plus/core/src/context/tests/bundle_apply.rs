@@ -778,6 +778,66 @@ fn bundles_and_folder_controls_share_a_folder_and_leave_in_any_order() {
     }
 }
 
+fn want_env(value: &str) -> bundle_apply::Desired {
+    bundle_apply::Desired {
+        env: vec![("ECC_DISABLED_HOOKS".into(), value.into())],
+        ..Default::default()
+    }
+}
+
+#[test]
+fn a_control_whose_record_cannot_be_written_leaves_the_folder_as_it_was() {
+    use crate::context::bundle_controls as controls;
+    let fx = Fx::new("control-ledger-fails");
+    let before = tree_snapshot(&fx.cwd);
+    fs::create_dir_all(ledger::path(&fx.data)).unwrap();
+    let error = controls::apply(&fx.data, &fx.cwd, "control-a", &want_env("pre:x"), false)
+        .err()
+        .expect("the record cannot be written");
+    assert!(
+        error.message.contains("profile-ledger.json"),
+        "{}",
+        error.message
+    );
+    assert_eq!(tree_snapshot(&fx.cwd), before);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_control_whose_settings_cannot_be_written_keeps_the_record_it_had() {
+    use crate::context::bundle_controls as controls;
+    use std::os::unix::fs::PermissionsExt;
+    let fx = Fx::new("control-settings-fail");
+    controls::apply(&fx.data, &fx.cwd, "control-a", &want_env("pre:x"), false).unwrap();
+    let held = ledger::load(&fx.data);
+    let dir = fx.cwd.join(".claude");
+    let set_mode = |mode| fs::set_permissions(&dir, fs::Permissions::from_mode(mode)).unwrap();
+    set_mode(0o555);
+    // A superuser writes through the mode, so the test has nothing to show there.
+    let writable = fs::write(dir.join("probe"), "").is_ok();
+    let second = (!writable)
+        .then(|| controls::apply(&fx.data, &fx.cwd, "control-a", &want_env("pre:y"), false));
+    set_mode(0o755);
+    let Some(second) = second else {
+        return;
+    };
+    assert!(second.is_err());
+    assert_eq!(ledger::load(&fx.data), held);
+    controls::undo(&fx.data, &fx.cwd, "control-a", false).unwrap();
+    assert_eq!(ledger::load(&fx.data), ledger::Ledger::default());
+}
+
+#[test]
+fn a_record_whose_settings_never_got_written_is_undone_without_trouble() {
+    use crate::context::bundle_controls as controls;
+    let fx = Fx::new("control-intent-only");
+    controls::apply(&fx.data, &fx.cwd, "control-a", &want_env("pre:x"), false).unwrap();
+    fs::remove_file(fx.settings()).unwrap();
+    let undone = controls::undo(&fx.data, &fx.cwd, "control-a", false).unwrap();
+    assert!(undone.conflicts.len() <= 1);
+    assert_eq!(ledger::load(&fx.data), ledger::Ledger::default());
+}
+
 #[test]
 fn launch_settings_carry_the_denied_servers_and_the_plugin_env() {
     let fx = Fx::new("bundle-launch-controls");

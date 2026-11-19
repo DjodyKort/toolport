@@ -502,6 +502,31 @@ fn a_clear_whose_move_fails_leaves_memory_switched_on() {
     assert!(!root.join(".claude/settings.local.json").exists());
 }
 
+#[test]
+fn a_switch_whose_record_cannot_be_written_puts_the_memory_back_with_the_switch_untouched() {
+    let fx = Fx::new();
+    let root = fx.repo("work/app");
+    let memory = fx.memory("work/app", &[("MEMORY.md", "- one\n")]);
+    std::fs::create_dir_all(fx.data.join("plus/profile-ledger.json")).unwrap();
+    let mut args = clear_args(&root);
+    args.also_off = true;
+    let failed = err(clear::clear(&fx.world(), &args));
+    assert!(
+        failed.message.contains("put back, nothing changed"),
+        "{}",
+        failed.message
+    );
+    assert_eq!(
+        std::fs::read_to_string(memory.join("MEMORY.md")).unwrap(),
+        "- one\n"
+    );
+    assert!(!root.join(".claude/settings.local.json").exists());
+    assert_eq!(
+        fx.world().layers(&Repo::of(&root)).effective(),
+        (true, SetBy::Default)
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn a_switch_that_cannot_be_written_puts_the_cleared_memory_back() {

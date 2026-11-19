@@ -43,19 +43,19 @@ impl Position {
         }
     }
 
+    pub fn value(self) -> Option<bool> {
+        match self {
+            Self::Default => None,
+            Self::On => Some(true),
+            Self::Off => Some(false),
+        }
+    }
+
     pub fn of(value: Option<bool>) -> Self {
         match value {
             None => Self::Default,
             Some(true) => Self::On,
             Some(false) => Self::Off,
-        }
-    }
-
-    fn value(self) -> Option<bool> {
-        match self {
-            Self::Default => None,
-            Self::On => Some(true),
-            Self::Off => Some(false),
         }
     }
 }

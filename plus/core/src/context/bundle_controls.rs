@@ -145,7 +145,61 @@ pub fn apply(
         });
     }
 
-    let done = bundle_io::update(&file, TRIES, |text| {
+    // The record goes first, with what the write is about to do: a failure of the settings write
+    // or the exclude line then leaves a record `undo` can act on, and a record that cannot be
+    // written leaves the folder as it was.
+    let exclude_added = repo.is_some()
+        && !std::fs::read_to_string(exclude_file(&cwd))
+            .unwrap_or_default()
+            .lines()
+            .any(|l| l == super::bundle_apply::SETTINGS_REL);
+    let exclude_rec = ExcludeRec {
+        file: fsx::display(&exclude_file(&cwd)),
+        line: super::bundle_apply::SETTINGS_REL.to_string(),
+        created_file: !exclude_file(&cwd).exists(),
+    };
+    let record_with = |settings: ledger::SettingsRec, added: bool| {
+        let mut excludes: Vec<ExcludeRec> = Vec::new();
+        if added {
+            excludes.push(exclude_rec.clone());
+        }
+        if let Some(p) = &prior {
+            excludes.extend(
+                p.excludes
+                    .iter()
+                    .filter(|e| !excludes.contains(e))
+                    .cloned()
+                    .collect::<Vec<_>>(),
+            );
+        }
+        ControlRec {
+            applied_at: fsx::now_zulu(),
+            settings,
+            excludes,
+        }
+    };
+    let store_record = |rec: Option<&ControlRec>| {
+        ledger::update(data_dir, |l| match rec {
+            Some(rec) => {
+                l.controls
+                    .entry(folder.clone())
+                    .or_default()
+                    .insert(control.to_string(), rec.clone());
+            }
+            None => {
+                if let Some(m) = l.controls.get_mut(&folder) {
+                    m.remove(control);
+                    if m.is_empty() {
+                        l.controls.remove(&folder);
+                    }
+                }
+            }
+        })
+    };
+    let intent = record_with(planned.rec.clone(), exclude_added);
+    store_record(Some(&intent)).map_err(failed)?;
+
+    let written = bundle_io::update(&file, TRIES, |text| {
         let out = compute_settings(
             text,
             prior.as_ref().map(|p| &p.settings),
@@ -154,45 +208,30 @@ pub fn apply(
             dir_missing,
         )?;
         Ok((out.action.clone(), out))
-    })
-    .map_err(failed)?;
+    });
+    let done = match written {
+        Ok(done) => done,
+        Err(e) => {
+            let _ = store_record(prior.as_ref());
+            return Err(failed(e));
+        }
+    };
     let mut changed = Vec::new();
     if !matches!(done.action, Action::Keep) {
         changed.push(fsx::display(&file));
     }
-    let mut excludes: Vec<ExcludeRec> = Vec::new();
+    let mut added = false;
     if repo.is_some() {
-        let existed = exclude_file(&cwd).exists();
-        if layers::ensure_exclude_line(&cwd, super::bundle_apply::SETTINGS_REL).map_err(failed)? {
-            excludes.push(ExcludeRec {
-                file: fsx::display(&exclude_file(&cwd)),
-                line: super::bundle_apply::SETTINGS_REL.to_string(),
-                created_file: !existed,
-            });
+        added =
+            layers::ensure_exclude_line(&cwd, super::bundle_apply::SETTINGS_REL).map_err(failed)?;
+        if added {
             changed.push(fsx::display(&exclude_file(&cwd)));
         }
     }
-    if let Some(p) = &prior {
-        excludes.extend(
-            p.excludes
-                .iter()
-                .filter(|e| !excludes.contains(e))
-                .cloned()
-                .collect::<Vec<_>>(),
-        );
+    let rec = record_with(done.rec.clone(), added);
+    if rec.settings != intent.settings || rec.excludes != intent.excludes {
+        store_record(Some(&rec)).map_err(failed)?;
     }
-    let rec = ControlRec {
-        applied_at: fsx::now_zulu(),
-        settings: done.rec.clone(),
-        excludes,
-    };
-    ledger::update(data_dir, |l| {
-        l.controls
-            .entry(folder.clone())
-            .or_default()
-            .insert(control.to_string(), rec.clone());
-    })
-    .map_err(failed)?;
     Ok(Run {
         dry_run,
         folder,

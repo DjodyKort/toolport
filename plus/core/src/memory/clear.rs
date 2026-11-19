@@ -163,7 +163,23 @@ pub fn clear(world: &World, args: &Args) -> Result<Value, OpError> {
             match leave_out::write_state(world.data_dir, &repo.cwd, &held.files, Some(false), false)
             {
                 Ok(run) => changed.extend(run.changed),
-                Err(e) => return Err(switch_failed(world, entry.as_ref(), &dir, e)),
+                Err(e) => {
+                    // The write may have got as far as the settings file before it failed.
+                    let reverted = leave_out::write_state(
+                        world.data_dir,
+                        &repo.cwd,
+                        &held.files,
+                        previous.value(),
+                        false,
+                    );
+                    return Err(switch_failed(
+                        world,
+                        entry.as_ref(),
+                        &dir,
+                        e,
+                        reverted.err(),
+                    ));
+                }
             }
         }
         trash_id = entry.map(|e| e.id);
@@ -210,8 +226,9 @@ fn switch_failed(
     entry: Option<&store::Entry>,
     dir: &Path,
     cause: OpError,
+    not_reverted: Option<OpError>,
 ) -> OpError {
-    let message = match entry {
+    let mut message = match entry {
         Some(entry) => match store::restore(world.data_dir, Store::Trash, entry) {
             Ok(_) => format!(
                 "auto memory could not be switched off ({}); it was put back, nothing changed",
@@ -228,6 +245,12 @@ fn switch_failed(
             cause.message
         ),
     };
+    if let Some(e) = not_reverted {
+        message.push_str(&format!(
+            "; its previous switch could not be restored either: {}",
+            e.message
+        ));
+    }
     OpError::failed("memory_failed", message)
 }
 
@@ -274,11 +297,7 @@ pub fn undo(
         restored = store::restore(world.data_dir, Store::Trash, &entry)?;
         if let Some(before) = entry.switch_before.as_deref().and_then(Position::parse) {
             let held = leave_out::held_in(world.data_dir, Path::new(&entry.repo_root));
-            let value = match before {
-                Position::Default => None,
-                Position::On => Some(true),
-                Position::Off => Some(false),
-            };
+            let value = before.value();
             if Path::new(&entry.repo_root).is_dir() {
                 leave_out::write_state(
                     world.data_dir,
