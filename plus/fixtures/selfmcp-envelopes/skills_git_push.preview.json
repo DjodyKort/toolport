@@ -1,0 +1,60 @@
+{
+  "arguments": {
+    "commit_message": "add extra"
+  },
+  "isError": false,
+  "result": {
+    "branch": "main",
+    "checks": {
+      "audit": {
+        "findings": [],
+        "high": 0,
+        "ran": true,
+        "skills": 1
+      },
+      "blocked": false,
+      "builtinScan": {
+        "count": 0,
+        "findings": []
+      },
+      "gitleaks": {
+        "available": false,
+        "count": 0,
+        "error": "not installed",
+        "findings": [],
+        "ran": false
+      }
+    },
+    "commits": [],
+    "dryRun": true,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "audit: 1 skill(s), 0 finding(s), 0 high",
+          "op": "note"
+        },
+        {
+          "detail": "gitleaks not installed; built-in scan: 0 finding(s)",
+          "op": "note"
+        },
+        {
+          "detail": "git add -A and git commit -m \"add extra\" (1 changed file(s))",
+          "op": "exec",
+          "path": "<WORLD>/skills-repo"
+        },
+        {
+          "detail": "git push (never forced)",
+          "op": "exec",
+          "path": "<WORLD>/skills-repo"
+        }
+      ],
+      "summary": "Push 1 commit(s) to origin/main",
+      "undo": "git -C '<WORLD>/skills-repo' revert --no-edit 2b47c8fed094f544ce65dc8c5be4445f43025b57..HEAD",
+      "warnings": []
+    },
+    "pushed": false,
+    "repo": "<WORLD>/skills-repo"
+  },
+  "tool": "skills_git_push"
+}

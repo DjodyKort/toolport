@@ -1,6 +1,7 @@
 {
   "arguments": {
-    "commit_message": "add extra"
+    "commit_message": "add extra",
+    "dry_run": false
   },
   "isError": true,
   "result": {

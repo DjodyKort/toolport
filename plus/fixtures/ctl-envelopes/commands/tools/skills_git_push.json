@@ -1,6 +1,6 @@
 {
   "command": null,
-  "dryRun": "none",
+  "dryRun": "default-on",
   "name": "skills_git_push",
   "tier": "destructive",
   "toolTier": 4

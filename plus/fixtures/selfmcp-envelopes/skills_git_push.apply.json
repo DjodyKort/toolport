@@ -1,7 +1,8 @@
 {
   "arguments": {
     "commit_message": "add extra",
-    "confirm": true
+    "confirm": true,
+    "dry_run": false
   },
   "isError": false,
   "result": {

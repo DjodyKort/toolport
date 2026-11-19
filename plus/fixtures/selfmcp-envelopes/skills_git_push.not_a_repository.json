@@ -2,6 +2,7 @@
   "arguments": {
     "commit_message": "x",
     "confirm": true,
+    "dry_run": false,
     "repo_path": "<WORLD>/data"
   },
   "isError": true,

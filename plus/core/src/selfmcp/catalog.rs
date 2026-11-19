@@ -82,7 +82,6 @@ const SKILL_NAME: Param = p("name", Ty::Str, true, "Skill or rule name");
 const ATT_ID: Param = p("id", Ty::Str, true, "The row id from attention_list");
 const REPO: Param = p("repo_path", Ty::Str, false, "Skills repository root");
 const CLIENTS: Param = p("client_keys", Ty::StrList, false, "Client keys to target");
-const COMMIT: Param = p("commit_message", Ty::Str, true, "Commit message");
 const CLIENT: Param = p("client", Ty::Str, false, "Limit to one client key");
 const GLOBAL: Param = p(
     "global_mode",
@@ -818,6 +817,7 @@ pub const TOOLS: &[ToolDef] = &[
             p("source", Ty::Str, true, "A tap, or <tap>/<plugin> for a plugin marketplace tap"),
             p("fetch", Ty::Bool, false, "Fetch the latest version (default true); false compares with the local clone"),
             p("switch", Ty::Bool, false, "Include switching off the whole plugin that is installed beside the chosen items"),
+            p("deepen", Ty::Bool, false, "Download the whole history to see whether the pinned commit is still in it; costs time and data on a large repository"),
         ],
         library::select_plan
     ),
@@ -872,9 +872,13 @@ pub const TOOLS: &[ToolDef] = &[
     tool!(
         "skills_git_push",
         4,
-        Always,
-        "Commit and push the skills repository to its remote",
-        [COMMIT, REPO],
+        UnlessDryRun,
+        "Commit and push the skills repository to its remote, never forced. dry_run is on by default and returns the plan: the skills audit, the secret scan (gitleaks, else the built-in one), the commits that would go and the undo; a finding refuses the push. Apply with dry_run=false, commit_message and confirm=true",
+        [
+            p("commit_message", Ty::Str, false, "Commit message for uncommitted work; required to apply"),
+            REPO,
+            DRY_ON
+        ],
         library::git_push
     ),
     tool!(

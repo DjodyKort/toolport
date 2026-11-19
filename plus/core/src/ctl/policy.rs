@@ -1315,7 +1315,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("library_select_apply", W, "library select apply").on(),
     maps("library_select_undo", W, "library select undo"),
     maps("library_select_check", W, "library select check"),
-    own("skills_git_push", D),
+    own("skills_git_push", D).on(),
     own("skills_edit_body", W),
     own("skills_edit_frontmatter", W),
     own("skills_delete", W),

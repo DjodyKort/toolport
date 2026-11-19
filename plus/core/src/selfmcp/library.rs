@@ -1,4 +1,5 @@
-//! `library_status` (tier 1), `library_pull` (tier 2) and `skills_git_push` (tier 4): the same
+//! `library_status` (tier 1), `library_pull` (tier 2) and `skills_git_push` (tier 4, previews
+//! unless dry_run is false): the same
 //! operations as `toolportctl library status|pull|push`, over `crate::library`; and
 //! `library_select_ls` and `library_select_plan` (tier 1), `library_select_check` (tier 2),
 //! `library_select_set`, `library_select_apply` and `library_select_undo` (tier 3) over
@@ -51,12 +52,17 @@ pub(super) fn git_push(host: &dyn Host, args: &Value) -> Result<Value, ToolError
                 format!("{} is not a git repository", repo.display()),
             ));
         }
+        let dry_run = flag_or(args, "dry_run", true);
         let message = str_arg(args, "commit_message").unwrap_or_default();
-        if message.trim().is_empty() {
+        if !dry_run && message.trim().is_empty() {
             return Err(ToolError::new(
                 "invalid_arguments",
                 "commit_message is empty",
             ));
+        }
+        if dry_run {
+            let message = Some(message).filter(|m| !m.trim().is_empty());
+            return sync::push(&repo, message, true).map_err(tool_error);
         }
         let done = sync::push(&repo, Some(message), false).map_err(tool_error)?;
         if done["pushed"] == true {
@@ -118,7 +124,7 @@ pub(super) fn select_plan(host: &dyn Host, args: &Value) -> Result<Value, ToolEr
         let opts = Options {
             fetch: flag_or(args, "fetch", true),
             switch: flag(args, "switch"),
-            ..Default::default()
+            deepen: flag(args, "deepen"),
         };
         selective::plan(host, source, opts).map_err(tool_error)
     })

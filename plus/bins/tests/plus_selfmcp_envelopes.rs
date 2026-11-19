@@ -866,32 +866,43 @@ const CASES: &[Case] = &[
         "skills_git_push",
         library_world::skills_repo_remote_world,
         &[
+            read(
+                "preview",
+                "skills_git_push",
+                r#"{"commit_message":"add extra"}"#,
+            ),
+            read("preview_without_message", "skills_git_push", "{}"),
+            read(
+                "confirmed_preview",
+                "skills_git_push",
+                r#"{"commit_message":"add extra","confirm":true}"#,
+            ),
             refused(
                 "refused",
                 "skills_git_push",
-                r#"{"commit_message":"add extra"}"#,
+                r#"{"commit_message":"add extra","dry_run":false}"#,
             ),
             fails(
                 "empty_message",
                 "invalid_arguments",
                 "skills_git_push",
-                r#"{"commit_message":" ","confirm":true}"#,
+                r#"{"commit_message":" ","dry_run":false,"confirm":true}"#,
             ),
             fails(
                 "not_a_repository",
                 "not_found",
                 "skills_git_push",
-                r#"{"commit_message":"x","repo_path":"{data}","confirm":true}"#,
+                r#"{"commit_message":"x","repo_path":"{data}","dry_run":false,"confirm":true}"#,
             ),
             write(
                 "apply",
                 "skills_git_push",
-                r#"{"commit_message":"add extra","confirm":true}"#,
+                r#"{"commit_message":"add extra","dry_run":false,"confirm":true}"#,
             ),
             read(
                 "clean",
                 "skills_git_push",
-                r#"{"commit_message":"again","confirm":true}"#,
+                r#"{"commit_message":"again","dry_run":false,"confirm":true}"#,
             ),
         ],
     ),
@@ -2195,6 +2206,11 @@ const CASES: &[Case] = &[
                 r#"{"repo":"{base}/select-src","name":"picks","dry_run":false}"#,
             ),
             read("plan", "library_select_plan", r#"{"source":"picks"}"#),
+            read(
+                "deepen",
+                "library_select_plan",
+                r#"{"source":"picks","deepen":true}"#,
+            ),
             read(
                 "local",
                 "library_select_plan",

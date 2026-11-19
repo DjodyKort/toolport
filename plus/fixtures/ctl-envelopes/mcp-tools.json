@@ -1729,6 +1729,12 @@
               "name": "switch",
               "required": false,
               "type": "boolean"
+            },
+            {
+              "description": "Download the whole history to see whether the pinned commit is still in it; costs time and data on a large repository",
+              "name": "deepen",
+              "required": false,
+              "type": "boolean"
             }
           ],
           "tier": 2
@@ -1872,15 +1878,15 @@
           "tier": 2
         },
         {
-          "description": "Commit and push the skills repository to its remote",
-          "dryRunDefault": false,
-          "gate": "always",
+          "description": "Commit and push the skills repository to its remote, never forced. dry_run is on by default and returns the plan: the skills audit, the secret scan (gitleaks, else the built-in one), the commits that would go and the undo; a finding refuses the push. Apply with dry_run=false, commit_message and confirm=true",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
           "name": "skills_git_push",
           "params": [
             {
-              "description": "Commit message",
+              "description": "Commit message for uncommitted work; required to apply",
               "name": "commit_message",
-              "required": true,
+              "required": false,
               "type": "string"
             },
             {
@@ -1888,6 +1894,12 @@
               "name": "repo_path",
               "required": false,
               "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
             },
             {
               "description": "Must be true to run this tool",
