@@ -125,28 +125,22 @@ pub fn clear(world: &World, args: &Args) -> Result<Value, OpError> {
     }
     let cwd_text = fsx::display(&repo.cwd);
     let mut undo = format!("toolportctl memory undo --cwd {cwd_text}");
-    let mut off_run = None;
     if args.also_off {
-        let run = leave_out::write_state(
-            world.data_dir,
-            &repo.cwd,
-            &held.files,
-            Some(false),
-            args.dry_run,
-        )?;
+        let run =
+            leave_out::write_state(world.data_dir, &repo.cwd, &held.files, Some(false), true)?;
         steps.extend(run.steps.iter().cloned());
         warnings.extend(run.warnings.iter().cloned());
-        off_run = Some(run);
     }
     let mut changed = Vec::new();
     let mut trash_id = None;
     if !args.dry_run {
         store::purge_expired(world.data_dir, world.now);
+        let mut entry = None;
         if forever {
             store::remove_tree(&dir)
                 .map_err(|e| OpError::failed("memory_failed", e.to_string()))?;
         } else {
-            let entry = store::put(
+            let put = store::put(
                 world.data_dir,
                 &Put {
                     store: Store::Trash,
@@ -158,13 +152,20 @@ pub fn clear(world: &World, args: &Args) -> Result<Value, OpError> {
                     switch_before: args.also_off.then(|| previous.as_str().to_string()),
                 },
             )?;
-            undo = format!("toolportctl memory undo {}", entry.id);
-            trash_id = Some(entry.id);
+            undo = format!("toolportctl memory undo {}", put.id);
+            entry = Some(put);
         }
         changed.push(fsx::display(&dir));
-        if let Some(run) = &off_run {
-            changed.extend(run.changed.iter().cloned());
+        if args.also_off {
+            // The move comes first: a move that fails leaves the switch alone, and a switch
+            // that cannot be written puts the memory back, so a clear is whole or not done.
+            match leave_out::write_state(world.data_dir, &repo.cwd, &held.files, Some(false), false)
+            {
+                Ok(run) => changed.extend(run.changed),
+                Err(e) => return Err(switch_failed(world, entry.as_ref(), &dir, e)),
+            }
         }
+        trash_id = entry.map(|e| e.id);
     }
     let plan = PlanV1 {
         summary: format!(
@@ -201,6 +202,32 @@ pub fn clear(world: &World, args: &Args) -> Result<Value, OpError> {
         "plan": plan,
         "result": result,
     }))
+}
+
+fn switch_failed(
+    world: &World,
+    entry: Option<&store::Entry>,
+    dir: &Path,
+    cause: OpError,
+) -> OpError {
+    let message = match entry {
+        Some(entry) => match store::restore(world.data_dir, Store::Trash, entry) {
+            Ok(_) => format!(
+                "auto memory could not be switched off ({}); it was put back, nothing changed",
+                cause.message
+            ),
+            Err(e) => format!(
+                "auto memory could not be switched off ({}) and could not be put back ({}); it is in the trash as {}, `toolportctl memory undo {}` restores it",
+                cause.message, e.message, entry.id, entry.id
+            ),
+        },
+        None => format!(
+            "{} was deleted but auto memory could not be switched off: {}",
+            dir.display(),
+            cause.message
+        ),
+    };
+    OpError::failed("memory_failed", message)
 }
 
 /// `memory undo`: the newest trashed memory, or the one called `id`, goes back where it was.

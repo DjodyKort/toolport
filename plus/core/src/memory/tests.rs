@@ -3,7 +3,7 @@ use super::clear::{self, Args as ClearArgs};
 use super::overview::{self, Options};
 use super::resolve::{project_slug, Repo, SetBy};
 use super::session_ops::{self, ClearArgs as SessionsClear};
-use super::store::Dest;
+use super::store::{self, Dest};
 use super::switch::{self, Position};
 use super::{instructions, World};
 use crate::context::fsx;
@@ -459,6 +459,67 @@ fn clearing_with_the_off_tick_turns_memory_off_and_undo_turns_it_back() {
     let layers = fx.world().layers(&Repo::of(&root));
     assert_eq!(layers.effective(), (false, SetBy::Repository));
     ok(clear::undo(&fx.world(), None, Some(&root), false));
+    assert_eq!(
+        fx.world().layers(&Repo::of(&root)).effective(),
+        (true, SetBy::Default)
+    );
+}
+
+#[test]
+fn a_clear_whose_move_fails_leaves_memory_switched_on() {
+    let fx = Fx::new();
+    let root = fx.repo("work/app");
+    let memory = fx.memory("work/app", &[("MEMORY.md", "- one\n")]);
+    std::fs::write(fx.data.join("plus"), "not a folder").unwrap();
+    let mut args = clear_args(&root);
+    args.also_off = true;
+    let failed = err(clear::clear(&fx.world(), &args));
+    assert!(
+        failed.message.contains("could not move"),
+        "{}",
+        failed.message
+    );
+    assert!(memory.join("MEMORY.md").exists());
+    assert_eq!(
+        fx.world().layers(&Repo::of(&root)).effective(),
+        (true, SetBy::Default)
+    );
+    assert!(!root.join(".claude/settings.local.json").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_switch_that_cannot_be_written_puts_the_cleared_memory_back() {
+    use std::os::unix::fs::PermissionsExt;
+    let fx = Fx::new();
+    let root = fx.repo("work/app");
+    let memory = fx.memory("work/app", &[("MEMORY.md", "- one\n")]);
+    let settings_dir = root.join(".claude");
+    std::fs::create_dir_all(&settings_dir).unwrap();
+    let set_mode = |mode| {
+        std::fs::set_permissions(&settings_dir, std::fs::Permissions::from_mode(mode)).unwrap()
+    };
+    set_mode(0o555);
+    // A superuser writes through the mode, so the test has nothing to show there.
+    let writable = std::fs::write(settings_dir.join("probe"), "").is_ok();
+    let mut args = clear_args(&root);
+    args.also_off = true;
+    let result = (!writable).then(|| clear::clear(&fx.world(), &args));
+    set_mode(0o755);
+    let Some(result) = result else {
+        return;
+    };
+    let failed = err(result);
+    assert!(
+        failed.message.contains("put back, nothing changed"),
+        "{}",
+        failed.message
+    );
+    assert_eq!(
+        std::fs::read_to_string(memory.join("MEMORY.md")).unwrap(),
+        "- one\n"
+    );
+    assert!(store::list(&fx.data, store::Store::Trash, NOW).is_empty());
     assert_eq!(
         fx.world().layers(&Repo::of(&root)).effective(),
         (true, SetBy::Default)
