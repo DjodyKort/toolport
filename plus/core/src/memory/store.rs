@@ -1,14 +1,16 @@
 //! Toolport's own trash and archive for memory and sessions. Both live in Toolport's data folder,
 //! never inside `~/.claude/projects`: Claude Code reads what is there as memory and sessions, and
-//! a session found twice makes `--resume <id>` report not-found. Everything is moved, never
-//! copied, so a clear and its undo leave exactly one copy.
+//! a session found twice makes `--resume <id>` report not-found. Everything is moved, so a clear
+//! and its undo leave exactly one copy; across volumes the move is a verified copy first.
 
 use crate::context::fsx;
 use crate::fsx::{atomic_write, Mode};
 use crate::op::OpError;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 use std::fs;
-use std::io;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 pub const TRASH_DAYS: i64 = 30;
@@ -134,7 +136,15 @@ fn copy_tree(from: &Path, to: &Path) -> io::Result<()> {
             fs::copy(from, to).map(|_| ())
         }
     } else {
-        fs::copy(from, to).map(|_| ())
+        fs::copy(from, to)?;
+        // Session retention reads file ages, so a copy keeps them.
+        if let Ok(modified) = meta.modified() {
+            let _ = fs::File::options()
+                .write(true)
+                .open(to)
+                .and_then(|file| file.set_modified(modified));
+        }
+        Ok(())
     }
 }
 
@@ -147,22 +157,145 @@ pub fn remove_tree(path: &Path) -> io::Result<()> {
     }
 }
 
-/// A rename; across volumes a copy that is verified by the rename of its last step, then the
-/// source is removed, so the end state is still one copy.
-pub fn move_path(from: &Path, to: &Path) -> io::Result<()> {
+/// What a file looks like to the check that a copy is whole.
+#[derive(Debug, PartialEq, Eq)]
+enum Print {
+    Dir,
+    Link(PathBuf),
+    File { size: u64, hash: [u8; 32] },
+}
+
+fn hash_file(path: &Path) -> io::Result<(u64, [u8; 32])> {
+    let mut file = fs::File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0u8; 64 * 1024];
+    let mut size = 0u64;
+    loop {
+        let read = file.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+        size += read as u64;
+    }
+    Ok((size, hasher.finalize().into()))
+}
+
+fn prints(root: &Path, at: &Path, out: &mut BTreeMap<PathBuf, Print>) -> io::Result<()> {
+    let meta = fs::symlink_metadata(at)?;
+    let rel = at.strip_prefix(root).unwrap_or(at).to_path_buf();
+    if meta.is_dir() {
+        out.insert(rel, Print::Dir);
+        for entry in fs::read_dir(at)? {
+            prints(root, &entry?.path(), out)?;
+        }
+    } else if meta.file_type().is_symlink() {
+        out.insert(rel, Print::Link(fs::read_link(at)?));
+    } else {
+        let (size, hash) = hash_file(at)?;
+        out.insert(rel, Print::File { size, hash });
+    }
+    Ok(())
+}
+
+fn verify_copy(from: &Path, copy: &Path) -> io::Result<()> {
+    let (mut want, mut got) = (BTreeMap::new(), BTreeMap::new());
+    prints(from, from, &mut want)?;
+    prints(copy, copy, &mut got)?;
+    if want == got {
+        return Ok(());
+    }
+    let differs = want
+        .iter()
+        .find(|(rel, print)| got.get(*rel) != Some(*print))
+        .map(|(rel, _)| rel.as_path())
+        .or_else(|| {
+            got.keys()
+                .find(|rel| !want.contains_key(*rel))
+                .map(PathBuf::as_path)
+        })
+        .unwrap_or(Path::new(""));
+    Err(io::Error::other(format!(
+        "the copy of {} differs from the original at {}",
+        from.display(),
+        differs.display()
+    )))
+}
+
+/// The calls a move makes that can fail on a second volume; tests replace them to simulate one.
+trait MoveFs {
+    fn rename(&self, from: &Path, to: &Path) -> io::Result<()>;
+    fn copy_tree(&self, from: &Path, to: &Path) -> io::Result<()>;
+    fn remove_source(&self, path: &Path) -> io::Result<()>;
+}
+
+struct RealFs;
+
+impl MoveFs for RealFs {
+    fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
+        fs::rename(from, to)
+    }
+
+    fn copy_tree(&self, from: &Path, to: &Path) -> io::Result<()> {
+        copy_tree(from, to)
+    }
+
+    fn remove_source(&self, path: &Path) -> io::Result<()> {
+        remove_tree(path)
+    }
+}
+
+/// How a move ended when it did not fail.
+#[derive(Debug)]
+enum Moved {
+    Whole,
+    /// The destination holds the complete, verified copy, but the source is not (fully) gone.
+    SourceLeft(io::Error),
+}
+
+fn staging_path(to: &Path) -> PathBuf {
+    let name = to
+        .file_name()
+        .map_or_else(|| "item".into(), |n| n.to_string_lossy().into_owned());
+    to.with_file_name(format!(".{name}.copying"))
+}
+
+/// A rename. Only when the rename itself says the two places are on different volumes is the
+/// tree copied: into a hidden sibling, compared with the original by size and hash, renamed into
+/// place, and only then is the source removed. Any failure before that leaves the source as it
+/// was; after it the copy is never touched again.
+fn move_with(fs: &dyn MoveFs, from: &Path, to: &Path) -> io::Result<Moved> {
     if let Some(parent) = to.parent() {
         fs::create_dir_all(parent)?;
     }
-    match fs::rename(from, to) {
-        Ok(()) => Ok(()),
-        Err(_) => {
-            if let Err(e) = copy_tree(from, to) {
-                let _ = remove_tree(to);
-                return Err(e);
-            }
-            remove_tree(from)
-        }
+    match fs.rename(from, to) {
+        Ok(()) => Ok(Moved::Whole),
+        Err(e) if e.kind() == io::ErrorKind::CrossesDevices => copy_across(fs, from, to),
+        Err(e) => Err(e),
     }
+}
+
+fn copy_across(fs: &dyn MoveFs, from: &Path, to: &Path) -> io::Result<Moved> {
+    if fs::symlink_metadata(to).is_ok() {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("{} exists already", to.display()),
+        ));
+    }
+    let staging = staging_path(to);
+    remove_tree(&staging)?;
+    let copied = fs
+        .copy_tree(from, &staging)
+        .and_then(|()| verify_copy(from, &staging))
+        .and_then(|()| fs::rename(&staging, to));
+    if let Err(e) = copied {
+        let _ = remove_tree(&staging);
+        return Err(e);
+    }
+    Ok(match fs.remove_source(from) {
+        Ok(()) => Moved::Whole,
+        Err(e) => Moved::SourceLeft(e),
+    })
 }
 
 fn write_manifest(dir: &Path, entry: &Entry) -> Result<(), OpError> {
@@ -181,8 +314,27 @@ pub struct Put<'a> {
     pub switch_before: Option<String>,
 }
 
-/// Moves `froms` into a new entry. A failure puts back what was already moved.
+fn build_entry(id: String, put: &Put, items: Vec<Item>) -> Entry {
+    Entry {
+        id,
+        kind: put.kind.to_string(),
+        created: put.now,
+        repo_root: fsx::display(put.repo_root),
+        repo_name: put.repo_name.to_string(),
+        items,
+        switch_before: put.switch_before.clone(),
+    }
+}
+
+/// Moves `froms` into a new entry. A failure puts back what was already moved; an item that
+/// cannot be put back stays in the entry, which is then kept and listed. When a copy is whole
+/// but its source could not be fully removed, the entry keeps the copy and the call fails
+/// saying what is left in place.
 pub fn put(data_dir: &Path, put: &Put) -> Result<Entry, OpError> {
+    put_with(&RealFs, data_dir, put)
+}
+
+fn put_with(fs: &dyn MoveFs, data_dir: &Path, put: &Put) -> Result<Entry, OpError> {
     let mut id = format!("{}-{}", put.kind, stamp(put.now));
     let mut n = 1;
     while entry_dir(data_dir, put.store, &id).exists() {
@@ -197,33 +349,63 @@ pub fn put(data_dir: &Path, put: &Put) -> Result<Entry, OpError> {
             .map_or_else(|| "item".into(), |n| n.to_string_lossy().into_owned());
         let payload = format!("{index}/{name}");
         let bytes = size_of(from);
-        if let Err(e) = move_path(from, &dir.join("payload").join(&payload)) {
-            for done in items.iter().rev() {
-                let _ = move_path(
-                    &dir.join("payload").join(&done.payload),
-                    Path::new(&done.from),
-                );
-            }
-            let _ = remove_tree(&dir);
-            return Err(failed(format!("could not move {}: {e}", from.display())));
-        }
-        items.push(Item {
+        let moved = move_with(fs, from, &dir.join("payload").join(&payload));
+        let item = Item {
             from: fsx::display(from),
             payload,
             bytes,
-        });
+        };
+        match moved {
+            Ok(Moved::Whole) => items.push(item),
+            Ok(Moved::SourceLeft(e)) => {
+                items.push(item);
+                let entry = build_entry(id, put, items);
+                write_manifest(&dir, &entry)?;
+                return Err(failed(format!(
+                    "{} was copied whole into Toolport's {} as {}, but it could not be fully removed from its place: {e}. The copy is kept; what is left at {} is yours to remove",
+                    from.display(),
+                    put.store.dir_name(),
+                    entry.id,
+                    from.display()
+                )));
+            }
+            Err(e) => {
+                let stuck = put_back(fs, &dir, &items);
+                if stuck.is_empty() {
+                    let _ = remove_tree(&dir);
+                    return Err(failed(format!("could not move {}: {e}", from.display())));
+                }
+                let kept = stuck.len();
+                write_manifest(&dir, &build_entry(id.clone(), put, stuck))?;
+                return Err(failed(format!(
+                    "could not move {}: {e}; {kept} item(s) already moved could not be put back and stay in the {} as {id}",
+                    from.display(),
+                    put.store.dir_name()
+                )));
+            }
+        }
     }
-    let entry = Entry {
-        id,
-        kind: put.kind.to_string(),
-        created: put.now,
-        repo_root: fsx::display(put.repo_root),
-        repo_name: put.repo_name.to_string(),
-        items,
-        switch_before: put.switch_before.clone(),
-    };
+    let entry = build_entry(id, put, items);
     write_manifest(&dir, &entry)?;
     Ok(entry)
+}
+
+/// Moves items out of an entry back to where they came from, newest first; the ones that
+/// would not move are returned.
+fn put_back(fs: &dyn MoveFs, dir: &Path, items: &[Item]) -> Vec<Item> {
+    items
+        .iter()
+        .rev()
+        .filter(|item| {
+            move_with(
+                fs,
+                &dir.join("payload").join(&item.payload),
+                Path::new(&item.from),
+            )
+            .is_err()
+        })
+        .cloned()
+        .collect()
 }
 
 fn read_entry(dir: &Path) -> Option<Entry> {
@@ -280,6 +462,15 @@ pub fn find(
 
 /// Moves an entry's items back. Nothing moves when any original place is taken.
 pub fn restore(data_dir: &Path, store: Store, entry: &Entry) -> Result<Vec<String>, OpError> {
+    restore_with(&RealFs, data_dir, store, entry)
+}
+
+fn restore_with(
+    fs: &dyn MoveFs,
+    data_dir: &Path,
+    store: Store,
+    entry: &Entry,
+) -> Result<Vec<String>, OpError> {
     for item in &entry.items {
         if Path::new(&item.from).exists() {
             return Err(OpError::conflict(format!(
@@ -291,17 +482,27 @@ pub fn restore(data_dir: &Path, store: Store, entry: &Entry) -> Result<Vec<Strin
     let dir = entry_dir(data_dir, store, &entry.id);
     let mut done: Vec<&Item> = Vec::new();
     for item in &entry.items {
-        if let Err(e) = move_path(
+        if let Err(e) = move_with(
+            fs,
             &dir.join("payload").join(&item.payload),
             Path::new(&item.from),
         ) {
+            let mut stayed = Vec::new();
             for back in done.iter().rev() {
-                let _ = move_path(
-                    Path::new(&back.from),
-                    &dir.join("payload").join(&back.payload),
-                );
+                let target = dir.join("payload").join(&back.payload);
+                if move_with(fs, Path::new(&back.from), &target).is_err() {
+                    stayed.push(back.from.clone());
+                }
             }
-            return Err(failed(format!("could not restore {}: {e}", item.from)));
+            let note = if stayed.is_empty() {
+                String::new()
+            } else {
+                format!("; these stay restored: {}", stayed.join(", "))
+            };
+            return Err(failed(format!(
+                "could not restore {}: {e}{note}",
+                item.from
+            )));
         }
         done.push(item);
     }
@@ -401,5 +602,293 @@ mod tests {
         fs::create_dir_all(&src).unwrap();
         let second = put_memory(&data, &src, 5);
         assert_ne!(first.id, second.id);
+    }
+
+    type Rule = Box<dyn Fn(&Path, &Path) -> bool>;
+
+    /// A second volume: renames across it report `CrossesDevices`, and each step of the copy
+    /// fallback can be made to fail.
+    struct Volumes {
+        cross: bool,
+        deny_rename: Option<Rule>,
+        corrupt_copy: bool,
+        fail_copy: bool,
+        fail_remove: bool,
+        copies: std::cell::Cell<u32>,
+    }
+
+    impl Volumes {
+        fn apart() -> Self {
+            Self {
+                cross: true,
+                deny_rename: None,
+                corrupt_copy: false,
+                fail_copy: false,
+                fail_remove: false,
+                copies: std::cell::Cell::new(0),
+            }
+        }
+
+        fn same() -> Self {
+            Self {
+                cross: false,
+                ..Self::apart()
+            }
+        }
+    }
+
+    impl MoveFs for Volumes {
+        fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
+            if self.deny_rename.as_ref().is_some_and(|deny| deny(from, to)) {
+                return Err(io::ErrorKind::PermissionDenied.into());
+            }
+            if self.cross {
+                return Err(io::ErrorKind::CrossesDevices.into());
+            }
+            fs::rename(from, to)
+        }
+
+        fn copy_tree(&self, from: &Path, to: &Path) -> io::Result<()> {
+            self.copies.set(self.copies.get() + 1);
+            copy_tree(from, to)?;
+            if self.fail_copy {
+                return Err(io::Error::other("disk full"));
+            }
+            if self.corrupt_copy {
+                let mut files = Vec::new();
+                collect_files(to, &mut files);
+                fs::write(&files[0], "x")?;
+            }
+            Ok(())
+        }
+
+        fn remove_source(&self, path: &Path) -> io::Result<()> {
+            if self.fail_remove {
+                let mut files = Vec::new();
+                collect_files(path, &mut files);
+                if let Some(first) = files.first() {
+                    fs::remove_file(first)?;
+                }
+                return Err(io::Error::other("busy"));
+            }
+            remove_tree(path)
+        }
+    }
+
+    fn collect_files(dir: &Path, out: &mut Vec<PathBuf>) {
+        let mut names: Vec<_> = fs::read_dir(dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .collect();
+        names.sort();
+        for path in names {
+            if path.is_dir() {
+                collect_files(&path, out);
+            } else {
+                out.push(path);
+            }
+        }
+    }
+
+    fn files_of(dir: &Path) -> Vec<(String, String)> {
+        let mut files = Vec::new();
+        collect_files(dir, &mut files);
+        files
+            .iter()
+            .map(|p| {
+                (
+                    p.strip_prefix(dir).unwrap().to_string_lossy().into_owned(),
+                    fs::read_to_string(p).unwrap(),
+                )
+            })
+            .collect()
+    }
+
+    fn tree(src: &Path) {
+        fs::create_dir_all(src.join("notes/deep")).unwrap();
+        fs::write(src.join("notes/a.md"), "alpha\n").unwrap();
+        fs::write(src.join("notes/deep/b.md"), "bravo\n").unwrap();
+    }
+
+    fn put_all(fs: &dyn MoveFs, data: &Path, froms: &[PathBuf]) -> Result<Entry, OpError> {
+        put_with(
+            fs,
+            data,
+            &Put {
+                store: Store::Trash,
+                kind: "memory",
+                now: 1_000_000,
+                repo_root: Path::new("/r"),
+                repo_name: "r",
+                froms,
+                switch_before: None,
+            },
+        )
+    }
+
+    fn payload_of(data: &Path, entry: &Entry, index: usize) -> PathBuf {
+        entry_dir(data, Store::Trash, &entry.id)
+            .join("payload")
+            .join(&entry.items[index].payload)
+    }
+
+    #[test]
+    fn across_volumes_the_tree_is_copied_checked_and_only_then_removed() {
+        let (_d, data, src) = world();
+        tree(&src);
+        let before = files_of(&src);
+        let volumes = Volumes::apart();
+        let entry = put_all(&volumes, &data, std::slice::from_ref(&src)).unwrap();
+        assert_eq!(volumes.copies.get(), 1);
+        assert!(!src.exists());
+        assert_eq!(files_of(&payload_of(&data, &entry, 0)), before);
+        let staged: Vec<_> = fsx::list_dir(payload_of(&data, &entry, 0).parent().unwrap())
+            .into_iter()
+            .map(|e| e.name)
+            .collect();
+        assert_eq!(staged, vec!["memory".to_string()]);
+        restore_with(&volumes, &data, Store::Trash, &entry).unwrap();
+        assert_eq!(files_of(&src), before);
+        assert!(list(&data, Store::Trash, 1_000_001).is_empty());
+    }
+
+    #[test]
+    fn an_error_that_is_not_a_second_volume_never_falls_back_to_a_copy() {
+        let (_d, data, src) = world();
+        tree(&src);
+        let before = files_of(&src);
+        let mut volumes = Volumes::same();
+        volumes.deny_rename = Some(Box::new(|_, _| true));
+        let err = put_all(&volumes, &data, std::slice::from_ref(&src)).unwrap_err();
+        assert!(err.message.contains("could not move"), "{}", err.message);
+        assert_eq!(volumes.copies.get(), 0);
+        assert_eq!(files_of(&src), before);
+        assert!(list(&data, Store::Trash, 1_000_001).is_empty());
+        assert!(fsx::list_dir(&base(&data, Store::Trash)).is_empty());
+    }
+
+    #[test]
+    fn a_copy_that_differs_from_the_original_leaves_the_source_alone() {
+        let (_d, data, src) = world();
+        tree(&src);
+        let before = files_of(&src);
+        let mut volumes = Volumes::apart();
+        volumes.corrupt_copy = true;
+        let err = put_all(&volumes, &data, std::slice::from_ref(&src)).unwrap_err();
+        assert!(err.message.contains("differs"), "{}", err.message);
+        assert_eq!(files_of(&src), before);
+        assert!(list(&data, Store::Trash, 1_000_001).is_empty());
+        let leftovers = fsx::list_dir(&base(&data, Store::Trash));
+        assert!(leftovers.is_empty());
+    }
+
+    #[test]
+    fn a_copy_that_fails_midway_leaves_the_source_alone() {
+        let (_d, data, src) = world();
+        tree(&src);
+        let before = files_of(&src);
+        let mut volumes = Volumes::apart();
+        volumes.fail_copy = true;
+        let err = put_all(&volumes, &data, std::slice::from_ref(&src)).unwrap_err();
+        assert!(err.message.contains("disk full"), "{}", err.message);
+        assert_eq!(files_of(&src), before);
+        assert!(fsx::list_dir(&base(&data, Store::Trash)).is_empty());
+    }
+
+    #[test]
+    fn a_source_that_cannot_be_removed_keeps_the_whole_copy_and_says_so() {
+        let (_d, data, src) = world();
+        tree(&src);
+        let before = files_of(&src);
+        let mut volumes = Volumes::apart();
+        volumes.fail_remove = true;
+        let err = put_all(&volumes, &data, std::slice::from_ref(&src)).unwrap_err();
+        assert!(err.message.contains("kept"), "{}", err.message);
+        assert!(err.message.contains("busy"), "{}", err.message);
+        let kept = list(&data, Store::Trash, 1_000_001);
+        assert_eq!(kept.len(), 1);
+        assert_eq!(files_of(&payload_of(&data, &kept[0], 0)), before);
+        assert!(src.exists());
+        assert_eq!(files_of(&src).len(), before.len() - 1);
+    }
+
+    #[test]
+    fn a_failure_on_the_second_item_puts_the_first_back() {
+        let (_d, data, src) = world();
+        tree(&src);
+        let other = src.parent().unwrap().join("other");
+        fs::create_dir_all(&other).unwrap();
+        fs::write(other.join("x.md"), "xray\n").unwrap();
+        let (before_src, before_other) = (files_of(&src), files_of(&other));
+        let mut volumes = Volumes::same();
+        let denied = other.clone();
+        volumes.deny_rename = Some(Box::new(move |from, _| from == denied));
+        let err = put_all(&volumes, &data, &[src.clone(), other.clone()]).unwrap_err();
+        assert!(err.message.contains("could not move"), "{}", err.message);
+        assert_eq!(files_of(&src), before_src);
+        assert_eq!(files_of(&other), before_other);
+        assert!(fsx::list_dir(&base(&data, Store::Trash)).is_empty());
+    }
+
+    #[test]
+    fn what_cannot_be_put_back_after_a_failure_stays_listed_in_the_trash() {
+        let (_d, data, src) = world();
+        tree(&src);
+        let other = src.parent().unwrap().join("other");
+        fs::create_dir_all(&other).unwrap();
+        fs::write(other.join("x.md"), "xray\n").unwrap();
+        let before_src = files_of(&src);
+        let mut volumes = Volumes::same();
+        let (first, second) = (src.clone(), other.clone());
+        volumes.deny_rename = Some(Box::new(move |from, to| from == second || to == first));
+        let err = put_all(&volumes, &data, &[src.clone(), other.clone()]).unwrap_err();
+        assert!(err.message.contains("stay in the trash"), "{}", err.message);
+        assert!(!src.exists());
+        let kept = list(&data, Store::Trash, 1_000_001);
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].items.len(), 1);
+        assert_eq!(files_of(&payload_of(&data, &kept[0], 0)), before_src);
+    }
+
+    #[test]
+    fn a_restore_that_fails_halfway_keeps_what_it_could_not_move_back_where_it_is() {
+        let (_d, data, src) = world();
+        tree(&src);
+        let other = src.parent().unwrap().join("other");
+        fs::create_dir_all(&other).unwrap();
+        fs::write(other.join("x.md"), "xray\n").unwrap();
+        let entry = put_all(&Volumes::same(), &data, &[src.clone(), other.clone()]).unwrap();
+        let mut volumes = Volumes::same();
+        let (first, second) = (src.clone(), other.clone());
+        volumes.deny_rename = Some(Box::new(move |from, to| to == second || from == first));
+        let err = restore_with(&volumes, &data, Store::Trash, &entry).unwrap_err();
+        assert!(err.message.contains("stay restored"), "{}", err.message);
+        assert!(src.exists());
+        assert!(!other.exists());
+        assert!(payload_of(&data, &entry, 1).exists());
+    }
+
+    #[test]
+    fn a_copy_is_only_whole_when_every_file_matches_by_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, b) = (dir.path().join("a"), dir.path().join("b"));
+        for side in [&a, &b] {
+            fs::create_dir_all(side.join("sub")).unwrap();
+            fs::write(side.join("sub/f.md"), "same size\n").unwrap();
+        }
+        verify_copy(&a, &b).unwrap();
+        fs::write(b.join("sub/f.md"), "SAME SIZE\n").unwrap();
+        assert!(verify_copy(&a, &b)
+            .unwrap_err()
+            .to_string()
+            .contains("sub/f.md"));
+        fs::write(b.join("sub/f.md"), "same size\n").unwrap();
+        fs::write(b.join("extra.md"), "x").unwrap();
+        assert!(verify_copy(&a, &b)
+            .unwrap_err()
+            .to_string()
+            .contains("extra.md"));
     }
 }
