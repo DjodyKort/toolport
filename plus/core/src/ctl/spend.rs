@@ -8,7 +8,7 @@ use crate::spend::report::Filter;
 use serde_json::Value;
 use toolport_plus_api::Host;
 
-const NO_ARGS: &str = "usage: spend status | receiver status | summary [--range today|7d|30d] [--project <folder>] [--model <name>] [--task <name>] | export-csv [--range <r>] [--out <file>] | prune [--dry-run] [--totals --yes] | config set [--port <n>] [--retention-days <n>] [--max-mb <n>] [--show-cost on|off] | setup plan|apply|undo [--port <n>] [--overwrite <KEY>|all] [--profile <settings file or folder>] | setup undo [--profile <p>] [--delete-data --yes] [--dry-run]";
+const NO_ARGS: &str = "usage: spend status | receiver status | summary [--range today|7d|30d] [--project <folder>] [--model <name>] [--task <name>] | export-csv [--range <r>] [--out <file>] | prune [--older-than <n>d] [--dry-run] [--totals --yes] | config set [--port <n>] [--retention-days <n>] [--max-mb <n>] [--show-cost on|off] [--daily-totals on|off] [--weekly-measure on|off [--measure-folder <folder>]] [--dry-run] | setup plan|apply|undo [--port <n>] [--overwrite <KEY>|all] [--profile <settings file or folder>] [--weekly-measure [--measure-folder <folder>]] | setup undo [--profile <p>] [--delete-data --yes] [--dry-run]";
 
 const BASE: Spec = Spec {
     flags: &[],
@@ -36,12 +36,23 @@ pub(super) const EXPORT: Spec = Spec {
 };
 
 pub(super) const PRUNE: Spec = Spec {
-    flags: &[switch("--dry-run"), switch("--totals"), switch("--yes")],
+    flags: &[
+        value("--older-than"),
+        switch("--dry-run"),
+        switch("--totals"),
+        switch("--yes"),
+    ],
     ..BASE
 };
 
 pub(super) const SETUP_PLAN: Spec = Spec {
-    flags: &[value("--port"), value("--overwrite"), value("--profile")],
+    flags: &[
+        value("--port"),
+        value("--overwrite"),
+        value("--profile"),
+        switch("--weekly-measure"),
+        value("--measure-folder"),
+    ],
     ..BASE
 };
 
@@ -50,6 +61,8 @@ pub(super) const SETUP_APPLY: Spec = Spec {
         value("--port"),
         value("--overwrite"),
         value("--profile"),
+        switch("--weekly-measure"),
+        value("--measure-folder"),
         switch("--dry-run"),
     ],
     ..BASE
@@ -61,6 +74,10 @@ pub(super) const CONFIG_SET: Spec = Spec {
         value("--retention-days"),
         value("--max-mb"),
         value("--show-cost"),
+        value("--daily-totals"),
+        value("--weekly-measure"),
+        value("--measure-folder"),
+        switch("--dry-run"),
     ],
     ..BASE
 };
@@ -181,7 +198,7 @@ pub fn prune(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
             "--totals deletes the daily totals for good: add --yes, or --dry-run to look first",
         ));
     }
-    let data = api::prune(host, dry, totals)?;
+    let data = api::prune(host, dry, totals, flags.one("--older-than"))?;
     let human = format!(
         "{} {} events ({} bytes); {} kept",
         if dry { "Would remove" } else { "Removed" },
@@ -216,6 +233,8 @@ fn choice(flags: &Flags) -> api::SetupChoice {
         port: flags.one("--port").map(str::to_string),
         overwrite: flags.all("--overwrite"),
         profiles: flags.all("--profile"),
+        weekly_measure: flags.on("--weekly-measure"),
+        measure_folder: flags.one("--measure-folder").map(str::to_string),
     }
 }
 
@@ -263,16 +282,24 @@ pub fn setup_undo(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> 
 
 pub fn config_set(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = CONFIG_SET.parse(rest)?;
-    let data = api::config_set(
+    let dry = flags.on("--dry-run");
+    let data = api::config_edit(
         host,
         &api::ConfigEdit {
             port: flags.one("--port"),
             retention_days: flags.one("--retention-days"),
             max_mb: flags.one("--max-mb"),
             show_cost: flags.one("--show-cost"),
+            daily_totals: flags.one("--daily-totals"),
+            weekly_measure: flags.one("--weekly-measure"),
+            measure_folder: flags.one("--measure-folder"),
+            ask_broker: false,
         },
+        dry,
     )?;
-    let human = if data["portChanged"] == true && data["enabled"] == true {
+    let human = if dry {
+        "Nothing was changed; this is what would be".to_string()
+    } else if data["portChanged"] == true && data["enabled"] == true {
         "Saved. Run `spend setup apply` so Claude Code sends to the new port".to_string()
     } else if data["changed"] == true {
         "Saved".to_string()

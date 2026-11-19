@@ -627,6 +627,16 @@ const CASES: &[Case] = &[
             read("again", &["spend", "prune", "--dry-run"]).env(SPEND_CLOCK),
             usage("totals-need-yes", &["spend", "prune", "--totals"]).env(SPEND_CLOCK),
             apply("totals", &["spend", "prune", "--totals", "--yes"]).env(SPEND_CLOCK),
+            read(
+                "older-than",
+                &["spend", "prune", "--dry-run", "--older-than", "7d"],
+            )
+            .env(SPEND_CLOCK),
+            usage(
+                "older-than-word",
+                &["spend", "prune", "--older-than", "soon"],
+            )
+            .env(SPEND_CLOCK),
         ],
     ),
     case(
@@ -657,6 +667,28 @@ const CASES: &[Case] = &[
             usage(
                 "show-cost-word",
                 &["spend", "config", "set", "--show-cost", "maybe"],
+            )
+            .env(SPEND_CLOCK),
+            apply(
+                "daily-totals-off",
+                &["spend", "config", "set", "--daily-totals", "off"],
+            )
+            .env(SPEND_CLOCK),
+            read(
+                "weekly-dry-run",
+                &[
+                    "spend",
+                    "config",
+                    "set",
+                    "--weekly-measure",
+                    "on",
+                    "--dry-run",
+                ],
+            )
+            .env(SPEND_CLOCK),
+            usage(
+                "folder-without-weekly",
+                &["spend", "config", "set", "--measure-folder", "/tmp"],
             )
             .env(SPEND_CLOCK),
         ],

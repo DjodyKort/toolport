@@ -5,6 +5,17 @@
   "flags": [
     {
       "aliases": [],
+      "effect": "Only events older than this many days (7d); never longer than the retention setting",
+      "escalates": false,
+      "hidden": false,
+      "name": "--older-than",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
       "effect": "Show what would be removed and change nothing",
       "escalates": false,
       "hidden": false,

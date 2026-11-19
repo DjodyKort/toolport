@@ -1,7 +1,7 @@
 {
   "baseTier": "write",
   "cost": false,
-  "dryRun": false,
+  "dryRun": true,
   "flags": [
     {
       "aliases": [],
@@ -47,6 +47,52 @@
       "required": false,
       "sensitive": false,
       "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "choices": ["on", "off"],
+      "effect": "Keep one line per day, project and model when events are pruned",
+      "escalates": false,
+      "hidden": false,
+      "name": "--daily-totals",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "choices": ["on", "off"],
+      "effect": "Turn the weekly context measure task on or off",
+      "escalates": false,
+      "hidden": false,
+      "name": "--weekly-measure",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "effect": "The folder the weekly measure covers (with --weekly-measure on)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--measure-folder",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the settings that would result and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
     }
   ],
   "group": "spend",
@@ -61,8 +107,8 @@
   "path": ["spend", "config", "set"],
   "planned": false,
   "preview": {
-    "flag": null,
-    "mode": "none"
+    "flag": "--dry-run",
+    "mode": "flag"
   },
   "summary": "Change the Spend settings: port, retention days, size cap, show cost (--port, --retention-days, --max-mb, --show-cost)",
   "surface": "screen",

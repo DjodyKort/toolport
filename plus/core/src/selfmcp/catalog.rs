@@ -1046,7 +1046,9 @@ pub const TOOLS: &[ToolDef] = &[
         "Show the five OTel env keys Toolport would write to each Claude Code profile's settings.json, and which already hold another value; writes nothing",
         [
             p("port", Ty::Str, false, "Receiver port (default 4318)"),
-            p("profile", Ty::StrList, false, "Claude Code settings files or their folders to plan for; every detected profile by default")
+            p("profile", Ty::StrList, false, "Claude Code settings files or their folders to plan for; every detected profile by default"),
+            p("weekly_measure", Ty::Bool, false, "Include the optional weekly context measure task in the plan"),
+            p("measure_folder", Ty::Str, false, "The folder the weekly measure covers")
         ],
         spend::setup_plan
     ),
@@ -1070,12 +1072,15 @@ pub const TOOLS: &[ToolDef] = &[
         "spend_config_set",
         3,
         UnlessDryRun,
-        "Change the model-spend collection settings: receiver port, how many days of events are kept, the size cap of the event store and whether cost is shown. A new port needs spend_setup_apply afterwards so Claude Code sends to it. dry_run is on by default and reports the settings that would result (apply with dry_run=false and confirm=true)",
+        "Change the model-spend collection settings: receiver port, how many days of events are kept, the size cap of the event store, whether cost is shown, whether daily totals are kept when events are pruned, and the weekly context measure task. A new port needs spend_setup_apply afterwards so Claude Code sends to it. Turning the weekly measure on needs the person's approval, because the task then runs on its schedule. dry_run is on by default and reports the settings that would result (apply with dry_run=false and confirm=true)",
         [
             p("port", Ty::Str, false, "Receiver port"),
             p("retention_days", Ty::Int, false, "Days of events to keep"),
             p("max_mb", Ty::Int, false, "Size cap of the event store in MB"),
             p("show_cost", Ty::Bool, false, "Show cost figures"),
+            p("daily_totals", Ty::Bool, false, "Keep one line per day, project and model when events are pruned"),
+            p("weekly_measure", Ty::Bool, false, "Turn the weekly context measure task on or off"),
+            p("measure_folder", Ty::Str, false, "The folder the weekly measure covers (with weekly_measure on)"),
             DRY_ON
         ],
         spend::config_set
@@ -1103,8 +1108,11 @@ pub const TOOLS: &[ToolDef] = &[
         "spend_prune",
         4,
         UnlessDryRun,
-        "Remove the collected spend events that are older than the retention days or over the size cap, oldest first: they are folded into the daily totals first, so the totals stay and only the event rows go. dry_run is on by default and returns the plan: how many events, how many bytes and how many days go and how many events stay (apply with dry_run=false and confirm=true). Deleting the daily totals is not offered here",
-        [DRY_ON],
+        "Remove the collected spend events that are older than the retention days or over the size cap, oldest first: they are folded into the daily totals first (unless daily totals are switched off), so the totals stay and only the event rows go. dry_run is on by default and returns the plan: how many events, how many bytes and how many days go and how many events stay (apply with dry_run=false and confirm=true). Deleting the daily totals is not offered here",
+        [
+            p("older_than_days", Ty::Int, false, "Only events older than this many days, never longer than the retention setting"),
+            DRY_ON
+        ],
         spend::prune
     ),
     tool!(

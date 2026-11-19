@@ -16,6 +16,7 @@ pub mod setup;
 pub mod stale;
 pub mod store;
 pub mod transcript;
+pub mod weekly;
 
 #[cfg(test)]
 mod tests;

@@ -196,14 +196,16 @@ impl Store {
     }
 
     /// Removes events older than `retention_days`, then the oldest ones until the file fits
-    /// `max_bytes`. What is removed is folded into the daily totals first, so the totals
-    /// survive. `project_of` names the folder of a session whose events carry none; it runs while
-    /// the store is locked, so it must look in a map that is already built.
+    /// `max_bytes`. With `keep_totals` what is removed is folded into the daily totals first, so
+    /// the totals survive; without it the events just go. `project_of` names the folder of a
+    /// session whose events carry none; it runs while the store is locked, so it must look in a
+    /// map that is already built.
     pub fn prune(
         &self,
         now: i64,
         retention_days: u32,
         max_bytes: u64,
+        keep_totals: bool,
         project_of: &dyn Fn(&str) -> Option<String>,
         dry_run: bool,
     ) -> Result<PruneReport, String> {
@@ -240,7 +242,9 @@ impl Store {
         }
         let removed: Vec<Event> = drop.iter().filter_map(|&i| lines[i].1.clone()).collect();
         let mut daily = self.read_daily();
-        fold(&mut daily, &removed, project_of);
+        if keep_totals {
+            fold(&mut daily, &removed, project_of);
+        }
         let report = PruneReport {
             removed_events: drop.len(),
             removed_bytes: lines
@@ -251,11 +255,15 @@ impl Store {
                 .sum(),
             kept_events: lines.len() - drop.len(),
             kept_bytes,
-            folded_days: removed
-                .iter()
-                .map(|e| day_of(e.ts))
-                .collect::<BTreeSet<_>>()
-                .len(),
+            folded_days: if keep_totals {
+                removed
+                    .iter()
+                    .map(|e| day_of(e.ts))
+                    .collect::<BTreeSet<_>>()
+                    .len()
+            } else {
+                0
+            },
             dry_run,
         };
         if dry_run || drop.is_empty() {
@@ -270,6 +278,9 @@ impl Store {
         }
         crate::fsx::atomic_write(&self.events_path(), &kept, crate::fsx::Mode::Private)
             .map_err(|e| format!("cannot write {}: {e}", self.events_path().display()))?;
+        if !keep_totals {
+            return Ok(report);
+        }
         if let Err(why) = self.write_daily(&daily) {
             // The removed events are in no daily line yet, so they go back into the file.
             let restored =

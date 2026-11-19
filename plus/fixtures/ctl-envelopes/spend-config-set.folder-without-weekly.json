@@ -1,0 +1,13 @@
+{
+  "argv": ["spend", "config", "set", "--measure-folder", "/tmp"],
+  "envelope": {
+    "command": "spend config set",
+    "error": {
+      "code": "usage",
+      "message": "--measure-folder goes with --weekly-measure on"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

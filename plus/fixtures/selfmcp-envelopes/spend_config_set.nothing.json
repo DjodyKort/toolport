@@ -4,9 +4,9 @@
   "result": {
     "error": {
       "kind": "invalid_arguments",
-      "message": "nothing to set: pass port, retention_days, max_mb or show_cost"
+      "message": "nothing to set: pass port, retention_days, max_mb, show_cost, daily_totals or weekly_measure"
     }
   },
-  "text": "invalid_arguments: nothing to set: pass port, retention_days, max_mb or show_cost",
+  "text": "invalid_arguments: nothing to set: pass port, retention_days, max_mb, show_cost, daily_totals or weekly_measure",
   "tool": "spend_config_set"
 }

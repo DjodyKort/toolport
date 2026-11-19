@@ -172,11 +172,13 @@ fn test07_prune_drops_old_events_and_the_daily_totals_keep_them() {
             u64::MAX,
         )
         .unwrap();
-    let preview = store.prune(NOW, 30, u64::MAX, &|_| None, true).unwrap();
+    let preview = store
+        .prune(NOW, 30, u64::MAX, true, &|_| None, true)
+        .unwrap();
     assert_eq!((preview.removed_events, preview.dry_run), (2, true));
     assert_eq!(store.read_events().0.len(), 3);
     let done = store
-        .prune(NOW, 30, u64::MAX, &|_| Some("/repo".into()), false)
+        .prune(NOW, 30, u64::MAX, true, &|_| Some("/repo".into()), false)
         .unwrap();
     assert_eq!(
         (done.removed_events, done.kept_events, done.folded_days),
@@ -201,7 +203,9 @@ fn test08_prune_removes_the_oldest_events_first_when_over_the_size_cap() {
         .collect();
     store.append(&events, u64::MAX).unwrap();
     let size = std::fs::metadata(store.events_path()).unwrap().len();
-    let report = store.prune(NOW, 30, size / 2, &|_| None, false).unwrap();
+    let report = store
+        .prune(NOW, 30, size / 2, true, &|_| None, false)
+        .unwrap();
     assert!(report.removed_events >= 10 && report.kept_bytes <= size / 2);
     let kept = store.read_events().0;
     assert_eq!(kept.last().unwrap().session.as_deref(), Some("s19"));
@@ -334,7 +338,14 @@ fn test12_pruned_otel_sessions_are_not_double_counted_from_transcripts() {
         )
         .unwrap();
     store
-        .prune(NOW, 1, u64::MAX, &|_| Some("/work/repo".into()), false)
+        .prune(
+            NOW,
+            1,
+            u64::MAX,
+            true,
+            &|_| Some("/work/repo".into()),
+            false,
+        )
         .unwrap();
     let roots = transcript::roots_under(home.path(), None);
     let summary = report::summary(
@@ -772,6 +783,7 @@ fn test29_config_set_saves_bounded_values_and_reports_a_port_change() {
         retention_days: days,
         max_mb: mb,
         show_cost: cost,
+        ..super::api::ConfigEdit::default()
     };
     let saved = super::api::config_set(
         &host,
@@ -1040,3 +1052,5 @@ fn test36_model_and_task_filters_narrow_every_figure_and_the_session_list_names_
 
 #[cfg(unix)]
 mod receiver;
+
+mod totals;

@@ -2383,6 +2383,18 @@
               "name": "profile",
               "required": false,
               "type": "string[]"
+            },
+            {
+              "description": "Include the optional weekly context measure task in the plan",
+              "name": "weekly_measure",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "The folder the weekly measure covers",
+              "name": "measure_folder",
+              "required": false,
+              "type": "string"
             }
           ],
           "tier": 1
@@ -2411,7 +2423,7 @@
           "tier": 1
         },
         {
-          "description": "Change the model-spend collection settings: receiver port, how many days of events are kept, the size cap of the event store and whether cost is shown. A new port needs spend_setup_apply afterwards so Claude Code sends to it. dry_run is on by default and reports the settings that would result (apply with dry_run=false and confirm=true)",
+          "description": "Change the model-spend collection settings: receiver port, how many days of events are kept, the size cap of the event store, whether cost is shown, whether daily totals are kept when events are pruned, and the weekly context measure task. A new port needs spend_setup_apply afterwards so Claude Code sends to it. Turning the weekly measure on needs the person's approval, because the task then runs on its schedule. dry_run is on by default and reports the settings that would result (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "spend_config_set",
@@ -2439,6 +2451,24 @@
               "name": "show_cost",
               "required": false,
               "type": "boolean"
+            },
+            {
+              "description": "Keep one line per day, project and model when events are pruned",
+              "name": "daily_totals",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Turn the weekly context measure task on or off",
+              "name": "weekly_measure",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "The folder the weekly measure covers (with weekly_measure on)",
+              "name": "measure_folder",
+              "required": false,
+              "type": "string"
             },
             {
               "description": "Report without writing; true unless you pass false to apply",
@@ -2504,11 +2534,17 @@
           "tier": 3
         },
         {
-          "description": "Remove the collected spend events that are older than the retention days or over the size cap, oldest first: they are folded into the daily totals first, so the totals stay and only the event rows go. dry_run is on by default and returns the plan: how many events, how many bytes and how many days go and how many events stay (apply with dry_run=false and confirm=true). Deleting the daily totals is not offered here",
+          "description": "Remove the collected spend events that are older than the retention days or over the size cap, oldest first: they are folded into the daily totals first (unless daily totals are switched off), so the totals stay and only the event rows go. dry_run is on by default and returns the plan: how many events, how many bytes and how many days go and how many events stay (apply with dry_run=false and confirm=true). Deleting the daily totals is not offered here",
           "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "spend_prune",
           "params": [
+            {
+              "description": "Only events older than this many days, never longer than the retention setting",
+              "name": "older_than_days",
+              "required": false,
+              "type": "integer"
+            },
             {
               "description": "Report without writing; true unless you pass false to apply",
               "name": "dry_run",

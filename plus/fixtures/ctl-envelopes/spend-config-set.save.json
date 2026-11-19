@@ -14,12 +14,23 @@
     "command": "spend config set",
     "data": {
       "changed": true,
+      "dailyTotals": true,
       "enabled": false,
       "maxMb": 32,
       "port": 4318,
       "portChanged": false,
       "retentionDays": 14,
-      "showCost": false
+      "showCost": false,
+      "weeklyMeasure": {
+        "action": "off",
+        "cron": "0 9 * * 1",
+        "enabled": false,
+        "exists": false,
+        "folder": null,
+        "model": "haiku",
+        "requested": false,
+        "task": "spend-weekly-measure"
+      }
     },
     "ok": true,
     "schemaVersion": 1

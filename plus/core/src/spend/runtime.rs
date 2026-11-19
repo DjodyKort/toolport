@@ -231,13 +231,27 @@ fn prune_capped(
     dry_run: bool,
 ) -> Result<super::store::PruneReport, String> {
     let store = Store::new(dir);
-    let preview = store.prune(now, cfg.retention_days, max_bytes, &|_| None, true)?;
+    let preview = store.prune(
+        now,
+        cfg.retention_days,
+        max_bytes,
+        cfg.daily_totals,
+        &|_| None,
+        true,
+    )?;
     if dry_run || preview.removed_events == 0 {
         return Ok(super::store::PruneReport { dry_run, ..preview });
     }
     let sessions = transcript::scan(roots);
     let project_of = |id: &str| sessions.get(id).and_then(|s| s.cwd.clone());
-    store.prune(now, cfg.retention_days, max_bytes, &project_of, false)
+    store.prune(
+        now,
+        cfg.retention_days,
+        max_bytes,
+        cfg.daily_totals,
+        &project_of,
+        false,
+    )
 }
 
 pub fn spawn_app<H: Host + Send + 'static>(host: H) {
@@ -291,6 +305,7 @@ pub fn status(dir: &Path, now: i64) -> Value {
             "maxBytes": cfg.max_bytes(),
             "oldest": stats.oldest_ms.map(super::format_ts),
             "retentionDays": cfg.retention_days,
+            "dailyTotals": cfg.daily_totals,
             "dailyLines": stats.daily_lines,
             "skippedLines": stats.skipped_lines,
         },

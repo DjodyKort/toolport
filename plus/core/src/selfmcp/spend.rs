@@ -10,7 +10,7 @@ use toolport_plus_api::Host;
 use super::ToolError;
 use serde_json::json;
 
-use crate::args::{flag_or, str_trimmed};
+use crate::args::{flag, flag_or, str_trimmed};
 use crate::spend::api;
 use crate::spend::report::Filter;
 
@@ -33,6 +33,8 @@ pub(super) fn setup_plan(host: &dyn Host, args: &Value) -> Result<Value, ToolErr
         &api::SetupChoice {
             port: str_trimmed(args, "port").map(str::to_string),
             profiles: crate::args::nonempty_strings(args, "profile").unwrap_or_default(),
+            weekly_measure: flag(args, "weekly_measure"),
+            measure_folder: str_trimmed(args, "measure_folder").map(str::to_string),
             ..api::SetupChoice::default()
         },
     )?)
@@ -64,14 +66,27 @@ pub(super) fn config_set(host: &dyn Host, args: &Value) -> Result<Value, ToolErr
     let port = str_trimmed(args, "port").map(str::to_string);
     let retention_days = number(args, "retention_days")?;
     let max_mb = number(args, "max_mb")?;
-    let show_cost =
-        args.get("show_cost")
+    let on_off = |key: &str| {
+        args.get(key)
             .and_then(Value::as_bool)
-            .map(|on| if on { "on" } else { "off" });
-    if port.is_none() && retention_days.is_none() && max_mb.is_none() && show_cost.is_none() {
+            .map(|on| if on { "on" } else { "off" })
+    };
+    let (show_cost, daily_totals, weekly_measure) = (
+        on_off("show_cost"),
+        on_off("daily_totals"),
+        on_off("weekly_measure"),
+    );
+    let measure_folder = str_trimmed(args, "measure_folder");
+    if port.is_none()
+        && retention_days.is_none()
+        && max_mb.is_none()
+        && show_cost.is_none()
+        && daily_totals.is_none()
+        && weekly_measure.is_none()
+    {
         return Err(ToolError::new(
             "invalid_arguments",
-            "nothing to set: pass port, retention_days, max_mb or show_cost",
+            "nothing to set: pass port, retention_days, max_mb, show_cost, daily_totals or weekly_measure",
         ));
     }
     Ok(api::config_edit(
@@ -81,6 +96,10 @@ pub(super) fn config_set(host: &dyn Host, args: &Value) -> Result<Value, ToolErr
             retention_days: retention_days.as_deref(),
             max_mb: max_mb.as_deref(),
             show_cost,
+            daily_totals,
+            weekly_measure,
+            measure_folder,
+            ask_broker: true,
         },
         flag_or(args, "dry_run", true),
     )?)
@@ -108,7 +127,8 @@ pub(super) fn setup_undo(host: &dyn Host, args: &Value) -> Result<Value, ToolErr
 
 pub(super) fn prune(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
     let dry_run = flag_or(args, "dry_run", true);
-    let mut report = api::prune(host, dry_run, false)?;
+    let older_than = number(args, "older_than_days")?.map(|days| format!("{days}d"));
+    let mut report = api::prune(host, dry_run, false, older_than.as_deref())?;
     report["summary"] = json!(format!(
         "{} {} events ({} bytes) of {} days; the daily totals of those days stay, {} events are kept",
         if dry_run { "Would remove" } else { "Removed" },

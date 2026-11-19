@@ -3,11 +3,13 @@
   "envelope": {
     "command": "spend prune",
     "data": {
+      "dailyTotals": true,
       "dryRun": true,
       "foldedDays": 1,
       "keptBytes": 1293,
       "keptEvents": 10,
       "maxBytes": 67108864,
+      "olderThanDays": 30,
       "removedBytes": 658,
       "removedEvents": 5,
       "retentionDays": 30,

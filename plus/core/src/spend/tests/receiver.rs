@@ -285,11 +285,13 @@ fn test48_a_failed_events_write_leaves_the_daily_totals_alone() {
         .map(|e| serde_json::to_string(e).unwrap() + "\n")
         .collect();
     let ro = read_only_dir_with(dir.path(), "events.jsonl", &text);
-    let failed = store.prune(NOW, 30, u64::MAX, &|_| None, false);
+    let failed = store.prune(NOW, 30, u64::MAX, true, &|_| None, false);
     assert!(failed.is_err());
     assert!(store.read_daily().is_empty());
     allow_writes(&ro);
-    store.prune(NOW, 30, u64::MAX, &|_| None, false).unwrap();
+    store
+        .prune(NOW, 30, u64::MAX, true, &|_| None, false)
+        .unwrap();
     assert_eq!(store.read_daily()[0].input, 500);
 }
 
@@ -305,14 +307,16 @@ fn test49_a_failed_daily_write_puts_the_events_back_so_nothing_is_lost_or_counte
     store.append(&old_and_new(), u64::MAX).unwrap();
     let before = std::fs::read_to_string(store.events_path()).unwrap();
     let ro = read_only_dir_with(dir.path(), "daily.jsonl", "");
-    let failed = store.prune(NOW, 30, u64::MAX, &|_| None, false);
+    let failed = store.prune(NOW, 30, u64::MAX, true, &|_| None, false);
     assert!(failed.is_err());
     assert_eq!(
         std::fs::read_to_string(store.events_path()).unwrap(),
         before
     );
     allow_writes(&ro);
-    store.prune(NOW, 30, u64::MAX, &|_| None, false).unwrap();
+    store
+        .prune(NOW, 30, u64::MAX, true, &|_| None, false)
+        .unwrap();
     let daily = store.read_daily();
     assert_eq!((daily.len(), daily[0].input), (1, 500));
 }

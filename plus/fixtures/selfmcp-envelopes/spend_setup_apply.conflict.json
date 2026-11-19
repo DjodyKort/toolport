@@ -49,7 +49,12 @@
         "profile": "<WORLD>/home/.claude/settings.json",
         "writes": 4
       }
-    ]
+    ],
+    "weeklyMeasure": {
+      "applied": false,
+      "enabled": false,
+      "folder": null
+    }
   },
   "tool": "spend_setup_apply"
 }

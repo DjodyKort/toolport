@@ -1,0 +1,29 @@
+{
+  "argv": ["spend", "config", "set", "--daily-totals", "off"],
+  "envelope": {
+    "command": "spend config set",
+    "data": {
+      "changed": true,
+      "dailyTotals": false,
+      "enabled": false,
+      "maxMb": 32,
+      "port": 4999,
+      "portChanged": false,
+      "retentionDays": 14,
+      "showCost": false,
+      "weeklyMeasure": {
+        "action": "off",
+        "cron": "0 9 * * 1",
+        "enabled": false,
+        "exists": false,
+        "folder": null,
+        "model": "haiku",
+        "requested": false,
+        "task": "spend-weekly-measure"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -415,6 +415,7 @@ pub fn summary(inputs: &Inputs, range: Range, filter: &Filter) -> Value {
             "estimatedShare": if grand > 0.0 { (total.cost_estimated / grand * 1000.0).round() / 1000.0 } else { 0.0 },
         },
         "tiles": tiles(&collected.samples, inputs.now, keep),
+        "prices": super::prices::table(),
         "notes": ["Spend is never added to upstream's saved-tokens number"],
     });
     if filter.is_set() {

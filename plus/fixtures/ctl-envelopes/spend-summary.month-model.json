@@ -132,6 +132,33 @@
         "costDelta": null,
         "tokensDelta": null
       },
+      "prices": {
+        "cacheReadFactor": 0.1,
+        "cacheWriteFactor": 1.25,
+        "factorsVerified": false,
+        "families": [
+          {
+            "family": "opus",
+            "inputUsd": 15.0,
+            "outputUsd": 75.0,
+            "verified": false
+          },
+          {
+            "family": "sonnet",
+            "inputUsd": 3.0,
+            "outputUsd": 15.0,
+            "verified": false
+          },
+          {
+            "family": "haiku",
+            "inputUsd": 1.0,
+            "outputUsd": 5.0,
+            "verified": false
+          }
+        ],
+        "unit": "usd per million tokens",
+        "verified": false
+      },
       "project": null,
       "range": "30d",
       "sessionList": [
@@ -189,6 +216,7 @@
         "store": {
           "bytes": 1951,
           "dailyLines": 1,
+          "dailyTotals": true,
           "events": 15,
           "maxBytes": 67108864,
           "oldest": "<TIME>",
@@ -198,6 +226,14 @@
         "transcripts": {
           "done": 1,
           "files": 1
+        },
+        "weeklyMeasure": {
+          "cron": "0 9 * * 1",
+          "enabled": false,
+          "exists": false,
+          "folder": null,
+          "model": "haiku",
+          "task": "spend-weekly-measure"
         }
       },
       "task": null,

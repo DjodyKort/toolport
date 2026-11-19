@@ -17,8 +17,15 @@ pub struct SpendConfig {
     pub retention_days: u32,
     pub max_mb: u32,
     pub show_cost: bool,
+    /// Whether pruned events are first folded into one line per day, project and model.
+    #[serde(default = "keep_totals")]
+    pub daily_totals: bool,
     #[serde(flatten)]
     pub other: Map<String, Value>,
+}
+
+fn keep_totals() -> bool {
+    true
 }
 
 impl Default for SpendConfig {
@@ -29,6 +36,7 @@ impl Default for SpendConfig {
             retention_days: DEFAULT_RETENTION_DAYS,
             max_mb: DEFAULT_MAX_MB,
             show_cost: true,
+            daily_totals: true,
             other: Map::new(),
         }
     }

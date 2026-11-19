@@ -21,6 +21,7 @@
     "store": {
       "bytes": 0,
       "dailyLines": 0,
+      "dailyTotals": true,
       "events": 0,
       "maxBytes": 67108864,
       "oldest": null,
@@ -30,6 +31,14 @@
     "transcripts": {
       "done": 0,
       "files": 0
+    },
+    "weeklyMeasure": {
+      "cron": "0 9 * * 1",
+      "enabled": false,
+      "exists": false,
+      "folder": null,
+      "model": "haiku",
+      "task": "spend-weekly-measure"
     }
   },
   "tool": "spend_status"

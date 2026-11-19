@@ -4,7 +4,7 @@
     "command": "spend status",
     "error": {
       "code": "usage",
-      "message": "usage: spend status | receiver status | summary [--range today|7d|30d] [--project <folder>] [--model <name>] [--task <name>] | export-csv [--range <r>] [--out <file>] | prune [--dry-run] [--totals --yes] | config set [--port <n>] [--retention-days <n>] [--max-mb <n>] [--show-cost on|off] | setup plan|apply|undo [--port <n>] [--overwrite <KEY>|all] [--profile <settings file or folder>] | setup undo [--profile <p>] [--delete-data --yes] [--dry-run]"
+      "message": "usage: spend status | receiver status | summary [--range today|7d|30d] [--project <folder>] [--model <name>] [--task <name>] | export-csv [--range <r>] [--out <file>] | prune [--older-than <n>d] [--dry-run] [--totals --yes] | config set [--port <n>] [--retention-days <n>] [--max-mb <n>] [--show-cost on|off] [--daily-totals on|off] [--weekly-measure on|off [--measure-folder <folder>]] [--dry-run] | setup plan|apply|undo [--port <n>] [--overwrite <KEY>|all] [--profile <settings file or folder>] [--weekly-measure [--measure-folder <folder>]] | setup undo [--profile <p>] [--delete-data --yes] [--dry-run]"
     },
     "ok": false,
     "schemaVersion": 1

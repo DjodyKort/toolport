@@ -2,11 +2,13 @@
   "arguments": {},
   "isError": false,
   "result": {
+    "dailyTotals": true,
     "dryRun": true,
     "foldedDays": 0,
     "keptBytes": 659,
     "keptEvents": 5,
     "maxBytes": 67108864,
+    "olderThanDays": 30,
     "removedBytes": 0,
     "removedEvents": 0,
     "retentionDays": 30,

@@ -5,11 +5,13 @@
   },
   "isError": false,
   "result": {
+    "dailyTotals": true,
     "dryRun": false,
     "foldedDays": 2,
     "keptBytes": 659,
     "keptEvents": 5,
     "maxBytes": 67108864,
+    "olderThanDays": 30,
     "removedBytes": 1321,
     "removedEvents": 10,
     "retentionDays": 30,

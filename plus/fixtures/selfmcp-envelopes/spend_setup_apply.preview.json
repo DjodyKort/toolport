@@ -51,6 +51,16 @@
           "writes": 4
         }
       ],
+      "weeklyMeasure": {
+        "action": "off",
+        "cron": "0 9 * * 1",
+        "enabled": false,
+        "exists": false,
+        "folder": null,
+        "model": "haiku",
+        "requested": false,
+        "task": "spend-weekly-measure"
+      },
       "writes": 4
     }
   },

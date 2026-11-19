@@ -35,6 +35,28 @@
       "required": false,
       "sensitive": false,
       "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Include the optional weekly context measure task in the plan",
+      "escalates": false,
+      "hidden": false,
+      "name": "--weekly-measure",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "The folder the weekly measure covers (default: the one it has, else the busiest project folder)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--measure-folder",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
     }
   ],
   "group": "spend",
