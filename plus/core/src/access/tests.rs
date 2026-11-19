@@ -667,3 +667,43 @@ fn test22_tools_set_refuses_a_server_the_set_does_not_list_an_empty_name_and_a_n
     assert_eq!(same["result"]["applied"], false);
     assert!(host.registry.tool_scopes.borrow().is_empty());
 }
+
+fn aged_record(dir: &tempfile::TempDir, token: &str, days: u64) -> std::path::PathBuf {
+    let folder = dir.path().join("plus/access/removed");
+    std::fs::create_dir_all(&folder).unwrap();
+    let path = folder.join(format!("{token}.json"));
+    std::fs::write(&path, "{}").unwrap();
+    let old = std::time::SystemTime::now() - std::time::Duration::from_secs(days * 86_400);
+    std::fs::File::options()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_modified(old)
+        .unwrap();
+    path
+}
+
+#[test]
+fn test35_rm_and_restore_prune_records_older_than_thirty_days_but_not_the_new_one() {
+    let mut host = world();
+    let dir = with_data_dir(&mut host);
+    let old = aged_record(&dir, "removed-0000000000000000", 31);
+    let recent = aged_record(&dir, "removed-1111111111111111", 29);
+    let done = rm(&host, &rm_args("focus", None, false)).unwrap();
+    assert!(!old.exists(), "a record past 30 days goes");
+    assert!(recent.exists(), "a record inside 30 days stays");
+    let token = token_of(&done);
+    assert!(dir
+        .path()
+        .join(format!("plus/access/removed/{token}.json"))
+        .exists());
+
+    let older = aged_record(&dir, "removed-2222222222222222", 40);
+    add(&host, &restore_args("", &token, false)).unwrap();
+    assert!(!older.exists(), "a restore prunes too");
+    assert!(recent.exists());
+
+    let dry = aged_record(&dir, "removed-3333333333333333", 40);
+    rm(&host, &rm_args("focus", None, true)).unwrap();
+    assert!(dry.exists(), "a plan changes nothing");
+}

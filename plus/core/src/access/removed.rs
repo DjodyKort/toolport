@@ -15,6 +15,7 @@ use crate::op::OpError;
 
 const PREFIX: &str = "removed-";
 const SCHEMA: u64 = 1;
+const KEEP_DAYS: u64 = 30;
 
 /// What a deletion carried: the stored set as the registry file holds it and the bindings the
 /// deletion detached.
@@ -69,7 +70,34 @@ impl Removal {
                     "the removed set could not be kept for Undo ({error}); nothing was deleted"
                 ),
             )
-        })
+        })?;
+        prune(host, &self.token);
+        Ok(())
+    }
+}
+
+/// Deletes the records older than [`KEEP_DAYS`] days, except `keep`. Best effort: a record that
+/// cannot be removed is tried again at the next run.
+pub(super) fn prune(host: &dyn Host, keep: &str) {
+    let Ok(path) = file(host, keep) else {
+        return;
+    };
+    let Some(dir) = path.parent() else {
+        return;
+    };
+    let limit = std::time::Duration::from_secs(KEEP_DAYS * 24 * 60 * 60);
+    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let path = entry.path();
+        let stale = path.extension().is_some_and(|ext| ext == "json")
+            && entry
+                .metadata()
+                .and_then(|meta| meta.modified())
+                .ok()
+                .and_then(|modified| modified.elapsed().ok())
+                .is_some_and(|age| age > limit);
+        if stale && path != file(host, keep).unwrap_or_default() {
+            let _ = std::fs::remove_file(path);
+        }
     }
 }
 
@@ -241,6 +269,7 @@ pub fn restore(
     )?;
     if !dry_run {
         let _ = std::fs::remove_file(file(host, token)?);
+        prune(host, token);
         let view = super::view(host)?;
         let scopes = view.scope_reach();
         data["accessSet"] = view
