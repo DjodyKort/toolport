@@ -345,7 +345,7 @@ fn checked_cwd(cwd: Option<&str>) -> Result<Option<PathBuf>, OpError> {
             let path = Path::new(raw);
             match fsx::folder_problem(path) {
                 Some(problem) => Err(OpError::usage(format!("cwd {problem}"))),
-                None => Ok(Some(fsx::canonical(path))),
+                None => Ok(Some(path.to_path_buf())),
             }
         }
     }
