@@ -204,7 +204,7 @@ function attentionFromSearch(params: URLSearchParams): WorldOptions["attention"]
 }
 
 /** `?plus-library=plan|done|held|blocked|behind|empty|catchup|busy` picks the state of the Library
- * screen; `plus-library-chmod`, `-drift`, `-secret` and `-dirty` add one more thing that is wrong;
+ * screen; `plus-library-chmod`, `-drift`, `-secret` and `-dirty` add one more thing that is wrong; `-styles`, `-extras`, `-applied` and `-long-agent` fill the agents and styles tab;
  * `plus-library-auto=on|held|failed|paused` sets where auto-sync stands (off without it). */
 function libraryFromSearch(params: URLSearchParams): LibraryWorldOptions {
   const scenario = params.get("plus-library") ?? "";
@@ -217,6 +217,10 @@ function libraryFromSearch(params: URLSearchParams): LibraryWorldOptions {
     drift: Number(params.get("plus-library-drift") ?? 0),
     secret: params.has("plus-library-secret"),
     dirty: params.has("plus-library-dirty"),
+    styles: params.has("plus-library-styles"),
+    extras: params.has("plus-library-extras"),
+    applied: params.has("plus-library-applied"),
+    longAgent: params.has("plus-library-long-agent"),
     auto: LIBRARY_AUTO.includes(auto) ? (auto as LibraryAuto) : "off",
   };
 }

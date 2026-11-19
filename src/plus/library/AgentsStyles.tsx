@@ -75,7 +75,7 @@ function Section({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-2">
       <h2 className="text-meta font-semibold tracking-wide text-muted-foreground uppercase">
         {title} <span className="ml-1 font-normal normal-case">{count}</span>
       </h2>
@@ -168,7 +168,7 @@ export default function AgentsStyles() {
 
       <section aria-label="Agents" className="flex flex-col gap-2">
         <Section title="Agents" count={list.length}>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -240,7 +240,7 @@ export default function AgentsStyles() {
 
       <section aria-label="Output styles" className="flex flex-col gap-2">
         <Section title="Output styles" count={styleList.length}>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"

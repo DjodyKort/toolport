@@ -133,4 +133,14 @@ describe("Library screen, Agents & styles tab", () => {
     expect(findings).toHaveTextContent("description must be 1-1536 characters");
     expect(within(checks).getByText("1")).toBeVisible();
   });
+
+  it("test21_at_390_px_the_section_actions_wrap_instead_of_leaving_the_screen", async () => {
+    setup({ styles: true });
+    const styles = await screen.findByRole("region", { name: "Output styles" });
+    const actions = within(styles).getByRole("button", {
+      name: /New style/,
+    }).parentElement;
+    expect(actions).toHaveClass("flex-wrap");
+    expect(actions?.parentElement).toHaveClass("flex-wrap");
+  });
 });

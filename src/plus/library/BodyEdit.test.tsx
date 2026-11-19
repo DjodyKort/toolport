@@ -90,6 +90,7 @@ describe("Library screen, edit a skill body", () => {
       "# git-tidy\n\nSteps for git-tidy.\n",
     );
     expect(within(dialog).getByRole("button", { name: "Review changes" })).toBeDisabled();
+    expect(dialog).toHaveClass("max-h-[90vh]", "overflow-y-auto");
     expect(stdinsOf("skills_get")).toEqual([{ name: "git-tidy" }]);
     expect(stdinsOf("skills_edit_body")).toEqual([]);
   });

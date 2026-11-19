@@ -96,11 +96,15 @@ export default function ClientContent({ skills }: { skills: StatusData | null })
             </caption>
             <thead>
               <tr className="border-b text-meta text-muted-foreground">
-                <th scope="col" className="px-4 py-2 font-medium">
+                <th scope="col" className="px-3 py-2 font-medium">
                   Client
                 </th>
                 {CONTENT_KINDS.map((kind) => (
-                  <th key={kind} scope="col" className="px-2 py-2 text-right font-medium">
+                  <th
+                    key={kind}
+                    scope="col"
+                    className="px-1.5 py-2 text-right text-xs font-medium"
+                  >
                     {LABEL[kind]}
                   </th>
                 ))}
@@ -143,7 +147,7 @@ function ClientLine({
   return (
     <>
       <tr className="border-b last:border-b-0">
-        <th scope="row" className="px-4 py-2 font-medium">
+        <th scope="row" className="px-3 py-2 font-medium">
           <button
             type="button"
             aria-expanded={shown}
@@ -165,7 +169,7 @@ function ClientLine({
           </button>
         </th>
         {CONTENT_KINDS.map((kind) => (
-          <td key={kind} className="px-2 py-2 text-right tabular-nums">
+          <td key={kind} className="px-1.5 py-2 text-right tabular-nums">
             {row.items[kind].length}
           </td>
         ))}

@@ -155,4 +155,14 @@ describe("Library screen, what each client holds", () => {
       ).toEqual(["29", "2", "1", "0"]),
     );
   });
+
+  it("test07_at_390_px_the_table_scrolls_inside_its_frame_and_the_count_columns_stay_tight", async () => {
+    resetPlusFixture({});
+    render(<ClientContent skills={skills()} />);
+    const table = await screen.findByRole("table");
+    expect(table.parentElement).toHaveClass("overflow-x-auto");
+    for (const head of within(table).getAllByRole("columnheader").slice(1)) {
+      expect(head).toHaveClass("px-1.5", "text-xs");
+    }
+  });
 });
