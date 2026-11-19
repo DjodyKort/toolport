@@ -173,6 +173,12 @@ impl World {
         );
     }
 
+    /// The plugin inventory next to the git folder `proj` that the context files make.
+    pub fn plugin_with_folder(&self) {
+        self.context_files();
+        self.plugin_inventory();
+    }
+
     /// A skills repository with one bundle, a global and a project CLAUDE.md and a git folder.
     pub fn context_files(&self) {
         let world = self;

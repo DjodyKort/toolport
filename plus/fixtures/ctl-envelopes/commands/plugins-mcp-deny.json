@@ -55,5 +55,5 @@
   "summary": "Deny one MCP server of a plugin in a folder: deniedMcpServers in .claude/settings.local.json, undone by `plugins mcp allow` (<id> <server>, --cwd, --dry-run)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["plugins_mcp"]
 }

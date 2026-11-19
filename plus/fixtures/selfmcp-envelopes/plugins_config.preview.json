@@ -1,0 +1,43 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj",
+    "id": "ecc@ecc",
+    "unset": ["gateguard"]
+  },
+  "isError": false,
+  "result": {
+    "adapter": "ecc@ecc",
+    "changes": [
+      {
+        "action": "unset",
+        "env": "ECC_GATEGUARD",
+        "knob": "gateguard",
+        "option": null
+      }
+    ],
+    "conflicts": [],
+    "cwd": "<WORLD>/home/proj",
+    "dryRun": true,
+    "id": "ecc@ecc",
+    "ledger": "<WORLD>/data/plus/profile-ledger.json",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "writes env keys of ecc@ecc in <WORLD>/home/proj/.claude/settings.local.json; every other key stays as it is",
+          "op": "note"
+        }
+      ],
+      "summary": "Set gateguard for ecc@ecc in <WORLD>/home/proj",
+      "undo": "toolportctl plugins config ecc@ecc --cwd <WORLD>/home/proj --unset gateguard",
+      "warnings": [
+        "gateguard holds no value Toolport wrote in this folder; nothing to remove",
+        "a hook that is switched off still starts a process and exits at once; only turning the plugin off removes it",
+        "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+      ]
+    },
+    "result": null,
+    "scope": "folder"
+  },
+  "tool": "plugins_config"
+}

@@ -34,14 +34,17 @@ pub(super) fn check(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
 const MAX_VALUE_BYTES: usize = 64 * 1024;
 
 /// What the call carries that must not come back in any output.
-pub(super) fn supplied_values<'a>(tool: &ToolDef, args: &'a Value) -> Vec<&'a str> {
-    if tool.name != "secret_set" {
-        return Vec::new();
+pub(super) fn supplied_values(tool: &ToolDef, args: &Value) -> Vec<String> {
+    match tool.name {
+        "secret_set" => args
+            .get("value")
+            .and_then(Value::as_str)
+            .map(String::from)
+            .into_iter()
+            .collect(),
+        "plugins_config" => super::plugins::supplied_values(args),
+        _ => Vec::new(),
     }
-    args.get("value")
-        .and_then(Value::as_str)
-        .into_iter()
-        .collect()
 }
 
 struct Target {

@@ -1421,23 +1421,77 @@ const CASES: &[Case] = &[
     ),
     prepared(
         "plugins_config",
-        World::plugin_inventory,
+        World::plugin_with_folder,
         &[
             read("one", "plugins_config", r#"{"id":"ecc@ecc"}"#),
-            fails(
-                "unknown",
-                "not_found",
+            read(
+                "preview",
                 "plugins_config",
-                r#"{"id":"ghost@x"}"#,
+                r#"{"id":"ecc@ecc","cwd":"{home}/proj","unset":["gateguard"]}"#,
             ),
+            read(
+                "preview_set",
+                "plugins_config",
+                r#"{"id":"ecc@ecc","cwd":"{home}/proj","set":{"gateguard_exempt_globs":"{sentinel}"}}"#,
+            )
+            .unrecorded(),
+            fails(
+                "no_broker",
+                "approval_unavailable",
+                "plugins_config",
+                r#"{"id":"ecc@ecc","cwd":"{home}/proj","unset":["gateguard"],"dry_run":false}"#,
+            ),
+            fails(
+                "no_broker_set",
+                "approval_unavailable",
+                "plugins_config",
+                r#"{"id":"ecc@ecc","cwd":"{home}/proj","set":{"gateguard_exempt_globs":"{sentinel}"},"dry_run":false}"#,
+            )
+            .unrecorded(),
+            fails(
+                "unknown_knob",
+                "invalid_arguments",
+                "plugins_config",
+                r#"{"id":"ecc@ecc","cwd":"{home}/proj","set":{"nope":"x"}}"#,
+            ),
+            fails(
+                "bad_value_shape",
+                "invalid_arguments",
+                "plugins_config",
+                r#"{"id":"ecc@ecc","cwd":"{home}/proj","set":{"gateguard":4}}"#,
+            ),
+            fails("unknown", "not_found", "plugins_config", r#"{"id":"ghost@x"}"#),
             fails("no_id", "invalid_arguments", "plugins_config", "{}"),
         ],
     ),
     prepared(
         "plugins_mcp",
-        World::plugin_inventory,
+        World::plugin_with_folder,
         &[
             read("servers", "plugins_mcp", r#"{"id":"ecc"}"#),
+            read(
+                "deny_preview",
+                "plugins_mcp",
+                r#"{"id":"ecc@ecc","action":"deny","server":"chrome","cwd":"{home}/proj"}"#,
+            ),
+            fails(
+                "no_broker",
+                "approval_unavailable",
+                "plugins_mcp",
+                r#"{"id":"ecc@ecc","action":"deny","server":"chrome","cwd":"{home}/proj","dry_run":false}"#,
+            ),
+            fails(
+                "no_cwd",
+                "invalid_arguments",
+                "plugins_mcp",
+                r#"{"id":"ecc@ecc","action":"deny","server":"chrome"}"#,
+            ),
+            fails(
+                "unknown_server",
+                "not_found",
+                "plugins_mcp",
+                r#"{"id":"ecc@ecc","action":"deny","server":"ghost","cwd":"{home}/proj"}"#,
+            ),
             fails("unknown", "not_found", "plugins_mcp", r#"{"id":"ghost@x"}"#),
             fails("no_id", "invalid_arguments", "plugins_mcp", "{}"),
         ],

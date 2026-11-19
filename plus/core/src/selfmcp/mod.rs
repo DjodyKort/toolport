@@ -25,6 +25,8 @@ mod paths;
 #[cfg(test)]
 mod paths_tests;
 mod plugins;
+#[cfg(test)]
+mod plugins_tests;
 mod reach;
 pub mod register;
 mod resources;
@@ -251,7 +253,7 @@ pub fn call_tool(host: &dyn Host, name: &str, args: &Value) -> Result<Value, Too
         return Err(refusal(tool));
     }
     let supplied = secret::supplied_values(tool, args);
-    let masks = redact::supplied(&supplied);
+    let masks = redact::supplied(&supplied.iter().map(String::as_str).collect::<Vec<_>>());
     match backend::run_tool(host, tool, args) {
         Ok(value) => Ok(redact::scrub_supplied(value, &masks)),
         Err(error) => Err(ToolError::new(

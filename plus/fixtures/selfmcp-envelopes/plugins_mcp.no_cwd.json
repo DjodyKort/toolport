@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "action": "deny",
+    "id": "ecc@ecc",
+    "server": "chrome"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "cwd is required: a server is denied per folder"
+    }
+  },
+  "text": "invalid_arguments: cwd is required: a server is denied per folder",
+  "tool": "plugins_mcp"
+}

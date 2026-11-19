@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "action": "deny",
+    "cwd": "<WORLD>/home/proj",
+    "id": "ecc@ecc",
+    "server": "ghost"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "ecc@ecc has no MCP server ghost; it has: chrome"
+    }
+  },
+  "text": "not_found: ecc@ecc has no MCP server ghost; it has: chrome",
+  "tool": "plugins_mcp"
+}

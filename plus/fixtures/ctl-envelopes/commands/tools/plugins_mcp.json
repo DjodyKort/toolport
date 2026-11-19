@@ -1,7 +1,7 @@
 {
-  "command": "plugins mcp ls",
-  "dryRun": "none",
+  "command": "plugins mcp deny",
+  "dryRun": "default-on",
   "name": "plugins_mcp",
-  "tier": "read",
-  "toolTier": 1
+  "tier": "write",
+  "toolTier": 2
 }

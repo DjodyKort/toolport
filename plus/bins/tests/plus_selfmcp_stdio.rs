@@ -177,7 +177,7 @@ fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
             "skills_search" => json!({"query": "demo"}),
             "catalog_search" => json!({"query": "demo"}),
             "tasks_get" => json!({"id": "portal-token"}),
-            "plugins_show" | "plugins_config" | "plugins_mcp" => json!({"id": "ecc@ecc"}),
+            "plugins_show" => json!({"id": "ecc@ecc"}),
             "context_bundle_show" => json!({"name": "acme-dev"}),
             "context_bundle_status"
             | "context_loads"

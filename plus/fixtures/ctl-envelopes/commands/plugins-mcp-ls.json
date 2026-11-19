@@ -39,5 +39,5 @@
   "summary": "List the MCP servers a plugin starts and where each is denied (<id>, --cwd)",
   "surface": "screen",
   "tier": "read",
-  "tools": ["plugins_mcp"]
+  "tools": []
 }

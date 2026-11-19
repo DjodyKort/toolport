@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj",
+    "id": "ecc@ecc",
+    "set": {
+      "nope": "x"
+    }
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "nope is not a knob of ecc@ecc: use hook_profile, hooks_enabled, gateguard, gateguard_exempt_globs, disabled_hooks"
+    }
+  },
+  "text": "invalid_arguments: nope is not a knob of ecc@ecc: use hook_profile, hooks_enabled, gateguard, gateguard_exempt_globs, disabled_hooks",
+  "tool": "plugins_config"
+}

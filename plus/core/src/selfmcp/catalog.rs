@@ -1732,23 +1732,29 @@ pub const TOOLS: &[ToolDef] = &[
     ),
     tool!(
         "plugins_config",
-        1,
+        2,
         None,
-        "Show what a plugin can be configured with: the options it declares and the knobs of its adapter, each with its current value and where the value comes from, and in a folder the env keys Toolport wrote there. Reads only; setting a knob is `toolportctl plugins config` or the Library screen",
+        "Show what a plugin can be configured with, or change it. Without set and unset: the options the plugin declares and the knobs of its adapter, each with its current value and where it comes from, and in a folder the env keys Toolport wrote there. With set ({knob: value}, a value is a string, a boolean or a list of strings) or unset: with cwd the knobs become env keys in that folder's git-ignored .claude/settings.local.json, ledgered so undo restores only what Toolport wrote; without cwd only knobs that are plugin options are set, through claude plugin configure. dry_run is on by default and returns the plan; every apply (dry_run=false) asks the person for approval in the Toolport app, each time and never remembered, and is refused without a running app. A value you set is never returned. A switched-off hook still starts a process; only turning the plugin off removes it, which this tool cannot do",
         [
             p("id", Ty::Str, true, "Plugin id such as ecc@ecc, or a bare plugin name when it is unique"),
-            p("cwd", Ty::Str, false, "Folder whose settings decide the current values; user settings only when omitted")
+            p("cwd", Ty::Str, false, "Folder where Claude Code starts; omit to set plugin options for every folder"),
+            p("set", Ty::Obj, false, "Knobs to set, as {knob: value}"),
+            p("unset", Ty::StrList, false, "Knobs whose Toolport-written value is removed"),
+            DRY_ON
         ],
         plugins::config
     ),
     tool!(
         "plugins_mcp",
-        1,
+        2,
         None,
-        "List the MCP servers a plugin starts, with how each starts (never its environment), the tool prefix and where Claude Code is told to deny it. Reads only; denying a server is `toolportctl plugins mcp deny` or the Library screen",
+        "List the MCP servers a plugin starts, or deny or allow one in a folder. action ls (the default) shows how each server starts (never its environment), the tool prefix and where Claude Code is told to deny it. deny writes {serverName: plugin:<plugin>:<server>} into deniedMcpServers of the folder's git-ignored .claude/settings.local.json and allow removes only that entry; the server stays outside the gateway. dry_run is on by default and returns the plan; every apply (dry_run=false) asks the person for approval in the Toolport app, each time and never remembered, and is refused without a running app",
         [
             p("id", Ty::Str, true, "Plugin id such as ecc@ecc, or a bare plugin name when it is unique"),
-            p("cwd", Ty::Str, false, "Folder whose project and local settings decide where a server is denied")
+            p("action", Ty::Str, false, "ls (default), deny or allow"),
+            p("server", Ty::Str, false, "The plugin's MCP server name (see action ls); required for deny and allow"),
+            p("cwd", Ty::Str, false, "Folder where Claude Code starts; required for deny and allow"),
+            DRY_ON
         ],
         plugins::mcp
     ),

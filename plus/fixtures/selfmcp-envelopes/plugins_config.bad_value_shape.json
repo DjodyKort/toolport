@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj",
+    "id": "ecc@ecc",
+    "set": {
+      "gateguard": 4
+    }
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "set.gateguard must be a string, a boolean or a list of strings"
+    }
+  },
+  "text": "invalid_arguments: set.gateguard must be a string, a boolean or a list of strings",
+  "tool": "plugins_config"
+}
