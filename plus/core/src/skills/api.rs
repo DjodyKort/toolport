@@ -190,8 +190,7 @@ fn message_json(message: &LintMessage) -> Value {
         row["line"] = json!(line);
     }
     if let Some(meter) = detail.meter {
-        row["meter"] =
-            json!({"length": meter.length, "specLimit": meter.spec_limit, "limit": meter.limit});
+        row["meter"] = json!({"length": meter.length, "description": meter.description, "whenToUse": meter.when_to_use, "specLimit": meter.spec_limit, "limit": meter.limit});
     }
     row
 }

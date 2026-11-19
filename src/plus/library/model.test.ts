@@ -23,6 +23,7 @@ import {
   heldBack,
   libraryItems,
   lintGroups,
+  lengthText,
   meter,
   pullBlockedReason,
   remoteState,
@@ -234,6 +235,15 @@ describe("library model", () => {
     const inside = meter(912, 1536, 1024);
     expect(inside.over).toBe(false);
     expect(inside.fill).toBeLessThan(inside.specTick);
+  });
+
+  it("test07b_the_length_text_names_both_parts_only_when_when_to_use_is_set", () => {
+    expect(lengthText({ length: 912, description: 912, whenToUse: 0 })).toBe(
+      "912 characters",
+    );
+    expect(lengthText({ length: 1602, description: 1200, whenToUse: 402 })).toBe(
+      "1,602 characters (description 1,200 + when_to_use 402)",
+    );
   });
 
   it("test08_remote_states_say_why_pull_is_off", () => {

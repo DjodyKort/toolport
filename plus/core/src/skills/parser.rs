@@ -57,6 +57,9 @@ pub struct SkillDependencies {
 pub struct SkillFrontmatter {
     pub name: String,
     pub description: String,
+    /// Claude Code appends it to the description in the skill listing; the two share one
+    /// [`DESCRIPTION_LIMIT`].
+    pub when_to_use: Option<String>,
     pub license: Option<String>,
     pub compatibility: Option<String>,
     pub allowed_tools: Option<String>,
@@ -77,6 +80,15 @@ pub struct Skill {
 }
 
 impl Skill {
+    /// The characters of the description and of `when_to_use`, which Claude Code counts together.
+    pub fn listing_lengths(&self) -> (usize, usize) {
+        let fm = &self.frontmatter;
+        (
+            fm.description.chars().count(),
+            fm.when_to_use.as_ref().map_or(0, |w| w.chars().count()),
+        )
+    }
+
     pub fn name(&self) -> &str {
         &self.frontmatter.name
     }
@@ -87,6 +99,7 @@ impl Skill {
             frontmatter: SkillFrontmatter {
                 name: name.to_string(),
                 description: "dummy".into(),
+                when_to_use: None,
                 license: None,
                 compatibility: None,
                 allowed_tools: None,
@@ -240,6 +253,13 @@ pub fn build_frontmatter(fm: &[(String, Value)]) -> Result<SkillFrontmatter, Str
             "description must be 1-{DESCRIPTION_LIMIT} characters"
         ));
     }
+    let when_to_use = opt_str(fm, "when_to_use")?;
+    let wlen = when_to_use.as_ref().map_or(0, |w| w.chars().count());
+    if dlen + wlen > DESCRIPTION_LIMIT {
+        return Err(format!(
+            "description ({dlen}) and when_to_use ({wlen}) together must be at most {DESCRIPTION_LIMIT} characters"
+        ));
+    }
     let compatibility = opt_str(fm, "compatibility")?;
     if compatibility
         .as_ref()
@@ -298,6 +318,7 @@ pub fn build_frontmatter(fm: &[(String, Value)]) -> Result<SkillFrontmatter, Str
     Ok(SkillFrontmatter {
         name,
         description,
+        when_to_use,
         license: opt_str(fm, "license")?,
         compatibility,
         allowed_tools: opt_str(fm, "allowed_tools")?,

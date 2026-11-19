@@ -526,3 +526,80 @@ fn test19_files_of_an_unknown_skill_is_not_found_and_writes_nothing() {
     assert!(error.message.contains("skill not found: nope"));
     assert!(!w.base.join("home/.claude").exists());
 }
+
+fn with_listing(w: &World, description: usize, when_to_use: usize) {
+    let (d, u) = ("d".repeat(description), "u".repeat(when_to_use));
+    w.put(
+        "skills/nacht/SKILL.md",
+        &format!("---\nname: nacht\ndescription: \"{d}\"\nwhen_to_use: \"{u}\"\n---\n\n# Nacht\n"),
+    );
+}
+
+#[test]
+fn test20_description_and_when_to_use_share_the_one_limit_and_the_row_names_both_lengths() {
+    let w = World::new("when-to-use");
+    with_listing(&w, 1030, 506);
+    let rows = w.lint();
+    let spec = row(&rows, "description-over-spec");
+    assert_eq!(spec["meter"]["length"], 1536);
+    assert_eq!(spec["meter"]["description"], 1030);
+    assert_eq!(spec["meter"]["whenToUse"], 506);
+
+    with_listing(&w, 1030, 507);
+    let data = api::lint(&w.args()).unwrap();
+    assert!(data["errors"].as_u64().unwrap() >= 1);
+    let rows = data["messages"].as_array().unwrap();
+    let cut = row(rows, "description-over-limit");
+    assert_eq!(cut["level"], "error");
+    assert_eq!(cut["consequence"], "cut");
+    assert_eq!(cut["meter"]["length"], 1537);
+    assert_eq!(cut["meter"]["description"], 1030);
+    assert_eq!(cut["meter"]["whenToUse"], 507);
+    let message = cut["message"].as_str().unwrap();
+    assert!(
+        message.contains("description (1030) and when_to_use (507)")
+            && message.contains("at most 1536"),
+        "{message}"
+    );
+}
+
+#[test]
+fn test21_a_hyphenated_key_counts_and_a_skill_without_when_to_use_is_unchanged() {
+    let w = World::new("hyphen");
+    w.put(
+        "skills/nacht/SKILL.md",
+        &format!(
+            "---\nname: nacht\ndescription: ok\nwhen-to-use: \"{}\"\n---\n\nbody\n",
+            "u".repeat(1534)
+        ),
+    );
+    assert!(api::lint(&w.args()).unwrap()["errors"].as_u64() == Some(0));
+    w.put(
+        "skills/nacht/SKILL.md",
+        &format!(
+            "---\nname: nacht\ndescription: ok\nwhen-to-use: \"{}\"\n---\n\nbody\n",
+            "u".repeat(1535)
+        ),
+    );
+    let data = api::lint(&w.args()).unwrap();
+    let rows = data["messages"].as_array().unwrap();
+    assert_eq!(row(rows, "description-over-limit")["meter"]["length"], 1537);
+    with_listing(&w, 30, 0);
+    let again = api::lint(&w.args()).unwrap();
+    assert!(again["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|m| m["code"] != "description-over-limit"));
+}
+
+#[test]
+fn test22_the_skill_page_reports_the_combined_length_with_its_parts() {
+    let w = World::new("combined");
+    with_listing(&w, 700, 300);
+    let data = w.files();
+    assert_eq!(data["description"]["length"], 1000);
+    assert_eq!(data["description"]["description"], 700);
+    assert_eq!(data["description"]["whenToUse"], 300);
+    assert_eq!(data["description"]["limit"], 1536);
+}

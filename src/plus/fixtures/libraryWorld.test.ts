@@ -195,6 +195,8 @@ const READS: Array<{
       "description.length",
       "description.limit",
       "description.specLimit",
+      "description.description",
+      "description.whenToUse",
       "files.path",
       "files.status",
       "files.size",

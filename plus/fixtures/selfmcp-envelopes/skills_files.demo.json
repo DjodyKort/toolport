@@ -28,9 +28,11 @@
       "*.log"
     ],
     "description": {
+      "description": 22,
       "length": 22,
       "limit": 1536,
-      "specLimit": 1024
+      "specLimit": 1024,
+      "whenToUse": 0
     },
     "files": [
       {

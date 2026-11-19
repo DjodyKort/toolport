@@ -173,6 +173,16 @@ export interface AutoSwitchData {
   schedule: AutoSchedule | null;
 }
 
+/** What Claude Code counts of a skill's listing text: `length` is the description and
+ * `when_to_use` together, against the two limits one meter draws. */
+export interface ListingMeter {
+  length: number;
+  description: number;
+  whenToUse: number;
+  limit: number;
+  specLimit: number;
+}
+
 export type LintLevel = "error" | "warning" | "info";
 
 export interface LintRow {
@@ -184,7 +194,7 @@ export interface LintRow {
   line?: number;
   message: string;
   name: string;
-  meter?: { length: number; limit: number; specLimit: number };
+  meter?: ListingMeter;
   reason?: string;
   target?: string;
 }
@@ -268,7 +278,7 @@ export interface FilesData {
   source: string;
   counts: Record<string, number>;
   denyList: string[];
-  description: { length: number; limit: number; specLimit: number };
+  description: ListingMeter;
   files: SkillFile[];
   installed: Array<{ client: string; dir: string; present: boolean }>;
   links: SkillLink[];

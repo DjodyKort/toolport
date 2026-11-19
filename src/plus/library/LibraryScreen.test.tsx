@@ -289,7 +289,11 @@ describe("Library screen, Sync tab", () => {
     expect(
       screen.getByLabelText("Claude Code reads these, with a catch"),
     ).toHaveTextContent("build-triage");
-    expect(screen.getByRole("img", { name: /1,602 characters/ })).toBeVisible();
+    expect(
+      screen.getByRole("img", {
+        name: /1,602 characters \(description 1,200 \+ when_to_use 402\)/,
+      }),
+    ).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Make executable" }));
     const dialog = await screen.findByRole("dialog");
     expect(await within(dialog).findByText(/0644 → 0755/)).toBeVisible();

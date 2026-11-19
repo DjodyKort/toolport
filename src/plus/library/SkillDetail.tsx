@@ -30,6 +30,7 @@ import {
   claudeState,
   count,
   fileBadge,
+  lengthText,
   FILE_COUNT_LABEL,
   FILE_ORDER,
   meter,
@@ -151,7 +152,7 @@ export default function SkillDetail({
             <div className="mt-3">
               <div
                 role="img"
-                aria-label={`${count(data.description.length)} characters`}
+                aria-label={lengthText(data.description)}
                 className="relative h-1.5 w-full rounded-full bg-muted"
               >
                 <div
@@ -172,7 +173,7 @@ export default function SkillDetail({
                 />
               </div>
               <p className="mt-1 flex flex-wrap justify-between gap-2 text-meta text-muted-foreground">
-                <span>{count(data.description.length)} characters</span>
+                <span>{lengthText(data.description)}</span>
                 <span>
                   ticks: {count(data.description.specLimit)} Agent Skills limit,{" "}
                   {count(data.description.limit)} Claude Code limit

@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useLoad } from "../servers/useLoad";
 import { auditSkills } from "./commands";
-import type { LintData, LintRow, SyncData } from "./data";
-import { count, lintGroups, meter, plural } from "./model";
+import type { LintData, LintRow, ListingMeter, SyncData } from "./data";
+import { count, lengthText, lintGroups, meter, plural } from "./model";
 import { useChordKey } from "./shortcuts";
 import { ChmodDialog, MoveLinkDialog, ResolveDialog } from "./writes";
 
@@ -49,35 +49,33 @@ function Tile({
   );
 }
 
-function Meter({
-  length,
-  limit,
-  specLimit,
-}: {
-  length: number;
-  limit: number;
-  specLimit: number;
-}) {
+function Meter(listing: ListingMeter) {
+  const { length, limit, specLimit } = listing;
   const m = meter(length, limit, specLimit);
   return (
-    <div
-      role="img"
-      aria-label={`${count(length)} characters; limits ${count(specLimit)} and ${count(limit)}`}
-      className="relative mt-1.5 h-1.5 w-full max-w-md rounded-full bg-muted"
-    >
+    <>
       <div
-        className={cn("h-full rounded-full", m.over ? "bg-destructive" : "bg-warning")}
-        style={{ width: `${m.fill}%` }}
-      />
-      <span
-        className="absolute -top-0.5 h-2.5 w-px bg-foreground/50"
-        style={{ left: `${m.specTick}%` }}
-      />
-      <span
-        className="absolute -top-0.5 h-2.5 w-px bg-foreground/50"
-        style={{ left: `${m.limitTick}%` }}
-      />
-    </div>
+        role="img"
+        aria-label={`${lengthText(listing)}; limits ${count(specLimit)} and ${count(limit)}`}
+        className="relative mt-1.5 h-1.5 w-full max-w-md rounded-full bg-muted"
+      >
+        <div
+          className={cn("h-full rounded-full", m.over ? "bg-destructive" : "bg-warning")}
+          style={{ width: `${m.fill}%` }}
+        />
+        <span
+          className="absolute -top-0.5 h-2.5 w-px bg-foreground/50"
+          style={{ left: `${m.specTick}%` }}
+        />
+        <span
+          className="absolute -top-0.5 h-2.5 w-px bg-foreground/50"
+          style={{ left: `${m.limitTick}%` }}
+        />
+      </div>
+      <p className="mt-1 text-meta break-words text-muted-foreground">
+        {lengthText(listing)}
+      </p>
+    </>
   );
 }
 
@@ -119,7 +117,7 @@ function LintRowView({
           {row.message}
           {row.level === "error" && " Held back from sync."}
         </p>
-        {row.meter && <Meter {...row.meter} specLimit={row.meter.specLimit} />}
+        {row.meter && <Meter {...row.meter} />}
       </div>
       {row.fixable === "chmod" ? (
         <Button variant="outline" size="xs" onClick={() => onChmod(row.name)}>

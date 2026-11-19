@@ -376,6 +376,17 @@ export function meter(length: number, limit: number, specLimit: number): Meter {
   };
 }
 
+/** How the length is made up: the combined count, and its two parts when `when_to_use` is set. */
+export function lengthText(m: {
+  length: number;
+  description: number;
+  whenToUse: number;
+}): string {
+  return m.whenToUse > 0
+    ? `${count(m.length)} characters (description ${count(m.description)} + when_to_use ${count(m.whenToUse)})`
+    : `${count(m.length)} characters`;
+}
+
 export function claudeState(
   inventory: SkillsInventory | null,
   name: string,

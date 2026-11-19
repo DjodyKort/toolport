@@ -247,8 +247,14 @@ function fullLint(chmod: boolean): LintRow[] {
       name: "ticket-intake",
       file: "SKILL.md",
       message:
-        "Description is 1,602 characters. Claude Code keeps 1,536, so the last 66 are never read.",
-      meter: { length: 1602, limit: 1536, specLimit: 1024 },
+        "Description (1,200) and when_to_use (402) add up to 1,602 characters. Claude Code keeps 1,536, so the last 66 are never read.",
+      meter: {
+        length: 1602,
+        description: 1200,
+        whenToUse: 402,
+        limit: 1536,
+        specLimit: 1024,
+      },
     }),
     lintRow({
       code: "name-missing",
@@ -289,7 +295,13 @@ function fullLint(chmod: boolean): LintRow[] {
       file: "SKILL.md",
       message:
         "Description is 1,310 characters, above the Agent Skills limit of 1,024. Claude Code reads up to 1,536 and still sees all of it. Other clients may cut it.",
-      meter: { length: 1310, limit: 1536, specLimit: 1024 },
+      meter: {
+        length: 1310,
+        description: 1310,
+        whenToUse: 0,
+        limit: 1536,
+        specLimit: 1024,
+      },
     }),
     lintRow({
       code: "link-leaves-folder",
@@ -1371,7 +1383,19 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
       counts: tally,
       denyList: DENY,
       description: {
-        length: found.name === "spec-writer" ? 912 : found.description.length,
+        length:
+          found.name === "ticket-intake"
+            ? 1602
+            : found.name === "spec-writer"
+              ? 912
+              : found.description.length,
+        description:
+          found.name === "ticket-intake"
+            ? 1200
+            : found.name === "spec-writer"
+              ? 912
+              : found.description.length,
+        whenToUse: found.name === "ticket-intake" ? 402 : 0,
         limit: 1536,
         specLimit: 1024,
       },

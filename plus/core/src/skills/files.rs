@@ -302,7 +302,9 @@ pub fn skill_files(args: &Args) -> Result<Value, OpError> {
         "installed": installed,
         "denyList": deny_list(),
         "description": {
-            "length": skill.frontmatter.description.chars().count(),
+            "length": skill.listing_lengths().0 + skill.listing_lengths().1,
+            "description": skill.listing_lengths().0,
+            "whenToUse": skill.listing_lengths().1,
             "specLimit": SPEC_DESCRIPTION_LIMIT,
             "limit": DESCRIPTION_LIMIT,
         },

@@ -41,18 +41,23 @@ pub enum Consequence {
     Other,
 }
 
-/// A description length against the two limits one meter draws.
+/// What Claude Code counts of a skill's listing text against the two limits one meter draws:
+/// `length` is the description and `when_to_use` together.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Meter {
     pub length: usize,
+    pub description: usize,
+    pub when_to_use: usize,
     pub spec_limit: usize,
     pub limit: usize,
 }
 
 impl Meter {
-    pub fn of(length: usize) -> Self {
+    pub fn of(description: usize, when_to_use: usize) -> Self {
         Self {
-            length,
+            length: description + when_to_use,
+            description,
+            when_to_use,
             spec_limit: SPEC_DESCRIPTION_LIMIT,
             limit: DESCRIPTION_LIMIT,
         }
@@ -101,9 +106,9 @@ impl Detail {
         Self { line, ..self }
     }
 
-    fn meter(self, length: usize) -> Self {
+    fn meter(self, (description, when_to_use): (usize, usize)) -> Self {
         Self {
-            meter: Some(Meter::of(length)),
+            meter: Some(Meter::of(description, when_to_use)),
             ..self
         }
     }
@@ -344,10 +349,15 @@ fn yaml_error_line(text: &str) -> Option<usize> {
     error.location().map(|at| at.line() + 1)
 }
 
-fn description_length(text: &str) -> Option<usize> {
+/// The characters of `description` and of `when_to_use` in a SKILL.md that did not parse.
+fn listing_lengths(text: &str) -> Option<(usize, usize)> {
     let (fm, _) = parse_frontmatter(text).ok()?;
+    let count = |key: &str| match field(&fm, key) {
+        Some(serde_yaml::Value::String(s)) => s.chars().count(),
+        _ => 0,
+    };
     match field(&fm, "description")? {
-        serde_yaml::Value::String(s) => Some(s.chars().count()),
+        serde_yaml::Value::String(_) => Some((count("description"), count("when_to_use"))),
         _ => None,
     }
 }
@@ -357,9 +367,9 @@ fn parse_failure_detail(repo: &Path, failure: &ParseFailure) -> Detail {
     let text = std::fs::read_to_string(repo.join(&failure.path)).unwrap_or_default();
     let reason = failure.reason.as_str();
     let detail = |code, consequence| Detail::new(code, consequence).file(SKILL_FILE);
-    if reason.starts_with("description must be") {
+    if reason.starts_with("description must be") || reason.starts_with("description (") {
         let found = detail("description-over-limit", Consequence::Cut);
-        return match description_length(&text) {
+        return match listing_lengths(&text) {
             Some(length) => found.meter(length),
             None => found,
         };
@@ -427,7 +437,8 @@ pub fn lint_unreadable(failures: &[ParseFailure]) -> LintResult {
 pub fn lint_description_lengths(skills: &[Skill], other_clients_on: bool) -> LintResult {
     let mut result = LintResult::default();
     for skill in skills {
-        let len = skill.frontmatter.description.chars().count();
+        let lengths = skill.listing_lengths();
+        let len = lengths.0;
         if len <= SPEC_DESCRIPTION_LIMIT {
             continue;
         }
@@ -444,7 +455,7 @@ pub fn lint_description_lengths(skills: &[Skill], other_clients_on: bool) -> Lin
             skill.name(),
             Detail::new("description-over-spec", Consequence::OverSpec)
                 .file(SKILL_FILE)
-                .meter(len),
+                .meter(lengths),
             message,
         );
     }
