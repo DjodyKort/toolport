@@ -27,6 +27,48 @@
           "mimeType": "text/plain",
           "name": "inventory-servers",
           "uri": "mcpm://inventory/servers"
+        },
+        {
+          "description": "Skills in the library: name and description",
+          "mimeType": "text/plain",
+          "name": "inventory-skills",
+          "uri": "mcpm://inventory/skills"
+        },
+        {
+          "description": "Agents in the library: name and description",
+          "mimeType": "text/plain",
+          "name": "inventory-agents",
+          "uri": "mcpm://inventory/agents"
+        },
+        {
+          "description": "Styles in the library: name and description",
+          "mimeType": "text/plain",
+          "name": "inventory-styles",
+          "uri": "mcpm://inventory/styles"
+        },
+        {
+          "description": "The AI clients found on this machine and whether each holds the gateway entry",
+          "mimeType": "application/json",
+          "name": "clients",
+          "uri": "mcpm://clients"
+        },
+        {
+          "description": "The gateway binary and the clients whose entry points at it",
+          "mimeType": "application/json",
+          "name": "router-status",
+          "uri": "mcpm://router/status"
+        },
+        {
+          "description": "How servers, access sets, the gateway and the library fit together",
+          "mimeType": "text/markdown",
+          "name": "architecture",
+          "uri": "mcpm://architecture"
+        },
+        {
+          "description": "Step-by-step recipes for common jobs with the tools",
+          "mimeType": "text/markdown",
+          "name": "workflows",
+          "uri": "mcpm://workflows"
         }
       ],
       "server": "toolport-plus-self",

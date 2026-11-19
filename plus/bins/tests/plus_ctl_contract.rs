@@ -15,7 +15,7 @@ use std::process::{Command, Stdio};
 
 use serde_json::{json, Value};
 use toolport_plus::ctl::{registry, rows, Smoke, Tier, COMMANDS, SCHEMA_VERSION};
-use toolport_plus::selfmcp::TOOLS;
+use toolport_plus::selfmcp::{RESOURCES, TOOLS};
 
 mod common;
 use common::attention_world::{
@@ -5517,7 +5517,8 @@ fn the_doctor_counts_the_tools_the_catalog_lists() {
         .as_array()
         .unwrap()
         .len();
-    assert_eq!(detail, format!("{listed} tools, 4 resources"));
+    let resources = RESOURCES.len();
+    assert_eq!(detail, format!("{listed} tools, {resources} resources"));
 }
 
 #[test]

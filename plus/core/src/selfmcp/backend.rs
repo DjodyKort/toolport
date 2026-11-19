@@ -2,7 +2,7 @@ use serde_json::{json, Value};
 use toolport_plus_api::Host;
 
 use super::catalog::{ResourceDef, ToolDef};
-use super::ToolError;
+use super::{resources, ToolError};
 use crate::status;
 
 const FLOW: &str = "# Data flow\n\n\
@@ -65,6 +65,13 @@ pub fn read_resource(host: &dyn Host, def: &ResourceDef) -> Result<String, ToolE
         }
         "mcpm://flow" => Ok(FLOW.to_string()),
         "mcpm://inventory/servers" => inventory_servers(host),
+        "mcpm://inventory/skills" => resources::inventory_skills(host),
+        "mcpm://inventory/agents" => resources::inventory_agents(host),
+        "mcpm://inventory/styles" => resources::inventory_styles(host),
+        "mcpm://clients" => resources::clients_json(host).map(as_text),
+        "mcpm://router/status" => resources::gateway_status(host).map(as_text),
+        "mcpm://architecture" => Ok(resources::architecture().to_string()),
+        "mcpm://workflows" => Ok(resources::workflows().to_string()),
         other => Err(ToolError::not_implemented(other)),
     }
 }

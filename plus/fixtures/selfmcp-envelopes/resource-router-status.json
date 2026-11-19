@@ -1,0 +1,12 @@
+{
+  "json": {
+    "clientsWithGatewayEntry": [],
+    "gateway": {
+      "path": "<WORLD>/data/bin/toolport-gateway",
+      "present": true
+    },
+    "note": "each client starts its own gateway process; there is no separate router daemon to run or restart"
+  },
+  "mimeType": "application/json",
+  "uri": "mcpm://router/status"
+}

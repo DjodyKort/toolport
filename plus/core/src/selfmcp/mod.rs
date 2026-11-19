@@ -25,6 +25,9 @@ mod paths_tests;
 mod plugins;
 mod reach;
 pub mod register;
+mod resources;
+#[cfg(test)]
+mod resources_tests;
 mod secret;
 #[cfg(test)]
 mod secret_tests;

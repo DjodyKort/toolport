@@ -140,7 +140,7 @@ fn every_resource_reads_through_the_host() {
         let (text, mime) = read_resource(&host, def.uri).unwrap();
         assert_eq!(mime, def.mime);
         assert!(
-            !text.is_empty() || def.uri.ends_with("servers"),
+            !text.is_empty() || def.uri.contains("inventory/"),
             "{}",
             def.uri
         );

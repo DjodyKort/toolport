@@ -2294,6 +2294,49 @@ pub const RESOURCES: &[ResourceDef] = &[
         mime: "text/plain",
         description: "Servers, transport and source",
     },
+    ResourceDef {
+        uri: "mcpm://inventory/skills",
+        name: "inventory-skills",
+        mime: "text/plain",
+        description: "Skills in the library: name and description",
+    },
+    ResourceDef {
+        uri: "mcpm://inventory/agents",
+        name: "inventory-agents",
+        mime: "text/plain",
+        description: "Agents in the library: name and description",
+    },
+    ResourceDef {
+        uri: "mcpm://inventory/styles",
+        name: "inventory-styles",
+        mime: "text/plain",
+        description: "Styles in the library: name and description",
+    },
+    ResourceDef {
+        uri: "mcpm://clients",
+        name: "clients",
+        mime: "application/json",
+        description:
+            "The AI clients found on this machine and whether each holds the gateway entry",
+    },
+    ResourceDef {
+        uri: "mcpm://router/status",
+        name: "router-status",
+        mime: "application/json",
+        description: "The gateway binary and the clients whose entry points at it",
+    },
+    ResourceDef {
+        uri: "mcpm://architecture",
+        name: "architecture",
+        mime: "text/markdown",
+        description: "How servers, access sets, the gateway and the library fit together",
+    },
+    ResourceDef {
+        uri: "mcpm://workflows",
+        name: "workflows",
+        mime: "text/markdown",
+        description: "Step-by-step recipes for common jobs with the tools",
+    },
 ];
 
 pub fn find_tool(name: &str) -> Option<&'static ToolDef> {
