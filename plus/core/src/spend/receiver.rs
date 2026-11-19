@@ -13,6 +13,8 @@ use super::store::Store;
 
 pub const MAX_BODY_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_CONNECTIONS: usize = 16;
+const TURN_AWAY_LINGER: Duration = Duration::from_millis(50);
+const TURN_AWAY_DRAIN: usize = 64 * 1024;
 const MAX_HEADER_BYTES: usize = 16 * 1024;
 const IO_TIMEOUT: Duration = Duration::from_secs(5);
 const ACCEPT_POLL: Duration = Duration::from_millis(25);
@@ -102,7 +104,7 @@ fn accept_loop(
                 }
                 if counters.active.load(Ordering::SeqCst) >= limits.max_connections {
                     counters.rejected.fetch_add(1, Ordering::Relaxed);
-                    respond(&stream, 503, "Service Unavailable", "too many connections");
+                    turn_away(&stream);
                     continue;
                 }
                 counters.active.fetch_add(1, Ordering::SeqCst);
@@ -117,6 +119,23 @@ fn accept_loop(
             }
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => std::thread::sleep(ACCEPT_POLL),
             Err(_) => std::thread::sleep(ACCEPT_POLL),
+        }
+    }
+}
+
+/// Answers 503 on the accept thread. The request is read for a moment after the answer: a socket
+/// closed with unread bytes is reset, and the reset makes the client drop the answer it got.
+fn turn_away(mut stream: &TcpStream) {
+    respond(stream, 503, "Service Unavailable", "too many connections");
+    let _ = stream.shutdown(std::net::Shutdown::Write);
+    let until = std::time::Instant::now() + TURN_AWAY_LINGER;
+    let _ = stream.set_read_timeout(Some(TURN_AWAY_LINGER));
+    let mut buf = [0u8; 4096];
+    let mut left = TURN_AWAY_DRAIN;
+    while left > 0 && std::time::Instant::now() < until {
+        match stream.read(&mut buf) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => left = left.saturating_sub(n),
         }
     }
 }
