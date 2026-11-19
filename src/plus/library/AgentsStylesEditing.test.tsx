@@ -76,9 +76,13 @@ describe("Library screen, editing agents and styles", () => {
     const dialog = await screen.findByRole("dialog");
     const box = await within(dialog).findByLabelText("Body");
     expect(box).toHaveValue("You read a repository and report what you find.\n");
-    expect(within(dialog).getByRole("button", { name: "Save body" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Review changes" })).toBeDisabled();
     await userEvent.clear(box);
     await userEvent.type(box, "Read first, then report.");
+    expect(within(dialog).queryByRole("button", { name: "Save body" })).toBeNull();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Review changes" }));
+    expect(await within(dialog).findByLabelText("Changes")).toBeVisible();
+    expect(stdinOf("agents_edit_body")).toBeNull();
     await userEvent.click(within(dialog).getByRole("button", { name: "Save body" }));
     await waitFor(() =>
       expect(stdinOf("agents_edit_body")).toEqual({
@@ -120,7 +124,10 @@ describe("Library screen, editing agents and styles", () => {
     const box = await within(dialog).findByLabelText("Body");
     await userEvent.clear(box);
     await userEvent.type(box, "Two sentences.");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Save body" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Review changes" }));
+    await userEvent.click(
+      await within(dialog).findByRole("button", { name: "Save body" }),
+    );
     await waitFor(() =>
       expect(stdinOf("styles_edit_body")).toMatchObject({
         name: "plain",

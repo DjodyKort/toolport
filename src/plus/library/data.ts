@@ -323,12 +323,21 @@ export interface StatusEntry {
   knownToLockfile: boolean;
 }
 
+/** One installed copy the lock records: a skill, rule, agent or style of a client. */
+export interface OutputRow {
+  name: string;
+  client: string;
+  /** False when the file the lock says was written is gone. */
+  present: boolean;
+}
+
 export interface StatusData {
   drift: boolean;
   entries: StatusEntry[];
   lockedCount: number;
   lockfilePresent: boolean;
   lockfileSyncedAt: string | null;
+  outputs: OutputRow[];
   repo: string;
   targetedClients: string[];
 }
@@ -434,13 +443,47 @@ export interface RemoteAddData {
   plan?: WritePlan;
 }
 
+export interface MarketplacePlugin {
+  id?: string;
+  name: string;
+  linked?: boolean;
+  skills?: number;
+  agents?: number;
+  hooks?: boolean;
+  version?: string;
+}
+
+/** A tap that is a Claude Code plugin marketplace. `declared` is `here` when Claude Code's
+ * settings point at this clone, `no` when they do not and `elsewhere: <source>` when another
+ * source already holds the name. */
+export interface TapMarketplace {
+  name?: string;
+  declared?: string;
+  plugins?: MarketplacePlugin[];
+  warnings?: string[];
+  error?: string;
+}
+
 export interface TapRow {
   name: string;
   repo: string;
   url: string;
   path: string;
   cloned: boolean;
-  marketplace?: { plugins?: Array<{ name: string }> } | null;
+  marketplace?: TapMarketplace | null;
+}
+
+/** `skills tap link` and `skills tap unlink`: the settings keys written or removed. */
+export interface TapLinkData {
+  tap: string;
+  dryRun: boolean;
+  scope: string;
+  changes: Array<{ action: string; key: string; path: string; scope: string }>;
+  plan: WritePlan;
+  plugins?: MarketplacePlugin[];
+  marketplace?: string;
+  marketplaces?: string[];
+  result: { applied: boolean; changed: string[]; undo: string } | null;
 }
 
 export interface TapListData {
@@ -649,6 +692,7 @@ export interface AgentStatusData {
   drift: boolean;
   lockedCount: number;
   lockfilePresent: boolean;
+  outputs: OutputRow[];
   repo: string;
 }
 
@@ -692,10 +736,38 @@ export interface StyleSyncData {
   styles: Array<{ name: string; clientsSynced: string[]; warnings: string[] }>;
 }
 
+/** `styles status`: the styles each native client received, and the style an apply-and-remove
+ * client has switched on. */
+export interface StyleStatusData {
+  repo: string;
+  lockfilePresent: boolean;
+  native: Array<{ client: string; name: string; styles: string[] }>;
+  applyRemove: Array<{ client: string; name: string; active: string | null }>;
+}
+
+export interface StyleClientPair {
+  client: string;
+  style: string;
+}
+
+/** `styles apply`: the rule file each chosen client gets, and the style it replaces. */
+export interface StyleApplyData {
+  name: string;
+  dryRun: boolean;
+  scope: string;
+  applied: Array<{ client: string; path: string }>;
+  appliedCount: number;
+  replaced: StyleClientPair[];
+  active: StyleClientPair[];
+  nativeClients: string[];
+}
+
+/** `styles remove`: the rule file taken away from each client. */
 export interface RemoveData {
   dryRun: boolean;
-  name: string;
-  outputs?: string[];
+  hadActive: boolean;
+  removed: Array<{ client: string; style: string; path: string }>;
+  active: StyleClientPair[];
 }
 
 export interface InitData {

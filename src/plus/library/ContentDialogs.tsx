@@ -1,5 +1,4 @@
-import { useId, useState } from "react";
-import { toast } from "sonner";
+import { useId, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,14 +11,17 @@ import {
 import { toastError } from "@/lib/toast";
 import { useLoad } from "../servers/useLoad";
 import { errorText } from "../settings/useCtl";
+import { saveBodyEdit, sameBody } from "./bodyEdit";
 import {
   addContent,
   cleanContent,
-  editContentBody,
   getContent,
+  type BodyKind,
   type ContentKind,
 } from "./commands";
+import { LineDiffView } from "./DiffView";
 import { AskDialog, FileLines, Mono, WriteDialog } from "./dialogs";
+import { lineDiff } from "./lineDiff";
 import { plural } from "./model";
 
 interface Done {
@@ -27,7 +29,11 @@ interface Done {
   onDone: () => void;
 }
 
-const NOUN: Record<ContentKind, string> = { agents: "agent", styles: "output style" };
+const NOUN: Record<BodyKind, string> = {
+  skills: "skill",
+  agents: "agent",
+  styles: "output style",
+};
 const FILE: Record<ContentKind, string> = { agents: "AGENT.md", styles: "STYLE.md" };
 
 export function NewContentDialog({
@@ -95,28 +101,36 @@ export function CleanContentDialog({
   );
 }
 
-/** The body of an agent or a style as text. Saving replaces the body and leaves the frontmatter
- * as it is; the next Apply delivers the change. */
+/** The body of a skill, an agent or a style as text. Review changes shows what the save would
+ * change as a diff; saving replaces the body and leaves the frontmatter as it is. The toast has
+ * Undo, and the next Apply delivers the change. */
 export function EditBodyDialog({
   kind,
   name,
   onClose,
   onDone,
-}: Done & { kind: ContentKind; name: string }) {
+}: Done & { kind: BodyKind; name: string }) {
   const loaded = useLoad(() => getContent(kind, name), `${kind}:${name}`);
   const [draft, setDraft] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState(false);
   const [busy, setBusy] = useState(false);
   const id = useId();
-  const text = draft ?? loaded.data?.body ?? "";
-  const changed = loaded.data !== null && draft !== null && draft !== loaded.data.body;
+  const original = loaded.data?.body ?? "";
+  const text = draft ?? original;
+  const changed = loaded.data !== null && !sameBody(text, original);
+  const diff = useMemo(
+    () => (reviewing ? lineDiff(original, text) : null),
+    [reviewing, original, text],
+  );
 
   async function save() {
     setBusy(true);
     try {
-      await editContentBody(kind, name, text);
-      toast.message(`Saved the body of ${name}`, {
-        description: "Apply on the Sync tab delivers it to Claude Code.",
-      });
+      await saveBodyEdit(
+        { kind, name, previous: original, written: text },
+        "Apply on the Sync tab delivers it to Claude Code.",
+        onDone,
+      );
       onDone();
       onClose();
     } catch (error) {
@@ -130,15 +144,18 @@ export function EditBodyDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Edit {name}</DialogTitle>
+          <DialogTitle>
+            {reviewing ? `Review the changes to ${name}` : `Edit ${name}`}
+          </DialogTitle>
           <DialogDescription>
-            The text below the frontmatter of the {NOUN[kind]}. The frontmatter stays as
-            it is; edit it in your editor.
+            {reviewing
+              ? "Nothing is written until you save. Undo stays on the message after saving."
+              : `The text below the frontmatter of the ${NOUN[kind]}. The frontmatter stays as it is; edit it in your editor.`}
           </DialogDescription>
         </DialogHeader>
         {loaded.error && !loaded.data && <p role="alert">{loaded.error}</p>}
         {!loaded.data && !loaded.error && <p className="text-meta">Reading {name}…</p>}
-        {loaded.data && (
+        {loaded.data && !reviewing && (
           <div className="flex flex-col gap-2">
             <Mono>{loaded.data.path}</Mono>
             <label htmlFor={id} className="text-meta font-medium">
@@ -154,13 +171,36 @@ export function EditBodyDialog({
             />
           </div>
         )}
+        {loaded.data && diff && (
+          <div className="flex flex-col gap-2">
+            <Mono>{loaded.data.path}</Mono>
+            <p className="text-meta text-muted-foreground">
+              {plural(diff.added, "line")} added, {plural(diff.removed, "line")} removed.
+              {diff.coarse
+                ? " The body is too different to line up, so it is shown as removed and added."
+                : ""}
+            </p>
+            <LineDiffView lines={diff.lines} />
+          </div>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={!changed || busy} onClick={() => void save()}>
-            Save body
-          </Button>
+          {reviewing ? (
+            <>
+              <Button variant="outline" onClick={() => setReviewing(false)}>
+                Back to editing
+              </Button>
+              <Button disabled={busy} onClick={() => void save()}>
+                Save body
+              </Button>
+            </>
+          ) : (
+            <Button disabled={!changed} onClick={() => setReviewing(true)}>
+              Review changes
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

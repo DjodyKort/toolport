@@ -43,6 +43,12 @@ export interface LibraryWorldOptions {
   dirty?: boolean;
   /** The library holds one output style. */
   styles?: boolean;
+  /** `styles status` cannot read the lock. */
+  styleStatusFails?: boolean;
+  /** An agent file whose description is over the limit: it does not parse and lint says so. */
+  longAgent?: boolean;
+  /** The output style plain is on for Cursor and Zed (it also puts the style in the library). */
+  applied?: boolean;
   /** The plan also writes the agent code-scout and the output style plain. */
   extras?: boolean;
   /** Where the selective-loading source `acme-skills` stands. */
@@ -90,6 +96,41 @@ const RULES: Array<[string, string]> = [
 
 const HELD_BY_LINT = ["ticket-intake", "release-notes", "review-round"];
 const TAP_SKILLS = ["quick-deploy"];
+/** The one tap that is also a Claude Code plugin marketplace. */
+const MARKET_TAP = "acme-skills";
+
+/** The clients that take an output style as an always-on rule, with the file each one gets. */
+const STYLE_CLIENTS: Array<{ key: string; name: string; path: string }> = [
+  { key: "aider", name: "Aider", path: ".mcpm/skills/mcpm-output-style/SKILL.md" },
+  { key: "amazon-q", name: "Amazon Q", path: ".amazonq/rules/mcpm-output-style.md" },
+  { key: "cline", name: "Cline", path: ".clinerules/mcpm-output-style.md" },
+  {
+    key: "codex-cli",
+    name: "Codex CLI",
+    path: ".agents/skills/mcpm-output-style/SKILL.md",
+  },
+  { key: "continue", name: "Continue.dev", path: ".continue/rules/mcpm-output-style.md" },
+  { key: "cursor", name: "Cursor", path: ".cursor/rules/mcpm-output-style/RULE.md" },
+  {
+    key: "gemini-cli",
+    name: "Gemini CLI",
+    path: ".gemini/skills/mcpm-output-style/SKILL.md",
+  },
+  { key: "goose", name: "Goose", path: ".goose/rules/mcpm-output-style.md" },
+  {
+    key: "jetbrains",
+    name: "JetBrains AI",
+    path: ".aiassistant/rules/mcpm-output-style.md",
+  },
+  { key: "trae", name: "Trae", path: ".trae/rules/mcpm-output-style.md" },
+  {
+    key: "vscode-copilot",
+    name: "VS Code Copilot",
+    path: ".github/instructions/mcpm-output-style.instructions.md",
+  },
+  { key: "windsurf", name: "Windsurf", path: ".windsurf/rules/mcpm-output-style.md" },
+  { key: "zed", name: "Zed", path: ".rules" },
+];
 
 const folder = (skill: string) => `${OUT}/.claude/skills/${skill}`;
 
@@ -741,6 +782,7 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     tap("community-tools", "community/toolbox"),
   ];
   let tapFails = true;
+  const linkedTaps = new Set<string>();
   let roots = [
     {
       path: `${LIBRARY_HOME}/work/project-a`,
@@ -772,7 +814,7 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
   ];
   let agentSynced = true;
   let styles =
-    options.styles || options.extras
+    options.styles || options.extras || options.applied
       ? [
           {
             name: "plain",
@@ -788,6 +830,14 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     ["styles:plain", "Answer in two short sentences.\n"],
   ]);
   const edited = new Set<string>();
+  const activeStyles = new Map<string, string>(
+    options.applied
+      ? [
+          ["cursor", "plain"],
+          ["zed", "plain"],
+        ]
+      : [],
+  );
   const drift = options.drift ?? 0;
 
   function item(name: string, type: string, description: string): LibrarySkill {
@@ -1207,6 +1257,11 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
       lockedCount: locked.size,
       lockfilePresent: lockfile,
       lockfileSyncedAt: lockfile ? "2026-11-17T07:00:00.000Z" : null,
+      outputs: items
+        .filter((i) => locked.has(i.name))
+        .flatMap((i) =>
+          clients.map((client) => ({ name: i.name, client, present: true })),
+        ),
       repo: LIBRARY_REPO,
       targetedClients: clients,
     });
@@ -1647,14 +1702,120 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     return ok({ checks, commitSha: "a1b2c3d", dryRun, pushed: true, repo: LIBRARY_REPO });
   }
 
+  /** `skills tap link|unlink`: the marketplace of one tap declared in, or removed from, Claude
+   * Code's settings. Only the tap `acme-skills` is a plugin marketplace. */
+  function tapLink(argv: string[], link: boolean): CtlReply {
+    const dryRun = argv.includes("--dry-run");
+    const name = operand(argv, 3) ?? "";
+    if (!taps.some((t) => t.name === name))
+      return fail("not_found", `no tap named ${name}`);
+    if (name !== MARKET_TAP)
+      return fail(
+        "skills",
+        `tap '${name}' is not a plugin marketplace: it has no .claude-plugin/marketplace.json`,
+      );
+    const settings = `${LIBRARY_HOME}/.claude/settings.json`;
+    const already = linkedTaps.has(name) === link;
+    const changesOf = already
+      ? []
+      : [
+          {
+            action: link ? "declare" : "remove",
+            key: "extraKnownMarketplaces.acme",
+            path: settings,
+            scope: "user",
+          },
+          {
+            action: link ? "enable" : "remove",
+            key: "enabledPlugins.core@acme",
+            path: settings,
+            scope: "user",
+          },
+        ];
+    if (!dryRun) {
+      if (link) linkedTaps.add(name);
+      else linkedTaps.delete(name);
+    }
+    return ok({
+      tap: name,
+      dryRun,
+      scope: "user",
+      changes: changesOf,
+      conflicts: [],
+      plan: {
+        summary: link
+          ? `Link tap ${name} to Claude Code as marketplace acme`
+          : `Unlink tap ${name} from Claude Code`,
+        steps: already
+          ? [
+              {
+                op: "note",
+                detail: link
+                  ? "already linked: acme is declared and its plugins are switched on"
+                  : `tap ${name} is not linked to Claude Code; nothing to remove`,
+              },
+            ]
+          : [
+              {
+                op: "merge",
+                detail: `${link ? "declare" : "remove"} acme`,
+                path: settings,
+              },
+              {
+                op: "merge",
+                detail: `${link ? "enable" : "remove"} core@acme`,
+                path: settings,
+              },
+            ],
+        warnings: [
+          "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart",
+        ],
+        undo: `toolportctl skills tap ${link ? "unlink" : "link"} ${name}`,
+        effects: {},
+      },
+      result: dryRun
+        ? null
+        : {
+            applied: true,
+            changed: changesOf.map((c) => `${c.key} in ${settings}`),
+            undo: `toolportctl skills tap ${link ? "unlink" : "link"} ${name}`,
+          },
+    });
+  }
+
   function tapCmd(argv: string[]): CtlReply {
     const dryRun = argv.includes("--dry-run");
     switch (argv[2]) {
       case "ls":
         return ok({
           tapsRoot: `${LIBRARY_HOME}/Library/Application Support/Toolport/taps`,
-          taps,
+          taps: taps.map((t) =>
+            t.name === MARKET_TAP
+              ? {
+                  ...t,
+                  marketplace: {
+                    name: "acme",
+                    declared: linkedTaps.has(t.name) ? "here" : "no",
+                    plugins: [
+                      {
+                        id: "core@acme",
+                        name: "core",
+                        linked: linkedTaps.has(t.name),
+                        skills: 1,
+                        agents: 0,
+                        hooks: false,
+                        version: "1.4.0",
+                      },
+                    ],
+                    warnings: [],
+                  },
+                }
+              : t,
+          ),
         });
+      case "link":
+      case "unlink":
+        return tapLink(argv, argv[2] === "link");
       case "add": {
         const repo = operand(argv, 3) ?? "";
         const name = repo.split("/").pop() ?? repo;
@@ -1665,6 +1826,11 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
         const name = operand(argv, 3) ?? "";
         if (!taps.some((t) => t.name === name))
           return fail("not_found", `no tap named ${name}`);
+        if (linkedTaps.has(name))
+          return fail(
+            "skills",
+            `Tap '${name}' is linked to Claude Code; run \`toolportctl skills tap unlink ${name}\` first`,
+          );
         if (!dryRun) taps = taps.filter((t) => t.name !== name);
         return ok({ name, dryRun, removed: !dryRun });
       }
@@ -1921,15 +2087,24 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     };
   }
 
-  /** The self-management tools the Agents and styles tab runs through `mcp call`. */
+  /** The self-management tools the Library runs through `mcp call`: read and edit the body of a
+   * skill, an agent or a style. */
   function tool(name: string, args: Record<string, unknown>): CtlReply | null {
-    const [kind, action] = name.split(/_(.*)/s) as ["agents" | "styles", string];
-    if (!["agents", "styles"].includes(kind) || !["get", "edit_body"].includes(action))
+    const [kind, action] = name.split(/_(.*)/s) as [
+      "skills" | "agents" | "styles",
+      string,
+    ];
+    if (
+      !["skills", "agents", "styles"].includes(kind) ||
+      !["get", "edit_body"].includes(action)
+    )
       return null;
     const item =
-      kind === "agents"
-        ? agents.find((a) => a.name === args.name)
-        : styles.find((s) => s.name === args.name);
+      kind === "skills"
+        ? items.find((i) => i.name === args.name)
+        : kind === "agents"
+          ? agents.find((a) => a.name === args.name)
+          : styles.find((s) => s.name === args.name);
     if (!item)
       return {
         ok: false,
@@ -1948,7 +2123,7 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
           name: item.name,
           description: item.description,
           path: item.path,
-          body: bodies.get(key) ?? "",
+          body: bodies.get(key) ?? `# ${item.name}\n\nSteps for ${item.name}.\n`,
         },
       });
     if (args.confirm !== true)
@@ -1956,8 +2131,15 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
         ok: false,
         error: { code: "refused", message: `${name} needs confirm=true` },
       };
-    bodies.set(key, String(args.new_body ?? ""));
+    bodies.set(key, `${String(args.new_body ?? "").trimEnd()}\n`);
     edited.add(key);
+    if (
+      kind === "skills" &&
+      !changes.some(
+        (c) => c.skill === item.name && !c.kind && c.path.endsWith("SKILL.md"),
+      )
+    )
+      changes = [...changes, change(item.name, path(item.name, "SKILL.md"), "update")];
     return ok({
       tool: name,
       tier: 3,
@@ -1974,17 +2156,30 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
       case "status":
         return ok({
           drift: false,
-          lockedCount: agentSynced ? 1 : 0,
+          lockedCount: agentSynced ? agents.length : 0,
           lockfilePresent: agentSynced,
+          outputs: agentSynced
+            ? agents.map((a) => ({ name: a.name, client: "claude-code", present: true }))
+            : [],
           repo: LIBRARY_REPO,
         });
       case "lint":
         return ok({
           agentCount: agents.length,
-          errors: 0,
+          errors: options.longAgent ? 1 : 0,
           warnings: 0,
           infos: 0,
-          messages: [],
+          messages: options.longAgent
+            ? [
+                {
+                  level: "error",
+                  name: "long-agent",
+                  message:
+                    "agents/long-agent/AGENT.md cannot be read and is not synced: description must be 1-1536 characters",
+                },
+              ]
+            : [],
+          discoveryWarnings: [],
         });
       case "audit":
         return ok({
@@ -2065,23 +2260,73 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     }
   }
 
+  const activePairs = () =>
+    [...activeStyles].map(([client, style]) => ({ client, style }));
+
+  function styleApply(argv: string[]): CtlReply {
+    const dryRun = argv.includes("--dry-run");
+    const name = operand(argv, 2) ?? "";
+    if (!styles.some((s) => s.name === name))
+      return fail(
+        "styles",
+        `Style '${name}' not found. Available: ${styles.map((s) => s.name).join(", ") || "none"}`,
+      );
+    const asked = argv.flatMap((a, i) => (a === "--client" ? [argv[i + 1]] : []));
+    const targets = STYLE_CLIENTS.filter(
+      (c) => asked.length === 0 || asked.includes(c.key),
+    );
+    if (targets.length === 0) return fail("usage", `unknown client: ${asked.join(", ")}`);
+    const replaced = targets
+      .filter((c) => activeStyles.has(c.key) && activeStyles.get(c.key) !== name)
+      .map((c) => ({ client: c.key, style: activeStyles.get(c.key) ?? "" }));
+    if (!dryRun) for (const c of targets) activeStyles.set(c.key, name);
+    const after = new Map(activeStyles);
+    if (dryRun) for (const c of targets) after.set(c.key, name);
+    return ok({
+      name,
+      dryRun,
+      scope: "global",
+      applied: targets.map((c) => ({ client: c.key, path: `${OUT}/${c.path}` })),
+      appliedCount: [...after.values()].filter((style) => style === name).length,
+      replaced,
+      active: [...after].map(([client, style]) => ({ client, style })),
+      nativeClients: [],
+      repo: LIBRARY_REPO,
+      discoveryWarnings: [],
+    });
+  }
+
   function styleCmd(argv: string[]): CtlReply {
     const dryRun = argv.includes("--dry-run");
     switch (argv[1]) {
       case "ls":
         return ok({
           styles,
-          active: [] as string[],
+          active: activePairs(),
           repo: LIBRARY_REPO,
-          lockfilePresent: false,
+          lockfilePresent: activeStyles.size > 0,
         });
       case "status":
+        if (options.styleStatusFails)
+          return fail("skills", "the styles lock cannot be read: Permission denied");
         return ok({
-          lockfilePresent: false,
-          native: [],
-          applyRemove: [],
+          lockfilePresent: styles.some((s) => s.synced) || activeStyles.size > 0,
+          native: [
+            {
+              client: "claude-code",
+              name: "Claude Code",
+              styles: styles.filter((s) => s.synced).map((s) => s.name),
+            },
+          ],
+          applyRemove: STYLE_CLIENTS.map((c) => ({
+            client: c.key,
+            name: c.name,
+            active: activeStyles.get(c.key) ?? null,
+          })),
           repo: LIBRARY_REPO,
         });
+      case "apply":
+        return styleApply(argv);
       case "lint":
         return ok({ errors: 0, warnings: 0, infos: 0, messages: [] });
       case "sync":
@@ -2095,8 +2340,24 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
             warnings: [],
           })),
         });
-      case "remove":
-        return ok({ dryRun, name: "", outputs: [] });
+      case "remove": {
+        const asked = argv.flatMap((a, i) => (a === "--client" ? [argv[i + 1]] : []));
+        const targets = [...activeStyles].filter(
+          ([client]) => asked.length === 0 || asked.includes(client),
+        );
+        if (!dryRun) for (const [client] of targets) activeStyles.delete(client);
+        return ok({
+          dryRun,
+          hadActive: activeStyles.size > 0 || targets.length > 0,
+          removed: targets.map(([client, style]) => ({
+            client,
+            style,
+            path: `${OUT}/${STYLE_CLIENTS.find((c) => c.key === client)?.path ?? ""}`,
+          })),
+          active: activePairs(),
+          clientKeys: asked,
+        });
+      }
       case "add": {
         const name = operand(argv, 2) ?? "";
         if (styles.some((s) => s.name === name))

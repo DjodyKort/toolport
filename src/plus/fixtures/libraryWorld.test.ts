@@ -158,7 +158,9 @@ const READS: Array<{
       "lockfilePresent",
       "lockfileSyncedAt",
       "targetedClients",
+      "outputs",
     ],
+    worldOnly: ["outputs.name", "outputs.client", "outputs.present"],
   },
   {
     golden: "skills-lint.checks",
@@ -351,7 +353,8 @@ const READS: Array<{
   {
     golden: "agents-status",
     argv: ["agents", "status"],
-    keys: ["drift", "lockfilePresent"],
+    keys: ["drift", "lockfilePresent", "outputs"],
+    worldOnly: ["outputs.name", "outputs.client", "outputs.present"],
   },
   {
     golden: "agents-sync.preview",
@@ -389,6 +392,93 @@ const READS: Array<{
     argv: ["styles", "sync", "--dry-run"],
     options: { styles: true },
     keys: ["styleCount", "outputs"],
+  },
+  {
+    golden: "styles-status",
+    argv: ["styles", "status"],
+    options: { applied: true },
+    keys: ["lockfilePresent", "native", "applyRemove"],
+    worldOnly: [
+      "native.client",
+      "native.name",
+      "native.styles",
+      "applyRemove.client",
+      "applyRemove.name",
+      "applyRemove.active",
+    ],
+  },
+  {
+    golden: "styles-apply.preview",
+    argv: ["styles", "apply", "plain", "--client", "cursor", "--dry-run"],
+    options: { styles: true },
+    keys: [
+      "name",
+      "dryRun",
+      "scope",
+      "applied.client",
+      "applied.path",
+      "appliedCount",
+      "replaced",
+      "active.client",
+      "active.style",
+      "nativeClients",
+    ],
+  },
+  {
+    golden: "styles-apply.apply",
+    argv: ["styles", "apply", "plain", "--client", "cursor"],
+    options: { styles: true },
+    keys: ["name", "dryRun", "applied.client", "applied.path", "active.client"],
+  },
+  {
+    golden: "styles-remove.preview",
+    argv: ["styles", "remove", "--client", "cursor", "--dry-run"],
+    options: { applied: true },
+    keys: [
+      "dryRun",
+      "hadActive",
+      "removed.client",
+      "removed.style",
+      "removed.path",
+      "active",
+      "clientKeys",
+    ],
+  },
+  {
+    golden: "skills-tap-link.preview",
+    argv: ["skills", "tap", "link", "acme-skills", "--dry-run"],
+    keys: [
+      "tap",
+      "dryRun",
+      "scope",
+      "changes.action",
+      "changes.key",
+      "changes.path",
+      "conflicts",
+      "plan.summary",
+      "plan.steps.op",
+      "plan.steps.detail",
+      "plan.warnings",
+      "plan.undo",
+      "result",
+    ],
+  },
+  {
+    golden: "skills-tap-link.apply",
+    argv: ["skills", "tap", "link", "acme-skills"],
+    keys: [
+      "tap",
+      "dryRun",
+      "changes.key",
+      "result.applied",
+      "result.changed",
+      "result.undo",
+    ],
+  },
+  {
+    golden: "skills-tap-unlink.not_linked",
+    argv: ["skills", "tap", "unlink", "acme-skills", "--dry-run"],
+    keys: ["tap", "dryRun", "changes", "plan.summary", "plan.steps.detail", "plan.undo"],
   },
 ];
 
@@ -522,5 +612,26 @@ describe("the Library fixture world", () => {
     expect(last("held").lastRun?.held).toHaveLength(5);
     expect(last("failed").lastRun?.error).toBe("no skills repository found");
     expect(last("paused")).toMatchObject({ paused: true, lastRun: null });
+  });
+
+  it("test09_a_tap_that_is_a_marketplace_has_the_keys_of_the_Rust_listing", () => {
+    const real = (
+      golden("skills-tap-link.listed") as {
+        taps: Array<{ marketplace?: Record<string, unknown> }>;
+      }
+    ).taps.find((tap) => tap.marketplace)?.marketplace as {
+      plugins: Array<Record<string, unknown>>;
+    };
+    const world = (
+      reply(["skills", "tap", "ls"]) as {
+        taps: Array<{ name: string; marketplace?: Record<string, unknown> }>;
+      }
+    ).taps.find((tap) => tap.name === "acme-skills")?.marketplace as {
+      plugins: Array<Record<string, unknown>>;
+    };
+    expect(Object.keys(world).sort()).toEqual(Object.keys(real).sort());
+    expect(Object.keys(world.plugins[0]).sort()).toEqual(
+      Object.keys(real.plugins[0]).sort(),
+    );
   });
 });

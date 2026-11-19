@@ -13,41 +13,11 @@ import { toast } from "sonner";
 import { toastError } from "@/lib/toast";
 import { useLoad } from "../servers/useLoad";
 import { errorText } from "../settings/useCtl";
+import { DiffView } from "./DiffView";
 import { compareSkill, keepFiles, takeLibraryCopy } from "./commands";
 import type { CompareFile } from "./data";
 import { Mono } from "./dialogs";
 import { bytes, fileBadge, plural } from "./model";
-
-const LINE_TONE: Record<string, string> = {
-  "+": "bg-success/10 text-success",
-  "-": "bg-destructive/10 text-destructive",
-  "@": "text-muted-foreground",
-};
-
-/** A unified diff, line by line, with the sign of each line in words for the reader who cannot
- * tell green from red. */
-function DiffView({ diff }: { diff: string }) {
-  const lines = diff.replace(/\n$/, "").split("\n");
-  return (
-    <pre
-      aria-label="Differences"
-      className="max-h-80 overflow-auto rounded-md border bg-muted/30 py-1 font-mono text-xs"
-    >
-      {lines.map((line, index) => {
-        const sign = line[0] ?? " ";
-        const header = line.startsWith("---") || line.startsWith("+++");
-        return (
-          <span
-            key={`${index}-${line}`}
-            className={`block px-3 whitespace-pre-wrap break-all ${header ? "text-muted-foreground" : (LINE_TONE[sign] ?? "")}`}
-          >
-            {line || " "}
-          </span>
-        );
-      })}
-    </pre>
-  );
-}
 
 function Verdict({ file }: { file: CompareFile }) {
   if (file.binary) {

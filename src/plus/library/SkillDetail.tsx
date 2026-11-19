@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Copy,
   MoreHorizontal,
+  Pencil,
 } from "lucide-react";
 import { skillsInventory } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,7 @@ import { useLoad } from "../servers/useLoad";
 import { errorText } from "../settings/useCtl";
 import { lintSkills, listLibrary, skillFiles } from "./commands";
 import CompareDialog from "./CompareDialog";
+import { EditBodyDialog } from "./ContentDialogs";
 import { Mono } from "./dialogs";
 import {
   bytes,
@@ -72,6 +74,7 @@ export default function SkillDetail({
   const [removing, setRemoving] = useState(false);
   const [comparing, setComparing] = useState<string | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const entry = library.data?.skills.find((s) => s.name === name);
   const data = files.data;
@@ -111,6 +114,9 @@ export default function SkillDetail({
             {data ? ` · ${plural(data.files.length, "file")}` : ""}
           </p>
         </div>
+        <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+          <Pencil /> Edit body…
+        </Button>
         <Button variant="outline" size="sm" onClick={() => void copyPath()}>
           <Copy /> Copy path
         </Button>
@@ -339,6 +345,18 @@ export default function SkillDetail({
             </section>
           )}
         </>
+      )}
+      {editing && (
+        <EditBodyDialog
+          kind="skills"
+          name={name}
+          onClose={() => setEditing(false)}
+          onDone={() => {
+            files.reload();
+            lint.reload();
+            onChanged();
+          }}
+        />
       )}
       {comparing && (
         <CompareDialog

@@ -1,0 +1,5 @@
+{
+  "route": "library-later",
+  "status": "planned",
+  "summary": "Edit the frontmatter fields of a skill in place, or delete a skill folder without its installed copies (skills_edit_frontmatter, skills_delete); the frontmatter is edited in an editor today and Delete from library covers the deletion"
+}

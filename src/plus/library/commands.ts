@@ -35,11 +35,14 @@ import type {
   SkillListData,
   SourcesData,
   StatusData,
+  StyleApplyData,
   StyleListData,
+  StyleStatusData,
   StyleSyncData,
   SyncData,
   ToolCall,
   TapChangeData,
+  TapLinkData,
   TapListData,
   TapUpdateData,
   UndoData,
@@ -167,6 +170,10 @@ export const updateTaps = (name?: string, dryRun = false) =>
     ...(name ? [name] : []),
     ...dry(dryRun),
   ]);
+export const linkTap = (name: string, dryRun: boolean) =>
+  ctlData<TapLinkData>(["skills", "tap", "link", name, ...dry(dryRun)]);
+export const unlinkTap = (name: string, dryRun: boolean) =>
+  ctlData<TapLinkData>(["skills", "tap", "unlink", name, ...dry(dryRun)]);
 export const searchTaps = (query: string) =>
   ctlData<SearchData>(["skills", "search", query]);
 export const installSkill = (spec: string, dryRun: boolean) =>
@@ -192,12 +199,27 @@ export const listStyles = () => ctlData<StyleListData>(["styles", "ls"]);
 export const styleLint = () => dataOrFailure<AgentLintData>(["styles", "lint"]);
 export const syncStyles = (dryRun: boolean) =>
   ctlData<StyleSyncData>(["styles", "sync", ...dry(dryRun)]);
-export const removeStyle = (dryRun: boolean) =>
-  ctlData<RemoveData>(["styles", "remove", ...dry(dryRun)]);
-export const styleStatus = () =>
-  ctlData<{ lockfilePresent: boolean }>(["styles", "status"]);
+const clientFlags = (clients: readonly string[]) =>
+  clients.flatMap((client) => ["--client", client]);
+
+/** Takes the applied style off the given clients, or off every client when none is given. */
+export const removeStyle = (dryRun: boolean, clients: readonly string[] = []) =>
+  ctlData<RemoveData>(["styles", "remove", ...clientFlags(clients), ...dry(dryRun)]);
+/** Applies one style as the always-on rule of the given clients, or of every client without a
+ * native style switch when none is given. */
+export const applyStyle = (name: string, clients: readonly string[], dryRun: boolean) =>
+  ctlData<StyleApplyData>([
+    "styles",
+    "apply",
+    name,
+    ...clientFlags(clients),
+    ...dry(dryRun),
+  ]);
+export const styleStatus = () => ctlData<StyleStatusData>(["styles", "status"]);
 
 export type ContentKind = "agents" | "styles";
+/** What has a body to edit: the three kinds of library content. */
+export type BodyKind = "skills" | ContentKind;
 
 export const addContent = (kind: ContentKind, name: string, dryRun: boolean) =>
   ctlData<ContentAddData>([kind, "add", name, ...dry(dryRun)]);
@@ -215,11 +237,11 @@ async function callTool<T>(tool: string, args: Record<string, unknown>): Promise
   return data.result;
 }
 
-export const getContent = (kind: ContentKind, name: string) =>
+export const getContent = (kind: BodyKind, name: string) =>
   callTool<ContentGet>(`${kind}_get`, { name });
 
-/** Replaces the body of an agent or a style in the library; the frontmatter stays. */
-export const editContentBody = (kind: ContentKind, name: string, body: string) =>
+/** Replaces the body of a skill, an agent or a style in the library; the frontmatter stays. */
+export const editContentBody = (kind: BodyKind, name: string, body: string) =>
   callTool<{ sourcePath: string; newHash: string }>(`${kind}_edit_body`, {
     name,
     new_body: body,

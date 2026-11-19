@@ -1,5 +1,6 @@
 {
-  "route": "library-later",
-  "status": "planned",
-  "summary": "Edit a skill's body or frontmatter in the library, or delete it (skills_edit_body, skills_edit_frontmatter, skills_delete)"
+  "route": "library",
+  "status": "built",
+  "summary": "Edit the body of a skill or rule in the library from its detail page: review the changes as a diff, save, and Undo on the message (skills_get, skills_edit_body through mcp call); the same dialog edits agents and styles",
+  "test": "src/plus/library/BodyEdit.test.tsx"
 }
