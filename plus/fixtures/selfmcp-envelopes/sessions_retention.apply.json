@@ -1,0 +1,49 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "set": 14
+  },
+  "isError": false,
+  "result": {
+    "dryRun": false,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "cleanupPeriodDays in the user settings",
+          "diff": {
+            "after": "cleanupPeriodDays: 14\n",
+            "before": "cleanupPeriodDays: (absent)\n"
+          },
+          "keys": ["cleanupPeriodDays"],
+          "op": "create",
+          "path": "<WORLD>/home/.claude/settings.json"
+        }
+      ],
+      "summary": "Keep sessions 14 days",
+      "undo": "toolportctl sessions retention --set 30",
+      "warnings": [
+        "One value for every project: Claude Code deletes transcripts older than this at its next cleanup",
+        "Claude Code does not say which settings file applies when the cleanup runs over another project's transcripts; the user settings are the one written here",
+        "A shorter period deletes sessions sooner; Move to archive keeps the ones you want"
+      ]
+    },
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": ["<WORLD>/home/.claude/settings.json"],
+      "undo": "toolportctl sessions retention --set 30"
+    },
+    "retention": {
+      "days": 30,
+      "default": 30,
+      "file": "<WORLD>/home/.claude/settings.json",
+      "min": 1,
+      "perRepository": false,
+      "source": "default"
+    },
+    "set": 14
+  },
+  "tool": "sessions_retention"
+}

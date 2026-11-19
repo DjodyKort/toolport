@@ -4,7 +4,7 @@
 
 use super::skills::{kebab, path_safe, repo_of as skills_repo};
 use super::ToolError;
-use crate::args::{flag_or, nonempty_strings, str_arg};
+use crate::args::{flag, flag_or, nonempty_strings, str_arg};
 use crate::hashing::lock_hash;
 use crate::skills::agents::lint::lint_agents;
 use crate::skills::agents::{
@@ -150,12 +150,15 @@ fn rewrite_frontmatter(path: &Path, patch: &Value, skill: bool) -> Result<String
     file_hash(path)
 }
 
-fn scaffold(path: PathBuf, kind: &str, name: &str, content: String) -> Outcome {
+fn scaffold(path: PathBuf, kind: &str, name: &str, content: String, dry_run: bool) -> Outcome {
     if path.exists() {
         return Err(ToolError::new(
             "conflict",
             format!("{kind} {name} already exists at {}", path.display()),
         ));
+    }
+    if dry_run {
+        return Ok(json!({"created_path": path.to_string_lossy(), "kind": kind, "dryRun": true}));
     }
     write_text(&path, &content).map_err(ToolError::backend)?;
     Ok(json!({"created_path": path.to_string_lossy(), "kind": kind}))
@@ -305,6 +308,7 @@ pub(super) fn agents_scaffold(host: &dyn Host, args: &Value) -> Outcome {
         "agent",
         name,
         content,
+        flag(args, "dry_run"),
     )
 }
 
@@ -384,6 +388,7 @@ pub(super) fn styles_scaffold(host: &dyn Host, args: &Value) -> Outcome {
         "style",
         name,
         style_template(name),
+        flag(args, "dry_run"),
     )
 }
 

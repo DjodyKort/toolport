@@ -32,6 +32,7 @@ pub(super) fn setup_plan(host: &dyn Host, args: &Value) -> Result<Value, ToolErr
         host,
         &api::SetupChoice {
             port: str_trimmed(args, "port").map(str::to_string),
+            profiles: crate::args::nonempty_strings(args, "profile").unwrap_or_default(),
             ..api::SetupChoice::default()
         },
     )?)

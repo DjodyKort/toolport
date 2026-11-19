@@ -1,0 +1,64 @@
+{
+  "arguments": {
+    "roots": ["<WORLD>/home/code"],
+    "tick": ["browser"]
+  },
+  "isError": false,
+  "result": {
+    "amber": [
+      {
+        "acked": false,
+        "id": "dirty:~/code/web",
+        "kind": "dirty",
+        "note": "0 changed, 2 untracked files",
+        "repo": "~/code/web"
+      }
+    ],
+    "blockers": [
+      {
+        "acked": false,
+        "id": "no-remote:~/code/scratch",
+        "kind": "no-remote",
+        "note": "has no remote: it exists only here",
+        "repo": "~/code/scratch"
+      },
+      {
+        "acked": false,
+        "id": "unpushed:~/code/web",
+        "kind": "unpushed",
+        "note": "1 commits are on no remote",
+        "repo": "~/code/web"
+      }
+    ],
+    "carry": [
+      {
+        "id": "browser",
+        "label": "Browser profiles, bookmarks and logins",
+        "ticked": true
+      },
+      {
+        "id": "keys",
+        "label": "SSH and signing keys",
+        "ticked": false
+      },
+      {
+        "id": "licenses",
+        "label": "App licences and 2FA devices",
+        "ticked": false
+      },
+      {
+        "id": "outside",
+        "label": "Files outside the repositories and Toolport",
+        "ticked": false
+      }
+    ],
+    "lastExport": null,
+    "open": {
+      "blockers": 2,
+      "carry": 3
+    },
+    "ready": false,
+    "repos": 3
+  },
+  "tool": "setup_check"
+}

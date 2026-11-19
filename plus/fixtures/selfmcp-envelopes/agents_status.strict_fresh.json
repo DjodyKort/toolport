@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "strict": true
+  },
+  "isError": false,
+  "result": {
+    "drift": false,
+    "lockedCount": 0,
+    "lockfilePresent": false,
+    "outputRoot": null,
+    "outputs": [],
+    "repo": "<WORLD>/skills-repo",
+    "strictFailed": true
+  },
+  "tool": "agents_status"
+}

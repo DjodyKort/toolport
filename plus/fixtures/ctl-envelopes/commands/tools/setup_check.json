@@ -2,6 +2,6 @@
   "command": "setup check",
   "dryRun": "none",
   "name": "setup_check",
-  "tier": "read",
-  "toolTier": 1
+  "tier": "write",
+  "toolTier": 2
 }

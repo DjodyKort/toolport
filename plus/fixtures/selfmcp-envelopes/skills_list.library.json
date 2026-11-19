@@ -1,0 +1,26 @@
+{
+  "arguments": {
+    "source": "library"
+  },
+  "isError": false,
+  "result": {
+    "repo": "<WORLD>/skills-repo",
+    "skills": [
+      {
+        "activation": "auto",
+        "description": "A synthetic demo skill",
+        "invisibleReason": null,
+        "name": "demo",
+        "origin": {
+          "kind": "library",
+          "name": "skills-repo"
+        },
+        "path": "<WORLD>/skills-repo/skills/demo/SKILL.md",
+        "type": "skill",
+        "visible": true,
+        "writable": true
+      }
+    ]
+  },
+  "tool": "skills_list"
+}

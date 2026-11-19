@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "name": "odd-rule",
+    "skill_type": "rule",
+    "with_progressive": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "--with-progressive is only valid for skills, not rules."
+    }
+  },
+  "text": "invalid_arguments: --with-progressive is only valid for skills, not rules.",
+  "tool": "skills_scaffold"
+}

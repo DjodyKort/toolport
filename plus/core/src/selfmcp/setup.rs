@@ -164,8 +164,8 @@ pub(super) fn check(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
             ctx,
             &crate::setup::check::Options {
                 roots: roots(args),
-                tick: Vec::new(),
-                untick: Vec::new(),
+                tick: nonempty_strings(args, "tick").unwrap_or_default(),
+                untick: nonempty_strings(args, "untick").unwrap_or_default(),
                 ack: Vec::new(),
             },
         )

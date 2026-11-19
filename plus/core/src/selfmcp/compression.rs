@@ -146,7 +146,9 @@ pub(super) fn measure(host: &dyn Host, args: &Value) -> Outcome {
         })
         .transpose()?;
     let options = measure::Options {
-        root: crate::compression::verify::transcript_root(),
+        root: str_trimmed(args, "transcripts")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(crate::compression::verify::transcript_root),
         min_turns,
         since_ms,
     };

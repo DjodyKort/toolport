@@ -1,0 +1,207 @@
+{
+  "arguments": {
+    "transcripts": "<WORLD>/no-transcripts"
+  },
+  "isError": false,
+  "result": {
+    "hooks": {
+      "basis": "mechanical",
+      "cannotTell": "billed tokens, or whether an output was cut that Claude then asked for again (see the rework check). A PreToolUse hook sees the call and its answer, not the size of the output a rewrite saves.",
+      "outputBytes": {
+        "available": false,
+        "reason": "A PreToolUse hook sees the call and its answer, not the tool output a rewrite later shrinks."
+      },
+      "population": {
+        "calls": 8,
+        "from": "2026-11-05",
+        "hooks": 1,
+        "to": "2026-11-07"
+      },
+      "providerReported": [],
+      "providers": [
+        {
+          "answered": 3,
+          "calls": 6,
+          "failed": 0,
+          "firstCall": "2026-11-05",
+          "lastCall": "2026-11-06",
+          "p50Ms": 40,
+          "p95Ms": 50,
+          "provider": "rtk",
+          "wrapped": true
+        },
+        {
+          "answered": 1,
+          "calls": 2,
+          "failed": 0,
+          "firstCall": "2026-11-07",
+          "lastCall": "2026-11-07",
+          "p50Ms": 60,
+          "p95Ms": 60,
+          "provider": "read-once",
+          "wrapped": false
+        }
+      ],
+      "status": "data"
+    },
+    "outcome": {
+      "cannotTell": "that a paused window is a fair comparison: the task mix of two windows is not the same, and a refusal is shown instead of a percentage when the windows are thin.",
+      "costUnits": {
+        "cacheReadToken": 0.1,
+        "cacheWriteToken": 1.25,
+        "inputToken": 1.0,
+        "outputToken": 5.0,
+        "relativeTo": "the median of the hooks-on window = 100"
+      },
+      "groups": [
+        {
+          "intervals": [
+            {
+              "from": null,
+              "to": "2026-11-05"
+            }
+          ],
+          "label": "Hooks off",
+          "lowerQuartile": null,
+          "medianCost": null,
+          "relative": null,
+          "relativeHigh": null,
+          "relativeLow": null,
+          "sessions": 0,
+          "state": "off",
+          "upperQuartile": null
+        },
+        {
+          "intervals": [
+            {
+              "from": "2026-11-05",
+              "to": "2026-11-12"
+            },
+            {
+              "from": "2026-11-13",
+              "to": null
+            }
+          ],
+          "label": "Hooks on",
+          "lowerQuartile": null,
+          "medianCost": null,
+          "relative": null,
+          "relativeHigh": null,
+          "relativeLow": null,
+          "sessions": 0,
+          "state": "on",
+          "upperQuartile": null
+        },
+        {
+          "intervals": [
+            {
+              "from": "2026-11-12",
+              "to": "2026-11-13"
+            }
+          ],
+          "label": "Paused",
+          "lowerQuartile": null,
+          "medianCost": null,
+          "relative": null,
+          "relativeHigh": null,
+          "relativeLow": null,
+          "sessions": 0,
+          "state": "paused",
+          "upperQuartile": null
+        }
+      ],
+      "population": {
+        "minTurns": 5,
+        "sessions": 0,
+        "unplaced": 0
+      },
+      "referenceState": "on",
+      "status": "no_sessions",
+      "timeline": [
+        {
+          "from": null,
+          "label": "Hooks off",
+          "state": "off",
+          "to": "2026-11-05"
+        },
+        {
+          "from": "2026-11-05",
+          "label": "Hooks on",
+          "state": "on",
+          "to": "2026-11-12"
+        },
+        {
+          "from": "2026-11-12",
+          "label": "Paused",
+          "state": "paused",
+          "to": "2026-11-13"
+        },
+        {
+          "from": "2026-11-13",
+          "label": "Hooks on",
+          "state": "on",
+          "to": null
+        }
+      ],
+      "verdict": {
+        "needsSessions": 8,
+        "reason": "Needs at least 8 sessions with 5 or more turns in each window; hooks on has 0, paused has 0.",
+        "status": "refused"
+      }
+    },
+    "rework": {
+      "cannotTell": "whether any single repeat was caused by compression. Treat both figures as hints.",
+      "groups": [
+        {
+          "label": "Hooks off",
+          "repeatedCommands": null,
+          "repeatedReads": null,
+          "sessions": 0,
+          "state": "off"
+        },
+        {
+          "label": "Hooks on",
+          "repeatedCommands": null,
+          "repeatedReads": null,
+          "sessions": 0,
+          "state": "on"
+        },
+        {
+          "label": "Paused",
+          "repeatedCommands": null,
+          "repeatedReads": null,
+          "sessions": 0,
+          "state": "paused"
+        }
+      ],
+      "population": {
+        "minTurns": 5,
+        "sessions": 0,
+        "unplaced": 0
+      },
+      "status": "no_sessions"
+    },
+    "sources": {
+      "bashCeiling": null,
+      "basis": "estimate",
+      "cannotTell": "how much of that share a hook removed, or whether the model needed the removed text. Compaction is not modelled, so a long session counts every result for every later turn.",
+      "method": "Size of each tool result divided by 4, times the assistant turns that came after it",
+      "population": {
+        "from": null,
+        "sessions": 0,
+        "to": null
+      },
+      "rows": [],
+      "status": "no_transcripts"
+    },
+    "transcripts": {
+      "root": "<WORLD>/no-transcripts",
+      "sessions": 0,
+      "since": null
+    },
+    "upstream": {
+      "note": "Upstream's tokens-saved figure counts tool-definition exposure of MCP servers only. It says nothing about Bash, Read or billed tokens and is never added to the figures here."
+    }
+  },
+  "tool": "compression_measure"
+}

@@ -197,6 +197,13 @@ const CASES: &[Case] = &[
                 r#"{"id":"tasks:failed:nightly-report"}"#,
             ),
             read("hidden", "attention_list", r#"{"hidden":true}"#),
+            read("needs_you", "attention_list", r#"{"level":"needs-you"}"#),
+            fails(
+                "bad_level",
+                "invalid_arguments",
+                "attention_list",
+                r#"{"level":"loud"}"#,
+            ),
         ],
     ),
     prepared(
@@ -550,6 +557,11 @@ const CASES: &[Case] = &[
     case(
         "agents_scaffold",
         &[
+            read(
+                "dry_run",
+                "agents_scaffold",
+                r#"{"name":"scout","model":"sonnet","dry_run":true}"#,
+            ),
             write(
                 "apply",
                 "agents_scaffold",
@@ -590,8 +602,10 @@ const CASES: &[Case] = &[
         "agents_status",
         &[
             read("fresh", "agents_status", "{}"),
+            read("strict_fresh", "agents_status", r#"{"strict":true}"#),
             setup("agents_sync", CLAUDE_APPLY),
             read("synced", "agents_status", "{}"),
+            read("strict_synced", "agents_status", r#"{"strict":true}"#),
         ],
     ),
     case(
@@ -666,6 +680,7 @@ const CASES: &[Case] = &[
     case(
         "styles_scaffold",
         &[
+            read("dry_run", "styles_scaffold", r#"{"name":"terse","dry_run":true}"#),
             write("apply", "styles_scaffold", r#"{"name":"terse"}"#),
             fails(
                 "exists",
@@ -1306,6 +1321,7 @@ const CASES: &[Case] = &[
         &[
             read("folder_outranks", "clients_reach", "{}"),
             read("one_server", "clients_reach", r#"{"name":"beta"}"#),
+            read("server_param", "clients_reach", r#"{"server":"beta"}"#),
             fails(
                 "unknown_server",
                 "not_found",
@@ -1703,6 +1719,13 @@ const CASES: &[Case] = &[
         "servers_restart",
         &[
             read("preview", "servers_restart", r#"{"name":"alpha"}"#),
+            read("wait", "servers_restart", r#"{"name":"alpha","wait":5}"#),
+            fails(
+                "bad_wait",
+                "invalid_arguments",
+                "servers_restart",
+                r#"{"name":"alpha","wait":-1}"#,
+            ),
             refused(
                 "refused",
                 "servers_restart",
@@ -2408,7 +2431,27 @@ const CASES: &[Case] = &[
     prepared(
         "sessions_retention",
         World::memory_files,
-        &[read("current", "sessions_retention", "{}")],
+        &[
+            read("current", "sessions_retention", "{}"),
+            read("set_preview", "sessions_retention", r#"{"set":14}"#),
+            refused(
+                "refused",
+                "sessions_retention",
+                r#"{"set":14,"dry_run":false}"#,
+            ),
+            fails(
+                "zero_days",
+                "invalid_arguments",
+                "sessions_retention",
+                r#"{"set":0}"#,
+            ),
+            write(
+                "apply",
+                "sessions_retention",
+                r#"{"set":14,"dry_run":false,"confirm":true}"#,
+            ),
+            read("changed", "sessions_retention", "{}"),
+        ],
     ),
     context_case(
         "context_loads",
@@ -2453,7 +2496,19 @@ const CASES: &[Case] = &[
             fails("no-cwd", "invalid_arguments", "context_status", "{}"),
         ],
     ),
-    case("skills_list", &[read("", "skills_list", "{}")]),
+    case(
+        "skills_list",
+        &[
+            read("", "skills_list", "{}"),
+            read("library", "skills_list", r#"{"source":"library"}"#),
+            fails(
+                "unknown_source",
+                "not_found",
+                "skills_list",
+                r#"{"source":"repo:nowhere"}"#,
+            ),
+        ],
+    ),
     case(
         "skills_get",
         &[
@@ -2475,6 +2530,7 @@ const CASES: &[Case] = &[
         &[
             read("summary", "sources_ls", "{}"),
             read("items", "sources_ls", r#"{"items":true,"kind":"skill"}"#),
+            read("extra_root", "sources_ls", r#"{"root":["{home}/dups"]}"#),
             read("org", "sources_ls", r#"{"source":"org","items":true}"#),
             fails(
                 "bad_kind",
@@ -2562,6 +2618,7 @@ const CASES: &[Case] = &[
             read("fresh", "skills_status", "{}"),
             setup("skills_sync", CLAUDE_APPLY),
             read("synced", "skills_status", CLAUDE),
+            read("strict_ok", "skills_status", r#"{"strict":true,"client_keys":["claude-code"]}"#),
             fails(
                 "unknown_client",
                 "invalid_arguments",
@@ -2577,7 +2634,34 @@ const CASES: &[Case] = &[
     case(
         "skills_scaffold",
         &[
+            read(
+                "dry_run",
+                "skills_scaffold",
+                r#"{"name":"fresh","dry_run":true}"#,
+            ),
+            read(
+                "progressive_dry_run",
+                "skills_scaffold",
+                r#"{"name":"stepwise","with_progressive":true,"dry_run":true}"#,
+            ),
             write("skill", "skills_scaffold", r#"{"name":"fresh"}"#),
+            write(
+                "progressive",
+                "skills_scaffold",
+                r#"{"name":"stepwise","with_progressive":true}"#,
+            ),
+            fails(
+                "progressive_exists",
+                "conflict",
+                "skills_scaffold",
+                r#"{"name":"stepwise","with_progressive":true}"#,
+            ),
+            fails(
+                "progressive_rule",
+                "invalid_arguments",
+                "skills_scaffold",
+                r#"{"name":"odd-rule","skill_type":"rule","with_progressive":true}"#,
+            ),
             write(
                 "rule",
                 "skills_scaffold",
@@ -3109,7 +3193,25 @@ const CASES: &[Case] = &[
     ),
     setup_case(
         "setup_check",
-        &[read("roots", "setup_check", r#"{"roots":["{home}/code"]}"#)],
+        &[
+            read("roots", "setup_check", r#"{"roots":["{home}/code"]}"#),
+            write(
+                "tick",
+                "setup_check",
+                r#"{"roots":["{home}/code"],"tick":["browser"]}"#,
+            ),
+            write(
+                "untick",
+                "setup_check",
+                r#"{"roots":["{home}/code"],"untick":["browser"]}"#,
+            ),
+            fails(
+                "unknown_item",
+                "invalid_arguments",
+                "setup_check",
+                r#"{"roots":["{home}/code"],"tick":["nothing"]}"#,
+            ),
+        ],
     ),
     setup_case(
         "setup_inspect",
@@ -3286,6 +3388,11 @@ const CASES: &[Case] = &[
             hook("settings", spend_settings),
             read("plan", "spend_setup_plan", "{}"),
             read("port", "spend_setup_plan", r#"{"port":"4999"}"#),
+            read(
+                "profile",
+                "spend_setup_plan",
+                r#"{"profile":["{home}/.claude"]}"#,
+            ),
         ],
     ),
     case(
@@ -3402,6 +3509,11 @@ const CASES: &[Case] = &[
                 "since",
                 "compression_measure",
                 r#"{"since":"2026-11-10","min_turns":3}"#,
+            ),
+            read(
+                "other_transcripts",
+                "compression_measure",
+                r#"{"transcripts":"{base}/no-transcripts"}"#,
             ),
             fails(
                 "bad_since",

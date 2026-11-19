@@ -1,6 +1,6 @@
 {
   "command": "skills add",
-  "dryRun": "none",
+  "dryRun": "param",
   "name": "skills_scaffold",
   "tier": "write",
   "toolTier": 2

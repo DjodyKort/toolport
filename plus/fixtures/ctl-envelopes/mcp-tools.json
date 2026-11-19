@@ -116,6 +116,12 @@
               "name": "repo_path",
               "required": false,
               "type": "string"
+            },
+            {
+              "description": "Only the items of this source, as sources_ls names it: library, repo:odh or plugin:ecc@ecc",
+              "name": "source",
+              "required": false,
+              "type": "string"
             }
           ],
           "tier": 1
@@ -173,6 +179,12 @@
               "name": "hidden",
               "required": false,
               "type": "boolean"
+            },
+            {
+              "description": "Only rows of this level: needs-you, look or fyi",
+              "name": "level",
+              "required": false,
+              "type": "string"
             }
           ],
           "tier": 1
@@ -343,6 +355,12 @@
               "type": "string"
             },
             {
+              "description": "Also look for checkouts in these folders",
+              "name": "root",
+              "required": false,
+              "type": "string[]"
+            },
+            {
               "description": "Double the depth and time budgets",
               "name": "deep",
               "required": false,
@@ -483,7 +501,7 @@
           "tier": 2
         },
         {
-          "description": "Drift between repository and client outputs, with a file-by-file verification",
+          "description": "Drift between repository and client outputs, with a file-by-file verification. strict=true adds strictFailed: true when the lockfile is missing, an output drifted or a deployed file would be rejected by its client, which is what makes the command line exit 1",
           "dryRunDefault": false,
           "gate": "none",
           "name": "skills_status",
@@ -499,6 +517,12 @@
               "name": "client_keys",
               "required": false,
               "type": "string[]"
+            },
+            {
+              "description": "Add strictFailed to the result",
+              "name": "strict",
+              "required": false,
+              "type": "boolean"
             }
           ],
           "tier": 1
@@ -512,7 +536,7 @@
           "tier": 1
         },
         {
-          "description": "Create a new skill skeleton",
+          "description": "Create a new skill skeleton. dry_run names the file it would create and writes nothing; with_progressive also creates the reference and script stubs of a skill that loads in steps",
           "dryRunDefault": false,
           "gate": "none",
           "name": "skills_scaffold",
@@ -534,6 +558,18 @@
               "name": "repo_path",
               "required": false,
               "type": "string"
+            },
+            {
+              "description": "Also create the progressive-disclosure stubs; skills only",
+              "name": "with_progressive",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report the files and write nothing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
             }
           ],
           "tier": 2
@@ -1167,7 +1203,7 @@
           "tier": 1
         },
         {
-          "description": "Create a new agent skeleton",
+          "description": "Create a new agent skeleton. dry_run names the file it would create and writes nothing",
           "dryRunDefault": false,
           "gate": "none",
           "name": "agents_scaffold",
@@ -1189,6 +1225,12 @@
               "name": "repo_path",
               "required": false,
               "type": "string"
+            },
+            {
+              "description": "Report the file and write nothing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
             }
           ],
           "tier": 2
@@ -1263,7 +1305,7 @@
           "tier": 1
         },
         {
-          "description": "Show which synced agent outputs are present for each client",
+          "description": "Show which synced agent outputs are present for each client. strict=true adds strictFailed: true when the lockfile is missing or an output drifted, which is what makes the command line exit 1",
           "dryRunDefault": false,
           "gate": "none",
           "name": "agents_status",
@@ -1273,6 +1315,12 @@
               "name": "repo_path",
               "required": false,
               "type": "string"
+            },
+            {
+              "description": "Add strictFailed to the result",
+              "name": "strict",
+              "required": false,
+              "type": "boolean"
             }
           ],
           "tier": 1
@@ -1463,7 +1511,7 @@
           "tier": 1
         },
         {
-          "description": "Create a new style skeleton",
+          "description": "Create a new style skeleton. dry_run names the file it would create and writes nothing",
           "dryRunDefault": false,
           "gate": "none",
           "name": "styles_scaffold",
@@ -1479,6 +1527,12 @@
               "name": "repo_path",
               "required": false,
               "type": "string"
+            },
+            {
+              "description": "Report the file and write nothing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
             }
           ],
           "tier": 2
@@ -2317,6 +2371,12 @@
               "name": "port",
               "required": false,
               "type": "string"
+            },
+            {
+              "description": "Claude Code settings files or their folders to plan for; every detected profile by default",
+              "name": "profile",
+              "required": false,
+              "type": "string[]"
             }
           ],
           "tier": 1
@@ -2487,6 +2547,12 @@
             {
               "description": "json (default) is the report; csv is one row per figure with its population and what it cannot tell, returned as text",
               "name": "format",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Read the transcripts under this folder instead of Claude Code's own; only totals are returned",
+              "name": "transcripts",
               "required": false,
               "type": "string"
             }
@@ -3354,6 +3420,12 @@
               "type": "string"
             },
             {
+              "description": "The same as name, spelled as the command line does; wins when both are given",
+              "name": "server",
+              "required": false,
+              "type": "string"
+            },
+            {
               "description": "Limit to one client key",
               "name": "client",
               "required": false,
@@ -4089,6 +4161,12 @@
               "type": "boolean"
             },
             {
+              "description": "Seconds to wait for the gateways to answer, 20 by default and at most 60",
+              "name": "wait",
+              "required": false,
+              "type": "integer"
+            },
+            {
               "description": "Must be true to run this tool",
               "name": "confirm",
               "required": false,
@@ -4691,12 +4769,31 @@
           "tier": 3
         },
         {
-          "description": "How long Claude Code keeps sessions (cleanupPeriodDays in the user settings, default 30, at least 1): one value for every project, with no per-repository retention. Read only",
-          "dryRunDefault": false,
-          "gate": "none",
+          "description": "How long Claude Code keeps sessions (cleanupPeriodDays in the user settings, default 30, at least 1): one value for every project, with no per-repository retention. Without set it only reads. With set it plans the change; a shorter period deletes sessions sooner. Apply with dry_run=false and confirm=true",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
           "name": "sessions_retention",
-          "params": [],
-          "tier": 1
+          "params": [
+            {
+              "description": "New number of days to keep sessions, at least 1",
+              "name": "set",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
         },
         {
           "description": "List the launch profiles: each is a named start of Claude Code with its own client id claude-code-<name> bound to an access set, with its state, the command that starts it and the folder mappings that would outrank it. Read only",
@@ -5026,7 +5123,7 @@
           "tier": 1
         },
         {
-          "description": "Before a reset: repositories with commits on no remote, no remote, changes, stashes and ignored secret-looking files, the things a person carries, and the age of the last export. Reads local git only",
+          "description": "Before a reset: repositories with commits on no remote, no remote, changes, stashes and ignored secret-looking files, the things a person carries, and the age of the last export. Reads local git; tick and untick only mark or clear the things a person carries (browser, keys, licenses, outside), which is stored in the data folder",
           "dryRunDefault": false,
           "gate": "none",
           "name": "setup_check",
@@ -5036,9 +5133,21 @@
               "name": "roots",
               "required": false,
               "type": "string[]"
+            },
+            {
+              "description": "Mark things the person carries themselves as done: browser, keys, licenses, outside",
+              "name": "tick",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Clear those marks again",
+              "name": "untick",
+              "required": false,
+              "type": "string[]"
             }
           ],
-          "tier": 1
+          "tier": 2
         },
         {
           "description": "Plan a restore of a setup file against this Mac and change nothing: each row is add, here, conflict, needs you or skip, with a plan hash. Applying a restore is done by a person in the app or with toolportctl",
@@ -5224,6 +5333,12 @@
             {
               "description": "Report the plan only; nothing is asked and nothing starts",
               "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Wait up to 60 seconds for the run to finish or to stop for you; waited.settled says whether it did",
+              "name": "wait",
               "required": false,
               "type": "boolean"
             }

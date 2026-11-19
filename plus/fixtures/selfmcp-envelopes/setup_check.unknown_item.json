@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "roots": ["<WORLD>/home/code"],
+    "tick": ["nothing"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "--tick does not know \"nothing\""
+    }
+  },
+  "text": "invalid_arguments: --tick does not know \"nothing\"",
+  "tool": "setup_check"
+}

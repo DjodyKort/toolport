@@ -165,7 +165,10 @@ pub const TOOLS: &[ToolDef] = &[
         1,
         None,
         "List skills and rules in the repository",
-        [REPO],
+        [
+            REPO,
+            p("source", Ty::Str, false, "Only the items of this source, as sources_ls names it: library, repo:odh or plugin:ecc@ecc")
+        ],
         skills::list
     ),
     tool!(
@@ -192,7 +195,10 @@ pub const TOOLS: &[ToolDef] = &[
         1,
         None,
         "List what needs the person right now, computed fresh: missing secrets, sign-ins that need renewing, the secrets vault, tasks waiting for you or failing, library changes held back and updates upstream. Rows are ordered needs-you first, newest first, each with a source and an action; checks lists any area that could not be read or is switched off. Pass hidden to add the rows a snooze, skip or dismissal keeps out. Read only",
-        [p("hidden", Ty::Bool, false, "Also list the hidden rows with what hides them")],
+        [
+            p("hidden", Ty::Bool, false, "Also list the hidden rows with what hides them"),
+            p("level", Ty::Str, false, "Only rows of this level: needs-you, look or fyi")
+        ],
         attention::list
     ),
     tool!(
@@ -269,6 +275,7 @@ pub const TOOLS: &[ToolDef] = &[
             p("kind", Ty::Str, false, "Only items of this kind: skill, command, agent, rule or memory"),
             p("items", Ty::Bool, false, "Include the items of every source"),
             p("cwd", Ty::Str, false, "Add the repository around this directory to the scan"),
+            p("root", Ty::StrList, false, "Also look for checkouts in these folders"),
             p("deep", Ty::Bool, false, "Double the depth and time budgets"),
             p("refresh", Ty::Bool, false, "Ignore the scan cache")
         ],
@@ -321,8 +328,12 @@ pub const TOOLS: &[ToolDef] = &[
         "skills_status",
         1,
         None,
-        "Drift between repository and client outputs, with a file-by-file verification",
-        [REPO, CLIENTS],
+        "Drift between repository and client outputs, with a file-by-file verification. strict=true adds strictFailed: true when the lockfile is missing, an output drifted or a deployed file would be rejected by its client, which is what makes the command line exit 1",
+        [
+            REPO,
+            CLIENTS,
+            p("strict", Ty::Bool, false, "Add strictFailed to the result")
+        ],
         skills::status
     ),
     tool!(
@@ -337,8 +348,14 @@ pub const TOOLS: &[ToolDef] = &[
         "skills_scaffold",
         2,
         None,
-        "Create a new skill skeleton",
-        [SKILL_NAME, p("skill_type", Ty::Str, false, "skill or rule"), REPO],
+        "Create a new skill skeleton. dry_run names the file it would create and writes nothing; with_progressive also creates the reference and script stubs of a skill that loads in steps",
+        [
+            SKILL_NAME,
+            p("skill_type", Ty::Str, false, "skill or rule"),
+            REPO,
+            p("with_progressive", Ty::Bool, false, "Also create the progressive-disclosure stubs; skills only"),
+            p("dry_run", Ty::Bool, false, "Report the files and write nothing")
+        ],
         skills::scaffold
     ),
     tool!(
@@ -618,11 +635,12 @@ pub const TOOLS: &[ToolDef] = &[
         "agents_scaffold",
         2,
         None,
-        "Create a new agent skeleton",
+        "Create a new agent skeleton. dry_run names the file it would create and writes nothing",
         [
             ENTITY,
             p("model", Ty::Str, false, "Model, default inherit"),
-            REPO
+            REPO,
+            p("dry_run", Ty::Bool, false, "Report the file and write nothing")
         ],
         content::agents_scaffold
     ),
@@ -664,8 +682,8 @@ pub const TOOLS: &[ToolDef] = &[
         "agents_status",
         1,
         None,
-        "Show which synced agent outputs are present for each client",
-        [REPO],
+        "Show which synced agent outputs are present for each client. strict=true adds strictFailed: true when the lockfile is missing or an output drifted, which is what makes the command line exit 1",
+        [REPO, p("strict", Ty::Bool, false, "Add strictFailed to the result")],
         skills::agents_status
     ),
     tool!(
@@ -722,8 +740,12 @@ pub const TOOLS: &[ToolDef] = &[
         "styles_scaffold",
         2,
         None,
-        "Create a new style skeleton",
-        [ENTITY, REPO],
+        "Create a new style skeleton. dry_run names the file it would create and writes nothing",
+        [
+            ENTITY,
+            REPO,
+            p("dry_run", Ty::Bool, false, "Report the file and write nothing")
+        ],
         content::styles_scaffold
     ),
     tool!(
@@ -1022,7 +1044,8 @@ pub const TOOLS: &[ToolDef] = &[
         None,
         "Show the five OTel env keys Toolport would write to each Claude Code profile's settings.json, and which already hold another value; writes nothing",
         [
-            p("port", Ty::Str, false, "Receiver port (default 4318)")
+            p("port", Ty::Str, false, "Receiver port (default 4318)"),
+            p("profile", Ty::StrList, false, "Claude Code settings files or their folders to plan for; every detected profile by default")
         ],
         spend::setup_plan
     ),
@@ -1099,7 +1122,8 @@ pub const TOOLS: &[ToolDef] = &[
         [
             p("min_turns", Ty::Int, false, "Sessions with fewer turns are left out of the billed outcome and the rework check (default 5)"),
             p("since", Ty::Str, false, "Only sessions that started on this date or later, e.g. 2026-11-01"),
-            p("format", Ty::Str, false, "json (default) is the report; csv is one row per figure with its population and what it cannot tell, returned as text")
+            p("format", Ty::Str, false, "json (default) is the report; csv is one row per figure with its population and what it cannot tell, returned as text"),
+            p("transcripts", Ty::Str, false, "Read the transcripts under this folder instead of Claude Code's own; only totals are returned")
         ],
         compression::measure
     ),
@@ -1490,6 +1514,7 @@ pub const TOOLS: &[ToolDef] = &[
         "Show which access sets, clients and folder mappings reach each server, the servers no access set reaches, and where a folder mapping outranks a client's own set",
         [
             p("name", Ty::Str, false, "Only this server, by id or name"),
+            p("server", Ty::Str, false, "The same as name, spelled as the command line does; wins when both are given"),
             CLIENT
         ],
         reach::run
@@ -1771,7 +1796,8 @@ pub const TOOLS: &[ToolDef] = &[
         [
             NAME,
             DRY_ON,
-            p("if_idle", Ty::Bool, false, "Restart only when no call is in flight")
+            p("if_idle", Ty::Bool, false, "Restart only when no call is in flight"),
+            p("wait", Ty::Int, false, "Seconds to wait for the gateways to answer, 20 by default and at most 60")
         ],
         servers::restart_server
     ),
@@ -2018,10 +2044,13 @@ pub const TOOLS: &[ToolDef] = &[
     ),
     tool!(
         "sessions_retention",
-        1,
-        None,
-        "How long Claude Code keeps sessions (cleanupPeriodDays in the user settings, default 30, at least 1): one value for every project, with no per-repository retention. Read only",
-        [],
+        3,
+        UnlessDryRun,
+        "How long Claude Code keeps sessions (cleanupPeriodDays in the user settings, default 30, at least 1): one value for every project, with no per-repository retention. Without set it only reads. With set it plans the change; a shorter period deletes sessions sooner. Apply with dry_run=false and confirm=true",
+        [
+            p("set", Ty::Int, false, "New number of days to keep sessions, at least 1"),
+            DRY_ON
+        ],
         memory::sessions_retention
     ),
     tool!(
@@ -2146,10 +2175,14 @@ pub const TOOLS: &[ToolDef] = &[
     ),
     tool!(
         "setup_check",
-        1,
+        2,
         None,
-        "Before a reset: repositories with commits on no remote, no remote, changes, stashes and ignored secret-looking files, the things a person carries, and the age of the last export. Reads local git only",
-        [p("roots", Ty::StrList, false, "Folders to search for repositories")],
+        "Before a reset: repositories with commits on no remote, no remote, changes, stashes and ignored secret-looking files, the things a person carries, and the age of the last export. Reads local git; tick and untick only mark or clear the things a person carries (browser, keys, licenses, outside), which is stored in the data folder",
+        [
+            p("roots", Ty::StrList, false, "Folders to search for repositories"),
+            p("tick", Ty::StrList, false, "Mark things the person carries themselves as done: browser, keys, licenses, outside"),
+            p("untick", Ty::StrList, false, "Clear those marks again")
+        ],
         setup::check
     ),
     tool!(
@@ -2243,7 +2276,8 @@ pub const TOOLS: &[ToolDef] = &[
         "Start a task. The person is asked to approve every run through the approval broker; a denial, a timeout or a missing broker starts nothing. The result is the run record (steps and statuses); a task with a step that needs the person pauses as waiting until they resume it. Pass dry_run to see the steps, the secrets it may write and the servers it needs, without asking and without starting",
         [
             p("id", Ty::Str, true, "The task id"),
-            p("dry_run", Ty::Bool, false, "Report the plan only; nothing is asked and nothing starts")
+            p("dry_run", Ty::Bool, false, "Report the plan only; nothing is asked and nothing starts"),
+            p("wait", Ty::Bool, false, "Wait up to 60 seconds for the run to finish or to stop for you; waited.settled says whether it did")
         ],
         tasks::run
     ),

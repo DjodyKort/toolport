@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "source": "repo:nowhere"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "unknown source: repo:nowhere"
+    }
+  },
+  "text": "not_found: unknown source: repo:nowhere",
+  "tool": "skills_list"
+}

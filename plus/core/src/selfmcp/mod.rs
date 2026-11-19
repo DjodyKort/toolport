@@ -41,6 +41,8 @@ mod sources;
 mod spend;
 mod sync;
 mod tasks;
+#[cfg(test)]
+mod tasks_tests;
 
 pub use catalog::{find_resource, find_tool, Gate, ToolDef, RESOURCES, TOOLS};
 

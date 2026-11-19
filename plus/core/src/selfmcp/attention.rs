@@ -6,12 +6,26 @@ use toolport_plus_api::Host;
 
 use super::ToolError;
 use crate::args::{flag, str_nonempty};
-use crate::attention::{self, ops, store::HideKind};
+use crate::attention::{self, ops, store::HideKind, Urgency};
 
 type Outcome = Result<Value, ToolError>;
 
 pub(super) fn list(host: &dyn Host, args: &Value) -> Outcome {
-    let snapshot = attention::snapshot(host);
+    let mut snapshot = attention::snapshot(host);
+    if let Some(level) = str_nonempty(args, "level") {
+        let urgency = match level {
+            "needs-you" => Some(Urgency::NeedsYou),
+            "look" => Some(Urgency::WorthALook),
+            "fyi" => None,
+            _ => {
+                return Err(ToolError::new(
+                    "invalid_arguments",
+                    "level is needs-you, look or fyi",
+                ))
+            }
+        };
+        snapshot.items.retain(|item| Some(item.urgency) == urgency);
+    }
     let mut data = snapshot.to_json();
     if flag(args, "hidden") {
         data["hidden"] = ops::hidden_json(&snapshot);

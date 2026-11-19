@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "alpha",
+    "wait": -1
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "wait is a whole number of seconds"
+    }
+  },
+  "text": "invalid_arguments: wait is a whole number of seconds",
+  "tool": "servers_restart"
+}

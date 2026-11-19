@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "level": "loud"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "level is needs-you, look or fyi"
+    }
+  },
+  "text": "invalid_arguments: level is needs-you, look or fyi",
+  "tool": "attention_list"
+}

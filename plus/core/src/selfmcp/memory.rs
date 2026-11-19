@@ -138,6 +138,18 @@ pub(super) fn sessions_restore(host: &dyn Host, args: &Value) -> Outcome {
     )?)
 }
 
-pub(super) fn sessions_retention(host: &dyn Host, _args: &Value) -> Outcome {
-    Ok(api::sessions_retention(host, None, true)?)
+pub(super) fn sessions_retention(host: &dyn Host, args: &Value) -> Outcome {
+    let set = match args.get("set") {
+        None | Some(Value::Null) => None,
+        Some(days) => Some(
+            days.as_u64()
+                .filter(|days| *days >= 1)
+                .ok_or_else(|| invalid("set is a whole number of days, at least 1"))?,
+        ),
+    };
+    Ok(api::sessions_retention(
+        host,
+        set,
+        set.is_none() || flag_or(args, "dry_run", true),
+    )?)
 }

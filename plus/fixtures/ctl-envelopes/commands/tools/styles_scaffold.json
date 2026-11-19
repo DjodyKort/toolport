@@ -1,6 +1,6 @@
 {
   "command": "styles add",
-  "dryRun": "none",
+  "dryRun": "param",
   "name": "styles_scaffold",
   "tier": "write",
   "toolTier": 2

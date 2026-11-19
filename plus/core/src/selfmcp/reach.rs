@@ -11,7 +11,7 @@ pub(super) fn run(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
     let report = reach::assess(
         host,
         Filter {
-            server: str_arg(args, "name"),
+            server: str_arg(args, "server").or_else(|| str_arg(args, "name")),
             client: str_arg(args, "client"),
         },
     )?;

@@ -3,13 +3,16 @@
 //! broker on every run; adding, editing and removing tasks is not exposed (D-067), so a prompt
 //! injected model cannot define a task that writes secrets. No result carries a captured value.
 
-use serde_json::Value;
+use std::time::{Duration, Instant};
+
+use serde_json::{json, Value};
 use toolport_plus_api::Host;
 
 use super::ToolError;
 use crate::args::{flag, str_nonempty};
 use crate::op::{ErrorKind, OpError};
-use crate::tasks::{api, approval};
+use crate::tasks::model::WaitKind;
+use crate::tasks::{api, approval, store, triggers};
 
 fn required<'a>(args: &'a Value, key: &str) -> Result<&'a str, ToolError> {
     str_nonempty(args, key)
@@ -47,9 +50,49 @@ pub(super) fn refused(error: OpError) -> ToolError {
     }
 }
 
+const MAX_WAIT: Duration = Duration::from_secs(60);
+const POLL: Duration = Duration::from_millis(200);
+
 pub(super) fn run(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
     let id = required(args, "id")?;
-    approval::run(id, flag(args, "dry_run"), host).map_err(refused)
+    let dry_run = flag(args, "dry_run");
+    let mut data = approval::run(id, dry_run, host).map_err(refused)?;
+    if dry_run || !flag(args, "wait") {
+        return Ok(data);
+    }
+    let base = triggers::base_of(host)?;
+    let run_id = data["run"]["id"].as_str().unwrap_or_default().to_string();
+    let (run, settled) = wait_for(&base, store::load_run(&base, &run_id)?, MAX_WAIT)?;
+    data["run"] = api::run_view(&run, false);
+    data["waited"] = json!({"settled": settled, "seconds": MAX_WAIT.as_secs()});
+    Ok(data)
+}
+
+/// Polls until the run finishes, stops for a person, or `limit` passes; the flag says which of
+/// the first two ended it.
+pub(super) fn wait_for(
+    base: &std::path::Path,
+    mut run: store::Run,
+    limit: Duration,
+) -> Result<(store::Run, bool), ToolError> {
+    let task = store::load_task(base, &run.task)?;
+    let started = Instant::now();
+    loop {
+        if run.status.finished() {
+            return Ok((run, true));
+        }
+        let resume_only = api::step_wait_kind(&task, &run).is_some_and(|kind| {
+            kind.is_none_or(|kind| matches!(kind, WaitKind::Manual | WaitKind::Url))
+        });
+        if run.status == store::Status::Waiting && resume_only {
+            return Ok((run, true));
+        }
+        if started.elapsed() >= limit {
+            return Ok((run, false));
+        }
+        std::thread::sleep(POLL);
+        run = store::load_run(base, &run.id)?;
+    }
 }
 
 pub(super) fn missed(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {

@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "name": "stepwise",
+    "with_progressive": true
+  },
+  "isError": false,
+  "result": {
+    "created_path": "<WORLD>/skills-repo/skills/stepwise/SKILL.md",
+    "files": [
+      "<WORLD>/skills-repo/skills/stepwise/SKILL.md",
+      "<WORLD>/skills-repo/skills/stepwise/modules/example.md",
+      "<WORLD>/skills-repo/skills/stepwise/reference/example.md",
+      "<WORLD>/skills-repo/skills/stepwise/templates/example.md"
+    ],
+    "kind": "skill"
+  },
+  "tool": "skills_scaffold"
+}

@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "stepwise",
+    "with_progressive": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "Skill 'stepwise' already exists."
+    }
+  },
+  "text": "conflict: Skill 'stepwise' already exists.",
+  "tool": "skills_scaffold"
+}

@@ -141,8 +141,24 @@ pub(super) fn fix(host: &dyn Host, args: &Value) -> Outcome {
     with_paths(host, || Ok(api::fix(&fix, kind)?))
 }
 
+/// What `--strict` turns into an exit status on the command line: the result says it failed.
+pub(super) fn strict(mut data: Value, args: &Value, also_failing: &[&str]) -> Value {
+    if flag(args, "strict") {
+        let rejected = also_failing
+            .iter()
+            .any(|key| data[*key].as_array().is_some_and(|rows| !rows.is_empty()));
+        data["strictFailed"] = json!(
+            data["lockfilePresent"] != json!(true) || data["drift"] == json!(true) || rejected
+        );
+    }
+    data
+}
+
 pub(super) fn status(host: &dyn Host, args: &Value) -> Outcome {
-    with_paths(host, || Ok(api::status(&Args::from_json(args))?))
+    with_paths(host, || {
+        let data = api::status(&Args::from_json(args))?;
+        Ok(strict(data, args, &["rejected"]))
+    })
 }
 
 pub(super) fn diff(host: &dyn Host, args: &Value) -> Outcome {
@@ -232,6 +248,10 @@ pub(super) fn scaffold(host: &dyn Host, args: &Value) -> Outcome {
         ));
     }
     let repo = with_paths(host, || repo_of(args))?;
+    let dry_run = flag(args, "dry_run");
+    if flag(args, "with_progressive") {
+        return scaffold_with_stubs(&repo, name, skill_type, dry_run);
+    }
     let path = repo
         .join(skill_bucket(skill_type))
         .join(name)
@@ -242,9 +262,43 @@ pub(super) fn scaffold(host: &dyn Host, args: &Value) -> Outcome {
             format!("{skill_type} {name} already exists at {}", path.display()),
         ));
     }
+    if dry_run {
+        return Ok(
+            json!({"created_path": path.to_string_lossy(), "kind": skill_type, "dryRun": true}),
+        );
+    }
     crate::skills::pyfs::write_text(&path, &skill_template(name, skill_type))
         .map_err(|e| ToolError::new("backend_error", e))?;
     Ok(json!({"created_path": path.to_string_lossy(), "kind": skill_type}))
+}
+
+fn scaffold_with_stubs(repo: &Path, name: &str, skill_type: &str, dry_run: bool) -> Outcome {
+    let report = crate::skills::repo::add_skill(&crate::skills::repo::AddRequest {
+        repo,
+        name,
+        skill_type,
+        with_progressive: true,
+        dry_run,
+    })
+    .map_err(|message| {
+        let kind = if message.contains("already exists") {
+            "conflict"
+        } else if message.contains("only valid for skills") {
+            "invalid_arguments"
+        } else {
+            "backend_error"
+        };
+        ToolError::new(kind, message)
+    })?;
+    let mut data = json!({
+        "created_path": report.skill_file.to_string_lossy(),
+        "kind": skill_type,
+        "files": report.files.iter().map(|file| file.to_string_lossy()).collect::<Vec<_>>(),
+    });
+    if dry_run {
+        data["dryRun"] = json!(true);
+    }
+    Ok(data)
 }
 
 pub(super) fn init(host: &dyn Host, args: &Value) -> Outcome {
@@ -497,7 +551,9 @@ pub(super) fn agents_diff(host: &dyn Host, args: &Value) -> Outcome {
 }
 
 pub(super) fn agents_status(host: &dyn Host, args: &Value) -> Outcome {
-    with_paths(host, || read(args, agents::status_handler))
+    with_paths(host, || {
+        read(args, agents::status_handler).map(|data| strict(data, args, &[]))
+    })
 }
 
 pub(super) fn styles_diff(host: &dyn Host, args: &Value) -> Outcome {

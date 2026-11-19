@@ -16,6 +16,8 @@ use crate::servers::{self, mode, Patch, ServerError, UninstallArgs};
 
 type Outcome = Result<Value, ToolError>;
 
+const MAX_RESTART_WAIT: Duration = Duration::from_secs(60);
+
 const CONFIG_KEYS: [&str; 12] = [
     "command",
     "args",
@@ -438,7 +440,15 @@ pub(super) fn restart_server(host: &dyn Host, args: &Value) -> Outcome {
     let mut ask = RestartArgs::new(name);
     ask.dry_run = flag_or(args, "dry_run", true);
     ask.if_idle = flag(args, "if_idle");
-    ask.wait = restart::DEFAULT_WAIT.min(Duration::from_secs(60));
+    ask.wait = match args.get("wait").filter(|value| !value.is_null()) {
+        None => restart::DEFAULT_WAIT,
+        Some(seconds) => Duration::from_secs(
+            seconds
+                .as_u64()
+                .ok_or_else(|| invalid("wait is a whole number of seconds"))?,
+        ),
+    }
+    .min(MAX_RESTART_WAIT);
     Ok(restart::restart(host, &ask)?.to_value())
 }
 

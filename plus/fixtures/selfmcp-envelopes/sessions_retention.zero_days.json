@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "set": 0
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "set is a whole number of days, at least 1"
+    }
+  },
+  "text": "invalid_arguments: set is a whole number of days, at least 1",
+  "tool": "sessions_retention"
+}
