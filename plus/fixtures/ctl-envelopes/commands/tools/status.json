@@ -1,0 +1,7 @@
+{
+  "command": "status",
+  "dryRun": "none",
+  "name": "status",
+  "tier": "read",
+  "toolTier": 1
+}

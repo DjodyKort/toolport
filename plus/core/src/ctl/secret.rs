@@ -41,12 +41,7 @@ fn resolve_target(
     let [server, key] = operands else {
         return Err(CtlError::usage(usage));
     };
-    if key.is_empty()
-        || key.trim() != key
-        || key.contains(['=', '\0'])
-        || key.contains("::")
-        || (key.starts_with("__") && key.ends_with("__") && key != HTTP_AUTH_KEY)
-    {
+    if !servers::valid_secret_key(key) {
         return Err(CtlError::usage(format!("invalid secret key: {key}")));
     }
     let all = match host

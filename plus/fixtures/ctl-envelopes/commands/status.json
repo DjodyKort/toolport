@@ -21,5 +21,5 @@
   "summary": "Show registry, access sets, secrets backend and gateway state",
   "surface": "screen",
   "tier": "read",
-  "tools": []
+  "tools": ["status"]
 }

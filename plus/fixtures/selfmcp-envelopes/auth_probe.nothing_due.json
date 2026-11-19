@@ -1,0 +1,20 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "counts": {
+      "expiring": 0,
+      "misconfigured": 0,
+      "needs_reauth": 0,
+      "ok": 0,
+      "revoked": 0,
+      "unknown": 0,
+      "unreachable": 0
+    },
+    "failures": [],
+    "mode": "due",
+    "probes": [],
+    "servers": []
+  },
+  "tool": "auth_probe"
+}

@@ -193,6 +193,17 @@ impl<'a> Prober<'a> {
         self
     }
 
+    /// The single probe a server id or name stands for; `None` when it has none registered.
+    pub fn selector_for(&self, key: &str) -> Option<Selector> {
+        if self.has_probe(key) {
+            return Some(Selector::One(key.to_string()));
+        }
+        let all = read_servers(self.host).ok()?;
+        let server = crate::servers::find(&all, key)?;
+        self.has_probe(&server.id)
+            .then(|| Selector::One(server.id.clone()))
+    }
+
     pub fn has_probe(&self, server: &str) -> bool {
         self.registry.get(server).is_some()
     }

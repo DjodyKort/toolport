@@ -18,6 +18,10 @@ pub(super) fn where_am_i(host: &dyn Host, _: &Value) -> Result<Value, ToolError>
     Ok(status::status(host, &status::snapshot(host)))
 }
 
+pub(super) fn status(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    where_am_i(host, args)
+}
+
 pub(super) fn doctor(host: &dyn Host, _: &Value) -> Result<Value, ToolError> {
     Ok(status::doctor(host, &status::snapshot(host)).to_value())
 }

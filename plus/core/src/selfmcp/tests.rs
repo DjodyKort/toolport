@@ -38,8 +38,13 @@ fn no_tool_takes_a_credential_value_so_a_secret_never_passes_through_a_model() {
         "api_key",
         "credential",
     ];
+    const SECRET_TOOLS: [&str; 1] = ["secret_check"];
     for tool in TOOLS {
-        assert!(!tool.name.contains("secret"), "{}", tool.name);
+        assert!(
+            !tool.name.contains("secret") || SECRET_TOOLS.contains(&tool.name),
+            "{}",
+            tool.name
+        );
         for param in tool.params {
             assert!(
                 !CREDENTIAL_PARAMS.contains(&param.name),

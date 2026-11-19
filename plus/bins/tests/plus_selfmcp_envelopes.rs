@@ -1519,6 +1519,52 @@ const CASES: &[Case] = &[
             ),
         ],
     ),
+    case("status", &[read("", "status", "{}")]),
+    case("clients_list", &[read("", "clients_list", "{}")]),
+    case(
+        "auth_probe",
+        &[
+            read("nothing_due", "auth_probe", "{}"),
+            fails("unknown", "not_found", "auth_probe", r#"{"name":"beta"}"#),
+            hook("opt_in", opt_alpha_into_the_stdio_probe),
+            write("due", "auth_probe", "{}"),
+            write("one", "auth_probe", r#"{"name":"alpha"}"#),
+        ],
+    ),
+    case(
+        "secret_check",
+        &[
+            read(
+                "unset",
+                "secret_check",
+                r#"{"name":"alpha","key":"API_TOKEN"}"#,
+            ),
+            hook("vault", vault_a_secret),
+            read(
+                "set",
+                "secret_check",
+                r#"{"name":"alpha","key":"API_TOKEN"}"#,
+            ),
+            fails(
+                "unknown_server",
+                "not_found",
+                "secret_check",
+                r#"{"name":"ghost","key":"API_TOKEN"}"#,
+            ),
+            fails(
+                "bad_key",
+                "invalid_arguments",
+                "secret_check",
+                r#"{"name":"alpha","key":"A=B"}"#,
+            ),
+            fails(
+                "no_key",
+                "invalid_arguments",
+                "secret_check",
+                r#"{"name":"alpha"}"#,
+            ),
+        ],
+    ),
     case(
         "servers_restart",
         &[
@@ -3343,6 +3389,36 @@ fn arguments(world: &World, case: &Case, call: &Call) -> Value {
         .replace("{base}", &world.base.to_string_lossy());
     serde_json::from_str(&expanded)
         .unwrap_or_else(|e| panic!("{} {}: arguments are not JSON: {e}", case.tool, call.label))
+}
+
+fn opt_alpha_into_the_stdio_probe(world: &World) {
+    let mut registry = world.registry();
+    registry["servers"][0]["plus"] = json!({"authProbe": {"kind": "stdio"}});
+    world.write_registry(&registry);
+}
+
+fn vault_a_secret(world: &World) {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let mut command = Command::new(env!("CARGO_BIN_EXE_toolportctl"));
+    command
+        .args(["secret", "set", "alpha", "API_TOKEN"])
+        .env_clear()
+        .current_dir(&world.home)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    for (key, value) in world.env() {
+        command.env(key, value);
+    }
+    let mut child = command.spawn().expect("spawn toolportctl");
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(FAKE_SECRET.as_bytes())
+        .unwrap();
+    assert!(child.wait().unwrap().success());
 }
 
 fn select_with_library(world: &World) {

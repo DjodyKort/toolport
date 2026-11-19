@@ -3,8 +3,8 @@ use toolport_plus_api::Host;
 
 use super::{
     access, attention, backend, catalog_index, clients, compression, content, context,
-    launch_profile, library, memory, reach, server_repo, servers, setup, skills, sources, spend,
-    sync, tasks, ToolError,
+    launch_profile, library, memory, reach, secret, server_repo, servers, setup, skills, sources,
+    spend, sync, tasks, ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -135,6 +135,14 @@ pub const TOOLS: &[ToolDef] = &[
         "Absolute paths and state of this installation",
         [],
         backend::where_am_i
+    ),
+    tool!(
+        "status",
+        1,
+        None,
+        "The same summary as toolportctl status: version, data directory, registry, server and access set counts, default access, secrets backend, gateway binary and login health",
+        [],
+        backend::status
     ),
     tool!(
         "doctor",
@@ -1417,6 +1425,33 @@ pub const TOOLS: &[ToolDef] = &[
         "Remove a folder route. dry_run is on by default (apply with dry_run=false and confirm=true)",
         [p("folder", Ty::Str, true, "The routed folder"), DRY_ON],
         access::route_rm
+    ),
+    tool!(
+        "clients_list",
+        1,
+        None,
+        "List the AI clients Toolport finds on this machine: whether the app and its config file exist, whether the gateway entry is installed, the names of the servers in the client's own config, its access set and its discovery mode. Reads only",
+        [],
+        clients::list
+    ),
+    tool!(
+        "auth_probe",
+        1,
+        None,
+        "Check the login of the servers that sign in outside upstream's own OAuth (Google Workspace refresh token, stdio servers with an auth command) and record the result. Reaches the network or starts the server's auth command; each probe is cut off after 10 seconds. Without a name only the probes that are due run; it never signs in",
+        [p("name", Ty::Str, false, "Server id or name; every probe that is due when omitted")],
+        servers::auth_probe
+    ),
+    tool!(
+        "secret_check",
+        1,
+        None,
+        "Say whether a server has a vault entry for a key: true or false. The value is never returned",
+        [
+            NAME,
+            p("key", Ty::Str, true, "The secret's key, e.g. API_TOKEN")
+        ],
+        secret::check
     ),
     tool!(
         "client_direct_ls",

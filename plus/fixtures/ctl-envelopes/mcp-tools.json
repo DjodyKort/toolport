@@ -40,6 +40,14 @@
           "tier": 1
         },
         {
+          "description": "The same summary as toolportctl status: version, data directory, registry, server and access set counts, default access, secrets backend, gateway binary and login health",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "status",
+          "params": [],
+          "tier": 1
+        },
+        {
           "description": "Read-only health checks",
           "dryRunDefault": false,
           "gate": "none",
@@ -3230,6 +3238,50 @@
             }
           ],
           "tier": 4
+        },
+        {
+          "description": "List the AI clients Toolport finds on this machine: whether the app and its config file exist, whether the gateway entry is installed, the names of the servers in the client's own config, its access set and its discovery mode. Reads only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "clients_list",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Check the login of the servers that sign in outside upstream's own OAuth (Google Workspace refresh token, stdio servers with an auth command) and record the result. Reaches the network or starts the server's auth command; each probe is cut off after 10 seconds. Without a name only the probes that are due run; it never signs in",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "auth_probe",
+          "params": [
+            {
+              "description": "Server id or name; every probe that is due when omitted",
+              "name": "name",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Say whether a server has a vault entry for a key: true or false. The value is never returned",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "secret_check",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "The secret's key, e.g. API_TOKEN",
+              "name": "key",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tier": 1
         },
         {
           "description": "List the direct client entries Toolport wrote, with their state: ok, stale, customized, missing, orphan, unrecorded or relocated",

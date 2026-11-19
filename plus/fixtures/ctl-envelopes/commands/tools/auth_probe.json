@@ -1,0 +1,7 @@
+{
+  "command": "auth probe",
+  "dryRun": "none",
+  "name": "auth_probe",
+  "tier": "read",
+  "toolTier": 1
+}

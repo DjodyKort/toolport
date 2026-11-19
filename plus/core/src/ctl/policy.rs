@@ -1165,6 +1165,7 @@ impl ToolRow {
 
 pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("where_am_i", R),
+    maps("status", R, "status"),
     maps("doctor", R, "doctor"),
     own("flow_diagram", R),
     maps("spend_status", R, "spend status"),
@@ -1211,6 +1212,9 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("folder_route_add", W, "folder route add").on(),
     maps("folder_route_rm", D, "folder route rm").on(),
     maps("clients_reach", R, "client reach"),
+    own("clients_list", R),
+    maps("auth_probe", R, "auth probe"),
+    maps("secret_check", R, "secret get"),
     maps("client_direct_ls", R, "client direct ls"),
     maps("client_direct_check", R, "client direct check"),
     maps("client_direct_add", W, "client direct add").on(),

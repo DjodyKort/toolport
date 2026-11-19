@@ -12,7 +12,6 @@ use super::output::{no_args, CtlError, Output};
 use crate::auth::{
     self, AuthRow, AuthStore, LoginError, LoginOptions, ProbeRun, Prober, Selector, StatusFile,
 };
-use crate::servers;
 
 const PROBE_USAGE: &str = "usage: auth probe [--server <id>] [--force]";
 const LOGIN_USAGE: &str = "usage: auth login <server> [--no-open]";
@@ -155,22 +154,12 @@ fn probe_human(run: &ProbeRun, rows: &[AuthRow], registered: usize) -> String {
     human
 }
 
-fn selector(host: &dyn Host, flags: &Flags, prober: &Prober) -> Result<Selector, CtlError> {
+fn selector(flags: &Flags, prober: &Prober) -> Result<Selector, CtlError> {
     let force = flags.on("--force");
     let Some(key) = flags.one("--server") else {
         return Ok(if force { Selector::All } else { Selector::Due });
     };
-    let by_name = || {
-        let all = auth::read_servers(host).ok()?;
-        let server = servers::find(&all, key)?;
-        prober.has_probe(&server.id).then(|| server.id.clone())
-    };
-    let id = if prober.has_probe(key) {
-        Some(key.to_string())
-    } else {
-        by_name()
-    };
-    id.map(Selector::One).ok_or_else(|| {
+    prober.selector_for(key).ok_or_else(|| {
         CtlError::not_found(format!(
             "no auth probe is registered for {key}; `toolportctl auth login {key}` shows its sign-in step"
         ))
@@ -180,7 +169,7 @@ fn selector(host: &dyn Host, flags: &Flags, prober: &Prober) -> Result<Selector,
 pub fn probe(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = PROBE.parse(rest)?;
     let prober = Prober::new(host).map_err(|e| CtlError::failed("auth_probe", e))?;
-    let selector = selector(host, &flags, &prober)?;
+    let selector = selector(&flags, &prober)?;
     let run = prober
         .run(&selector, flags.on("--force"))
         .map_err(|e| CtlError::failed("auth_probe", e))?;

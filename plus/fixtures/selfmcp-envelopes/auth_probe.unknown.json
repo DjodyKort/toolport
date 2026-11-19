@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "beta"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no auth probe is registered for beta"
+    }
+  },
+  "text": "not_found: no auth probe is registered for beta",
+  "tool": "auth_probe"
+}

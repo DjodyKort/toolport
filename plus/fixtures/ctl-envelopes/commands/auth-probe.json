@@ -44,5 +44,5 @@
   "summary": "Probe login health now (--server <id>, --force)",
   "surface": "screen",
   "tier": "read",
-  "tools": []
+  "tools": ["auth_probe"]
 }

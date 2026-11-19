@@ -124,6 +124,34 @@ pub(super) fn auth(host: &dyn Host, args: &Value) -> Outcome {
     })
 }
 
+const PROBE_WAIT: Duration = Duration::from_secs(10);
+
+pub(super) fn auth_probe(host: &dyn Host, args: &Value) -> Outcome {
+    use crate::auth::{self, Prober, Selector};
+    let prober = Prober::new(host)
+        .map_err(ToolError::backend)?
+        .with_stdio_wait(PROBE_WAIT);
+    let selector = match str_arg(args, "name")
+        .map(str::trim)
+        .filter(|key| !key.is_empty())
+    {
+        None => Selector::Due,
+        Some(key) => prober.selector_for(key).ok_or_else(|| {
+            ToolError::new(
+                "not_found",
+                format!("no auth probe is registered for {key}"),
+            )
+        })?,
+    };
+    let run = prober.run(&selector, false).map_err(ToolError::backend)?;
+    Ok(auth::report_value(
+        &run,
+        selector.name(),
+        &prober.status(),
+        host.now_unix(),
+    ))
+}
+
 pub(super) fn list_profiles(host: &dyn Host, _: &Value) -> Outcome {
     let view = host.read_view().map_err(registry_error)?;
     let (sets, default_access) = match &view {

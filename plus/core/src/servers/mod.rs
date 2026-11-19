@@ -41,6 +41,18 @@ pub fn named<'a>(servers: &'a [ServerRecord], name: &str) -> Option<&'a ServerRe
     servers.iter().find(|s| s.name.eq_ignore_ascii_case(name))
 }
 
+/// Whether a vault key can name a secret: no padding, `=`, `::` or NUL, and no `__name__` marker
+/// other than the access token.
+pub fn valid_secret_key(key: &str) -> bool {
+    !(key.is_empty()
+        || key.trim() != key
+        || key.contains(['=', '\0'])
+        || key.contains("::")
+        || (key.starts_with("__")
+            && key.ends_with("__")
+            && key != toolport_plus_api::HTTP_AUTH_KEY))
+}
+
 /// The value of an `on`/`off` switch given as text.
 pub fn parse_switch(raw: &str) -> Result<bool, String> {
     match raw.trim().to_ascii_lowercase().as_str() {
