@@ -46,7 +46,7 @@ impl SettingsFile {
         })
     }
 
-    fn get(&self, key: &str) -> Option<&Value> {
+    pub fn get(&self, key: &str) -> Option<&Value> {
         self.doc.as_ref()?.get(key)
     }
 }
@@ -150,6 +150,10 @@ impl Layers {
             ));
         }
         Self { files }
+    }
+
+    pub fn files(&self) -> &[SettingsFile] {
+        &self.files
     }
 
     fn last_bool(&self, scope: Scope, name: &str, id: &str) -> Option<bool> {

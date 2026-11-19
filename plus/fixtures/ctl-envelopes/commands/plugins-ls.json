@@ -1,0 +1,37 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Folder whose project and local settings decide where a plugin is on (default: user settings only)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    }
+  ],
+  "group": "plugins",
+  "id": "plugins ls",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["plugins", "ls"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List the installed plugins with where they are on and what they bring (--cwd)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["plugins_ls"]
+}

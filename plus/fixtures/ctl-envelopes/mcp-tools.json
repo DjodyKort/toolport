@@ -3661,6 +3661,75 @@
           "tier": 3
         },
         {
+          "description": "List the installed Claude Code plugins: where each is switched on (user, project, local and the effective answer), its version and what it brings (skills, agents, commands, hooks, MCP servers). Reads files, and claude plugin list when claude is on PATH. Cannot switch a plugin",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "plugins_ls",
+          "params": [
+            {
+              "description": "Folder whose project and local settings decide where a plugin is on; user settings only when omitted",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Show one installed plugin: description, skills, agents, commands, its hooks with their events and matchers, and its MCP servers with the plugin:<plugin>:<server> key. Reads only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "plugins_show",
+          "params": [
+            {
+              "description": "Plugin id such as ecc@ecc, as plugins_ls shows",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Folder whose project and local settings decide where the plugin is on",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "List the hooks Claude Code would run in a folder: user, project and local settings, enabled plugins and Toolport's own, with owner, event, matcher, the tools each fires for and how to switch it, plus counts per tool and PreToolUse entries of different owners on the same tool. Reads files; never runs a hook",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "hooks_ls",
+          "params": [
+            {
+              "description": "Folder whose project and local settings are read; user settings only when omitted",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Only hooks that fire for this tool: Bash, Edit, Write or Read",
+              "name": "tool",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Only hooks of this event, e.g. PreToolUse",
+              "name": "event",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Only hooks of this owner kind: plugin, user, project, local, toolport or managed",
+              "name": "owner",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
           "description": "Point the gateway entry a client already holds at the installed toolport-gateway when it has drifted (the program moved or the client id is missing). Writes only the entry named toolport, never adds it to a client without one, never touches a scoped install or an entry with other settings, never an individual server (D-016: one gateway entry per client). dry_run is on by default and returns the plan with its hash (apply with dry_run=false, plan_hash and confirm=true); without client every client that holds the entry is checked",
           "dryRunDefault": true,
           "gate": "unless-dry-run",

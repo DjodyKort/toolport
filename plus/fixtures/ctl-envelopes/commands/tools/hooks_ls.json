@@ -1,0 +1,7 @@
+{
+  "command": "hooks ls",
+  "dryRun": "none",
+  "name": "hooks_ls",
+  "tier": "read",
+  "toolTier": 1
+}

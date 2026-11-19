@@ -310,6 +310,10 @@ fn plugin_files(world: &World) {
     );
 }
 
+fn plugin_inventory(world: &World) {
+    world.plugin_inventory();
+}
+
 fn point_beta_at_a_loopback_authorization_server(world: &World) {
     let idp = OauthMock::start();
     let mut registry = world.registry();
@@ -2520,6 +2524,33 @@ const CASES: &[Case] = &[
             )
             .exit(1),
             usage("usage", &["context", "launch-profile", "policy", "bare"]),
+        ],
+    ),
+    case(
+        "plugins ls",
+        &[
+            hook("files", plugin_inventory),
+            read("installed", &["plugins", "ls"]),
+            usage("usage", &["plugins", "ls", "extra"]),
+        ],
+    ),
+    case(
+        "plugins show",
+        &[
+            hook("files", plugin_inventory),
+            read("one", &["plugins", "show", "ecc@ecc"]),
+            read("unknown", &["plugins", "show", "ghost@x"]).exit(1),
+            usage("usage", &["plugins", "show"]),
+        ],
+    ),
+    case(
+        "hooks ls",
+        &[
+            hook("files", plugin_inventory),
+            read("all", &["hooks", "ls"]),
+            read("bash", &["hooks", "ls", "--tool", "Bash"]),
+            read("plugin", &["hooks", "ls", "--owner", "plugin"]),
+            usage("usage", &["hooks", "ls", "extra"]),
         ],
     ),
     case(

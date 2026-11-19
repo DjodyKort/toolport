@@ -1371,6 +1371,34 @@ const CASES: &[Case] = &[
         ],
     ),
     prepared(
+        "plugins_ls",
+        World::plugin_inventory,
+        &[read("installed", "plugins_ls", "{}")],
+    ),
+    prepared(
+        "plugins_show",
+        World::plugin_inventory,
+        &[
+            read("one", "plugins_show", r#"{"id":"ecc@ecc"}"#),
+            fails(
+                "unknown",
+                "not_found",
+                "plugins_show",
+                r#"{"id":"ghost@x"}"#,
+            ),
+            fails("no_id", "invalid_arguments", "plugins_show", "{}"),
+        ],
+    ),
+    prepared(
+        "hooks_ls",
+        World::plugin_inventory,
+        &[
+            read("all", "hooks_ls", "{}"),
+            read("bash", "hooks_ls", r#"{"tool":"Bash"}"#),
+            read("plugin", "hooks_ls", r#"{"owner":"plugin"}"#),
+        ],
+    ),
+    prepared(
         "clients_sync",
         drifted_gateway_entry,
         &[

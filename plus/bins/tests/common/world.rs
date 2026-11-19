@@ -98,6 +98,56 @@ impl World {
         world
     }
 
+    /// One installed plugin with skills, an agent, a command, hooks and an MCP server, switched on
+    /// in the user settings that also hold a hook of their own.
+    pub fn plugin_inventory(&self) {
+        let put = |rel: &str, text: &str| {
+            let path = self.home.join(rel);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, text).unwrap();
+        };
+        let plugin = self.home.join(".claude/plugins/cache/ecc");
+        put(
+            ".claude/plugins/installed_plugins.json",
+            &json!({"version": 2, "plugins": {"ecc@ecc": [
+                {"scope": "user", "version": "1.2.0", "installPath": plugin}
+            ]}})
+            .to_string(),
+        );
+        put(
+            ".claude/plugins/cache/ecc/skills/review/SKILL.md",
+            "---\nname: review\ndescription: d\n---\n",
+        );
+        put(".claude/plugins/cache/ecc/agents/planner.md", "x");
+        put(".claude/plugins/cache/ecc/commands/ship.md", "x");
+        put(
+            ".claude/plugins/cache/ecc/.claude-plugin/plugin.json",
+            "{\"description\": \"A synthetic plugin\"}",
+        );
+        put(
+            ".claude/plugins/cache/ecc/.mcp.json",
+            "{\"mcpServers\": {\"chrome\": {\"command\": \"chrome-mcp\"}}}",
+        );
+        put(
+            ".claude/plugins/cache/ecc/hooks/hooks.json",
+            &json!({"hooks": {
+                "PreToolUse": [{"matcher": "Bash|Edit", "hooks": [
+                    {"type": "command", "command": "node guard.js", "timeout": 5}]}],
+                "SessionStart": [{"hooks": [{"type": "command", "command": "node start.js"}]}],
+            }})
+            .to_string(),
+        );
+        put(
+            ".claude/settings.json",
+            &json!({
+                "enabledPlugins": {"ecc@ecc": true},
+                "hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [
+                    {"type": "command", "command": "~/bin/own.sh"}]}]},
+            })
+            .to_string(),
+        );
+    }
+
     /// A skills repository with one bundle, a global and a project CLAUDE.md and a git folder.
     pub fn context_files(&self) {
         let world = self;

@@ -1,0 +1,41 @@
+{
+  "argv": ["plugins", "ls"],
+  "envelope": {
+    "command": "plugins ls",
+    "data": {
+      "cwd": null,
+      "partial": true,
+      "plugins": [
+        {
+          "brings": {
+            "agents": 1,
+            "commands": 1,
+            "hooks": 2,
+            "lspServers": 0,
+            "mcpServers": 1,
+            "skills": 1
+          },
+          "enabled": {
+            "effective": true,
+            "local": null,
+            "managed": null,
+            "project": null,
+            "user": true
+          },
+          "errors": [],
+          "from": "files",
+          "id": "ecc@ecc",
+          "installPath": "~/.claude/plugins/cache/ecc",
+          "marketplace": "ecc",
+          "name": "ecc",
+          "source": null,
+          "version": "<masked>"
+        }
+      ],
+      "refreshError": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

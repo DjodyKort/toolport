@@ -158,6 +158,7 @@ fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
     common::tasks_world::tasks_home(&world);
     world.memory_files();
     world.context_files();
+    world.plugin_inventory();
     let mut client = Client::spawn(&world, &[]);
     client.handshake();
     // setup_inspect needs a setup file; its envelope is pinned by the golden cases.
@@ -175,6 +176,7 @@ fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
             "styles_get" => json!({"name": "plain"}),
             "skills_search" => json!({"query": "demo"}),
             "tasks_get" => json!({"id": "portal-token"}),
+            "plugins_show" => json!({"id": "ecc@ecc"}),
             "context_bundle_show" => json!({"name": "acme-dev"}),
             "context_bundle_status"
             | "context_loads"

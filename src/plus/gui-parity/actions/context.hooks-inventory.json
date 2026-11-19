@@ -1,0 +1,5 @@
+{
+  "route": "context",
+  "status": "planned",
+  "summary": "Context > Hooks: the hooks Claude Code would run in a folder, by owner, event and tool, with the counts per tool and the owners that share a PreToolUse tool (hooks ls, hooks_ls)"
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "ls", "extra"],
+  "envelope": {
+    "command": "plugins ls",
+    "error": {
+      "code": "usage",
+      "message": "unexpected argument: extra"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["hooks", "ls", "extra"],
+  "envelope": {
+    "command": "hooks ls",
+    "error": {
+      "code": "usage",
+      "message": "unexpected argument: extra"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

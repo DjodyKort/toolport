@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "id": "ghost@x"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "plugin not found: ghost@x"
+    }
+  },
+  "text": "not_found: plugin not found: ghost@x",
+  "tool": "plugins_show"
+}

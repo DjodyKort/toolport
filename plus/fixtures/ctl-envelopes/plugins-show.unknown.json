@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "show", "ghost@x"],
+  "envelope": {
+    "command": "plugins show",
+    "error": {
+      "code": "not_found",
+      "message": "plugin not found: ghost@x"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

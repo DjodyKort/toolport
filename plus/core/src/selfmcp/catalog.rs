@@ -3,8 +3,8 @@ use toolport_plus_api::Host;
 
 use super::{
     access, attention, backend, catalog_index, clients, compression, content, context,
-    launch_profile, library, memory, reach, secret, server_repo, servers, setup, skills, sources,
-    spend, sync, tasks, ToolError,
+    launch_profile, library, memory, plugins, reach, secret, server_repo, servers, setup, skills,
+    sources, spend, sync, tasks, ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1618,6 +1618,38 @@ pub const TOOLS: &[ToolDef] = &[
         "Give one client a direct entry for one server, outside the gateway; stdio servers get a launcher entry that holds no secret, remote servers their address only. dry_run is on by default and returns the plan with its hash (apply with dry_run=false, plan_hash and confirm=true)",
         [NAME, DIRECT_CLIENT, FORCE, DRY_ON, PLAN_HASH],
         clients::add
+    ),
+    tool!(
+        "plugins_ls",
+        1,
+        None,
+        "List the installed Claude Code plugins: where each is switched on (user, project, local and the effective answer), its version and what it brings (skills, agents, commands, hooks, MCP servers). Reads files, and claude plugin list when claude is on PATH. Cannot switch a plugin",
+        [p("cwd", Ty::Str, false, "Folder whose project and local settings decide where a plugin is on; user settings only when omitted")],
+        plugins::ls
+    ),
+    tool!(
+        "plugins_show",
+        1,
+        None,
+        "Show one installed plugin: description, skills, agents, commands, its hooks with their events and matchers, and its MCP servers with the plugin:<plugin>:<server> key. Reads only",
+        [
+            p("id", Ty::Str, true, "Plugin id such as ecc@ecc, as plugins_ls shows"),
+            p("cwd", Ty::Str, false, "Folder whose project and local settings decide where the plugin is on")
+        ],
+        plugins::show
+    ),
+    tool!(
+        "hooks_ls",
+        1,
+        None,
+        "List the hooks Claude Code would run in a folder: user, project and local settings, enabled plugins and Toolport's own, with owner, event, matcher, the tools each fires for and how to switch it, plus counts per tool and PreToolUse entries of different owners on the same tool. Reads files; never runs a hook",
+        [
+            p("cwd", Ty::Str, false, "Folder whose project and local settings are read; user settings only when omitted"),
+            p("tool", Ty::Str, false, "Only hooks that fire for this tool: Bash, Edit, Write or Read"),
+            p("event", Ty::Str, false, "Only hooks of this event, e.g. PreToolUse"),
+            p("owner", Ty::Str, false, "Only hooks of this owner kind: plugin, user, project, local, toolport or managed")
+        ],
+        plugins::hooks
     ),
     tool!(
         "clients_sync",

@@ -19,6 +19,7 @@ mod context;
 mod launch_profile;
 mod library;
 mod memory;
+mod plugins;
 mod reach;
 pub mod register;
 mod secret;

@@ -1,0 +1,7 @@
+{
+  "command": "plugins ls",
+  "dryRun": "none",
+  "name": "plugins_ls",
+  "tier": "read",
+  "toolTier": 1
+}

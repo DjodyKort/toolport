@@ -9,12 +9,15 @@
 
 pub mod claude;
 pub mod installed;
+pub mod inventory;
 pub mod link;
 pub mod marketplace;
 pub mod settings;
 
 pub use claude::{ClaudeRunner, SystemClaude};
 
+#[cfg(test)]
+mod inventory_tests;
 #[cfg(test)]
 mod tests;
 

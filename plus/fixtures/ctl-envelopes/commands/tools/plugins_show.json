@@ -1,0 +1,7 @@
+{
+  "command": "plugins show",
+  "dryRun": "none",
+  "name": "plugins_show",
+  "tier": "read",
+  "toolTier": 1
+}

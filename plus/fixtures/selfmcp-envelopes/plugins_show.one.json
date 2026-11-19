@@ -1,0 +1,88 @@
+{
+  "arguments": {
+    "id": "ecc@ecc"
+  },
+  "isError": false,
+  "result": {
+    "brings": {
+      "agents": 1,
+      "commands": 1,
+      "hooks": 2,
+      "lspServers": 0,
+      "mcpServers": 1,
+      "skills": 1
+    },
+    "components": {
+      "agents": ["planner"],
+      "commands": ["ship"],
+      "lspServers": [],
+      "skills": ["review"]
+    },
+    "description": "A synthetic plugin",
+    "enabled": {
+      "effective": true,
+      "local": null,
+      "managed": null,
+      "project": null,
+      "user": true
+    },
+    "errors": [],
+    "from": "files",
+    "hooks": [
+      {
+        "async": false,
+        "command": "node guard.js",
+        "event": "PreToolUse",
+        "marker": null,
+        "matcher": "Bash|Edit",
+        "owner": {
+          "kind": "plugin",
+          "name": "ecc@ecc"
+        },
+        "runtimeId": null,
+        "source": "~/.claude/plugins/cache/ecc/hooks/hooks.json",
+        "switch": {
+          "detail": "turn the plugin off: plugins off ecc@ecc --cwd <dir>",
+          "method": "disable-plugin"
+        },
+        "timeoutSec": 5,
+        "tools": ["Bash", "Edit"],
+        "type": "command"
+      },
+      {
+        "async": false,
+        "command": "node start.js",
+        "event": "SessionStart",
+        "marker": null,
+        "matcher": "",
+        "owner": {
+          "kind": "plugin",
+          "name": "ecc@ecc"
+        },
+        "runtimeId": null,
+        "source": "~/.claude/plugins/cache/ecc/hooks/hooks.json",
+        "switch": {
+          "detail": "turn the plugin off: plugins off ecc@ecc --cwd <dir>",
+          "method": "disable-plugin"
+        },
+        "timeoutSec": null,
+        "tools": [],
+        "type": "command"
+      }
+    ],
+    "id": "ecc@ecc",
+    "installPath": "~/.claude/plugins/cache/ecc",
+    "marketplace": "ecc",
+    "mcpServers": [
+      {
+        "key": "plugin:ecc:chrome",
+        "name": "chrome",
+        "toolPrefix": "mcp__plugin_ecc_chrome__*"
+      }
+    ],
+    "name": "ecc",
+    "source": null,
+    "version": "<masked>"
+  },
+  "tool": "plugins_show"
+}

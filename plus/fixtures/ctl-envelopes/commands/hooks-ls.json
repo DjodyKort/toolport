@@ -1,0 +1,70 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Folder whose project and local settings are read (default: user settings only)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Only hooks that fire for this tool (Bash, Edit, Write or Read)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--tool",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Only hooks of this event, for example PreToolUse",
+      "escalates": false,
+      "hidden": false,
+      "name": "--event",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Only hooks of this owner kind: plugin, user, project, local, toolport or managed",
+      "escalates": false,
+      "hidden": false,
+      "name": "--owner",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "hooks",
+  "id": "hooks ls",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["hooks", "ls"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List the hooks Claude Code would run: settings, plugins and Toolport's own (--cwd, --tool, --event, --owner)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["hooks_ls"]
+}

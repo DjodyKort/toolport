@@ -1,0 +1,43 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Folder whose project and local settings decide where the plugin is on (default: user settings only)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    }
+  ],
+  "group": "plugins",
+  "id": "plugins show",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "id",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["plugins", "show"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Show one plugin: its components, hooks and MCP servers (<id>, --cwd)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["plugins_show"]
+}

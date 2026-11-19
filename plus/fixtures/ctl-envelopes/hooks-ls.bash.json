@@ -1,0 +1,82 @@
+{
+  "argv": ["hooks", "ls", "--tool", "Bash"],
+  "envelope": {
+    "command": "hooks ls",
+    "data": {
+      "conflicts": [
+        {
+          "event": "PreToolUse",
+          "hooks": ["ecc@ecc", "settings.json"],
+          "note": "the strictest answer wins: deny, then defer, then ask, then allow",
+          "tools": ["Bash"]
+        }
+      ],
+      "counts": {
+        "byOwner": {
+          "plugin": 1,
+          "user": 1
+        },
+        "otherEvents": {},
+        "perTool": {
+          "Bash": {
+            "post": 0,
+            "pre": 2,
+            "total": 2
+          },
+          "Edit": {
+            "post": 0,
+            "pre": 1,
+            "total": 1
+          }
+        }
+      },
+      "cwd": null,
+      "disabledAll": false,
+      "hooks": [
+        {
+          "async": false,
+          "command": "~/bin/own.sh",
+          "event": "PreToolUse",
+          "marker": null,
+          "matcher": "Bash",
+          "owner": {
+            "kind": "user",
+            "name": "settings.json"
+          },
+          "runtimeId": null,
+          "source": "~/.claude/settings.json",
+          "switch": {
+            "detail": "edit the hooks key of ~/.claude/settings.json",
+            "method": "edit-settings"
+          },
+          "timeoutSec": null,
+          "tools": ["Bash"],
+          "type": "command"
+        },
+        {
+          "async": false,
+          "command": "node guard.js",
+          "event": "PreToolUse",
+          "marker": null,
+          "matcher": "Bash|Edit",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "~/.claude/plugins/cache/ecc/hooks/hooks.json",
+          "switch": {
+            "detail": "turn the plugin off: plugins off ecc@ecc --cwd <dir>",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 5,
+          "tools": ["Bash", "Edit"],
+          "type": "command"
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

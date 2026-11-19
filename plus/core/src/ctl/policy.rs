@@ -556,6 +556,12 @@ pub(super) const ROWS: &[Row] = &[
         .args(&[req("name")])
         .requires(&["--cwd"])
         .skip("writes a folder's settings; its --dry-run is a golden step"),
+    row("plugins ls", R).spec(&[&plugins::LS]),
+    row("plugins show", R)
+        .spec(&[&plugins::SHOW])
+        .args(&[req("id")])
+        .smoke(&["nope"]),
+    row("hooks ls", R).spec(&[&plugins::HOOKS_LS]),
     row("plugins off", W)
         .dry()
         .spec(&[&plugins::OFF])
@@ -1230,6 +1236,9 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("clients_reach", R, "client reach"),
     own("clients_list", R),
     own("clients_sync", W).on(),
+    maps("plugins_ls", R, "plugins ls"),
+    maps("plugins_show", R, "plugins show"),
+    maps("hooks_ls", R, "hooks ls"),
     maps("auth_probe", R, "auth probe"),
     maps("secret_check", R, "secret get"),
     maps("secret_set", W, "secret set").on(),
