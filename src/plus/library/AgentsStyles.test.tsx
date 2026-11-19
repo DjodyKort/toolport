@@ -123,4 +123,14 @@ describe("Library screen, Agents & styles tab", () => {
     await waitFor(() => expect(ranExactly("styles", "remove")).toBe(true));
     expect(ranExactly("styles", "status")).toBe(true);
   });
+
+  it("test20_an_agent_that_does_not_parse_is_an_error_row_with_the_limit_in_its_reason", async () => {
+    setup({ longAgent: true });
+    const checks = await screen.findByRole("region", { name: "Agent checks" });
+    const findings = await within(checks).findByRole("list", { name: "Lint findings" });
+    expect(within(findings).getByText("Error")).toBeVisible();
+    expect(findings).toHaveTextContent("long-agent (agent)");
+    expect(findings).toHaveTextContent("description must be 1-1536 characters");
+    expect(within(checks).getByText("1")).toBeVisible();
+  });
 });

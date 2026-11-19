@@ -25,6 +25,7 @@ import type { ContentDiffData } from "./data";
 import { CleanContentDialog, EditBodyDialog, NewContentDialog } from "./ContentDialogs";
 import { FileLines, Mono, WriteDialog } from "./dialogs";
 import { plural } from "./model";
+import StyleClients from "./StyleClients";
 
 type Dialog =
   | { kind: "sync-agents" }
@@ -119,8 +120,16 @@ export default function AgentsStyles() {
   const list = agents.data?.agents ?? [];
   const styleList = styles.data?.styles ?? [];
   const inSync = status.data ? status.data.lockfilePresent && !status.data.drift : null;
-  const lintTotal = (lint.data?.errors ?? 0) + (lint.data?.warnings ?? 0);
+  const lintTotal =
+    (lint.data?.errors ?? 0) +
+    (lint.data?.warnings ?? 0) +
+    (styleChecks.data?.errors ?? 0) +
+    (styleChecks.data?.warnings ?? 0);
   const findings = audit.data?.findings.length ?? 0;
+  const findingRows = [
+    ...(lint.data?.messages ?? []).map((m) => ({ ...m, kind: "agent" })),
+    ...(styleChecks.data?.messages ?? []).map((m) => ({ ...m, kind: "style" })),
+  ].filter((m) => m.level === "error" || m.level === "warning");
 
   if (agents.error && !agents.data) {
     return (
@@ -307,6 +316,13 @@ export default function AgentsStyles() {
         )}
       </section>
 
+      <StyleClients
+        status={styleState.data}
+        error={styleState.error}
+        styles={styleList.map((style) => style.name)}
+        onChanged={reload}
+      />
+
       <section aria-label="Agent checks" className="flex flex-col gap-2">
         <h2 className="text-meta font-semibold tracking-wide text-muted-foreground uppercase">
           Checks
@@ -334,6 +350,27 @@ export default function AgentsStyles() {
             tone={status.data && !status.data.drift ? "ok" : "warn"}
           />
         </div>
+        {findingRows.length > 0 && (
+          <ul
+            aria-label="Lint findings"
+            className="divide-y overflow-hidden rounded-xl border bg-card"
+          >
+            {findingRows.map((row, index) => (
+              <li
+                key={`${row.kind}-${row.name}-${index}`}
+                className="flex flex-wrap items-start gap-x-3 gap-y-1 px-4 py-2.5 text-meta"
+              >
+                <Badge variant={row.level === "error" ? "destructive" : "warning"}>
+                  {row.level === "error" ? "Error" : "Warning"}
+                </Badge>
+                <span className="min-w-0 flex-1 break-words">
+                  <span className="font-medium">{row.name}</span> ({row.kind}):{" "}
+                  {row.message}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {dialog?.kind === "new" && (
@@ -408,7 +445,16 @@ export default function AgentsStyles() {
           confirmLabel="Remove applied style"
           destructive
           preview={() => removeStyle(true)}
-          render={() => <p className="text-meta">The applied style is removed.</p>}
+          render={(data) =>
+            data.removed.length === 0 ? (
+              <p className="text-meta">No client has an applied style.</p>
+            ) : (
+              <FileLines
+                title={`${plural(data.removed.length, "rule file")} removed`}
+                files={data.removed.map((r) => r.path)}
+              />
+            )
+          }
           confirm={() => removeStyle(false)}
           onClose={() => setDialog(null)}
           onDone={reload}

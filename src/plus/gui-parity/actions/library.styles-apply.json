@@ -1,5 +1,6 @@
 {
-  "route": "library-later",
-  "status": "planned",
-  "summary": "Apply one output style as an always-on rule to the clients without a native style switch (styles apply; styles_apply)"
+  "route": "library",
+  "status": "built",
+  "summary": "Apply one output style as an always-on rule to the clients without a native style switch, or take it off again, per client after a preview and with Undo (styles apply, styles status, styles remove --client; styles_apply, styles_active)",
+  "test": "src/plus/library/StyleClients.test.tsx"
 }
