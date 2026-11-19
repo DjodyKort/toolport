@@ -1,0 +1,19 @@
+{
+  "arguments": {
+    "hook": "read-once"
+  },
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "rows": [
+      {
+        "action": "none to wrap",
+        "command": null,
+        "file": "<WORLD>/home/.claude/settings.json",
+        "provider": "read-once",
+        "state": "absent"
+      }
+    ]
+  },
+  "tool": "compression_hooks_apply"
+}

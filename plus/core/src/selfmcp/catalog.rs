@@ -1146,6 +1146,52 @@ pub const TOOLS: &[ToolDef] = &[
         compression::hooks_verify
     ),
     tool!(
+        "compression_hooks_apply",
+        3,
+        UnlessDryRun,
+        "Wrap the rtk and read-once hook entries in Claude settings.json so Toolport can count their calls and pause them: each entry's command is replaced, the original is kept in the hooks ledger, and the settings file is backed up. Entries that are already wrapped or were edited by hand are left alone and named. dry_run is on by default and lists what would change (apply with dry_run=false and confirm=true); compression_hooks_undo restores the commands exactly",
+        [
+            p("hook", Ty::Str, false, "rtk or read-once; default both"),
+            DRY_ON
+        ],
+        compression::hooks_apply
+    ),
+    tool!(
+        "compression_hooks_undo",
+        3,
+        UnlessDryRun,
+        "Put the original commands of the wrapped rtk and read-once hook entries back in Claude settings.json; an entry edited by hand since is left alone and named. dry_run is on by default and lists what would be restored (apply with dry_run=false and confirm=true)",
+        [
+            p("hook", Ty::Str, false, "rtk or read-once; default both"),
+            DRY_ON
+        ],
+        compression::hooks_undo
+    ),
+    tool!(
+        "compression_proxy",
+        2,
+        None,
+        "Start, stop or restart the local compression proxy of the active preset: down ends the process that listens on the preset's port, up starts the engine unless one answers there already (up to 30 seconds), restart does both; sessions attached to the proxy lose it while it is down. Pass dry_run to see the port and whether a proxy runs, and start nothing",
+        [
+            p("action", Ty::Str, true, "up, down or restart"),
+            p("dry_run", Ty::Bool, false, "Report the plan and touch no process")
+        ],
+        compression::proxy
+    ),
+    tool!(
+        "compression_update",
+        3,
+        UnlessDryRun,
+        "Move the exact engine pin to another build and install it, then re-snapshot the presets from that build: installs code from the package index and runs it. HIGH risk. dry_run is on by default and returns the current pin, the target, the requirement that would be installed and a plan_hash that covers the target (apply with dry_run=false, that plan_hash and confirm=true; refused when the target changed since). Without to or latest the newest published version is looked up, which reaches the network. A running proxy keeps the old build until compression_proxy restart",
+        [
+            DRY_ON,
+            PLAN_HASH,
+            p("to", Ty::Str, false, "The exact version to pin, e.g. 0.30.0"),
+            p("latest", Ty::Bool, false, "Pin the newest published version; not together with to")
+        ],
+        compression::update
+    ),
+    tool!(
         "compression_enable",
         3,
         UnlessDryRun,

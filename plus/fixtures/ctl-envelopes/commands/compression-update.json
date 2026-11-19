@@ -55,5 +55,5 @@
   "summary": "Move the engine pin (--to V | --latest, --accept to apply)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["compression_update"]
 }

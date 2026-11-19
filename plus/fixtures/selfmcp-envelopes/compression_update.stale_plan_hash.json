@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "plan_hash": "0000000000000000",
+    "to": "0.30.0"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "the plan changed since it was shown (the pin or the target version differs); run compression_update with dry_run=true again"
+    }
+  },
+  "text": "conflict: the plan changed since it was shown (the pin or the target version differs); run compression_update with dry_run=true again",
+  "tool": "compression_update"
+}

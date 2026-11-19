@@ -1,0 +1,12 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "dryRun": false,
+    "rows": []
+  },
+  "tool": "compression_hooks_undo"
+}

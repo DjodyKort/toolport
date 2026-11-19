@@ -3154,11 +3154,7 @@ const CASES: &[Case] = &[
             read("empty", "compression_verify", "{}"),
             hook("world", compression::measure_world),
             read("sessions", "compression_verify", r#"{"min_turns":3}"#),
-            read(
-                "by_pin",
-                "compression_verify",
-                r#"{"by_pin":true,"limit":5}"#,
-            ),
+            read("by_pin", "compression_verify", r#"{"by_pin":true}"#),
             fails(
                 "limit_not_a_number",
                 "invalid_arguments",
@@ -3290,6 +3286,119 @@ const CASES: &[Case] = &[
             ),
             hook("silent", compression::silent_hooks),
             read("failing", "compression_hooks_verify", "{}"),
+        ],
+    ),
+    case(
+        "compression_hooks_apply",
+        &[
+            hook("home", compression::rtk_home),
+            read("preview", "compression_hooks_apply", "{}"),
+            read(
+                "one_hook",
+                "compression_hooks_apply",
+                r#"{"hook":"read-once"}"#,
+            ),
+            refused("refused", "compression_hooks_apply", UNCONFIRMED),
+            fails(
+                "unknown_hook",
+                "invalid_arguments",
+                "compression_hooks_apply",
+                r#"{"hook":"nope","dry_run":false,"confirm":true}"#,
+            ),
+            write("apply", "compression_hooks_apply", APPLY),
+            write("again", "compression_hooks_apply", APPLY),
+        ],
+    ),
+    case(
+        "compression_hooks_undo",
+        &[
+            hook("home", compression::rtk_home),
+            setup("compression_hooks_apply", APPLY),
+            read("preview", "compression_hooks_undo", "{}"),
+            refused("refused", "compression_hooks_undo", UNCONFIRMED),
+            fails(
+                "unknown_hook",
+                "invalid_arguments",
+                "compression_hooks_undo",
+                r#"{"hook":"nope","dry_run":false,"confirm":true}"#,
+            ),
+            write("apply", "compression_hooks_undo", APPLY),
+            write("again", "compression_hooks_undo", APPLY),
+        ],
+    ),
+    // Nothing listens on the preset's port and no engine is on the PATH of the test world, so a
+    // call that is not a preview can only fail; running ones are covered by the unit tests.
+    case(
+        "compression_proxy",
+        &[
+            setup("compression_enable", ENABLE_OFF_PORT),
+            read(
+                "preview",
+                "compression_proxy",
+                r#"{"action":"restart","dry_run":true}"#,
+            ),
+            fails(
+                "unknown_action",
+                "invalid_arguments",
+                "compression_proxy",
+                r#"{"action":"start"}"#,
+            ),
+            fails(
+                "action_missing",
+                "invalid_arguments",
+                "compression_proxy",
+                "{}",
+            ),
+            fails(
+                "down_without_proxy",
+                "backend_error",
+                "compression_proxy",
+                r#"{"action":"down"}"#,
+            ),
+            fails(
+                "up_without_engine",
+                "backend_error",
+                "compression_proxy",
+                r#"{"action":"up"}"#,
+            ),
+        ],
+    ),
+    // A pin move installs through uv, which the test world must not run: only the plan and the
+    // refusals are pinned here, the apply is a unit test with a fake engine.
+    case(
+        "compression_update",
+        &[
+            setup("compression_enable", ENABLE_OFF_PORT),
+            read("preview", "compression_update", r#"{"to":"0.30.0"}"#),
+            refused(
+                "refused",
+                "compression_update",
+                r#"{"to":"0.30.0","dry_run":false}"#,
+            ),
+            fails(
+                "no_plan_hash",
+                "invalid_arguments",
+                "compression_update",
+                r#"{"to":"0.30.0","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "stale_plan_hash",
+                "conflict",
+                "compression_update",
+                r#"{"to":"0.30.0","dry_run":false,"confirm":true,"plan_hash":"0000000000000000"}"#,
+            ),
+            fails(
+                "to_and_latest",
+                "invalid_arguments",
+                "compression_update",
+                r#"{"to":"0.30.0","latest":true}"#,
+            ),
+            fails(
+                "unparseable",
+                "invalid_arguments",
+                "compression_update",
+                r#"{"to":"nine"}"#,
+            ),
         ],
     ),
     case(

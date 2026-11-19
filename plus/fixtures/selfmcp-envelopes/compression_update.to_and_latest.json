@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "latest": true,
+    "to": "0.30.0"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "pass either to or latest, not both"
+    }
+  },
+  "text": "invalid_arguments: pass either to or latest, not both",
+  "tool": "compression_update"
+}

@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "to": "0.30.0"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: compression_update (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: compression_update (tier 3). Pass confirm=true to proceed.",
+  "tool": "compression_update"
+}

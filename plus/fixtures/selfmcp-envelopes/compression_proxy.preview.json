@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "action": "restart",
+    "dry_run": true
+  },
+  "isError": false,
+  "result": {
+    "action": "restart",
+    "dryRun": true,
+    "plan": [
+      "stop the process that listens on :29213",
+      "start the proxy on :29213 unless one answers there already"
+    ],
+    "port": 29213,
+    "running": false
+  },
+  "tool": "compression_proxy"
+}

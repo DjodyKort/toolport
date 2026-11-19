@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "action": "down"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "backend_error",
+      "message": "no proxy listening on :29213"
+    }
+  },
+  "text": "backend_error: no proxy listening on :29213",
+  "tool": "compression_proxy"
+}

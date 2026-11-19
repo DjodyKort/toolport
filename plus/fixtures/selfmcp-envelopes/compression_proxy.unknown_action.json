@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "action": "start"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "action must be up, down or restart"
+    }
+  },
+  "text": "invalid_arguments: action must be up, down or restart",
+  "tool": "compression_proxy"
+}

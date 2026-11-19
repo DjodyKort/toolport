@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "action": "up"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "backend_error",
+      "message": "headroom not on PATH"
+    }
+  },
+  "text": "backend_error: headroom not on PATH",
+  "tool": "compression_proxy"
+}

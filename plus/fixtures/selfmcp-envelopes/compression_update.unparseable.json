@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "to": "nine"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "'nine' is not a parseable X.Y.Z version"
+    }
+  },
+  "text": "invalid_arguments: 'nine' is not a parseable X.Y.Z version",
+  "tool": "compression_update"
+}

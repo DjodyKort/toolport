@@ -1,0 +1,7 @@
+{
+  "command": "compression proxy",
+  "dryRun": "param",
+  "name": "compression_proxy",
+  "tier": "write",
+  "toolTier": 2
+}

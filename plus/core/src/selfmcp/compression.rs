@@ -6,6 +6,7 @@
 
 use super::ToolError;
 use crate::args::{flag, flag_or, str_trimmed};
+use crate::compression::engine::{self, EngineOps};
 use crate::compression::hooks;
 use crate::compression::hooks_verify;
 use crate::compression::launch::SystemOps;
@@ -16,7 +17,10 @@ use crate::compression::manage::{
 };
 use crate::compression::measure;
 use crate::compression::measure_csv;
-use crate::compression::model::ProviderName;
+use crate::compression::model::{CompressionConfig, ProviderName};
+use crate::compression::ops;
+use crate::compression::store::{self, Paths};
+use crate::context::hash::sha256_hex;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use toolport_plus_api::Host;
@@ -207,6 +211,145 @@ pub(super) fn hooks_verify(host: &dyn Host, args: &Value) -> Outcome {
         &hooks_verify::Options::system(),
     )
     .map_err(ToolError::backend)
+}
+
+pub(super) fn hooks_apply(host: &dyn Host, args: &Value) -> Outcome {
+    let id = hook_id(args)?;
+    hooks::apply(host, &hook_paths(host)?, id.as_deref(), dry_run(args)).map_err(ToolError::backend)
+}
+
+pub(super) fn hooks_undo(host: &dyn Host, args: &Value) -> Outcome {
+    let id = hook_id(args)?;
+    hooks::undo(host, &hook_paths(host)?, id.as_deref(), dry_run(args)).map_err(ToolError::backend)
+}
+
+fn loaded_config(paths: &Paths) -> Result<CompressionConfig, ToolError> {
+    store::read(paths)
+        .map(|loaded| loaded.config)
+        .map_err(ToolError::backend)
+}
+
+pub(super) fn proxy(host: &dyn Host, args: &Value) -> Outcome {
+    let config = loaded_config(&hook_paths(host)?)?;
+    proxy_in(&config, &mut SystemOps::new(), args)
+}
+
+pub(super) fn proxy_in(
+    config: &CompressionConfig,
+    engine_ops: &mut dyn EngineOps,
+    args: &Value,
+) -> Outcome {
+    let action = match required(args, "action")? {
+        action @ ("up" | "down" | "restart") => action,
+        _ => {
+            return Err(ToolError::new(
+                "invalid_arguments",
+                "action must be up, down or restart",
+            ))
+        }
+    };
+    if !flag(args, "dry_run") {
+        return Ok(crate::ctl::compression::proxy_with(config, engine_ops, action)?.data);
+    }
+    let port = config.preset_for(None).port;
+    let mut steps = Vec::new();
+    if action != "up" {
+        steps.push(format!("stop the process that listens on :{port}"));
+    }
+    if action != "down" {
+        steps.push(format!(
+            "start the proxy on :{port} unless one answers there already"
+        ));
+    }
+    Ok(json!({
+        "dryRun": true,
+        "action": action,
+        "port": port,
+        "running": engine_ops.proxy_health(port).is_some(),
+        "plan": steps,
+    }))
+}
+
+fn update_plan(
+    config: &CompressionConfig,
+    engine_ops: &dyn EngineOps,
+    args: &Value,
+) -> Result<Value, ToolError> {
+    let target = engine::resolve_target(
+        config,
+        engine_ops,
+        str_trimmed(args, "to"),
+        flag(args, "latest"),
+    )
+    .map_err(|e| match e {
+        ops::UpdateError::Conflict => {
+            ToolError::new("invalid_arguments", "pass either to or latest, not both")
+        }
+        ops::UpdateError::Unresolvable => {
+            ToolError::backend("could not resolve the latest version (offline?); name it with to")
+        }
+        ops::UpdateError::Unparseable(_) => ToolError::new("invalid_arguments", e.message()),
+    })?;
+    let mut moved = config.clone();
+    ops::set_pin(&mut moved, &target.target);
+    let requirement = moved.provider_version.requirement();
+    let hash = sha256_hex(
+        json!({"current": target.current, "target": target.target, "requirement": requirement})
+            .to_string(),
+    );
+    Ok(json!({
+        "current": target.current,
+        "target": target.target,
+        "same": target.same,
+        "requirement": requirement,
+        "planHash": &hash[..16],
+    }))
+}
+
+pub(super) fn update(host: &dyn Host, args: &Value) -> Outcome {
+    let paths = hook_paths(host)?;
+    let config = loaded_config(&paths)?;
+    update_in(&paths, config, &mut SystemOps::new(), args)
+}
+
+pub(super) fn update_in(
+    paths: &Paths,
+    config: CompressionConfig,
+    engine_ops: &mut dyn EngineOps,
+    args: &Value,
+) -> Outcome {
+    let mut plan = update_plan(&config, engine_ops, args)?;
+    if dry_run(args) {
+        plan["dryRun"] = json!(true);
+        plan["applyWith"] = json!(
+            "call compression_update with dry_run=false, this planHash as plan_hash and confirm=true"
+        );
+        return Ok(plan);
+    }
+    let given = str_trimmed(args, "plan_hash").ok_or_else(|| {
+        ToolError::new(
+            "invalid_arguments",
+            "plan_hash is required: take it from compression_update with dry_run=true",
+        )
+    })?;
+    if plan["planHash"] != given {
+        return Err(crate::op::OpError::conflict(
+            "the plan changed since it was shown (the pin or the target version differs); run compression_update with dry_run=true again",
+        )
+        .into());
+    }
+    let target = plan["target"].as_str().unwrap_or_default().to_string();
+    let mut done = crate::ctl::compression::update_with(
+        paths,
+        config,
+        engine_ops,
+        Some(&target),
+        false,
+        true,
+    )?
+    .data;
+    done["planHash"] = json!(given);
+    Ok(done)
 }
 
 fn refuse_egress(provider: Option<ProviderName>) -> Result<(), ToolError> {

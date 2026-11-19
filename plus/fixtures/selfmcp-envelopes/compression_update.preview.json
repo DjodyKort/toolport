@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "to": "0.30.0"
+  },
+  "isError": false,
+  "result": {
+    "applyWith": "call compression_update with dry_run=false, this planHash as plan_hash and confirm=true",
+    "current": "0.29.0",
+    "dryRun": true,
+    "planHash": "<masked>",
+    "requirement": "headroom-ai[proxy,code,ml]==0.30.0",
+    "same": false,
+    "target": "0.30.0"
+  },
+  "tool": "compression_update"
+}

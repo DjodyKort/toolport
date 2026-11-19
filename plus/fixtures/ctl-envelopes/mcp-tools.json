@@ -2475,6 +2475,120 @@
           "tier": 2
         },
         {
+          "description": "Wrap the rtk and read-once hook entries in Claude settings.json so Toolport can count their calls and pause them: each entry's command is replaced, the original is kept in the hooks ledger, and the settings file is backed up. Entries that are already wrapped or were edited by hand are left alone and named. dry_run is on by default and lists what would change (apply with dry_run=false and confirm=true); compression_hooks_undo restores the commands exactly",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "compression_hooks_apply",
+          "params": [
+            {
+              "description": "rtk or read-once; default both",
+              "name": "hook",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Put the original commands of the wrapped rtk and read-once hook entries back in Claude settings.json; an entry edited by hand since is left alone and named. dry_run is on by default and lists what would be restored (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "compression_hooks_undo",
+          "params": [
+            {
+              "description": "rtk or read-once; default both",
+              "name": "hook",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Start, stop or restart the local compression proxy of the active preset: down ends the process that listens on the preset's port, up starts the engine unless one answers there already (up to 30 seconds), restart does both; sessions attached to the proxy lose it while it is down. Pass dry_run to see the port and whether a proxy runs, and start nothing",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "compression_proxy",
+          "params": [
+            {
+              "description": "up, down or restart",
+              "name": "action",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report the plan and touch no process",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Move the exact engine pin to another build and install it, then re-snapshot the presets from that build: installs code from the package index and runs it. HIGH risk. dry_run is on by default and returns the current pin, the target, the requirement that would be installed and a plan_hash that covers the target (apply with dry_run=false, that plan_hash and confirm=true; refused when the target changed since). Without to or latest the newest published version is looked up, which reaches the network. A running proxy keeps the old build until compression_proxy restart",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "compression_update",
+          "params": [
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Hash of the plan dry_run returned; the write is refused when the plan changed since",
+              "name": "plan_hash",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "The exact version to pin, e.g. 0.30.0",
+              "name": "to",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Pin the newest published version; not together with to",
+              "name": "latest",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "Enable compression: writes the policy config, the shell shims and the registry entry of the provider (default headroom); dry_run is on by default (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",

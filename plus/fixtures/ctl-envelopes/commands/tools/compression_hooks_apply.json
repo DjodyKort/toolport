@@ -1,0 +1,7 @@
+{
+  "command": "compression hooks apply",
+  "dryRun": "default-on",
+  "name": "compression_hooks_apply",
+  "tier": "write",
+  "toolTier": 3
+}

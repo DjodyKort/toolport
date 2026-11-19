@@ -688,7 +688,7 @@ pub fn proxy(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     proxy_with(&loaded.config, &mut SystemOps::new(), action)
 }
 
-pub(super) fn proxy_with(
+pub(crate) fn proxy_with(
     config: &CompressionConfig,
     ops: &mut dyn EngineOps,
     action: &str,
@@ -730,7 +730,7 @@ pub fn update(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     )
 }
 
-pub(super) fn update_with(
+pub(crate) fn update_with(
     paths: &Paths,
     mut config: CompressionConfig,
     ops: &mut dyn EngineOps,

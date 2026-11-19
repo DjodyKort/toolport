@@ -1,0 +1,7 @@
+{
+  "command": "compression update",
+  "dryRun": "default-on",
+  "name": "compression_update",
+  "tier": "write",
+  "toolTier": 3
+}

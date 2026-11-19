@@ -45,5 +45,5 @@
   "summary": "Restore the wrapped entries exactly (--provider, --dry-run)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["compression_hooks_undo"]
 }

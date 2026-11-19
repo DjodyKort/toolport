@@ -1,0 +1,12 @@
+{
+  "arguments": {},
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "missing required argument: action"
+    }
+  },
+  "text": "invalid_arguments: missing required argument: action",
+  "tool": "compression_proxy"
+}

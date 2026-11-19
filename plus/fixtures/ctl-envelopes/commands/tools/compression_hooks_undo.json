@@ -1,0 +1,7 @@
+{
+  "command": "compression hooks undo",
+  "dryRun": "default-on",
+  "name": "compression_hooks_undo",
+  "tier": "write",
+  "toolTier": 3
+}

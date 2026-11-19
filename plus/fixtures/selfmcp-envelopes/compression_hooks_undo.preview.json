@@ -1,0 +1,15 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "rows": [
+      {
+        "action": "would restore",
+        "file": "<WORLD>/home/.claude/settings.json",
+        "provider": "rtk"
+      }
+    ]
+  },
+  "tool": "compression_hooks_undo"
+}

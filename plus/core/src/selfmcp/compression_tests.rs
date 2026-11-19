@@ -719,3 +719,205 @@ fn the_compression_results_never_carry_a_secret() {
     );
     assert!(!seen.contains(&"cd".repeat(32)), "{seen}");
 }
+
+mod engine_tools {
+    use super::*;
+    use crate::compression::engine::EngineOps;
+    use crate::compression::store::{self, Paths};
+    use std::collections::BTreeMap;
+
+    #[derive(Default)]
+    struct Engine {
+        up: bool,
+        pid: Option<u64>,
+        killed: Vec<u32>,
+        spawned: usize,
+        installs: Vec<String>,
+        latest: Option<String>,
+    }
+
+    impl EngineOps for Engine {
+        fn proxy_health(&self, _port: u16) -> Option<Value> {
+            self.up
+                .then(|| json!({"ready": true, "config": {"pid": self.pid}}))
+        }
+        fn spawn_proxy(
+            &mut self,
+            _port: u16,
+            _mode: &str,
+            _env: &BTreeMap<String, String>,
+        ) -> Result<(), String> {
+            self.spawned += 1;
+            self.up = true;
+            Ok(())
+        }
+        fn listening_pids(&self, _port: u16) -> Vec<u32> {
+            Vec::new()
+        }
+        fn terminate(&mut self, pid: u32) -> Result<(), String> {
+            self.killed.push(pid);
+            self.up = false;
+            Ok(())
+        }
+        fn sleep(&mut self, _millis: u64) {}
+        fn installed_version(&self) -> Option<String> {
+            Some("0.30.0".into())
+        }
+        fn latest_version(&self, _package: &str) -> Option<String> {
+            self.latest.clone()
+        }
+        fn install(
+            &mut self,
+            requirement: &str,
+        ) -> Result<(Option<String>, Option<String>), String> {
+            self.installs.push(requirement.into());
+            Ok((Some("0.29.0".into()), Some("0.30.0".into())))
+        }
+        fn agent_savings(&self, profile: &str) -> Result<Vec<(String, String)>, String> {
+            Err(format!("no profile {profile}"))
+        }
+    }
+
+    fn world() -> (Paths, crate::compression::model::CompressionConfig) {
+        let host = HOST.with(|h| h.borrow().clone().expect("a test builds its Fixture first"));
+        let paths = Paths::from_host(host.as_ref()).unwrap();
+        let config = store::read(&paths).unwrap().config;
+        (paths, config)
+    }
+
+    fn update(engine: &mut Engine, args: Value) -> (Result<Value, ToolError>, Paths) {
+        let (paths, config) = world();
+        let result = super::super::compression::update_in(&paths, config, engine, &args);
+        (result, paths)
+    }
+
+    #[test]
+    fn test01_update_previews_the_target_and_its_plan_hash_and_moves_nothing() {
+        let _fixture = Fixture::new("cmp-update-preview");
+        let mut engine = Engine::default();
+        let (planned, paths) = update(&mut engine, json!({"to": "9.9.9"}));
+        let planned = planned.unwrap();
+        assert_eq!(planned["dryRun"], true);
+        assert_eq!(planned["target"], "9.9.9");
+        assert!(planned["requirement"]
+            .as_str()
+            .unwrap()
+            .ends_with("==9.9.9"));
+        assert_eq!(planned["planHash"].as_str().unwrap().len(), 16);
+        assert!(engine.installs.is_empty());
+        assert!(!paths.config().exists());
+    }
+
+    #[test]
+    fn test02_the_plan_hash_covers_the_target_pin() {
+        let _fixture = Fixture::new("cmp-update-hash");
+        let hash = |to: &str| {
+            update(&mut Engine::default(), json!({"to": to})).0.unwrap()["planHash"].clone()
+        };
+        assert_ne!(hash("9.9.9"), hash("9.9.8"));
+        assert_eq!(hash("9.9.9"), hash("9.9.9"));
+    }
+
+    #[test]
+    fn test03_update_needs_the_plan_hash_and_refuses_a_hash_of_another_target() {
+        let _fixture = Fixture::new("cmp-update-hash-needed");
+        let mut engine = Engine::default();
+        let (missing, _) = update(&mut engine, json!({"to": "9.9.9", "dry_run": false}));
+        assert_eq!(kind(missing), "invalid_arguments");
+        let other = update(&mut engine, json!({"to": "9.9.8"})).0.unwrap();
+        let (stale, paths) = update(
+            &mut engine,
+            json!({"to": "9.9.9", "dry_run": false, "plan_hash": other["planHash"]}),
+        );
+        assert_eq!(kind(stale), "conflict");
+        assert!(engine.installs.is_empty());
+        assert!(!paths.config().exists());
+    }
+
+    #[test]
+    fn test04_update_with_the_plan_hash_installs_the_exact_requirement_and_saves_the_pin() {
+        let _fixture = Fixture::new("cmp-update-apply");
+        let mut engine = Engine::default();
+        let planned = update(&mut engine, json!({"to": "9.9.9"})).0.unwrap();
+        let (done, paths) = update(
+            &mut engine,
+            json!({"to": "9.9.9", "dry_run": false, "plan_hash": planned["planHash"]}),
+        );
+        let done = done.unwrap();
+        assert_eq!(done["accepted"], true);
+        assert_eq!(done["planHash"], planned["planHash"]);
+        assert_eq!(engine.installs, [planned["requirement"].as_str().unwrap()]);
+        let saved = store::read(&paths).unwrap().config;
+        assert_eq!(saved.provider_version.pin, "9.9.9");
+    }
+
+    #[test]
+    fn test05_update_refuses_to_and_latest_together_and_a_version_that_does_not_parse() {
+        let _fixture = Fixture::new("cmp-update-bad");
+        let mut engine = Engine::default();
+        for args in [
+            json!({"to": "9.9.9", "latest": true}),
+            json!({"to": "nine"}),
+        ] {
+            assert_eq!(kind(update(&mut engine, args).0), "invalid_arguments");
+        }
+        let (offline, _) = update(&mut engine, json!({"latest": true}));
+        assert_eq!(kind(offline), "backend_error");
+    }
+
+    #[test]
+    fn test06_update_latest_resolves_the_newest_version_for_the_plan() {
+        let _fixture = Fixture::new("cmp-update-latest");
+        let mut engine = Engine {
+            latest: Some("9.8.7".into()),
+            ..Engine::default()
+        };
+        let planned = update(&mut engine, json!({"latest": true})).0.unwrap();
+        assert_eq!(planned["target"], "9.8.7");
+    }
+
+    fn proxy(engine: &mut Engine, args: Value) -> Result<Value, ToolError> {
+        let (_, config) = world();
+        super::super::compression::proxy_in(&config, engine, &args)
+    }
+
+    #[test]
+    fn test07_proxy_dry_run_names_the_port_and_touches_no_process() {
+        let _fixture = Fixture::new("cmp-proxy-plan");
+        let mut engine = Engine {
+            up: true,
+            pid: Some(4242),
+            ..Engine::default()
+        };
+        let plan = proxy(&mut engine, json!({"action": "restart", "dry_run": true})).unwrap();
+        assert_eq!(plan["running"], true);
+        assert_eq!(plan["plan"].as_array().unwrap().len(), 2);
+        assert!(engine.killed.is_empty());
+        assert_eq!(engine.spawned, 0);
+    }
+
+    #[test]
+    fn test08_proxy_up_starts_one_and_down_ends_the_one_that_runs() {
+        let _fixture = Fixture::new("cmp-proxy-run");
+        let mut engine = Engine::default();
+        let up = proxy(&mut engine, json!({"action": "up"})).unwrap();
+        assert_eq!(up["action"], "up");
+        assert_eq!(engine.spawned, 1);
+        engine.pid = Some(4242);
+        proxy(&mut engine, json!({"action": "down"})).unwrap();
+        assert_eq!(engine.killed, [4242]);
+    }
+
+    #[test]
+    fn test09_proxy_refuses_an_unknown_action() {
+        let _fixture = Fixture::new("cmp-proxy-bad");
+        let mut engine = Engine::default();
+        for action in ["start", ""] {
+            assert_eq!(
+                kind(proxy(&mut engine, json!({"action": action}))),
+                "invalid_arguments"
+            );
+        }
+        assert_eq!(engine.spawned, 0);
+    }
+}

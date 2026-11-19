@@ -45,5 +45,5 @@
   "summary": "Wrap the existing rtk and read-once entries (--provider, --dry-run)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["compression_hooks_apply"]
 }
