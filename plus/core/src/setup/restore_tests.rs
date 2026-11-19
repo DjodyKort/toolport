@@ -134,6 +134,36 @@ fn test04_a_differing_file_is_kept_unless_taken_and_undo_puts_it_back() {
 }
 
 #[test]
+fn test04b_only_the_conflicts_a_take_can_change_are_marked_takeable() {
+    let from = World::new();
+    from.repo("web");
+    from.claude("CLAUDE.md", "from the file\n");
+    let file = exported(&from);
+    let to = World::new();
+    let web = to.repo("web");
+    let remote = from.dir.path().join("remotes/web.git");
+    to.git(
+        &web,
+        &["remote", "set-url", "origin", &remote.to_string_lossy()],
+    );
+    to.git(&web, &["checkout", "-q", "-b", "other"]);
+    to.claude("CLAUDE.md", "mine\n");
+    let data = plan(&to, &file, &[]);
+    let takeable = |id: &str| row(&data, id)["takeable"].as_bool().unwrap();
+    assert_eq!(row(&data, "claude:CLAUDE.md")["state"], "conflict");
+    assert!(takeable("claude:CLAUDE.md"));
+    assert_eq!(row(&data, "repo:~/code/web")["state"], "conflict");
+    assert!(!takeable("repo:~/code/web"));
+    assert!(!takeable("server:alpha"));
+    let taken = plan(&to, &file, &["repo:~/code/web"]);
+    assert_eq!(row(&taken, "repo:~/code/web")["state"], "conflict");
+    assert_eq!(
+        std::fs::read_to_string(to.home.join(".claude/CLAUDE.md")).unwrap(),
+        "mine\n"
+    );
+}
+
+#[test]
 fn test05_undo_keeps_a_file_that_changed_after_the_restore() {
     let from = World::new();
     from.claude("CLAUDE.md", "from the file\n");

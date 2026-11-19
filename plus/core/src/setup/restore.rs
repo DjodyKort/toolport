@@ -139,6 +139,12 @@ impl Row {
         self.step = Some(step);
         self
     }
+
+    /// `--take <id>` changes the outcome of this row: it differs here and the file's copy can
+    /// replace it. A repository on another branch stays as it is whatever is taken.
+    fn takeable(&self) -> bool {
+        self.state == STATE_CONFLICT && self.part != PartId::Repos && !self.refused
+    }
 }
 
 fn failed(why: impl Into<String>) -> OpError {
@@ -1177,6 +1183,7 @@ fn plan_json(plan: &Plan, hash: &str, opened: &Opened, judged: bool) -> Value {
             if r.refused {
                 row["refused"] = json!(true);
             }
+            row["takeable"] = json!(r.takeable());
             row
         }).collect::<Vec<_>>(),
         "file_info": inspect::summary(opened)["parts"],
