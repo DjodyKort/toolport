@@ -1099,6 +1099,23 @@ const CASES: &[Case] = &[
                 "access_set_add",
                 r#"{"name":"New","servers":["nope"]}"#,
             ),
+            hook("a-removed-set", a_removed_set),
+            read(
+                "restore_plan",
+                "access_set_add",
+                r#"{"restore":"removed-7c6d9bac2de5a6de"}"#,
+            ),
+            write(
+                "restore",
+                "access_set_add",
+                r#"{"restore":"removed-7c6d9bac2de5a6de","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "restore_gone",
+                "not_found",
+                "access_set_add",
+                r#"{"restore":"removed-7c6d9bac2de5a6de"}"#,
+            ),
         ],
     ),
     prepared(
@@ -4305,6 +4322,28 @@ fn folder_routing_world(world: &World) {
     registry["clientScopes"] = serde_json::json!({"claude-code": "focus"});
     registry["folderProfiles"] = serde_json::json!([{"path": "/work/proj", "profile": "wide"}]);
     world.write_registry(&registry);
+}
+
+/// What `access_set_rm` leaves behind for Wide: the set is gone from the registry and its record
+/// waits in the data dir, as the tool writes it.
+fn a_removed_set(world: &World) {
+    let mut registry = world.registry();
+    let wide = registry["profiles"].as_array_mut().unwrap().remove(2);
+    registry["folderProfiles"] = serde_json::json!([]);
+    world.write_registry(&registry);
+    let dir = world.data.join("plus/access/removed");
+    std::fs::create_dir_all(&dir).unwrap();
+    let record = serde_json::json!({
+        "schema": 1,
+        "accessSet": wide,
+        "clients": [],
+        "folders": [{"key": "/work/proj"}],
+    });
+    std::fs::write(
+        dir.join("removed-7c6d9bac2de5a6de.json"),
+        record.to_string(),
+    )
+    .unwrap();
 }
 
 fn spend_data(world: &World) {

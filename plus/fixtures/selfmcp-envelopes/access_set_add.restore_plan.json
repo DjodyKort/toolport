@@ -1,0 +1,37 @@
+{
+  "arguments": {
+    "restore": "removed-7c6d9bac2de5a6de"
+  },
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "name": "Wide",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "restore the access set Wide",
+          "op": "registry"
+        },
+        {
+          "detail": "list alpha in Wide",
+          "op": "registry"
+        },
+        {
+          "detail": "list beta in Wide",
+          "op": "registry"
+        },
+        {
+          "detail": "route folder /work/proj to Wide again",
+          "op": "registry"
+        }
+      ],
+      "summary": "Restore access set Wide",
+      "undo": "toolportctl access-set rm Wide --detach",
+      "warnings": []
+    },
+    "restored": "removed-7c6d9bac2de5a6de",
+    "result": null
+  },
+  "tool": "access_set_add"
+}

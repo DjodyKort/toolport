@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
 import type { Registry } from "@/lib/types";
 import type { WorldOptions } from "../fixtures/ctlWorld";
-import { resetPlusFixture } from "../fixtures/ipc";
+import { plusFixtureWorld, resetPlusFixture } from "../fixtures/ipc";
 import { stdioServer } from "../fixtures/serverWorld";
 import { guiParity } from "../guiParity";
 import { PlusAccessCompare } from "../servers/slots";
@@ -190,7 +190,48 @@ describe("Change access sets", () => {
     expect(vi.mocked(toast.success).mock.calls.at(-1)![0]).toBe("Deleted Spare");
     await undo();
     expect(await screen.findByText("Spare")).toBeVisible();
-    expect(wrote("access-set", "add", "Spare", "srv-beta")).toBe(true);
+    expect(wrote("access-set", "add", "Spare", "--restore")).toBe(true);
+  });
+
+  it("test03b_access_write_undo_of_a_delete_restores_the_tool_lists_and_the_instructions_too", async () => {
+    const user = userEvent.setup();
+    setup({
+      access: {
+        narrowed: [{ set: "spare", server: "srv-beta", tools: ["read", "list"] }],
+        instructions: { spare: "Be brief" },
+      },
+    });
+    await screen.findByText("Default access");
+    await user.click(screen.getByRole("button", { name: "Delete Spare" }));
+    await confirm(user, "Delete access set");
+    await waitFor(() => expect(screen.queryByText("Spare")).not.toBeInTheDocument());
+    const world = plusFixtureWorld();
+    expect(world.access.instructions.has("spare")).toBe(false);
+    await undo();
+    expect(await screen.findByText("Spare")).toBeVisible();
+    expect(world.access.instructions.get("spare")).toBe("Be brief");
+    const tools = world.run(["access-set", "tools", "spare"]).data as {
+      accessSets: Array<{ narrowed: Array<{ tools: string[] }> }>;
+    };
+    expect(tools.accessSets[0].narrowed[0].tools).toEqual(["read", "list"]);
+  });
+
+  it("test03c_access_write_undo_of_a_delete_that_was_already_restored_says_why_it_failed", async () => {
+    const user = userEvent.setup();
+    setup();
+    await screen.findByText("Default access");
+    await user.click(screen.getByRole("button", { name: "Delete Spare" }));
+    await confirm(user, "Delete access set");
+    await waitFor(() => expect(screen.queryByText("Spare")).not.toBeInTheDocument());
+    await undo();
+    expect(await screen.findByText("Spare")).toBeVisible();
+    await undo();
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Could not undo", {
+        description: expect.stringContaining("no removed access set"),
+        action: expect.anything(),
+      }),
+    );
   });
 
   it("test04_access_write_asks_what_happens_to_what_uses_a_set_and_undo_restores_the_bindings", async () => {
@@ -226,8 +267,8 @@ describe("Change access sets", () => {
     expect(
       await screen.findByText("uses Focus · tool listing: global mode"),
     ).toBeVisible();
-    expect(wrote("client", "scope", "claude-code", "Focus")).toBe(true);
-    expect(wrote("folder", "route", "add", "/work/proj", "Focus")).toBe(true);
+    expect(wrote("access-set", "add", "Focus", "--restore")).toBe(true);
+    expect(wrote("client", "scope")).toBe(false);
   });
 
   it("test05_access_write_leaves_the_default_alone_and_deleting_it_is_not_offered", async () => {

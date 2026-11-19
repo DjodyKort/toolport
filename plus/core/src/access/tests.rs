@@ -32,10 +32,42 @@ fn world() -> MemoryHost {
     host
 }
 
+fn with_data_dir(host: &mut MemoryHost) -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    host.secrets.data_dir = Some(dir.path().to_path_buf());
+    dir
+}
+
+fn removal_files(dir: &tempfile::TempDir) -> usize {
+    std::fs::read_dir(dir.path().join("plus/access/removed"))
+        .map(|read| read.count())
+        .unwrap_or(0)
+}
+
+fn token_of(done: &Value) -> String {
+    done["result"]["undo"]
+        .as_str()
+        .unwrap()
+        .rsplit(' ')
+        .next()
+        .unwrap()
+        .to_string()
+}
+
+fn restore_args<'a>(name: &'a str, token: &'a str, dry_run: bool) -> AddArgs<'a> {
+    AddArgs {
+        name,
+        servers: &[],
+        restore: Some(token),
+        dry_run,
+    }
+}
+
 fn add_args<'a>(name: &'a str, servers: &'a [String], dry_run: bool) -> AddArgs<'a> {
     AddArgs {
         name,
         servers,
+        restore: None,
         dry_run,
     }
 }
@@ -157,8 +189,9 @@ fn test06_rm_of_a_set_clients_use_needs_an_explicit_choice() {
 }
 
 #[test]
-fn test07_rm_detach_unbinds_clients_and_folders_and_the_undo_restores_them() {
-    let host = world();
+fn test07_rm_detach_unbinds_clients_and_folders_and_the_undo_line_names_the_removal() {
+    let mut host = world();
+    let _dir = with_data_dir(&mut host);
     host.registry
         .client_scopes
         .borrow_mut()
@@ -167,19 +200,23 @@ fn test07_rm_detach_unbinds_clients_and_folders_and_the_undo_restores_them() {
         .folder_routes
         .borrow_mut()
         .push(("/work/proj".into(), "focus".into()));
+    let preview = rm(&host, &rm_args("focus", Some(Orphans::Detach), true)).unwrap();
     let done = rm(&host, &rm_args("focus", Some(Orphans::Detach), false)).unwrap();
     assert_eq!(names(&host), ["Default"]);
     assert!(host.registry.client_scopes.borrow().is_empty());
     assert!(host.registry.folder_routes.borrow().is_empty());
-    assert_eq!(
-        done["result"]["undo"],
-        "toolportctl access-set add Focus --server a && toolportctl client scope claude-code Focus && toolportctl folder route add /work/proj Focus"
+    let undo = done["result"]["undo"].as_str().unwrap();
+    assert!(
+        undo.starts_with("toolportctl access-set add Focus --restore removed-"),
+        "{undo}"
     );
+    assert_eq!(preview["plan"]["undo"], done["result"]["undo"]);
 }
 
 #[test]
 fn test08_rm_leave_keeps_the_bindings_dangling_and_says_so() {
-    let host = world();
+    let mut host = world();
+    let _dir = with_data_dir(&mut host);
     host.registry
         .client_scopes
         .borrow_mut()
@@ -198,6 +235,157 @@ fn test08_rm_leave_keeps_the_bindings_dangling_and_says_so() {
         .find(|s| s.key == "claude-code")
         .unwrap();
     assert!(scope.dangling);
+}
+
+fn carrying_world() -> (MemoryHost, tempfile::TempDir) {
+    let mut host = world();
+    let dir = with_data_dir(&mut host);
+    host.registry.tool_scopes.borrow_mut().insert(
+        "focus".into(),
+        [("a".to_string(), vec!["read".to_string()])].into(),
+    );
+    host.registry
+        .instructions
+        .borrow_mut()
+        .insert("focus".into(), "Keep answers short".into());
+    host.registry
+        .client_scopes
+        .borrow_mut()
+        .insert("claude-code".into(), "focus".into());
+    host.registry
+        .folder_routes
+        .borrow_mut()
+        .push(("/work/proj".into(), "focus".into()));
+    (host, dir)
+}
+
+#[test]
+fn test30_the_undo_of_rm_brings_back_tool_lists_instructions_and_detached_bindings() {
+    let (host, dir) = carrying_world();
+    let done = rm(&host, &rm_args("focus", Some(Orphans::Detach), false)).unwrap();
+    assert_eq!(removal_files(&dir), 1);
+    assert!(host.registry.tool_scopes.borrow().get("focus").is_none());
+    assert!(host.registry.instructions.borrow().is_empty());
+    let token = token_of(&done);
+
+    let preview = add(&host, &restore_args("", &token, true)).unwrap();
+    let steps: Vec<&str> = preview["plan"]["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["detail"].as_str().unwrap())
+        .collect();
+    assert!(
+        steps.contains(&"expose 1 tool(s) of A in Focus, as before"),
+        "{steps:?}"
+    );
+    assert!(steps.contains(&"restore the instructions of Focus"));
+    assert_eq!(names(&host), ["Default"], "a plan changes nothing");
+    assert_eq!(removal_files(&dir), 1);
+
+    let restored = add(&host, &restore_args("Focus", &token, false)).unwrap();
+    assert_eq!(names(&host), ["Default", "Focus"]);
+    assert_eq!(
+        host.registry.tool_scopes.borrow()["focus"]["a"],
+        ["read".to_string()]
+    );
+    assert_eq!(
+        host.registry.instructions.borrow()["focus"],
+        "Keep answers short"
+    );
+    assert_eq!(host.registry.client_scopes.borrow()["claude-code"], "focus");
+    assert_eq!(
+        *host.registry.folder_routes.borrow(),
+        [("/work/proj".to_string(), "focus".to_string())]
+    );
+    assert_eq!(restored["accessSet"]["id"], "focus");
+    assert_eq!(
+        restored["result"]["undo"],
+        "toolportctl access-set rm Focus --detach"
+    );
+    assert_eq!(removal_files(&dir), 0, "a used record is gone");
+    let again = add(&host, &restore_args("", &token, false)).unwrap_err();
+    assert_eq!(again.kind, ErrorKind::NotFound);
+}
+
+#[test]
+fn test31_restore_leaves_bindings_the_person_changed_since_and_says_so() {
+    let (host, _dir) = carrying_world();
+    let done = rm(&host, &rm_args("focus", Some(Orphans::Detach), false)).unwrap();
+    host.registry
+        .client_scopes
+        .borrow_mut()
+        .insert("claude-code".into(), "default".into());
+    host.registry
+        .folder_routes
+        .borrow_mut()
+        .push(("/work/proj".into(), "default".into()));
+    let restored = add(&host, &restore_args("", &token_of(&done), false)).unwrap();
+    assert_eq!(
+        host.registry.client_scopes.borrow()["claude-code"],
+        "default"
+    );
+    assert_eq!(host.registry.folder_routes.borrow()[0].1, "default");
+    let warnings = restored["plan"]["warnings"].as_array().unwrap();
+    assert_eq!(warnings.len(), 2);
+    assert_eq!(
+        restored["result"]["undo"],
+        "toolportctl access-set rm Focus"
+    );
+}
+
+#[test]
+fn test32_restore_refuses_a_name_that_is_taken_a_wrong_name_and_a_bad_id() {
+    let (host, _dir) = carrying_world();
+    let done = rm(&host, &rm_args("focus", Some(Orphans::Detach), false)).unwrap();
+    let token = token_of(&done);
+    let wrong = add(&host, &restore_args("Other", &token, true)).unwrap_err();
+    assert_eq!(wrong.kind, ErrorKind::Usage);
+    let bad = add(&host, &restore_args("", "../registry", true)).unwrap_err();
+    assert_eq!(bad.kind, ErrorKind::Usage);
+    let servers = vec!["a".to_string()];
+    let mixed = add(
+        &host,
+        &AddArgs {
+            name: "",
+            servers: &servers,
+            restore: Some(&token),
+            dry_run: true,
+        },
+    )
+    .unwrap_err();
+    assert_eq!(mixed.kind, ErrorKind::Usage);
+    add(&host, &add_args("Focus", &[], false)).unwrap();
+    let taken = add(&host, &restore_args("", &token, false)).unwrap_err();
+    assert_eq!(taken.kind, ErrorKind::Conflict);
+}
+
+#[test]
+fn test33_restore_leaves_out_servers_that_are_gone() {
+    let (host, _dir) = carrying_world();
+    let done = rm(&host, &rm_args("focus", Some(Orphans::Detach), false)).unwrap();
+    host.registry
+        .servers
+        .borrow_mut()
+        .retain(|server| server.id != "a");
+    let restored = add(&host, &restore_args("", &token_of(&done), false)).unwrap();
+    assert!(restored["plan"]["warnings"][0]
+        .as_str()
+        .unwrap()
+        .contains("a no longer exist"));
+    assert!(host.registry.access_sets.borrow()[1].server_ids.is_empty());
+    assert!(host.registry.tool_scopes.borrow()["focus"].is_empty());
+}
+
+#[test]
+fn test34_rm_without_a_data_dir_deletes_nothing_and_a_plan_writes_no_record() {
+    let mut host = world();
+    let error = rm(&host, &rm_args("focus", None, false)).unwrap_err();
+    assert_eq!(error.kind, ErrorKind::Failed("no_data_dir"));
+    assert_eq!(names(&host).len(), 2);
+    let dir = with_data_dir(&mut host);
+    rm(&host, &rm_args("focus", None, true)).unwrap();
+    assert_eq!(removal_files(&dir), 0);
 }
 
 #[test]

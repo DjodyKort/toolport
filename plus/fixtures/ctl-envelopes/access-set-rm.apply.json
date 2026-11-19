@@ -17,14 +17,14 @@
           }
         ],
         "summary": "Delete access set Empty",
-        "undo": "toolportctl access-set add Empty",
+        "undo": "toolportctl access-set add Empty --restore removed-6caacbaa1a48fed5",
         "warnings": []
       },
       "result": {
         "applied": true,
         "backups": [],
         "changed": ["registry"],
-        "undo": "toolportctl access-set add Empty"
+        "undo": "toolportctl access-set add Empty --restore removed-6caacbaa1a48fed5"
       }
     },
     "ok": true,

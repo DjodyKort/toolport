@@ -25,7 +25,7 @@
           }
         ],
         "summary": "Delete access set Bare",
-        "undo": "toolportctl access-set add Bare --server srv-alpha && toolportctl client scope claude-code Bare && toolportctl folder route add /work/proj Bare",
+        "undo": "toolportctl access-set add Bare --restore removed-9cb742d73c89fa49",
         "warnings": [
           "detached clients follow the default access, which may list more servers"
         ]
@@ -34,7 +34,7 @@
         "applied": true,
         "backups": [],
         "changed": ["registry"],
-        "undo": "toolportctl access-set add Bare --server srv-alpha && toolportctl client scope claude-code Bare && toolportctl folder route add /work/proj Bare"
+        "undo": "toolportctl access-set add Bare --restore removed-9cb742d73c89fa49"
       }
     },
     "ok": true,

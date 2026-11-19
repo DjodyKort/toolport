@@ -17,7 +17,7 @@
           }
         ],
         "summary": "Delete access set Bare",
-        "undo": "toolportctl access-set add Bare --server srv-alpha && toolportctl client scope claude-code Bare && toolportctl folder route add /work/proj Bare",
+        "undo": "toolportctl access-set add Bare --restore removed-e6e4bd62cf277ccf",
         "warnings": [
           "client claude-code keeps naming Bare and reaches nothing until it is bound again",
           "folder /work/proj keeps naming Bare and reaches nothing until it is bound again"

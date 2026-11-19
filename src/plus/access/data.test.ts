@@ -79,6 +79,31 @@ describe("the access fixture answers in the shape of the Rust goldens", () => {
     });
   }
 
+  it("test_a_deleted_set_comes_back_with_the_answers_of_the_golden_restore", () => {
+    const fixture = world();
+    const removed = fixture.run(["access-set", "rm", "bare", "--detach"]);
+    const token = (removed.data as { result: { undo: string } }).result.undo
+      .split(" ")
+      .pop()!;
+    expect(token).toMatch(/^removed-[0-9a-f]{16}$/);
+    for (const [name, argv] of [
+      [
+        "access-set-rm.restore-plan",
+        ["access-set", "add", "--restore", token, "--dry-run"],
+      ],
+      ["access-set-rm.restore", ["access-set", "add", "Bare", "--restore", token]],
+    ] as const) {
+      const expected = golden(name).envelope;
+      const reply = fixture.run([...argv]);
+      expect(reply.ok, name).toBe(true);
+      expect(keys(reply.data), name).toEqual(keys(expected.data));
+    }
+    const gone = fixture.run(["access-set", "add", "--restore", token]);
+    expect(gone.error?.code).toBe(
+      golden("access-set-rm.restore-gone").envelope.error?.code,
+    );
+  });
+
   it("test_every_golden_of_the_writers_is_known_to_this_file", () => {
     const names = readdirSync(join(root, "ctl-envelopes")).filter((file) =>
       /^(access-set|client-scope|folder-route)-/.test(file),

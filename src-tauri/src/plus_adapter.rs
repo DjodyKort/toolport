@@ -219,6 +219,13 @@ macro_rules! registry_view {
             fn scope_reach(&self) -> Vec<ScopeReach> {
                 view_scope_reach(self.$registry())
             }
+            fn access_set_record(&self, access_set_id: &str) -> Option<serde_json::Value> {
+                self.$registry()
+                    .profiles
+                    .iter()
+                    .find(|profile| profile.id == access_set_id)
+                    .and_then(|profile| serde_json::to_value(profile).ok())
+            }
             fn folder_route_for(&self, root: &str) -> Option<ScopeReach> {
                 view_folder_route_for(self.$registry(), root)
             }
@@ -347,6 +354,25 @@ impl RegistryTx for TxView<'_> {
 
     fn delete_access_set(&mut self, access_set_id: &str) -> Result<(), String> {
         crate::registry_controller::apply_delete_profile(self.0, access_set_id)
+    }
+
+    fn restore_access_set(&mut self, record: serde_json::Value) -> Result<String, String> {
+        let profile: crate::registry::Profile = serde_json::from_value(record)
+            .map_err(|error| format!("the saved access set cannot be read: {error}"))?;
+        if self
+            .0
+            .profiles
+            .iter()
+            .any(|other| other.id == profile.id || other.name.eq_ignore_ascii_case(&profile.name))
+        {
+            return Err(format!(
+                "an access set called {} exists already",
+                profile.name
+            ));
+        }
+        let id = profile.id.clone();
+        self.0.profiles.push(profile);
+        Ok(id)
     }
 
     fn set_default_access(&mut self, access_set_id: Option<&str>) -> Result<(), String> {
@@ -3835,6 +3861,66 @@ mod tests {
             .transact(&mut |tx| tx.set_access_tools("nope", "probe", None))
             .unwrap_err();
         assert!(error.contains("No profile"), "{error}");
+    }
+
+    #[test]
+    fn test06b_a_deleted_set_comes_back_whole_with_tool_lists_instructions_and_unknown_fields() {
+        let scratch = access_scratch("access-restore");
+        let before = scratch.raw_registry();
+        let mut record = None;
+        HostAdapter
+            .transact(&mut |tx| {
+                let id = tx.create_access_set("Deep")?;
+                tx.set_access_tools(&id, "a", Some(vec!["read".into()]))?;
+                Ok(())
+            })
+            .unwrap();
+        let raw = scratch.raw_registry();
+        let mut profile = raw["profiles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == "Deep")
+            .unwrap()
+            .clone();
+        profile["instructions"] = json!("Keep answers short");
+        profile["futureField"] = json!({"kept": true});
+        let mut doc = raw.clone();
+        for p in doc["profiles"].as_array_mut().unwrap() {
+            if p["name"] == "Deep" {
+                *p = profile.clone();
+            }
+        }
+        scratch.write_registry(&doc.to_string());
+        HostAdapter
+            .transact(&mut |tx| {
+                record = tx.access_set_record(profile["id"].as_str().unwrap());
+                let id = profile["id"].as_str().unwrap().to_string();
+                tx.delete_access_set(&id)
+            })
+            .unwrap();
+        let record = record.unwrap();
+        assert_eq!(record, profile, "the record is the stored profile, whole");
+        assert!(scratch.raw_registry()["profiles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|p| p["name"] != "Deep"));
+        HostAdapter
+            .transact(&mut |tx| tx.restore_access_set(record.clone()).map(|_| ()))
+            .unwrap();
+        let restored = scratch.raw_registry()["profiles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == "Deep")
+            .cloned()
+            .unwrap();
+        assert_eq!(restored, profile);
+        let again =
+            HostAdapter.transact(&mut |tx| tx.restore_access_set(record.clone()).map(|_| ()));
+        assert!(again.unwrap_err().contains("exists already"));
+        assert_ne!(before["profiles"], scratch.raw_registry()["profiles"]);
     }
 
     #[test]

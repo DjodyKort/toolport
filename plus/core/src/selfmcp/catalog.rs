@@ -1531,10 +1531,11 @@ pub const TOOLS: &[ToolDef] = &[
         "access_set_add",
         3,
         UnlessDryRun,
-        "Create an access set and list servers in it. dry_run is on by default and returns the plan with the command that undoes it (apply with dry_run=false and confirm=true)",
+        "Create an access set and list servers in it, or bring a deleted one back with restore. dry_run is on by default and returns the plan with the command that undoes it (apply with dry_run=false and confirm=true)",
         [
-            p("name", Ty::Str, true, "Name of the new set; not starting with @"),
+            p("name", Ty::Str, false, "Name of the new set; not starting with @. Required unless restore is given"),
             p("servers", Ty::StrList, false, "Servers to list in it, by id or name"),
+            p("restore", Ty::Str, false, "Removal id from the undo line of access_set_rm: restores that set as it was, with its tool lists, instructions and detached bindings"),
             DRY_ON
         ],
         access::set_add

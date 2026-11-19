@@ -1,0 +1,62 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "restore": "removed-7c6d9bac2de5a6de"
+  },
+  "isError": false,
+  "result": {
+    "accessSet": {
+      "clients": [],
+      "default": false,
+      "folders": ["/work/proj"],
+      "id": "wide",
+      "name": "Wide",
+      "reached": 2,
+      "servers": [
+        {
+          "id": "srv-alpha",
+          "name": "alpha"
+        },
+        {
+          "id": "srv-beta",
+          "name": "beta"
+        }
+      ]
+    },
+    "dryRun": false,
+    "name": "Wide",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "restore the access set Wide",
+          "op": "registry"
+        },
+        {
+          "detail": "list alpha in Wide",
+          "op": "registry"
+        },
+        {
+          "detail": "list beta in Wide",
+          "op": "registry"
+        },
+        {
+          "detail": "route folder /work/proj to Wide again",
+          "op": "registry"
+        }
+      ],
+      "summary": "Restore access set Wide",
+      "undo": "toolportctl access-set rm Wide --detach",
+      "warnings": []
+    },
+    "restored": "removed-7c6d9bac2de5a6de",
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": ["registry"],
+      "undo": "toolportctl access-set rm Wide --detach"
+    }
+  },
+  "tool": "access_set_add"
+}

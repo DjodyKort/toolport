@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "restore": "removed-7c6d9bac2de5a6de"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no removed access set removed-7c6d9bac2de5a6de; it was restored already or its record is gone"
+    }
+  },
+  "text": "not_found: no removed access set removed-7c6d9bac2de5a6de; it was restored already or its record is gone",
+  "tool": "access_set_add"
+}

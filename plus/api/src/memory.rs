@@ -42,6 +42,8 @@ pub struct MemoryRegistry {
     pub client_discovery: RefCell<BTreeMap<String, String>>,
     /// Narrowed tools per access set id and server id.
     pub tool_scopes: RefCell<BTreeMap<String, BTreeMap<String, Vec<String>>>>,
+    /// Instructions per access set id.
+    pub instructions: RefCell<BTreeMap<String, String>>,
     /// Where `registry_path` points; the data dir of tests that write files next to it.
     pub path: Option<PathBuf>,
 }
@@ -57,6 +59,7 @@ pub struct MemoryState {
     pub folder_routes: Vec<(String, String)>,
     pub client_discovery: BTreeMap<String, String>,
     pub tool_scopes: BTreeMap<String, BTreeMap<String, Vec<String>>>,
+    pub instructions: BTreeMap<String, String>,
     pub unknown_fields: Map<String, Value>,
 }
 
@@ -103,6 +106,29 @@ impl RegistryView for MemoryState {
                 .map(|(path, reference)| self.reach_of(ScopeKind::Folder, path, reference)),
         );
         scopes
+    }
+
+    fn access_set_record(&self, access_set_id: &str) -> Option<Value> {
+        let set = self
+            .access_sets
+            .iter()
+            .find(|set| set.id == access_set_id)?;
+        let mut record = serde_json::json!({
+            "id": set.id,
+            "name": set.name,
+            "enabledServerIds": set.server_ids,
+        });
+        if let Some(scope) = self
+            .tool_scopes
+            .get(&set.id)
+            .filter(|scope| !scope.is_empty())
+        {
+            record["toolScope"] = serde_json::json!(scope);
+        }
+        if let Some(text) = self.instructions.get(&set.id) {
+            record["instructions"] = Value::from(text.as_str());
+        }
+        Some(record)
     }
 
     fn folder_route_for(&self, root: &str) -> Option<ScopeReach> {
@@ -329,6 +355,46 @@ impl RegistryTx for MemoryState {
         Ok(id)
     }
 
+    fn restore_access_set(&mut self, record: Value) -> Result<String, String> {
+        let text = |key: &str| record[key].as_str().map(String::from);
+        let (Some(id), Some(name)) = (text("id"), text("name")) else {
+            return Err("the saved access set has no id or name".into());
+        };
+        if self
+            .access_sets
+            .iter()
+            .any(|set| set.id == id || set.name.eq_ignore_ascii_case(&name))
+        {
+            return Err(format!("an access set called {name} exists already"));
+        }
+        let strings = |value: &Value| -> Vec<String> {
+            value
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|item| item.as_str().map(String::from))
+                .collect()
+        };
+        self.access_sets.push(AccessSetInfo {
+            id: id.clone(),
+            name,
+            server_ids: strings(&record["enabledServerIds"]),
+        });
+        if let Some(scope) = record["toolScope"].as_object() {
+            self.tool_scopes.insert(
+                id.clone(),
+                scope
+                    .iter()
+                    .map(|(server, tools)| (server.clone(), strings(tools)))
+                    .collect(),
+            );
+        }
+        if let Some(text) = text("instructions") {
+            self.instructions.insert(id.clone(), text);
+        }
+        Ok(id)
+    }
+
     fn delete_access_set(&mut self, access_set_id: &str) -> Result<(), String> {
         if self.default_access.as_deref() == Some(access_set_id) {
             return Err("Cannot remove the default access set or its policy context".into());
@@ -342,6 +408,7 @@ impl RegistryTx for MemoryState {
             return Err(format!("No profile with id '{access_set_id}'"));
         }
         self.tool_scopes.remove(access_set_id);
+        self.instructions.remove(access_set_id);
         Ok(())
     }
 
@@ -627,6 +694,7 @@ impl MemoryRegistry {
             folder_routes: self.folder_routes.borrow().clone(),
             client_discovery: self.client_discovery.borrow().clone(),
             tool_scopes: self.tool_scopes.borrow().clone(),
+            instructions: self.instructions.borrow().clone(),
             unknown_fields: self.unknown_fields.borrow().clone(),
         }
     }
@@ -690,6 +758,7 @@ impl RegistryAccess for MemoryRegistry {
         *self.folder_routes.borrow_mut() = state.folder_routes;
         *self.client_discovery.borrow_mut() = state.client_discovery;
         *self.tool_scopes.borrow_mut() = state.tool_scopes;
+        *self.instructions.borrow_mut() = state.instructions;
         *self.unknown_fields.borrow_mut() = state.unknown_fields;
         Ok(())
     }

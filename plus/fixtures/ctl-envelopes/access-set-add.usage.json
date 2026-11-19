@@ -4,7 +4,7 @@
     "command": "access-set add",
     "error": {
       "code": "usage",
-      "message": "usage: access-set add <name> [--server <id|name>]... [--dry-run]"
+      "message": "usage: access-set add <name> [--server <id|name>]... [--dry-run]\n       access-set add [<name>] --restore <removal id> [--dry-run]"
     },
     "ok": false,
     "schemaVersion": 1

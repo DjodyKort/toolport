@@ -36,11 +36,17 @@ pub(super) fn set_ls(host: &dyn Host, _args: &Value) -> Result<Value, ToolError>
 
 pub(super) fn set_add(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
     let servers = nonempty_strings(args, "servers").unwrap_or_default();
+    let restore = str_trimmed(args, "restore");
+    let name = match restore {
+        Some(_) => str_trimmed(args, "name").unwrap_or_default(),
+        None => required(args, "name")?,
+    };
     Ok(access::add(
         host,
         &AddArgs {
-            name: required(args, "name")?,
+            name,
             servers: &servers,
+            restore,
             dry_run: flag_or(args, "dry_run", true),
         },
     )?)

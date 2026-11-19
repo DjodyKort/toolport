@@ -25,14 +25,14 @@
         }
       ],
       "summary": "Delete access set Wide",
-      "undo": "toolportctl access-set add Wide --server srv-alpha --server srv-beta && toolportctl folder route add /work/proj Wide",
+      "undo": "toolportctl access-set add Wide --restore removed-7c6d9bac2de5a6de",
       "warnings": []
     },
     "result": {
       "applied": true,
       "backups": [],
       "changed": ["registry"],
-      "undo": "toolportctl access-set add Wide --server srv-alpha --server srv-beta && toolportctl folder route add /work/proj Wide"
+      "undo": "toolportctl access-set add Wide --restore removed-7c6d9bac2de5a6de"
     }
   },
   "tool": "access_set_rm"

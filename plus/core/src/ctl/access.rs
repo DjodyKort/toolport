@@ -10,7 +10,7 @@ use super::flags::{switch, value, Inline, Operands, Spec, Unknown};
 use super::output::{no_args, CtlError, Output};
 use crate::access::{self, AddArgs, Change, Orphans, RmArgs, ToolChange, ToolsArgs};
 
-const ADD_USAGE: &str = "usage: access-set add <name> [--server <id|name>]... [--dry-run]";
+const ADD_USAGE: &str = "usage: access-set add <name> [--server <id|name>]... [--dry-run]\n       access-set add [<name>] --restore <removal id> [--dry-run]";
 const RM_USAGE: &str = "usage: access-set rm <set> [--detach | --leave] [--dry-run]";
 const DEFAULT_USAGE: &str = "usage: access-set default (<set> | --none) [--dry-run]";
 const TOOLS_USAGE: &str = "usage: access-set tools [<set>] | <set> <server> (--tool <name>... | --all | --none) [--dry-run]";
@@ -29,7 +29,7 @@ const fn spec(flags: &'static [super::flags::Flag], operands: Operands) -> Spec 
 }
 
 pub(super) const ADD: Spec = spec(
-    &[value("--server"), switch("--dry-run")],
+    &[value("--server"), value("--restore"), switch("--dry-run")],
     Operands::Max(1, ADD_USAGE),
 );
 pub(super) const RM: Spec = spec(
@@ -114,11 +114,17 @@ pub fn set_ls(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
 pub fn set_add(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = ADD.parse(rest)?;
     let servers = flags.all("--server");
+    let restore = flags.one("--restore");
+    let name = match (flags.operands(), restore) {
+        ([], Some(_)) => "",
+        _ => flags.single(ADD_USAGE)?,
+    };
     let data = access::add(
         host,
         &AddArgs {
-            name: flags.single(ADD_USAGE)?,
+            name,
             servers: &servers,
+            restore,
             dry_run: flags.on("--dry-run"),
         },
     )?;

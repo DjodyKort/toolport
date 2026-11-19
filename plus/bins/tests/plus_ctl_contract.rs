@@ -198,6 +198,17 @@ fn bare_in_use(world: &World) {
     world.write_registry(&registry);
 }
 
+fn bare_carries_tool_lists_and_instructions(world: &World) {
+    let mut registry = world.registry();
+    for profile in registry["profiles"].as_array_mut().unwrap() {
+        if profile["id"] == "bare" {
+            profile["toolScope"] = json!({"srv-alpha": ["read", "list"]});
+            profile["instructions"] = json!("Keep answers short");
+        }
+    }
+    world.write_registry(&registry);
+}
+
 fn a_route_to_a_deleted_set(world: &World) {
     let mut registry = world.registry();
     registry["folderProfiles"] = json!([
@@ -1250,6 +1261,7 @@ const CASES: &[Case] = &[
         &[
             hook("sets", launch_profile_sets),
             hook("bare-in-use", bare_in_use),
+            hook("bare-carries", bare_carries_tool_lists_and_instructions),
             read("in-use", &["access-set", "rm", "bare", "--dry-run"]).exit(1),
             read(
                 "detach-plan",
@@ -1260,6 +1272,31 @@ const CASES: &[Case] = &[
                 &["access-set", "rm", "bare", "--leave", "--dry-run"],
             ),
             apply("detach", &["access-set", "rm", "bare", "--detach"]),
+            read(
+                "restore-plan",
+                &[
+                    "access-set",
+                    "add",
+                    "--restore",
+                    "removed-9cb742d73c89fa49",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "restore",
+                &[
+                    "access-set",
+                    "add",
+                    "Bare",
+                    "--restore",
+                    "removed-9cb742d73c89fa49",
+                ],
+            ),
+            read(
+                "restore-gone",
+                &["access-set", "add", "--restore", "removed-9cb742d73c89fa49"],
+            )
+            .exit(1),
             read("default", &["access-set", "rm", "default", "--dry-run"]).exit(1),
             read(
                 "both-flags",

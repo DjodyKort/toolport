@@ -4,7 +4,7 @@
     "command": "access-set rm",
     "error": {
       "code": "not_found",
-      "message": "no access set called empty; the access sets are: Default, Wide"
+      "message": "no access set called empty; the access sets are: Default, Wide, Bare"
     },
     "ok": false,
     "schemaVersion": 1

@@ -7,6 +7,7 @@
 //! with no explicit default set, the default is every enabled server.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::fork_data::{DirectEntry, SelfMcpRecord};
 use crate::{CatalogEntryRecord, EnvEntry, ServerRecord, ServerSpec};
@@ -51,6 +52,10 @@ pub trait RegistryView {
     /// never consulted, so a symlinked spelling of a mapped folder matches nothing. `None` when no
     /// mapping covers the root.
     fn folder_route_for(&self, root: &str) -> Option<ScopeReach>;
+
+    /// One access set as the registry file stores it: id, name, servers, per-server tool lists,
+    /// instructions and the fields this build does not know. `None` when no set has the id.
+    fn access_set_record(&self, access_set_id: &str) -> Option<Value>;
 
     /// What `plus.directEntries` records: client id, then entry name.
     fn direct_entries(&self) -> Result<DirectEntries, String>;
@@ -125,6 +130,10 @@ pub trait RegistryTx: RegistryView {
     /// Deletes a set through upstream's own removal, which refuses the default access and the
     /// last set. Clients and folders that still name it are left dangling and reach nothing.
     fn delete_access_set(&mut self, access_set_id: &str) -> Result<(), String>;
+
+    /// Puts a set back exactly as [`RegistryView::access_set_record`] returned it, keeping its id.
+    /// Refused when a set with that id or name exists. Returns the id.
+    fn restore_access_set(&mut self, record: Value) -> Result<String, String>;
 
     /// Makes a set the explicit default access; `None` returns to "every enabled server".
     fn set_default_access(&mut self, access_set_id: Option<&str>) -> Result<(), String>;

@@ -1,0 +1,47 @@
+{
+  "argv": ["access-set", "add", "--restore", "removed-9cb742d73c89fa49", "--dry-run"],
+  "envelope": {
+    "command": "access-set add",
+    "data": {
+      "dryRun": true,
+      "name": "Bare",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "restore the access set Bare",
+            "op": "registry"
+          },
+          {
+            "detail": "list alpha in Bare",
+            "op": "registry"
+          },
+          {
+            "detail": "expose 2 tool(s) of alpha in Bare, as before",
+            "op": "registry"
+          },
+          {
+            "detail": "restore the instructions of Bare",
+            "op": "registry"
+          },
+          {
+            "detail": "bind client claude-code to Bare again",
+            "op": "registry"
+          },
+          {
+            "detail": "route folder /work/proj to Bare again",
+            "op": "registry"
+          }
+        ],
+        "summary": "Restore access set Bare",
+        "undo": "toolportctl access-set rm Bare --detach",
+        "warnings": []
+      },
+      "restored": "removed-9cb742d73c89fa49",
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

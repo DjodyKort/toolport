@@ -412,6 +412,7 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("client direct ls", m("--client", Str, "Only this client")),
     ("client direct check", m("--client", Str, "Only this client")),
     ("access-set add", m("--server", Str, "List this server in the new set, by id or name; repeat for several")),
+    ("access-set add", m("--restore", Str, "Bring back a deleted set with its tool lists, instructions and detached bindings; the id is in the undo line of access-set rm")),
     ("access-set add", m("--dry-run", Bool, "Show the plan and change nothing")),
     ("access-set rm", m("--detach", Bool, "Unbind the clients and folder routes that name the set first; clients follow the default access")),
     ("access-set rm", m("--leave", Bool, "Delete the set only; the clients and folders that name it reach nothing until bound again")),

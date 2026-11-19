@@ -3443,15 +3443,15 @@
           "tier": 1
         },
         {
-          "description": "Create an access set and list servers in it. dry_run is on by default and returns the plan with the command that undoes it (apply with dry_run=false and confirm=true)",
+          "description": "Create an access set and list servers in it, or bring a deleted one back with restore. dry_run is on by default and returns the plan with the command that undoes it (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "access_set_add",
           "params": [
             {
-              "description": "Name of the new set; not starting with @",
+              "description": "Name of the new set; not starting with @. Required unless restore is given",
               "name": "name",
-              "required": true,
+              "required": false,
               "type": "string"
             },
             {
@@ -3459,6 +3459,12 @@
               "name": "servers",
               "required": false,
               "type": "string[]"
+            },
+            {
+              "description": "Removal id from the undo line of access_set_rm: restores that set as it was, with its tool lists, instructions and detached bindings",
+              "name": "restore",
+              "required": false,
+              "type": "string"
             },
             {
               "description": "Report without writing; true unless you pass false to apply",

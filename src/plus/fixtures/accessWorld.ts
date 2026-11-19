@@ -13,6 +13,17 @@ import type {
 export interface AccessWorldOptions {
   /** Narrowed tools: access set id, server id and the only tools it exposes. */
   narrowed?: Array<{ set: string; server: string; tools: string[] }>;
+  /** Instructions per access set id. */
+  instructions?: Record<string, string>;
+}
+
+/** What `access-set rm` keeps so that `access-set add --restore` can put the set back whole. */
+interface Removal {
+  set: WorldSet;
+  narrowed: Map<string, string[]>;
+  instructions: string | undefined;
+  clients: string[];
+  folders: string[];
 }
 
 const RULE =
@@ -61,6 +72,15 @@ export function createAccessWorld(
     narrowed.set(set, (narrowed.get(set) ?? new Map()).set(server, tools));
   }
   const discovery = new Map<string, string>();
+  const instructions = new Map<string, string>(
+    Object.entries(options.instructions ?? {}),
+  );
+  const removed = new Map<string, Removal>();
+  const tokenOf = (id: string) =>
+    `removed-${[...id]
+      .reduce((hash, c) => (hash * 31 + c.charCodeAt(0)) >>> 0, 7)
+      .toString(16)
+      .padStart(16, "0")}`;
   const sets = (): WorldSet[] => servers.sets;
   const find = (key: string) =>
     sets().find((s) => s.id === key.trim()) ??
@@ -73,7 +93,7 @@ export function createAccessWorld(
   const operands = (argv: string[], from: number) => {
     const out: string[] = [];
     for (let i = from; i < argv.length; i++) {
-      if (["--server", "--tool"].includes(argv[i])) i++;
+      if (["--server", "--tool", "--restore"].includes(argv[i])) i++;
       else if (!argv[i].startsWith("--")) out.push(argv[i]);
     }
     return out;
@@ -124,7 +144,94 @@ export function createAccessWorld(
     return { ok: true, data };
   }
 
+  function restore(token: string, given: string | undefined, dryRun: boolean): CtlReply {
+    const saved = removed.get(token);
+    if (!saved) {
+      return fail(
+        "not_found",
+        `no removed access set ${token}; it was restored already or its record is gone`,
+      );
+    }
+    const { set } = saved;
+    if (given && given.trim().toLowerCase() !== set.name.toLowerCase()) {
+      return fail(
+        "usage",
+        `${token} holds the access set ${set.name}, not ${given.trim()}`,
+      );
+    }
+    if (
+      sets().some(
+        (s) => s.id === set.id || s.name.toLowerCase() === set.name.toLowerCase(),
+      )
+    ) {
+      return fail("conflict", `an access set called ${set.name} exists already`);
+    }
+    const kept = set.serverIds.filter((id) => server(id));
+    const bindClients = saved.clients.filter(
+      (id) => !clients.find((c) => c.id === id)?.set,
+    );
+    const bindFolders = saved.folders.filter(
+      (path) => !folders.some((f) => f.path === path),
+    );
+    const bound = bindClients.length + bindFolders.length > 0;
+    return done(
+      dryRun,
+      {
+        summary: `Restore access set ${set.name}`,
+        steps: [
+          `restore the access set ${set.name}`,
+          ...kept.map((id) => `list ${nameOf(id)} in ${set.name}`),
+          ...[...saved.narrowed].map(
+            ([id, tools]) =>
+              `expose ${tools.length} tool(s) of ${nameOf(id)} in ${set.name}, as before`,
+          ),
+          ...(saved.instructions === undefined
+            ? []
+            : [`restore the instructions of ${set.name}`]),
+          ...bindClients.map((id) => `bind client ${id} to ${set.name} again`),
+          ...bindFolders.map((path) => `route folder ${path} to ${set.name} again`),
+        ],
+        warnings: [
+          ...saved.clients
+            .filter((id) => !bindClients.includes(id))
+            .map(
+              (id) => `client ${id} was bound to another set since; it is left as it is`,
+            ),
+          ...saved.folders
+            .filter((path) => !bindFolders.includes(path))
+            .map(
+              (path) =>
+                `folder ${path} was routed to another set since; it is left as it is`,
+            ),
+        ],
+        undo: `toolportctl access-set rm ${quote(set.name)}${bound ? " --detach" : ""}`,
+      },
+      true,
+      () => {
+        sets().push({ ...set, serverIds: kept });
+        if (saved.narrowed.size > 0) narrowed.set(set.id, new Map(saved.narrowed));
+        if (saved.instructions !== undefined)
+          instructions.set(set.id, saved.instructions);
+        for (const id of bindClients) {
+          const client = clients.find((c) => c.id === id);
+          if (client) client.set = set.id;
+        }
+        for (const path of bindFolders) folders.push({ path, set: set.id });
+        removed.delete(token);
+      },
+      {
+        name: set.name,
+        restored: token,
+        ...(dryRun ? {} : { accessSet: { ...row({ ...set, serverIds: kept }) } }),
+      },
+    );
+  }
+
   function setAdd(argv: string[], dryRun: boolean): CtlReply {
+    const token = argv.includes("--restore")
+      ? argv[argv.indexOf("--restore") + 1]
+      : undefined;
+    if (token) return restore(token, operands(argv, 2)[0], dryRun);
     const name = (operands(argv, 2)[0] ?? "").trim();
     if (name === "") return fail("usage", "give the access set a name");
     if (name.startsWith("@"))
@@ -205,16 +312,8 @@ export function createAccessWorld(
         { clients: users.clients, folders: users.folders },
       );
     }
-    const restore = [
-      `toolportctl access-set add ${quote(set.name)}${set.serverIds.map((id) => ` --server ${quote(id)}`).join("")}`,
-      ...users.clients.map(
-        (c) => `toolportctl client scope ${quote(c)} ${quote(set.name)}`,
-      ),
-      ...users.folders.map(
-        (f) => `toolportctl folder route add ${quote(f)} ${quote(set.name)}`,
-      ),
-      ...(users.default ? [`toolportctl access-set default ${quote(set.name)}`] : []),
-    ].join(" && ");
+    const token = tokenOf(set.id);
+    const undo = `toolportctl access-set add ${quote(set.name)} --restore ${token}`;
     return done(
       dryRun,
       {
@@ -240,10 +339,19 @@ export function createAccessWorld(
                   `folder ${f} keeps naming ${set.name} and reaches nothing until it is bound again`,
               ),
             ],
-        undo: restore,
+        undo,
       },
       true,
       () => {
+        removed.set(token, {
+          set: { ...set, serverIds: [...set.serverIds] },
+          narrowed: new Map(narrowed.get(set.id) ?? []),
+          instructions: instructions.get(set.id),
+          clients: detach ? users.clients : [],
+          folders: detach ? users.folders : [],
+        });
+        narrowed.delete(set.id);
+        instructions.delete(set.id);
         if (detach) {
           for (const c of clients) if (c.set === set.id) c.set = undefined;
           for (let i = folders.length - 1; i >= 0; i--)
@@ -292,20 +400,24 @@ export function createAccessWorld(
 
   function setTools(argv: string[], dryRun: boolean): CtlReply {
     const [setKey, serverKey] = operands(argv, 2);
-    if (!setKey) {
+    if (!setKey || !serverKey) {
+      const only = setKey ? find(setKey) : undefined;
+      if (setKey && !only) return fail("not_found", `no access set called ${setKey}`);
       const data: ToolsData = {
         rule: TOOLS_RULE,
-        accessSets: sets().map((s) => ({
-          id: s.id,
-          name: s.name,
-          narrowed: [...(narrowed.get(s.id) ?? new Map<string, string[]>())].map(
-            ([id, tools]) => ({
-              server: { id, name: nameOf(id) },
-              listed: s.serverIds.includes(id),
-              tools,
-            }),
-          ),
-        })),
+        accessSets: sets()
+          .filter((s) => !only || s.id === only.id)
+          .map((s) => ({
+            id: s.id,
+            name: s.name,
+            narrowed: [...(narrowed.get(s.id) ?? new Map<string, string[]>())].map(
+              ([id, tools]) => ({
+                server: { id, name: nameOf(id) },
+                listed: s.serverIds.includes(id),
+                tools,
+              }),
+            ),
+          })),
       };
       return { ok: true, data };
     }
@@ -508,6 +620,7 @@ export function createAccessWorld(
 
   return {
     discovery,
+    instructions,
     run(argv: string[]): CtlReply {
       const dryRun = argv.includes("--dry-run");
       if (argv[0] === "access-set") {

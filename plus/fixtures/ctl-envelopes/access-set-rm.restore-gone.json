@@ -1,0 +1,13 @@
+{
+  "argv": ["access-set", "add", "--restore", "removed-9cb742d73c89fa49"],
+  "envelope": {
+    "command": "access-set add",
+    "error": {
+      "code": "not_found",
+      "message": "no removed access set removed-9cb742d73c89fa49; it was restored already or its record is gone"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -11,8 +11,10 @@ use crate::context::plan::{Effects, PlanV1, ResultV1, Step};
 use crate::op::OpError;
 use crate::servers;
 
+mod removed;
 mod tools;
 
+pub use removed::restore;
 pub use tools::{tools_ls, tools_set, ToolChange, ToolsArgs};
 
 const BINDING_RULE: &str = "A folder route outranks a client's own access set: inside a routed folder the gateway uses the folder's set for every client.";
@@ -33,8 +35,11 @@ pub enum Change<'a> {
 }
 
 pub struct AddArgs<'a> {
+    /// Empty with `restore`: the restored set keeps its own name.
     pub name: &'a str,
     pub servers: &'a [String],
+    /// The id of a removed set (`access-set rm` prints it in its undo line).
+    pub restore: Option<&'a str>,
     pub dry_run: bool,
 }
 
@@ -198,6 +203,15 @@ pub fn ls(host: &dyn Host) -> Result<Value, OpError> {
 }
 
 pub fn add(host: &dyn Host, args: &AddArgs) -> Result<Value, OpError> {
+    if let Some(token) = args.restore {
+        if !args.servers.is_empty() {
+            return Err(OpError::usage(
+                "--restore brings the set back as it was; it takes no --server",
+            ));
+        }
+        let name = Some(args.name.trim()).filter(|name| !name.is_empty());
+        return restore(host, name, token, args.dry_run);
+    }
     let name = args.name.trim();
     if name.is_empty() {
         return Err(OpError::usage("give the access set a name"));
@@ -278,35 +292,6 @@ fn view_set(host: &dyn Host, id: &str) -> Result<Value, OpError> {
         .map_or(Value::Null, |set| set_row(set, view.as_ref(), &scopes)))
 }
 
-fn restore_command(set: &AccessSetInfo, view: &dyn RegistryView, users: &[&ScopeReach]) -> String {
-    let mut add = format!("toolportctl access-set add {}", quote(&set.name));
-    for id in &set.server_ids {
-        add.push_str(&format!(" --server {}", quote(id)));
-    }
-    let mut commands = vec![add];
-    for scope in users {
-        commands.push(match scope.kind {
-            ScopeKind::Client => format!(
-                "toolportctl client scope {} {}",
-                quote(&scope.key),
-                quote(&set.name)
-            ),
-            _ => format!(
-                "toolportctl folder route add {} {}",
-                quote(&scope.key),
-                quote(&set.name)
-            ),
-        });
-    }
-    if view.default_access().as_deref() == Some(set.id.as_str()) {
-        commands.push(format!(
-            "toolportctl access-set default {}",
-            quote(&set.name)
-        ));
-    }
-    commands.join(" && ")
-}
-
 pub fn rm(host: &dyn Host, args: &RmArgs) -> Result<Value, OpError> {
     let view = view(host)?;
     let sets = view.access_sets();
@@ -368,12 +353,17 @@ pub fn rm(host: &dyn Host, args: &RmArgs) -> Result<Value, OpError> {
             &client.key["claude-code-".len()..]
         ));
     }
+    let detached: Vec<&ScopeReach> = if detach { users.clone() } else { Vec::new() };
+    let removal = removed::Removal::of(view.as_ref(), &set, &detached);
     let change = Draft {
         summary: format!("Delete access set {}", set.name),
         steps,
         warnings,
-        undo: restore_command(&set, view.as_ref(), &users),
+        undo: removal.undo(&set.name),
     };
+    if !args.dry_run {
+        removal.save(host)?;
+    }
     let (id, client_keys, folder_keys) = (
         set.id.clone(),
         clients.iter().map(|s| s.key.clone()).collect::<Vec<_>>(),
