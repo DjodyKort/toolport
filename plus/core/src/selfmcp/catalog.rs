@@ -1371,6 +1371,33 @@ pub const TOOLS: &[ToolDef] = &[
         context::status
     ),
     tool!(
+        "context_bundle_show",
+        1,
+        None,
+        "Show one context bundle: what it hides and adds, the servers and folders it binds, the yaml, lint issues and the folders it is applied in",
+        [p("name", Ty::Str, true, "The bundle's name (profiles/<name>.yaml)")],
+        context::bundle_show
+    ),
+    tool!(
+        "context_bundle_config",
+        3,
+        UnlessDryRun,
+        "Read the context bundle settings, or with auto_apply set them: on lets context_sync (and a scheduled sync) apply the bundles bound to folders without anyone asking, off keeps that for a person. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("auto_apply", Ty::Str, false, "on or off; leave out to read the current setting"),
+            DRY_ON
+        ],
+        context::bundle_config
+    ),
+    tool!(
+        "context_sync",
+        3,
+        UnlessDryRun,
+        "Bring the generated context files up to date: apply the bundles bound to folders when auto_apply is on, and regenerate launch profile files and direct client entries that drifted. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [DRY_ON],
+        context::sync
+    ),
+    tool!(
         "context_bundle_apply",
         2,
         None,

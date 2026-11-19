@@ -1,0 +1,9 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "autoApply": false,
+    "file": "<WORLD>/home/.config/mcpm/context.json"
+  },
+  "tool": "context_bundle_config"
+}

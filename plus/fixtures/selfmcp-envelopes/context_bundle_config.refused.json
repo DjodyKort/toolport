@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "auto_apply": "on",
+    "dry_run": false
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: context_bundle_config (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: context_bundle_config (tier 3). Pass confirm=true to proceed.",
+  "tool": "context_bundle_config"
+}

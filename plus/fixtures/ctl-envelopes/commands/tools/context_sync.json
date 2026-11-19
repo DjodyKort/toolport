@@ -1,0 +1,7 @@
+{
+  "command": "context sync",
+  "dryRun": "default-on",
+  "name": "context_sync",
+  "tier": "write",
+  "toolTier": 3
+}

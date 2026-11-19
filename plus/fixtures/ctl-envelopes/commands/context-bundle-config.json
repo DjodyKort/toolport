@@ -33,5 +33,5 @@
   "summary": "Show or set whether context sync applies bound bundles (--auto-apply on|off)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["context_bundle_config"]
 }

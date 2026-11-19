@@ -27,5 +27,5 @@
   "summary": "Show one bundle's definition and lint (<name>)",
   "surface": "screen",
   "tier": "read",
-  "tools": []
+  "tools": ["context_bundle_show"]
 }

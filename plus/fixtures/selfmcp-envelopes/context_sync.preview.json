@@ -1,0 +1,22 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "autoApply": false,
+    "bundles": null,
+    "deploy": {
+      "built": false,
+      "note": "rule layers and shims are not part of this build yet"
+    },
+    "directEntries": {
+      "rows": [],
+      "upToDate": 0
+    },
+    "dryRun": true,
+    "launchProfiles": {
+      "rows": [],
+      "upToDate": 0
+    }
+  },
+  "tool": "context_sync"
+}

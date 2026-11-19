@@ -3089,6 +3089,69 @@
           "tier": 1
         },
         {
+          "description": "Show one context bundle: what it hides and adds, the servers and folders it binds, the yaml, lint issues and the folders it is applied in",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "context_bundle_show",
+          "params": [
+            {
+              "description": "The bundle's name (profiles/<name>.yaml)",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Read the context bundle settings, or with auto_apply set them: on lets context_sync (and a scheduled sync) apply the bundles bound to folders without anyone asking, off keeps that for a person. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "context_bundle_config",
+          "params": [
+            {
+              "description": "on or off; leave out to read the current setting",
+              "name": "auto_apply",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Bring the generated context files up to date: apply the bundles bound to folders when auto_apply is on, and regenerate launch profile files and direct client entries that drifted. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "context_sync",
+          "params": [
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "Apply a context bundle in a folder: skill, plugin, agent and CLAUDE.md hiding goes into the folder's git-ignored .claude/settings.local.json and layers into one managed block of CLAUDE.local.md, with a ledger that undo restores from. Pass dry_run to see the plan and write nothing",
           "dryRunDefault": false,
           "gate": "none",

@@ -1,7 +1,8 @@
-//! `context_bundle_ls|status` (tier 1), `context_bundle_apply|undo` and `context_leave_out`
-//! (tier 2): the same operations as `toolportctl context`, over `crate::context::ops`. Calling a
-//! tier 2 tool is the approval; a model that wants the plan first passes `dry_run`, and
-//! `context_leave_out` previews unless told otherwise.
+//! `context_bundle_ls|show|status` (tier 1), `context_bundle_apply|undo` and `context_leave_out`
+//! (tier 2), `context_sync` and `context_bundle_config` (tier 3): the same operations as
+//! `toolportctl context`, over `crate::context::ops`. Calling a tier 2 tool is the approval; a
+//! model that wants the plan first passes `dry_run`, and the tier 3 tools and
+//! `context_leave_out` preview unless told otherwise.
 
 use serde_json::Value;
 use toolport_plus_api::Host;
@@ -112,4 +113,31 @@ pub(super) fn measure(host: &dyn Host, args: &Value) -> Result<Value, ToolError>
                 .map(String::from),
         },
     )?)
+}
+
+pub(super) fn bundle_show(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    Ok(api::show(host, required(args, "name")?)?)
+}
+
+pub(super) fn sync(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    Ok(api::sync(host, flag_or(args, "dry_run", true))?)
+}
+
+pub(super) fn bundle_config(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    let wanted = match str_arg(args, "auto_apply").map(str::trim) {
+        None => None,
+        Some("on") => Some(true),
+        Some("off") => Some(false),
+        Some(_) => return Err(invalid("auto_apply takes on or off")),
+    };
+    let mut current = api::config(host, None)?;
+    let Some(wanted) = wanted else {
+        return Ok(current);
+    };
+    if flag_or(args, "dry_run", true) {
+        current["dryRun"] = Value::Bool(true);
+        current["wouldSet"] = Value::Bool(wanted);
+        return Ok(current);
+    }
+    Ok(api::config(host, Some(wanted))?)
 }

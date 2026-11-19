@@ -1,0 +1,13 @@
+{
+  "arguments": {
+    "auto_apply": "on",
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "autoApply": true,
+    "file": "<WORLD>/home/.config/mcpm/context.json"
+  },
+  "tool": "context_bundle_config"
+}

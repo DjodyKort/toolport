@@ -1381,6 +1381,59 @@ const CASES: &[Case] = &[
         ],
     ),
     context_case(
+        "context_bundle_show",
+        &[
+            read("bundle", "context_bundle_show", r#"{"name":"acme-dev"}"#),
+            fails(
+                "missing",
+                "not_found",
+                "context_bundle_show",
+                r#"{"name":"nope"}"#,
+            ),
+            fails("no-name", "invalid_arguments", "context_bundle_show", "{}"),
+        ],
+    ),
+    context_case(
+        "context_bundle_config",
+        &[
+            read("current", "context_bundle_config", "{}"),
+            read("preview", "context_bundle_config", r#"{"auto_apply":"on"}"#),
+            refused(
+                "refused",
+                "context_bundle_config",
+                r#"{"auto_apply":"on","dry_run":false}"#,
+            ),
+            fails(
+                "bad_value",
+                "invalid_arguments",
+                "context_bundle_config",
+                r#"{"auto_apply":"yes"}"#,
+            ),
+            write(
+                "apply",
+                "context_bundle_config",
+                r#"{"auto_apply":"on","dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    context_case(
+        "context_sync",
+        &[
+            read("preview", "context_sync", "{}"),
+            refused("refused", "context_sync", UNCONFIRMED),
+            write("apply", "context_sync", APPLY),
+            setup(
+                "context_bundle_config",
+                r#"{"auto_apply":"on","dry_run":false,"confirm":true}"#,
+            ),
+            setup(
+                "context_bundle_apply",
+                r#"{"name":"acme-dev","cwd":"{home}/proj"}"#,
+            ),
+            read("with_bundles", "context_sync", "{}"),
+        ],
+    ),
+    context_case(
         "context_bundle_apply",
         &[
             read(

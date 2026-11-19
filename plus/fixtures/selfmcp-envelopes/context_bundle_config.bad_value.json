@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "auto_apply": "yes"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "auto_apply takes on or off"
+    }
+  },
+  "text": "invalid_arguments: auto_apply takes on or off",
+  "tool": "context_bundle_config"
+}

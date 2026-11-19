@@ -1,0 +1,5 @@
+{
+  "route": "context",
+  "action": "context.sync",
+  "surface": "screen"
+}
