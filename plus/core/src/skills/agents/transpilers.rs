@@ -144,7 +144,8 @@ impl AgentTranspiler for ClaudeCodeAgent {
     }
 
     fn get_output_path(&self, agent: &Agent, root: &Path) -> PathBuf {
-        root.join(".claude/agents")
+        crate::skills::transpiler::claude_folder(root)
+            .join("agents")
             .join(format!("{}.md", agent.name()))
     }
 }

@@ -1,6 +1,6 @@
 use super::api::{self, Args};
-use crate::fsx::{enter, Paths, PathsGuard};
-use serde_json::Value;
+use crate::fsx::{enter, enter_claude_dir, ClaudeDirGuard, Paths, PathsGuard};
+use serde_json::{json, Value};
 use std::fs;
 use std::path::PathBuf;
 use toolport_plus_api::memory::MemoryHost;
@@ -212,4 +212,126 @@ fn test07_a_step_that_cannot_write_is_named_and_the_rest_of_the_run_goes_on() {
     });
     assert!(retry["plan"]["failed"].as_array().unwrap().is_empty());
     assert!(w.home(AGENT_FILE).is_file());
+}
+
+/// A Claude folder moved by `CLAUDE_CONFIG_DIR`, with a decoy `~/.claude` that must stay as it is.
+struct Moved {
+    w: World,
+    profile: PathBuf,
+    _dir: ClaudeDirGuard,
+}
+
+impl Moved {
+    fn new(tag: &str) -> Self {
+        let w = World::new(tag);
+        let profile = w.base.join("profile");
+        fs::create_dir_all(&profile).unwrap();
+        fs::create_dir_all(w.home(".claude/agents")).unwrap();
+        fs::write(w.home(AGENT_FILE), "decoy scout\n").unwrap();
+        let guard = enter_claude_dir(&profile);
+        Self {
+            w,
+            profile,
+            _dir: guard,
+        }
+    }
+
+    fn decoy_intact(&self) {
+        assert_eq!(
+            fs::read_to_string(self.w.home(AGENT_FILE)).unwrap(),
+            "decoy scout\n"
+        );
+        assert!(!self.w.home(".claude/skills").exists());
+        assert!(!self.w.home(STYLE_FILE).exists());
+    }
+}
+
+#[test]
+fn test08_a_user_sync_writes_skills_agents_and_styles_into_the_config_dir() {
+    let m = Moved::new("moved-sync");
+    let data = m.w.sync(m.w.args());
+    assert!(m.profile.join("skills/nacht/SKILL.md").is_file());
+    assert!(m.profile.join("agents/scout.md").is_file());
+    assert!(m.profile.join("output-styles/plain.md").is_file());
+    assert_eq!(data["verify"]["clean"], true);
+    assert_eq!(data["verify"]["total"], 3);
+    m.decoy_intact();
+    assert_eq!(m.w.preview()["plan"]["counts"]["unchanged"], 3);
+    let status = api::status(&m.w.args()).unwrap();
+    assert_eq!(status["drift"], false);
+    fs::write(m.profile.join("output-styles/plain.md"), "changed\n").unwrap();
+    let verify = api::verify(&m.w.args()).unwrap();
+    assert_eq!(verify["mismatched"][0]["skill"], "plain");
+}
+
+#[test]
+fn test09_files_compare_undo_clean_and_uninstall_look_where_the_sync_wrote() {
+    let m = Moved::new("moved-look");
+    m.w.sync(m.w.args());
+    let args = Args {
+        name: "nacht".into(),
+        global: true,
+        ..m.w.args()
+    };
+    let files = super::files::skill_files(&args).unwrap();
+    let dir = files["installed"][0]["dir"].as_str().unwrap();
+    assert_eq!(
+        PathBuf::from(dir),
+        m.profile.join("skills/nacht"),
+        "{files}"
+    );
+    assert_eq!(files["installed"][0]["present"], true);
+    let compared = super::compare::compare(&args, Some("SKILL.md")).unwrap();
+    assert_eq!(compared["files"][0]["identical"], true, "{compared}");
+
+    let undone = api::undo(&m.w.args(), Some(&MemoryHost::default())).unwrap();
+    assert_eq!(undone["removed"], 3);
+    assert!(!m.profile.join("skills").exists());
+    assert!(!m.profile.join("agents").exists());
+    assert!(m.profile.is_dir());
+    m.decoy_intact();
+
+    m.w.sync(m.w.args());
+    let params = |extra: Value| {
+        let mut args = json!({"repo_path": m.w.repo()});
+        args.as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        args
+    };
+    let preview = super::state::clean(params(json!({"dry_run": true}))).unwrap();
+    assert!(preview["removed"].to_string().contains(
+        &m.profile
+            .join("skills/nacht/SKILL.md")
+            .to_string_lossy()
+            .to_string()
+    ));
+    let cleaned = super::state::clean(params(json!({}))).unwrap();
+    assert!(!cleaned["removed"].as_array().unwrap().is_empty());
+    assert!(!m.profile.join("skills/nacht").exists());
+    m.decoy_intact();
+
+    m.w.sync(m.w.args());
+    let uninstalled = super::state::uninstall_handler(params(json!({"name": "nacht"}))).unwrap();
+    assert!(uninstalled["outputs"].to_string().contains(
+        &m.profile
+            .join("skills/nacht/SKILL.md")
+            .to_string_lossy()
+            .to_string()
+    ));
+    assert!(!m.profile.join("skills/nacht").exists());
+    m.decoy_intact();
+}
+
+#[test]
+fn test10_a_project_sync_stays_in_the_project_even_with_a_config_dir() {
+    let m = Moved::new("moved-project");
+    m.w.sync(Args {
+        global: false,
+        ..m.w.args()
+    });
+    assert!(m.w.repo().join(".claude/skills/nacht/SKILL.md").is_file());
+    assert!(m.w.repo().join(".claude/agents/scout.md").is_file());
+    assert!(!m.profile.join("skills").exists());
+    m.decoy_intact();
 }

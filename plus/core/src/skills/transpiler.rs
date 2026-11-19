@@ -7,6 +7,15 @@ use toolport_plus_api::SettingsStore;
 pub const MCPM_BLOCK_START: &str = "<!-- mcpm:start -->";
 pub const MCPM_BLOCK_END: &str = "<!-- mcpm:end -->";
 
+/// Where a root keeps its `.claude` content: the user's Claude folder, which `CLAUDE_CONFIG_DIR`
+/// may move, when the root is the home (a user-level sync), else `<root>/.claude` in a project.
+pub fn claude_folder(root: &Path) -> PathBuf {
+    match crate::fsx::home() {
+        Some(home) if home == root => crate::fsx::claude_dir_in(root),
+        _ => root.join(".claude"),
+    }
+}
+
 /// What a transpiler's output means for a sync.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Capabilities {

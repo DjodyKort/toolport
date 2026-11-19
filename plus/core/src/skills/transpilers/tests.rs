@@ -145,6 +145,30 @@ fn hooks_install_is_idempotent_and_revocable() {
 }
 
 #[test]
+fn a_user_level_hook_goes_into_the_settings_of_the_config_dir() {
+    let t = Tmp::new("hooks-moved");
+    let profile = t.0.join("profile");
+    let _paths = crate::fsx::enter(crate::fsx::Paths {
+        home: Some(t.0.clone()),
+        data_dir: None,
+    });
+    let _dir = crate::fsx::enter_claude_dir(&profile);
+    let s = skill(&t.0, "h", HOOKED, "B");
+    fs::create_dir_all(profile.join("skills/h/scripts")).unwrap();
+    let ct = claude_code::ClaudeCode;
+    let store = MemoryHost::default();
+    let ids = ct.install_hooks(&s, &t.0, &store).unwrap();
+    let real = fs::canonicalize(&profile).unwrap();
+    assert!(ids.iter().all(|id| Path::new(id).starts_with(&real)));
+    assert!(profile.join("settings.json").is_file());
+    assert!(!t.0.join(".claude").exists());
+    ct.uninstall_hooks(&t.0, &ids, &store).unwrap();
+    assert!(!fs::read_to_string(profile.join("settings.json"))
+        .unwrap()
+        .contains("hooks"));
+}
+
+#[test]
 fn uninstalling_the_last_hook_drops_the_hooks_key() {
     let t = Tmp::new("hooks-drop");
     let s = skill(&t.0, "h", HOOKED, "B");

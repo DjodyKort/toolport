@@ -213,12 +213,36 @@ pub fn claude_json_from(env: Option<OsString>, home: &Path) -> PathBuf {
     }
 }
 
+thread_local! {
+    static CLAUDE_DIR: RefCell<Option<OsString>> = const { RefCell::new(None) };
+}
+
+/// Keeps `dir` as `CLAUDE_CONFIG_DIR` for this thread until dropped, so a test needs no process
+/// environment.
+pub struct ClaudeDirGuard(Option<OsString>);
+
+pub fn enter_claude_dir(dir: &Path) -> ClaudeDirGuard {
+    ClaudeDirGuard(CLAUDE_DIR.with(|c| c.borrow_mut().replace(dir.as_os_str().to_owned())))
+}
+
+impl Drop for ClaudeDirGuard {
+    fn drop(&mut self) {
+        CLAUDE_DIR.with(|c| *c.borrow_mut() = self.0.take());
+    }
+}
+
+fn configured_claude_dir() -> Option<OsString> {
+    CLAUDE_DIR
+        .with(|c| c.borrow().clone())
+        .or_else(env_claude_dir)
+}
+
 pub fn claude_dir_in(home: &Path) -> PathBuf {
-    claude_dir_from(env_claude_dir(), home)
+    claude_dir_from(configured_claude_dir(), home)
 }
 
 pub fn claude_json_in(home: &Path) -> PathBuf {
-    claude_json_from(env_claude_dir(), home)
+    claude_json_from(configured_claude_dir(), home)
 }
 
 /// [`claude_dir_in`] for the home of this run.

@@ -1,7 +1,7 @@
 use super::{render_frontmatter, Field};
 use crate::skills::parser::{Activation, Skill, SkillType};
 use crate::skills::scalar;
-use crate::skills::transpiler::{TranspileResult, Transpiler};
+use crate::skills::transpiler::{claude_folder, TranspileResult, Transpiler};
 use serde_json::{json, Map, Value};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -21,7 +21,7 @@ fn paths_list(globs: &str) -> String {
 }
 
 fn settings_path(root: &Path) -> PathBuf {
-    root.join(".claude").join("settings.json")
+    claude_folder(root).join("settings.json")
 }
 
 /// The settings file text is returned for [`SettingsStore::write_hooks`], which keeps comments
@@ -136,10 +136,12 @@ impl Transpiler for ClaudeCode {
 
     fn get_output_path(&self, skill: &Skill, root: &Path) -> PathBuf {
         if skill.skill_type == SkillType::Rule {
-            root.join(".claude/rules")
+            claude_folder(root)
+                .join("rules")
                 .join(format!("{}.md", skill.name()))
         } else {
-            root.join(".claude/skills")
+            claude_folder(root)
+                .join("skills")
                 .join(skill.name())
                 .join("SKILL.md")
         }
@@ -148,13 +150,13 @@ impl Transpiler for ClaudeCode {
     fn get_collision_paths(&self, skill: &Skill, root: &Path) -> Vec<PathBuf> {
         let n = skill.name();
         vec![
-            root.join(".claude/commands").join(format!("{n}.md")),
-            root.join(".claude/agents").join(format!("{n}.md")),
+            claude_folder(root).join("commands").join(format!("{n}.md")),
+            claude_folder(root).join("agents").join(format!("{n}.md")),
         ]
     }
 
     fn hook_ids(&self, skill: &Skill, root: &Path) -> Vec<String> {
-        let skill_dir = root.join(".claude/skills").join(skill.name());
+        let skill_dir = claude_folder(root).join("skills").join(skill.name());
         skill
             .frontmatter
             .hooks
@@ -185,7 +187,7 @@ impl Transpiler for ClaudeCode {
         let Some(events) = entry_slot(map, "hooks", json!({})).as_object_mut() else {
             return Err("settings.json: `hooks` is not an object".into());
         };
-        let skill_dir = root.join(".claude/skills").join(skill.name());
+        let skill_dir = claude_folder(root).join("skills").join(skill.name());
         let mut installed = Vec::new();
         for (event, hook) in hooks {
             let target = resolve(&skill_dir.join(&hook.command));

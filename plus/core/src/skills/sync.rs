@@ -31,7 +31,7 @@ use super::parser::{Skill, SkillType};
 use super::pyfs::write_text;
 use super::snapshot::Journal;
 use super::sync_extras::{sync_extras, Extras};
-use super::transpiler::{Transpiler, TranspilerRegistry};
+use super::transpiler::{claude_folder, Transpiler, TranspilerRegistry};
 use crate::hashing::lock_hash;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -209,10 +209,18 @@ pub fn delete_stale(stale: &[PathBuf], stop_at: &Path) -> Vec<PathBuf> {
 }
 
 fn prune_empty_parents(path: &Path, stop_at: &Path) {
+    // A moved Claude folder (`CLAUDE_CONFIG_DIR`) is the floor for what lies in it, so pruning
+    // never climbs out of it, whether it is inside the home or not.
+    let claude = claude_folder(stop_at);
+    let floor = if claude != stop_at.join(".claude") && path.starts_with(&claude) {
+        claude
+    } else {
+        stop_at.to_path_buf()
+    };
     let mut parent = path.parent().map(Path::to_path_buf);
     while let Some(dir) = parent.take() {
-        let empty = dir != stop_at
-            && dir.starts_with(stop_at)
+        let empty = dir != floor
+            && dir.starts_with(&floor)
             && dir.is_dir()
             && fs::read_dir(&dir).is_ok_and(|mut r| r.next().is_none());
         if !empty || fs::remove_dir(&dir).is_err() {

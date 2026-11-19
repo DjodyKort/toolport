@@ -196,7 +196,8 @@ impl StyleTranspiler for ClaudeCodeStyle {
     }
 
     fn get_output_path(&self, style: &Style, root: &Path) -> PathBuf {
-        root.join(".claude/output-styles")
+        crate::skills::transpiler::claude_folder(root)
+            .join("output-styles")
             .join(format!("{}.md", style.name()))
     }
 }
