@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { CircleAlert, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusCard } from "@/components/ui/status-card";
