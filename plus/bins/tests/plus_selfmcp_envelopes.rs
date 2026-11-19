@@ -4519,7 +4519,7 @@ fn every_case_names_a_tool_and_every_golden_belongs_to_a_case() {
     }
     for entry in std::fs::read_dir(golden::selfmcp_root()).unwrap().flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
-        let stem = name.strip_suffix(".json").unwrap_or(&name);
+        let stem = golden::stem_of_file(&name);
         assert!(owned.contains(stem), "golden {name} belongs to no case");
     }
 }

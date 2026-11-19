@@ -29,7 +29,23 @@ pub fn path_of(case: &str) -> PathBuf {
 }
 
 pub fn path_in(dir: &Path, case: &str) -> PathBuf {
-    dir.join(format!("{}.json", file_stem(case)))
+    let stem = file_stem(case);
+    if cfg!(target_os = "macos") && PLATFORM_CASES.contains(&stem.as_str()) {
+        return dir.join(format!("{stem}{MACOS_SUFFIX}"));
+    }
+    dir.join(format!("{stem}.json"))
+}
+
+/// Cases whose output carries the client config paths upstream picks per operating system: on
+/// macOS they compare against `<stem>.macos.json` next to the Linux golden.
+const PLATFORM_CASES: &[&str] = &["clients_list", "resource-clients"];
+const MACOS_SUFFIX: &str = ".macos.json";
+
+/// The case stem a golden file belongs to, for either platform's file.
+pub fn stem_of_file(name: &str) -> &str {
+    name.strip_suffix(MACOS_SUFFIX)
+        .or_else(|| name.strip_suffix(".json"))
+        .unwrap_or(name)
 }
 
 pub fn bless_guard(bless: Option<&str>, ci: Option<&str>) -> Result<bool, String> {

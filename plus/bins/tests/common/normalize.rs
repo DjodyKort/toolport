@@ -90,7 +90,7 @@ pub fn normalize(world: &World, envelope: &Value) -> Value {
     let setup_name = Regex::new(r"toolport-setup-\d{4}-\d{2}-\d{2}\.zip").unwrap();
     let stamp = Regex::new(r"\b\d{8}-\d{6}(?:-\d{2})?\b").unwrap();
     let run_id = Regex::new(r"run-\d{10}-[0-9a-f]{8}").unwrap();
-    let world_slug = Regex::new(r"_tmp_plus-world-[A-Za-z_-]+-\d+-\d+").unwrap();
+    let world_slug = Regex::new(r"_[A-Za-z0-9_]*_plus-world-[A-Za-z_-]+-\d+-\d+").unwrap();
     let about_bytes = Regex::new(r"about \d+ bytes").unwrap();
     let plan_hash = Regex::new(r#""plan":"[0-9a-f]{12}""#).unwrap();
     let loopback_port = Regex::new(r"(?i)(127\.0\.0\.1(?::|%3A))\d+").unwrap();
