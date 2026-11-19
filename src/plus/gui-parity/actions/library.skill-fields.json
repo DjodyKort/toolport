@@ -1,5 +1,6 @@
 {
-  "route": "library-later",
-  "status": "planned",
-  "summary": "Edit the frontmatter fields of a skill in place, or delete a skill folder without its installed copies (skills_edit_frontmatter, skills_delete); the frontmatter is edited in an editor today and Delete from library covers the deletion"
+  "route": "library",
+  "status": "built",
+  "summary": "Edit single frontmatter fields of a skill from its detail page: change, remove or add a field, review the changed lines and the lint of the result, save, and Undo on the message; the listing length of description and when_to_use is counted as you type (skills_edit_frontmatter through mcp call)",
+  "test": "src/plus/library/SkillFields.test.tsx"
 }

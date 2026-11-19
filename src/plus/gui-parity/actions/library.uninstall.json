@@ -1,6 +1,6 @@
 {
   "route": "library",
   "status": "built",
-  "summary": "Delete a skill from the library with its installed files (skills uninstall; skills_uninstall)",
+  "summary": "Delete a skill from the library with its installed files (skills uninstall; skills_uninstall, skills_delete)",
   "test": "src/plus/library/LibraryScreen.test.tsx"
 }

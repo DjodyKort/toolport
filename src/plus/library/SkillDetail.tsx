@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Copy,
   MoreHorizontal,
+  ListChecks,
   Pencil,
 } from "lucide-react";
 import { skillsInventory } from "@/lib/api";
@@ -23,6 +24,7 @@ import { errorText } from "../settings/useCtl";
 import { lintSkills, listLibrary, skillFiles } from "./commands";
 import CompareDialog from "./CompareDialog";
 import { EditBodyDialog } from "./ContentDialogs";
+import SkillFieldsDialog from "./SkillFieldsDialog";
 import { Mono } from "./dialogs";
 import {
   bytes,
@@ -76,6 +78,7 @@ export default function SkillDetail({
   const [comparing, setComparing] = useState<string | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [editingFields, setEditingFields] = useState(false);
 
   const entry = library.data?.skills.find((s) => s.name === name);
   const data = files.data;
@@ -117,6 +120,14 @@ export default function SkillDetail({
         </div>
         <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
           <Pencil /> Edit body…
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!data}
+          onClick={() => setEditingFields(true)}
+        >
+          <ListChecks /> Edit fields…
         </Button>
         <Button variant="outline" size="sm" onClick={() => void copyPath()}>
           <Copy /> Copy path
@@ -346,6 +357,18 @@ export default function SkillDetail({
             </section>
           )}
         </>
+      )}
+      {editingFields && data && (
+        <SkillFieldsDialog
+          name={name}
+          listing={data.description}
+          onClose={() => setEditingFields(false)}
+          onDone={() => {
+            files.reload();
+            lint.reload();
+            onChanged();
+          }}
+        />
       )}
       {editing && (
         <EditBodyDialog

@@ -18,6 +18,7 @@ import type {
   ContentDiffData,
   ContentGet,
   FilesData,
+  FrontmatterEdit,
   FixData,
   InitData,
   InstallData,
@@ -234,6 +235,10 @@ async function callTool<T>(tool: string, args: Record<string, unknown>): Promise
   const data = await ctlData<ToolCall<T>>(["mcp", "call", tool, "--args-stdin"], {
     stdinSecret: JSON.stringify(args),
   });
+  if (data.isError) {
+    const failure = (data.result as { error?: { message?: string } } | null)?.error;
+    throw new Error(failure?.message ?? `${tool} failed`);
+  }
   return data.result;
 }
 
@@ -245,5 +250,27 @@ export const editContentBody = (kind: BodyKind, name: string, body: string) =>
   callTool<{ sourcePath: string; newHash: string }>(`${kind}_edit_body`, {
     name,
     new_body: body,
+    confirm: true,
+  });
+
+type FrontmatterPatch = Record<string, unknown>;
+
+/** The fields of a skill as they are in its file, read with an empty patch that writes nothing. */
+export const readFrontmatter = (name: string) =>
+  callTool<FrontmatterEdit>("skills_edit_frontmatter", {
+    name,
+    patch: {},
+    dry_run: true,
+  });
+
+/** What a patch would write, and whether the result is a skill that passes: nothing is written. */
+export const planFrontmatter = (name: string, patch: FrontmatterPatch) =>
+  callTool<FrontmatterEdit>("skills_edit_frontmatter", { name, patch, dry_run: true });
+
+/** Sets the fields of the patch; `null` removes one. Only their lines in the file change. */
+export const editFrontmatter = (name: string, patch: FrontmatterPatch) =>
+  callTool<FrontmatterEdit>("skills_edit_frontmatter", {
+    name,
+    patch,
     confirm: true,
   });

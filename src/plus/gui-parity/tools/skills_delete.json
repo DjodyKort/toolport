@@ -1,5 +1,5 @@
 {
-  "route": "library-later",
-  "action": "library.skill-fields",
+  "route": "library",
+  "action": "library.uninstall",
   "surface": "screen"
 }

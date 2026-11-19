@@ -677,6 +677,20 @@ export interface ContentGet {
   body: string;
 }
 
+/** `mcp call skills_edit_frontmatter`: the frontmatter before and after as text, the fields as
+ * they are and what the lint says of the result. `newHash` is there once it was written. */
+export interface FrontmatterEdit {
+  sourcePath: string;
+  dryRun: boolean;
+  changed: string[];
+  rewritten: boolean;
+  before: string;
+  after: string;
+  fields: Record<string, unknown>;
+  lint: Array<{ level: string; message: string }>;
+  newHash?: string;
+}
+
 export interface ToolCall<T> {
   tool: string;
   tier: number;

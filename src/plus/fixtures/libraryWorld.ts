@@ -2111,9 +2111,123 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     };
   }
 
+  const frontmatter = new Map<string, Record<string, unknown>>();
+  const fieldsOf = (skill: string): Record<string, unknown> => {
+    const kept = frontmatter.get(skill);
+    if (kept) return kept;
+    const item = items.find((i) => i.name === skill);
+    return {
+      name: skill,
+      description: item?.description ?? "",
+      "allowed-tools": "Read, Grep",
+      ...(skill === "task-runner"
+        ? {
+            "disable-model-invocation": false,
+            hooks: { Stop: { command: "scripts/on-stop.sh" } },
+          }
+        : {}),
+    };
+  };
+  const yamlValue = (value: unknown): string =>
+    typeof value === "string"
+      ? /^[A-Za-z0-9][A-Za-z0-9 ,.()/_-]*$/.test(value)
+        ? value
+        : JSON.stringify(value)
+      : JSON.stringify(value);
+  const yamlOf = (fields: Record<string, unknown>) =>
+    Object.entries(fields)
+      .map(([key, value]) => `${key}: ${yamlValue(value)}\n`)
+      .join("");
+
+  /** `skills_edit_frontmatter`: the fields of one skill, a preview with `dry_run`, and the write. */
+  function frontmatterTool(args: Record<string, unknown>): CtlReply {
+    const skill = String(args.name);
+    const item = items.find((i) => i.name === skill);
+    if (!item)
+      return {
+        ok: false,
+        error: { code: "not_found", message: `no skill or rule named ${skill}` },
+      };
+    const dry = args.dry_run === true;
+    if (!dry && args.confirm !== true)
+      return {
+        ok: false,
+        error: { code: "refused", message: "skills_edit_frontmatter needs confirm=true" },
+      };
+    const norm = (key: string) => key.replace(/-/g, "_");
+    const before = fieldsOf(skill);
+    const next: Record<string, unknown> = { ...before };
+    const changed: string[] = [];
+    for (const [key, value] of Object.entries(
+      (args.patch ?? {}) as Record<string, unknown>,
+    )) {
+      const spelled = Object.keys(next).find((k) => norm(k) === norm(key));
+      if (value === null) {
+        if (spelled) {
+          delete next[spelled];
+          changed.push(key);
+        }
+      } else if (JSON.stringify(next[spelled ?? key]) !== JSON.stringify(value)) {
+        next[spelled ?? key] = value;
+        changed.push(key);
+      }
+    }
+    const text = (key: string) => {
+      const value = next[Object.keys(next).find((k) => norm(k) === key) ?? ""];
+      return typeof value === "string" ? [...value].length : 0;
+    };
+    const failed = (message: string): CtlReply =>
+      ok({
+        tool: "skills_edit_frontmatter",
+        tier: 3,
+        isError: true,
+        result: { error: { kind: "invalid_input", message } },
+      });
+    if (text("description") === 0) return failed("description must be 1-1536 characters");
+    if (text("description") > 1536)
+      return failed("description must be 1-1536 characters");
+    if (text("description") + text("when_to_use") > 1536)
+      return failed(
+        `description (${text("description")}) and when_to_use (${text("when_to_use")}) together must be at most 1536 characters`,
+      );
+    const lint: Array<{ level: string; message: string }> = [];
+    if (text("description") > 1024)
+      lint.push({
+        level: "warning",
+        message: `Description is ${text("description")} characters. Claude Code keeps it, but the Agent Skills spec allows 1024 and other clients cut it.`,
+      });
+    if (next.priority !== undefined && typeof next.priority !== "number")
+      lint.push({ level: "error", message: "priority: input should be a valid integer" });
+    if (!dry && changed.length > 0) {
+      frontmatter.set(skill, next);
+      if (typeof next.description === "string") item.description = next.description;
+      if (
+        !changes.some((c) => c.skill === skill && !c.kind && c.path.endsWith("SKILL.md"))
+      )
+        changes = [...changes, change(skill, path(skill, "SKILL.md"), "update")];
+    }
+    return ok({
+      tool: "skills_edit_frontmatter",
+      tier: 3,
+      isError: false,
+      result: {
+        sourcePath: item.path,
+        dryRun: dry,
+        changed,
+        rewritten: false,
+        before: yamlOf(before),
+        after: yamlOf(next),
+        fields: before,
+        lint,
+        ...(dry ? {} : { newHash: "sha256:0123456789abcdef" }),
+      },
+    });
+  }
+
   /** The self-management tools the Library runs through `mcp call`: read and edit the body of a
-   * skill, an agent or a style. */
+   * skill, an agent or a style, and the fields of a skill. */
   function tool(name: string, args: Record<string, unknown>): CtlReply | null {
+    if (name === "skills_edit_frontmatter") return frontmatterTool(args);
     const [kind, action] = name.split(/_(.*)/s) as [
       "skills" | "agents" | "styles",
       string,

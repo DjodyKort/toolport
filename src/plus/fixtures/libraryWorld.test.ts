@@ -636,4 +636,24 @@ describe("the Library fixture world", () => {
       Object.keys(real.plugins[0]).sort(),
     );
   });
+
+  it("test10_the_frontmatter_tool_answers_with_the_keys_of_the_Rust_preview", () => {
+    const real = JSON.parse(
+      readFileSync(
+        join(goldens, "../selfmcp-envelopes/skills_edit_frontmatter.preview.json"),
+        "utf8",
+      ),
+    ).result as Record<string, unknown>;
+    const out = createLibraryWorld({}).tool("skills_edit_frontmatter", {
+      name: "triage",
+      patch: { description: "Sort new issues" },
+      dry_run: true,
+    });
+    const world = (out?.data as { result: Record<string, unknown> }).result;
+    expect(Object.keys(world).sort()).toEqual(Object.keys(real).sort());
+    const row = (real.lint as Array<Record<string, unknown>>)[0];
+    expect(
+      Object.keys((world.lint as Array<Record<string, unknown>>)[0] ?? row).sort(),
+    ).toEqual(Object.keys(row).sort());
+  });
 });
