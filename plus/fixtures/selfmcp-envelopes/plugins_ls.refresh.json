@@ -1,0 +1,73 @@
+{
+  "arguments": {
+    "refresh": true
+  },
+  "isError": false,
+  "result": {
+    "cwd": null,
+    "managedSettings": {
+      "path": null,
+      "present": false,
+      "problem": null
+    },
+    "marketplaces": [
+      {
+        "followsFolder": false,
+        "installed": 1,
+        "name": "ecc",
+        "source": "github:acme/ecc"
+      }
+    ],
+    "partial": true,
+    "plugins": [
+      {
+        "adapter": "ecc@ecc",
+        "brings": {
+          "agents": 1,
+          "commands": 1,
+          "hooks": 2,
+          "lspServers": 0,
+          "mcpServers": 1,
+          "skills": 1
+        },
+        "cost": {
+          "measured": null,
+          "measuredAt": null,
+          "projected": null
+        },
+        "enabled": {
+          "effective": true,
+          "local": null,
+          "managed": null,
+          "project": null,
+          "user": true
+        },
+        "errors": [],
+        "from": "files",
+        "id": "ecc@ecc",
+        "installPath": "~/.claude/plugins/cache/ecc",
+        "marketplace": "ecc",
+        "mcpOutsideGateway": [
+          {
+            "denied": false,
+            "key": "plugin:ecc:chrome",
+            "name": "chrome"
+          }
+        ],
+        "name": "ecc",
+        "scope": "user",
+        "selectSource": null,
+        "source": "github:acme/ecc",
+        "update": {
+          "available": "1.10.0",
+          "state": "update"
+        },
+        "version": "<masked>"
+      }
+    ],
+    "refreshError": "claude not found on PATH",
+    "refreshed": false,
+    "updatesAvailable": 1
+  },
+  "tool": "plugins_ls"
+}

@@ -3930,7 +3930,7 @@
           "tier": 3
         },
         {
-          "description": "List the installed Claude Code plugins: where each is switched on (user, project, local and the effective answer), its version and what it brings (skills, agents, commands, hooks, MCP servers). Reads files, and claude plugin list when claude is on PATH. Cannot switch a plugin",
+          "description": "List the installed Claude Code plugins: where each is switched on (user, project, local, managed and the effective answer), its version, whether its marketplace offers a newer one, what it brings (skills, agents, commands, hooks, MCP servers), its token cost and its MCP servers that sit outside the gateway. Reads files, and claude plugin list and details when claude is on PATH. refresh=true runs claude plugin marketplace update first. Cannot switch a plugin",
           "dryRunDefault": false,
           "gate": "none",
           "name": "plugins_ls",
@@ -3940,12 +3940,18 @@
               "name": "cwd",
               "required": false,
               "type": "string"
+            },
+            {
+              "description": "Run claude plugin marketplace update first, so the update state reflects what the marketplaces offer now",
+              "name": "refresh",
+              "required": false,
+              "type": "boolean"
             }
           ],
           "tier": 1
         },
         {
-          "description": "Show one installed plugin: description, skills, agents, commands, its hooks with their events and matchers, and its MCP servers with the plugin:<plugin>:<server> key. Reads only",
+          "description": "Show one installed plugin: description, skills, agents, commands, its hooks with their events and matchers, its MCP servers with the plugin:<plugin>:<server> key and where each is denied, its options with their current values (sensitive values are never returned) and its adapter knobs. Reads only",
           "dryRunDefault": false,
           "gate": "none",
           "name": "plugins_show",
@@ -3958,6 +3964,48 @@
             },
             {
               "description": "Folder whose project and local settings decide where the plugin is on",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Show what a plugin can be configured with: the options it declares and the knobs of its adapter, each with its current value and where the value comes from, and in a folder the env keys Toolport wrote there. Reads only; setting a knob is `toolportctl plugins config` or the Library screen",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "plugins_config",
+          "params": [
+            {
+              "description": "Plugin id such as ecc@ecc, or a bare plugin name when it is unique",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Folder whose settings decide the current values; user settings only when omitted",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "List the MCP servers a plugin starts, with how each starts (never its environment), the tool prefix and where Claude Code is told to deny it. Reads only; denying a server is `toolportctl plugins mcp deny` or the Library screen",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "plugins_mcp",
+          "params": [
+            {
+              "description": "Plugin id such as ecc@ecc, or a bare plugin name when it is unique",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Folder whose project and local settings decide where a server is denied",
               "name": "cwd",
               "required": false,
               "type": "string"

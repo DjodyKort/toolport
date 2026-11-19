@@ -1414,7 +1414,33 @@ const CASES: &[Case] = &[
     prepared(
         "plugins_ls",
         World::plugin_inventory,
-        &[read("installed", "plugins_ls", "{}")],
+        &[
+            read("installed", "plugins_ls", "{}"),
+            read("refresh", "plugins_ls", r#"{"refresh":true}"#),
+        ],
+    ),
+    prepared(
+        "plugins_config",
+        World::plugin_inventory,
+        &[
+            read("one", "plugins_config", r#"{"id":"ecc@ecc"}"#),
+            fails(
+                "unknown",
+                "not_found",
+                "plugins_config",
+                r#"{"id":"ghost@x"}"#,
+            ),
+            fails("no_id", "invalid_arguments", "plugins_config", "{}"),
+        ],
+    ),
+    prepared(
+        "plugins_mcp",
+        World::plugin_inventory,
+        &[
+            read("servers", "plugins_mcp", r#"{"id":"ecc"}"#),
+            fails("unknown", "not_found", "plugins_mcp", r#"{"id":"ghost@x"}"#),
+            fails("no_id", "invalid_arguments", "plugins_mcp", "{}"),
+        ],
     ),
     prepared(
         "plugins_show",

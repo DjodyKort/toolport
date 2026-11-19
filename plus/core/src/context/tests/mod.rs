@@ -4,6 +4,7 @@ mod bundle_use;
 mod launch_profile;
 mod leave_out;
 mod plugin_adapters;
+mod plugin_config;
 mod plugin_switch;
 mod regenerate;
 mod worktrees;

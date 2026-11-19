@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "config", "ecc@ecc", "--set", "hook_profile=strict"],
+  "envelope": {
+    "command": "plugins config",
+    "error": {
+      "code": "conflict",
+      "message": "claude not found on PATH"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

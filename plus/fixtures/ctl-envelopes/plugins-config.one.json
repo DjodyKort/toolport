@@ -1,0 +1,119 @@
+{
+  "argv": ["plugins", "config", "ecc@ecc"],
+  "envelope": {
+    "command": "plugins config",
+    "data": {
+      "adapter": "ecc@ecc",
+      "adapterProblems": [],
+      "cwd": null,
+      "id": "ecc@ecc",
+      "knobs": [
+        {
+          "choices": ["minimal", "standard", "strict"],
+          "current": {
+            "from": "option",
+            "value": "strict"
+          },
+          "default": "standard",
+          "env": "ECC_HOOK_PROFILE",
+          "folderOnly": false,
+          "key": "hook_profile",
+          "kind": "enum",
+          "label": "Hook profile",
+          "list": false,
+          "option": "hook_profile"
+        },
+        {
+          "choices": null,
+          "current": {
+            "from": "default",
+            "value": "true"
+          },
+          "default": "true",
+          "env": "ECC_HOOKS_ENABLED",
+          "folderOnly": false,
+          "key": "hooks_enabled",
+          "kind": "bool",
+          "label": "Hooks",
+          "list": false,
+          "option": "hooks_enabled"
+        },
+        {
+          "choices": null,
+          "current": {
+            "from": "default",
+            "value": "on"
+          },
+          "default": "on",
+          "env": "ECC_GATEGUARD",
+          "folderOnly": true,
+          "key": "gateguard",
+          "kind": "bool-off",
+          "label": "GateGuard",
+          "list": false,
+          "option": null
+        },
+        {
+          "choices": null,
+          "current": {
+            "from": "user-env",
+            "value": "docs/**"
+          },
+          "default": null,
+          "env": "GATEGUARD_EXEMPT_GLOBS",
+          "folderOnly": true,
+          "key": "gateguard_exempt_globs",
+          "kind": "globs",
+          "label": "GateGuard exempt paths",
+          "list": true,
+          "option": null
+        },
+        {
+          "choices": null,
+          "current": {
+            "from": "default",
+            "value": null
+          },
+          "default": null,
+          "env": "ECC_DISABLED_HOOKS",
+          "folderOnly": true,
+          "key": "disabled_hooks",
+          "kind": "hook-ids",
+          "label": "Hooks switched off",
+          "list": true,
+          "option": null
+        }
+      ],
+      "options": [
+        {
+          "choices": null,
+          "configured": null,
+          "current": null,
+          "default": null,
+          "description": "A secret",
+          "key": "api_token",
+          "sensitive": true,
+          "title": "Token",
+          "type": "string"
+        },
+        {
+          "choices": null,
+          "configured": true,
+          "current": "strict",
+          "default": "standard",
+          "description": "How strict the hooks are",
+          "key": "hook_profile",
+          "sensitive": false,
+          "title": "Hook profile",
+          "type": "string"
+        }
+      ],
+      "optionsFrom": "files",
+      "scope": "global",
+      "writtenByToolport": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

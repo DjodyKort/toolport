@@ -678,6 +678,32 @@ fn is_stale(entry: &Entry, cwd: &Path, version: Option<&str>) -> bool {
         || version.is_some_and(|v| v != entry.claude_code_version)
 }
 
+/// What the last `--without plugin:<id>` run of a folder says the plugin costs: the as-is total
+/// minus the total without it, both measured with the same model and Claude Code version.
+pub struct PluginDelta {
+    pub tokens: u64,
+    pub measured_at: String,
+}
+
+pub fn plugin_delta(data_dir: &Path, cwd: &Path, id: &str) -> Option<PluginDelta> {
+    let base = newest_as_is(data_dir, cwd)?;
+    let key = format!("without:plugin:{id}");
+    let without = entries(&cache_dir(data_dir))
+        .into_iter()
+        .map(|(_, e)| e)
+        .filter(|e| {
+            e.cwd == base.cwd
+                && e.variant == key
+                && e.requested_model == base.requested_model
+                && e.claude_code_version == base.claude_code_version
+        })
+        .max_by(|a, b| a.measured_at.cmp(&b.measured_at))?;
+    Some(PluginDelta {
+        tokens: base.run.total.saturating_sub(without.run.total),
+        measured_at: without.measured_at,
+    })
+}
+
 /// The newest as-is measurement of any folder, for the first request on the Spend page.
 pub fn newest_measured(data_dir: &Path) -> Option<Value> {
     let entry = entries(&cache_dir(data_dir))
@@ -1204,6 +1230,10 @@ mod tests {
         );
         assert_eq!(again["variants"][0]["cached"], true);
         assert_eq!(again["cached"], true);
+
+        let delta = plugin_delta(&data, &w.cwd, "kit@market").unwrap();
+        assert_eq!(delta.tokens, 3000);
+        assert!(plugin_delta(&data, &w.cwd, "other@market").is_none());
     }
 
     #[test]

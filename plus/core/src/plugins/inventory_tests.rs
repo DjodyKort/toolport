@@ -55,10 +55,12 @@ fn tree(settings: Value) -> Tree {
     Tree { dir, home, claude }
 }
 
-fn world(tree: &Tree) -> World<'_> {
+fn world(tree: &Tree) -> World {
     World {
-        home: &tree.home,
-        claude_home: &tree.claude,
+        home: tree.home.clone(),
+        claude_home: tree.claude.clone(),
+        managed: None,
+        data_dir: Some(tree.dir.path().join("data")),
     }
 }
 
@@ -69,7 +71,7 @@ fn enabled() -> Value {
 #[test]
 fn test01_ls_lists_each_plugin_with_where_it_is_on_and_what_it_brings() {
     let tree = tree(enabled());
-    let data = inventory::ls(&world(&tree), None, None);
+    let data = inventory::ls(&world(&tree), None, None, false);
     let rows = data["plugins"].as_array().unwrap();
     assert_eq!(rows.len(), 2);
     let ecc = rows.iter().find(|r| r["id"] == "ecc@ecc").unwrap();
@@ -93,7 +95,7 @@ fn test02_a_folder_setting_wins_over_the_user_setting() {
         &folder.join(".claude/settings.local.json"),
         &json!({"enabledPlugins": {"ecc@ecc": false}}).to_string(),
     );
-    let data = inventory::ls(&world(&tree), None, Some(&folder));
+    let data = inventory::ls(&world(&tree), None, Some(&folder), false);
     let ecc = &data["plugins"][0];
     assert_eq!(ecc["enabled"]["local"], false);
     assert_eq!(ecc["enabled"]["effective"], false);

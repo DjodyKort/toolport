@@ -1,0 +1,31 @@
+{
+  "argv": ["plugins", "mcp", "ls", "ecc@ecc", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "plugins mcp ls",
+    "data": {
+      "cwd": "<WORLD>/home/proj",
+      "id": "ecc@ecc",
+      "outsideGateway": "these servers are started by Claude Code, not by the Toolport gateway",
+      "servers": [
+        {
+          "command": ["chrome-mcp", "--headless"],
+          "denied": {
+            "local": true,
+            "managed": false,
+            "project": false,
+            "user": false
+          },
+          "deniedByToolport": true,
+          "key": "plugin:ecc:chrome",
+          "name": "chrome",
+          "toolPrefix": "mcp__plugin_ecc_chrome__*",
+          "type": null,
+          "url": null
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

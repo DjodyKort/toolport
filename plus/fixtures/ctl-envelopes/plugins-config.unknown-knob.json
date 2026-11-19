@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "config", "ecc@ecc", "--cwd", "{home}/proj", "--set", "nope=1"],
+  "envelope": {
+    "command": "plugins config",
+    "error": {
+      "code": "usage",
+      "message": "nope is not a knob of ecc@ecc: use hook_profile, hooks_enabled, gateguard, gateguard_exempt_globs, disabled_hooks"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

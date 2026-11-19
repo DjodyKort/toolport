@@ -1712,20 +1712,45 @@ pub const TOOLS: &[ToolDef] = &[
         "plugins_ls",
         1,
         None,
-        "List the installed Claude Code plugins: where each is switched on (user, project, local and the effective answer), its version and what it brings (skills, agents, commands, hooks, MCP servers). Reads files, and claude plugin list when claude is on PATH. Cannot switch a plugin",
-        [p("cwd", Ty::Str, false, "Folder whose project and local settings decide where a plugin is on; user settings only when omitted")],
+        "List the installed Claude Code plugins: where each is switched on (user, project, local, managed and the effective answer), its version, whether its marketplace offers a newer one, what it brings (skills, agents, commands, hooks, MCP servers), its token cost and its MCP servers that sit outside the gateway. Reads files, and claude plugin list and details when claude is on PATH. refresh=true runs claude plugin marketplace update first. Cannot switch a plugin",
+        [
+            p("cwd", Ty::Str, false, "Folder whose project and local settings decide where a plugin is on; user settings only when omitted"),
+            p("refresh", Ty::Bool, false, "Run claude plugin marketplace update first, so the update state reflects what the marketplaces offer now")
+        ],
         plugins::ls
     ),
     tool!(
         "plugins_show",
         1,
         None,
-        "Show one installed plugin: description, skills, agents, commands, its hooks with their events and matchers, and its MCP servers with the plugin:<plugin>:<server> key. Reads only",
+        "Show one installed plugin: description, skills, agents, commands, its hooks with their events and matchers, its MCP servers with the plugin:<plugin>:<server> key and where each is denied, its options with their current values (sensitive values are never returned) and its adapter knobs. Reads only",
         [
             p("id", Ty::Str, true, "Plugin id such as ecc@ecc, as plugins_ls shows"),
             p("cwd", Ty::Str, false, "Folder whose project and local settings decide where the plugin is on")
         ],
         plugins::show
+    ),
+    tool!(
+        "plugins_config",
+        1,
+        None,
+        "Show what a plugin can be configured with: the options it declares and the knobs of its adapter, each with its current value and where the value comes from, and in a folder the env keys Toolport wrote there. Reads only; setting a knob is `toolportctl plugins config` or the Library screen",
+        [
+            p("id", Ty::Str, true, "Plugin id such as ecc@ecc, or a bare plugin name when it is unique"),
+            p("cwd", Ty::Str, false, "Folder whose settings decide the current values; user settings only when omitted")
+        ],
+        plugins::config
+    ),
+    tool!(
+        "plugins_mcp",
+        1,
+        None,
+        "List the MCP servers a plugin starts, with how each starts (never its environment), the tool prefix and where Claude Code is told to deny it. Reads only; denying a server is `toolportctl plugins mcp deny` or the Library screen",
+        [
+            p("id", Ty::Str, true, "Plugin id such as ecc@ecc, or a bare plugin name when it is unique"),
+            p("cwd", Ty::Str, false, "Folder whose project and local settings decide where a server is denied")
+        ],
+        plugins::mcp
     ),
     tool!(
         "hooks_ls",

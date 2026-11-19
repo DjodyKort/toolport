@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "mcp", "deny", "ecc@ecc", "ghost", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "plugins mcp deny",
+    "error": {
+      "code": "not_found",
+      "message": "ecc@ecc has no MCP server ghost; it has: chrome"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

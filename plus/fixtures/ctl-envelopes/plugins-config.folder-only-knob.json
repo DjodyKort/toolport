@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "config", "ecc@ecc", "--set", "gateguard=off"],
+  "envelope": {
+    "command": "plugins config",
+    "error": {
+      "code": "usage",
+      "message": "gateguard is a switch of one folder, not a plugin option: pass --cwd <dir>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

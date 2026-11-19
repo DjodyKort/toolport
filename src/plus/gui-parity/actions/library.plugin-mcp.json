@@ -1,0 +1,5 @@
+{
+  "route": "library-later",
+  "status": "planned",
+  "summary": "The MCP servers a plugin starts, with how each starts and where it is denied; deny or allow one in a folder after the plan (plugins mcp ls|deny|allow; plugins_mcp)"
+}

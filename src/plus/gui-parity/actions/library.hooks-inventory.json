@@ -1,5 +1,5 @@
 {
   "route": "library-later",
   "status": "planned",
-  "summary": "Context > Hooks: the hooks Claude Code would run in a folder, by owner, event and tool, with the counts per tool and the owners that share a PreToolUse tool (hooks ls, hooks_ls)"
+  "summary": "Every hook Claude Code would run in a folder by owner, event and tool, with the counts per tool, the owners that share a PreToolUse tool and a filter by tool and owner: the Hooks section of Library > Plugins and the inventory of Context > Hooks & compression (hooks ls, hooks_ls)"
 }

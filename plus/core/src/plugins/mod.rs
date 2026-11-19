@@ -1,13 +1,16 @@
 //! Claude Code plugins as Toolport sees them: which are installed (`claude plugin list` when the
-//! binary answers, the files otherwise), the marketplace inside a tap clone, which plugins are
-//! switched on, and the link between a tap and Claude Code (`skills tap link|unlink|update`).
+//! binary answers, the files otherwise), what each brings, costs and offers (`plugins ls|show`,
+//! `hooks ls`), the marketplace inside a tap clone, which plugins are switched on, and the link
+//! between a tap and Claude Code (`skills tap link|unlink|update`).
 //!
 //! Settings are written only through `SettingsStore::write_key`, and only the `enabledPlugins`
 //! and `extraKnownMarketplaces` keys. The only child process is the `claude` binary, with the
-//! fixed `plugin list`, `plugin update`, `plugin validate` and `plugin marketplace remove`
+//! fixed `plugin list|details|configure|update|validate` and `plugin marketplace update|remove`
 //! arguments.
 
 pub mod claude;
+pub mod detail;
+pub mod hook_list;
 pub mod installed;
 pub mod inventory;
 pub mod link;
@@ -16,6 +19,8 @@ pub mod settings;
 
 pub use claude::{ClaudeRunner, SystemClaude};
 
+#[cfg(test)]
+mod inventory_detail_tests;
 #[cfg(test)]
 mod inventory_tests;
 #[cfg(test)]

@@ -1,0 +1,43 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Folder whose project and local settings decide where a server is denied (default: user settings only)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    }
+  ],
+  "group": "plugins",
+  "id": "plugins mcp ls",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "id",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["plugins", "mcp", "ls"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List the MCP servers a plugin starts and where each is denied (<id>, --cwd)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["plugins_mcp"]
+}

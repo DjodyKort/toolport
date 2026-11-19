@@ -556,11 +556,36 @@ pub(super) const ROWS: &[Row] = &[
         .args(&[req("name")])
         .requires(&["--cwd"])
         .skip("writes a folder's settings; its --dry-run is a golden step"),
-    row("plugins ls", R).spec(&[&plugins::LS]),
+    row("plugins ls", W)
+        .reads(&["--refresh"])
+        .spec(&[&plugins::LS])
+        .smoke(&[]),
     row("plugins show", R)
         .spec(&[&plugins::SHOW])
         .args(&[req("id")])
         .smoke(&["nope"]),
+    row("plugins config", W)
+        .reads(&["--set", "--unset"])
+        .dry()
+        .spec(&[&plugins::CONFIG])
+        .args(&[req("id")])
+        .smoke(&["nope"]),
+    row("plugins mcp ls", R)
+        .spec(&[&plugins::MCP_LS])
+        .args(&[req("id")])
+        .smoke(&["nope"]),
+    row("plugins mcp deny", W)
+        .dry()
+        .spec(&[&plugins::MCP_DENY])
+        .args(&[req("id"), req("server")])
+        .requires(&["--cwd"])
+        .skip("writes a folder's settings; its --dry-run is a golden step"),
+    row("plugins mcp allow", W)
+        .dry()
+        .spec(&[&plugins::MCP_ALLOW])
+        .args(&[req("id"), req("server")])
+        .requires(&["--cwd"])
+        .skip("writes a folder's settings; its --dry-run is a golden step"),
     row("hooks ls", R).spec(&[&plugins::HOOKS_LS]),
     row("plugins off", W)
         .dry()
@@ -1239,6 +1264,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("clients_sync", W).on(),
     maps("plugins_ls", R, "plugins ls"),
     maps("plugins_show", R, "plugins show"),
+    maps("plugins_config", R, "plugins config"),
+    maps("plugins_mcp", R, "plugins mcp ls"),
     maps("hooks_ls", R, "hooks ls"),
     maps("auth_probe", R, "auth probe"),
     maps("secret_check", R, "secret get"),

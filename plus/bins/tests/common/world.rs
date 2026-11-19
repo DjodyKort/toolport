@@ -115,6 +115,19 @@ impl World {
             .to_string(),
         );
         put(
+            ".claude/plugins/known_marketplaces.json",
+            &json!({"ecc": {"source": {"source": "github", "repo": "acme/ecc"},
+                            "installLocation": self.home.join(".claude/plugins/marketplaces/ecc")}})
+            .to_string(),
+        );
+        put(
+            ".claude/plugins/marketplaces/ecc/.claude-plugin/marketplace.json",
+            &json!({"name": "ecc", "plugins": [
+                {"name": "ecc", "source": {"source": "github", "repo": "acme/ecc"}, "version": "1.10.0"}
+            ]})
+            .to_string(),
+        );
+        put(
             ".claude/plugins/cache/ecc/skills/review/SKILL.md",
             "---\nname: review\ndescription: d\n---\n",
         );
@@ -122,17 +135,26 @@ impl World {
         put(".claude/plugins/cache/ecc/commands/ship.md", "x");
         put(
             ".claude/plugins/cache/ecc/.claude-plugin/plugin.json",
-            "{\"description\": \"A synthetic plugin\"}",
+            &json!({"description": "A synthetic plugin", "userConfig": {
+                "hook_profile": {"type": "string", "title": "Hook profile",
+                                 "description": "How strict the hooks are", "default": "standard"},
+                "api_token": {"type": "string", "title": "Token", "description": "A secret",
+                              "sensitive": true},
+            }})
+            .to_string(),
         );
         put(
             ".claude/plugins/cache/ecc/.mcp.json",
-            "{\"mcpServers\": {\"chrome\": {\"command\": \"chrome-mcp\"}}}",
+            &json!({"mcpServers": {"chrome": {"command": "chrome-mcp", "args": ["--headless"],
+                                              "env": {"API_KEY": FAKE_SECRET}}}})
+            .to_string(),
         );
         put(
             ".claude/plugins/cache/ecc/hooks/hooks.json",
             &json!({"hooks": {
                 "PreToolUse": [{"matcher": "Bash|Edit", "hooks": [
-                    {"type": "command", "command": "node guard.js", "timeout": 5}]}],
+                    {"type": "command", "timeout": 5,
+                     "command": "node scripts/run-with-flags.js pre:bash:dispatcher guard.js"}]}],
                 "SessionStart": [{"hooks": [{"type": "command", "command": "node start.js"}]}],
             }})
             .to_string(),
@@ -141,6 +163,9 @@ impl World {
             ".claude/settings.json",
             &json!({
                 "enabledPlugins": {"ecc@ecc": true},
+                "pluginConfigs": {"ecc@ecc": {"options": {"hook_profile": "strict",
+                                                          "api_token": FAKE_SECRET}}},
+                "env": {"GATEGUARD_EXEMPT_GLOBS": "docs/**"},
                 "hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [
                     {"type": "command", "command": "~/bin/own.sh"}]}]},
             })

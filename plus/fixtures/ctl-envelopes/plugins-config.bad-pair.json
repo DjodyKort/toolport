@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "config", "ecc@ecc", "--set", "noequals"],
+  "envelope": {
+    "command": "plugins config",
+    "error": {
+      "code": "usage",
+      "message": "--set takes <knob>=<value>, not \"noequals\""
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -22,6 +22,7 @@ pub mod measure;
 pub mod ops;
 pub mod plan;
 pub mod plugin_adapters;
+pub mod plugin_config;
 pub mod plugin_switch;
 pub mod regenerate;
 pub mod roots;

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "id": "ghost@x"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "ghost@x is not among the installed plugins; `toolportctl plugins ls` shows the ids"
+    }
+  },
+  "text": "not_found: ghost@x is not among the installed plugins; `toolportctl plugins ls` shows the ids",
+  "tool": "plugins_mcp"
+}

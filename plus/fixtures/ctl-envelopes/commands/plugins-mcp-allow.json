@@ -1,0 +1,59 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Folder whose .claude/settings.local.json loses the entry `plugins mcp deny` wrote (required)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": true,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "plugins",
+  "id": "plugins mcp allow",
+  "kind": "command",
+  "maxOperands": 2,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "id",
+      "required": true,
+      "variadic": false
+    },
+    {
+      "name": "server",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["plugins", "mcp", "allow"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Allow a plugin's MCP server again in a folder: removes the entry `plugins mcp deny` wrote (<id> <server>, --cwd, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

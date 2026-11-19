@@ -1,0 +1,5 @@
+{
+  "route": "library-later",
+  "status": "planned",
+  "summary": "Plugins tab: the installed Claude Code plugins with where each is on (user, project, local, managed), version, what it brings, cost and the marketplace update, with Check for updates (plugins ls, plugins ls --refresh; plugins_ls)"
+}

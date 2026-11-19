@@ -1,0 +1,7 @@
+{
+  "command": "plugins mcp ls",
+  "dryRun": "none",
+  "name": "plugins_mcp",
+  "tier": "read",
+  "toolTier": 1
+}

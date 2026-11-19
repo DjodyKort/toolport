@@ -56,7 +56,7 @@
       },
       {
         "async": false,
-        "command": "node guard.js",
+        "command": "node scripts/run-with-flags.js pre:bash:dispatcher guard.js",
         "event": "PreToolUse",
         "marker": null,
         "matcher": "Bash|Edit",
@@ -64,17 +64,23 @@
           "kind": "plugin",
           "name": "ecc@ecc"
         },
-        "runtimeId": null,
+        "runtimeId": "pre:bash:dispatcher",
         "source": "~/.claude/plugins/cache/ecc/hooks/hooks.json",
         "switch": {
-          "detail": "turn the plugin off: plugins off ecc@ecc --cwd <dir>",
-          "method": "disable-plugin"
+          "detail": "plugins config ecc@ecc --set disabled_hooks=pre:bash:dispatcher --cwd <dir>; the hook still starts a process and exits at once",
+          "method": "plugin-setting"
         },
         "timeoutSec": 5,
         "tools": ["Bash", "Edit"],
         "type": "command"
       }
-    ]
+    ],
+    "managedOnly": false,
+    "managedSettings": {
+      "path": null,
+      "present": false,
+      "problem": null
+    }
   },
   "tool": "hooks_ls"
 }

@@ -1,32 +1,53 @@
-//! `plugins ls|show` and `hooks ls`: what is installed and which hooks Claude Code would run.
-//! Reads files only (plus `claude plugin list --json` through the runner when it is given) and
-//! never starts a hook. Fields that need `claude plugin details` are left out and `from` says
-//! which source answered.
+//! `plugins ls|show`: what is installed, where each plugin is on (user, project, local and
+//! managed settings), what it brings, what it costs, whether its marketplace offers a newer
+//! version, and for one plugin its hooks, MCP servers and options. Reads files, plus the
+//! `claude` binary when it is on PATH (list, details, configure); never starts a hook or a server.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
-use regex::Regex;
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
+use toolport_plus_api::Host;
 
-use super::claude::ClaudeRunner;
+use super::claude::{ClaudeRunner, NOT_FOUND};
+use super::detail;
+use super::hook_list;
 use super::installed::{self, Installed};
 use super::settings::{Layers, Scope};
 use crate::context::fsx;
+use crate::context::measure;
+use crate::context::plugin_adapters::Registry;
 use crate::op::OpError;
 use crate::untrusted;
 
-const JSON_CAP: u64 = 4 * 1024 * 1024;
+const REFRESH_TIMEOUT: Duration = Duration::from_secs(180);
+const PARALLEL: usize = 8;
 
-const TOOLS: [&str; 4] = ["Bash", "Edit", "Write", "Read"];
-const TOOLPORT_MARKERS: [&str; 2] = ["--toolport-hook", "--toolport-guard"];
+pub use super::hook_list::{hooks, HookFilter};
 
-pub struct World<'a> {
-    pub home: &'a Path,
-    pub claude_home: &'a Path,
+/// The folders the readers look at; a test builds one over a temp tree.
+pub struct World {
+    pub home: PathBuf,
+    pub claude_home: PathBuf,
+    /// The administrator's `managed-settings.json`; `None` when it is not looked at.
+    pub managed: Option<PathBuf>,
+    pub data_dir: Option<PathBuf>,
 }
 
-fn shorten(world: &World, text: &str) -> String {
+impl World {
+    pub fn host(host: &dyn Host) -> Option<Self> {
+        let home = host.home_dir()?;
+        Some(Self {
+            claude_home: crate::fsx::claude_dir_in(&home),
+            managed: crate::sources::managed_settings_path(),
+            data_dir: host.data_dir(),
+            home,
+        })
+    }
+}
+
+pub(super) fn shorten(world: &World, text: &str) -> String {
     let home = world.home.to_string_lossy();
     if home.is_empty() {
         return text.to_string();
@@ -36,7 +57,7 @@ fn shorten(world: &World, text: &str) -> String {
 
 /// The names in a folder of a plugin (somebody else's files): links are not followed.
 fn names_in(dir: &Path, want_dirs: bool) -> Vec<String> {
-    untrusted::list_dir(dir)
+    let mut names: Vec<String> = untrusted::list_dir(dir)
         .into_iter()
         .filter_map(|entry| {
             if want_dirs {
@@ -47,176 +68,120 @@ fn names_in(dir: &Path, want_dirs: bool) -> Vec<String> {
                 entry.name.strip_suffix(".md").map(String::from)
             }
         })
-        .collect()
+        .collect();
+    names.sort();
+    names
 }
 
-fn plugin_json(root: &Path, rel: &str) -> Option<Value> {
-    untrusted::read_json(&untrusted::below(root, rel).ok()?, JSON_CAP)
-}
-
-fn keys_of(root: &Path, rel: &str, key: &str) -> Vec<String> {
-    let Some(doc) = plugin_json(root, rel) else {
+fn lsp_servers(root: &Path) -> Vec<String> {
+    let Some(doc) = untrusted::below(root, ".lsp.json")
+        .ok()
+        .and_then(|path| untrusted::read_json(&path, 4 * 1024 * 1024))
+    else {
         return Vec::new();
     };
-    let mut keys: Vec<String> = doc
-        .get(key)
-        .and_then(Value::as_object)
+    let servers = doc.get("lspServers").unwrap_or(&doc);
+    let mut keys: Vec<String> = servers
+        .as_object()
         .map(|map| map.keys().cloned().collect())
         .unwrap_or_default();
     keys.sort();
     keys
 }
 
-fn exact_list(matcher: &str) -> bool {
-    matcher
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | ' ' | ',' | '|'))
+pub(super) fn list(world: &World, runner: Option<&dyn ClaudeRunner>) -> installed::Listing {
+    installed::list(runner.filter(|r| r.present()), &world.claude_home)
 }
 
-fn tools_of(event: &str, matcher: &str) -> Vec<&'static str> {
-    if !matches!(event, "PreToolUse" | "PostToolUse") {
-        return Vec::new();
-    }
-    if matcher.is_empty() || matcher == "*" {
-        return TOOLS.to_vec();
-    }
-    if exact_list(matcher) {
-        let names: Vec<&str> = matcher
-            .split(['|', ','])
-            .map(str::trim)
-            .filter(|n| !n.is_empty())
-            .collect();
-        return TOOLS
-            .into_iter()
-            .filter(|tool| names.contains(tool))
-            .collect();
-    }
-    match Regex::new(matcher) {
-        Ok(regex) => TOOLS
-            .into_iter()
-            .filter(|tool| regex.is_match(tool))
-            .collect(),
-        Err(_) => Vec::new(),
-    }
+pub fn layers(world: &World, cwd: Option<&Path>) -> Layers {
+    Layers::load(
+        &world.claude_home,
+        cwd,
+        world.managed.as_deref(),
+        Some(&world.home),
+    )
 }
 
-struct Owner {
-    kind: &'static str,
-    name: String,
+pub(super) fn managed_info(world: &World, layers: &Layers) -> Value {
+    let file = layers.files().iter().find(|f| f.scope == Scope::Managed);
+    json!({
+        "path": world.managed.as_deref().map(|p| shorten(world, &fsx::display(p))),
+        "present": file.is_some(),
+        "problem": file.and_then(|f| f.problem.clone()),
+    })
 }
 
-struct Source<'a> {
-    owner: Owner,
-    path: &'a Path,
-    switch: (&'static str, String),
+fn tokens(value: u64, basis: &str) -> Value {
+    json!({"value": value, "basis": basis})
 }
 
-fn entries_of(world: &World, hooks: &Value, source: &Source) -> Vec<Value> {
-    let mut out = Vec::new();
-    let Some(events) = hooks.as_object() else {
-        return out;
+/// What each plugin costs: Claude Code's projected figure for every plugin (from
+/// `plugin details`, a few at a time) and, for a folder, the difference the last
+/// `context measure --without plugin:<id>` run measured.
+fn projected(runner: Option<&dyn ClaudeRunner>, plugins: &[Installed]) -> BTreeMap<String, u64> {
+    let Some(runner) = runner.filter(|r| r.present()) else {
+        return BTreeMap::new();
     };
-    for (event, groups) in events {
-        for group in groups.as_array().into_iter().flatten() {
-            let matcher = group.get("matcher").and_then(Value::as_str).unwrap_or("");
-            for hook in group
-                .get("hooks")
-                .and_then(Value::as_array)
-                .into_iter()
-                .flatten()
-            {
-                let kind = hook
-                    .get("type")
-                    .and_then(Value::as_str)
-                    .unwrap_or("command");
-                let command = hook
-                    .get("command")
-                    .or_else(|| hook.get("url"))
-                    .or_else(|| hook.get("prompt"))
-                    .and_then(Value::as_str)
-                    .unwrap_or("");
-                let marker = TOOLPORT_MARKERS.iter().find(|m| command.contains(*m));
-                let (owner_kind, owner_name, switch) = match marker {
-                    Some(_) => (
-                        "toolport",
-                        "toolport".to_string(),
-                        (
-                            "toolport-command",
-                            "managed by Toolport; its own command removes it".to_string(),
-                        ),
-                    ),
-                    None => (
-                        source.owner.kind,
-                        source.owner.name.clone(),
-                        source.switch.clone(),
-                    ),
-                };
-                out.push(json!({
-                    "owner": {"kind": owner_kind, "name": owner_name},
-                    "event": event,
-                    "matcher": matcher,
-                    "type": kind,
-                    "command": shorten(world, command),
-                    "runtimeId": null,
-                    "timeoutSec": hook.get("timeout").and_then(Value::as_u64),
-                    "async": hook.get("async").and_then(Value::as_bool).unwrap_or(false),
-                    "source": shorten(world, &fsx::display(source.path)),
-                    "marker": marker,
-                    "switch": {"method": switch.0, "detail": switch.1},
-                    "tools": tools_of(event, matcher),
-                }));
+    let mut out = BTreeMap::new();
+    for chunk in plugins.chunks(PARALLEL) {
+        std::thread::scope(|scope| {
+            let jobs: Vec<_> = chunk
+                .iter()
+                .filter(|p| crate::context::plugin_adapters::valid_ident(&p.id))
+                .map(|p| {
+                    scope.spawn(move || (p.id.clone(), detail::projected_tokens(runner, &p.id)))
+                })
+                .collect();
+            for job in jobs {
+                if let Ok((id, Some(value))) = job.join() {
+                    out.insert(id, value);
+                }
             }
-        }
+        });
     }
     out
 }
 
-fn plugin_hook_entries(world: &World, plugin: &Installed) -> Vec<Value> {
-    let Some(root) = &plugin.install_path else {
-        return Vec::new();
-    };
-    let file = root.join("hooks/hooks.json");
-    let Some(doc) = plugin_json(root, "hooks/hooks.json") else {
-        return Vec::new();
-    };
-    let hooks = doc.get("hooks").cloned().unwrap_or(Value::Null);
-    entries_of(
-        world,
-        &hooks,
-        &Source {
-            owner: Owner {
-                kind: "plugin",
-                name: plugin.id.clone(),
-            },
-            path: &file,
-            switch: (
-                "disable-plugin",
-                format!("turn the plugin off: plugins off {} --cwd <dir>", plugin.id),
-            ),
-        },
-    )
+struct Read<'a> {
+    world: &'a World,
+    layers: Layers,
+    registry: Registry,
+    skills: BTreeMap<String, String>,
+    cwd: Option<&'a Path>,
+    via: installed::Via,
+    projected: BTreeMap<String, u64>,
 }
 
-fn list(world: &World, runner: Option<&dyn ClaudeRunner>) -> installed::Listing {
-    installed::list(runner.filter(|r| r.present()), world.claude_home)
-}
-
-fn layers(world: &World, cwd: Option<&Path>) -> Layers {
-    Layers::load(world.claude_home, cwd, None, Some(world.home))
-}
-
-fn row(world: &World, plugin: &Installed, layers: &Layers, via: installed::Via) -> Value {
-    let enabled = layers.enabled(&plugin.id);
+fn row(read: &Read, plugin: &Installed) -> Value {
+    let world = read.world;
+    let enabled = read.layers.enabled(&plugin.id);
     let root = plugin.install_path.clone().unwrap_or_default();
-    let hooks = plugin_hook_entries(world, plugin).len();
+    let hooks = hook_list::plugin_entries(world, &read.registry, &read.skills, plugin).len();
+    let servers = detail::mcp_servers(&root);
+    let outside: Vec<Value> = servers
+        .iter()
+        .map(|(name, _)| {
+            let key = detail::mcp_key(&plugin.name, name);
+            json!({
+                "key": key,
+                "name": name,
+                "denied": detail::is_denied(&detail::denied(&read.layers, &key)),
+            })
+        })
+        .collect();
+    let measured = read
+        .cwd
+        .zip(world.data_dir.as_deref())
+        .and_then(|(cwd, data)| measure::plugin_delta(data, cwd, &plugin.id));
     json!({
         "id": plugin.id,
         "name": plugin.name,
         "marketplace": plugin.marketplace,
         "version": plugin.version,
+        "scope": plugin.scope,
         "installPath": plugin.install_path.as_deref().map(|p| shorten(world, &fsx::display(p))),
         "source": plugin.marketplace.as_deref()
-            .and_then(|m| installed::marketplace_source(world.claude_home, m)),
+            .and_then(|m| installed::marketplace_source(&world.claude_home, m)),
         "enabled": {
             "user": enabled.user,
             "project": enabled.project,
@@ -224,29 +189,82 @@ fn row(world: &World, plugin: &Installed, layers: &Layers, via: installed::Via) 
             "managed": enabled.managed,
             "effective": enabled.effective,
         },
+        "update": detail::update(&world.claude_home, plugin),
         "brings": {
             "skills": names_in(&root.join("skills"), true).len(),
             "agents": names_in(&root.join("agents"), false).len(),
             "commands": names_in(&root.join("commands"), false).len(),
             "hooks": hooks,
-            "mcpServers": keys_of(&root, ".mcp.json", "mcpServers").len(),
-            "lspServers": keys_of(&root, ".lsp.json", "lspServers").len(),
+            "mcpServers": servers.len(),
+            "lspServers": lsp_servers(&root).len(),
         },
+        "cost": {
+            "projected": read.projected.get(&plugin.id).map(|v| tokens(*v, "projected")),
+            "measured": measured.as_ref().map(|m| tokens(m.tokens, "measured")),
+            "measuredAt": measured.as_ref().map(|m| m.measured_at.clone()),
+        },
+        "adapter": read.registry.for_plugin(&plugin.id).map(|a| a.plugin.clone()),
+        "selectSource": detail::select_source(world.data_dir.as_deref(), plugin),
+        "mcpOutsideGateway": outside,
         "errors": plugin.errors,
-        "from": via.as_str(),
+        "from": read.via.as_str(),
     })
 }
 
-pub fn ls(world: &World, runner: Option<&dyn ClaudeRunner>, cwd: Option<&Path>) -> Value {
+fn open<'a>(
+    world: &'a World,
+    runner: Option<&dyn ClaudeRunner>,
+    cwd: Option<&'a Path>,
+    listing: &installed::Listing,
+    projected_for: &[Installed],
+) -> Read<'a> {
+    Read {
+        world,
+        layers: layers(world, cwd),
+        registry: Registry::load(world.data_dir.as_deref()),
+        skills: hook_list::skill_hooks(world.data_dir.as_deref()),
+        cwd,
+        via: listing.via,
+        projected: projected(runner, projected_for),
+    }
+}
+
+/// `claude plugin marketplace update`: fetch what every marketplace offers now. The error, when
+/// there is one; the install list is read afterwards either way.
+fn refresh(runner: Option<&dyn ClaudeRunner>) -> Option<String> {
+    let Some(runner) = runner.filter(|r| r.present()) else {
+        return Some(NOT_FOUND.to_string());
+    };
+    match runner.run(&["plugin", "marketplace", "update"], REFRESH_TIMEOUT) {
+        Err(e) => Some(e),
+        Ok(out) if !out.ok() => Some(installed::failure(&out, "claude plugin marketplace update")),
+        Ok(_) => None,
+    }
+}
+
+pub fn ls(
+    world: &World,
+    runner: Option<&dyn ClaudeRunner>,
+    cwd: Option<&Path>,
+    refresh_first: bool,
+) -> Value {
+    let refresh_error = refresh_first.then(|| refresh(runner)).flatten();
     let listing = list(world, runner);
-    let layers = layers(world, cwd);
+    let read = open(world, runner, cwd, &listing, &listing.plugins);
+    let rows: Vec<Value> = listing.plugins.iter().map(|p| row(&read, p)).collect();
+    let waiting = rows
+        .iter()
+        .filter(|r| r["update"]["state"] == "update")
+        .count();
     json!({
         "cwd": cwd.map(fsx::display),
-        "plugins": listing.plugins.iter()
-            .map(|p| row(world, p, &layers, listing.via))
-            .collect::<Vec<_>>(),
-        "refreshError": listing.cli_error,
-        "partial": true,
+        "plugins": rows,
+        "marketplaces": detail::marketplaces(&world.claude_home, &listing.plugins),
+        "updatesAvailable": waiting,
+        "managedSettings": managed_info(world, &read.layers),
+        "refreshed": refresh_first && refresh_error.is_none(),
+        "refreshError": refresh_error.or_else(|| listing.cli_error.clone()),
+        "partial": listing.via == installed::Via::Files && !listing.plugins.is_empty(),
     })
 }
 
@@ -262,162 +280,37 @@ pub fn show(
         .iter()
         .find(|p| p.id == id || p.name == id)
         .ok_or_else(|| OpError::not_found(format!("plugin not found: {id}")))?;
-    let layers = layers(world, cwd);
-    let mut data = row(world, plugin, &layers, listing.via);
+    let read = open(world, runner, cwd, &listing, std::slice::from_ref(plugin));
+    let mut data = row(&read, plugin);
     let root: PathBuf = plugin.install_path.clone().unwrap_or_default();
-    let manifest = plugin_json(&root, ".claude-plugin/plugin.json").unwrap_or(Value::Null);
-    let mcp: Vec<Value> = keys_of(&root, ".mcp.json", "mcpServers")
-        .into_iter()
-        .map(|name| {
-            json!({
-                "key": format!("plugin:{}:{name}", plugin.name),
-                "name": name,
-                "toolPrefix": format!("mcp__plugin_{}_{name}__*", plugin.name),
-            })
-        })
+    let manifest = detail::manifest(&root).unwrap_or(Value::Null);
+    let mcp: Vec<Value> = detail::mcp_servers(&root)
+        .iter()
+        .map(|(name, config)| detail::mcp_row(plugin, name, config, &read.layers))
         .collect();
+    let (options, options_from) = detail::options(
+        runner.filter(|r| r.present() && crate::context::plugin_adapters::valid_ident(&plugin.id)),
+        plugin,
+        &read.layers,
+    );
+    let adapter = read.registry.for_plugin(&plugin.id);
     let extra = json!({
         "description": manifest.get("description").and_then(Value::as_str),
         "components": {
             "skills": names_in(&root.join("skills"), true),
             "agents": names_in(&root.join("agents"), false),
             "commands": names_in(&root.join("commands"), false),
-            "lspServers": keys_of(&root, ".lsp.json", "lspServers"),
+            "lspServers": lsp_servers(&root),
         },
-        "hooks": plugin_hook_entries(world, plugin),
+        "hooks": hook_list::plugin_entries(world, &read.registry, &read.skills, plugin),
         "mcpServers": mcp,
+        "options": options,
+        "optionsFrom": options_from,
+        "knobs": detail::knobs(adapter, &read.layers, &plugin.id),
+        "adapterProblems": read.registry.problems_json(),
     });
     if let (Some(target), Some(source)) = (data.as_object_mut(), extra.as_object()) {
         target.extend(source.clone());
     }
     Ok(data)
-}
-
-#[derive(Default)]
-pub struct HookFilter<'a> {
-    pub tool: Option<&'a str>,
-    pub event: Option<&'a str>,
-    pub owner: Option<&'a str>,
-}
-
-fn settings_sources(world: &World, layers: &Layers) -> Vec<Value> {
-    let mut all = Vec::new();
-    for file in layers.files() {
-        let Some(hooks) = file.get("hooks") else {
-            continue;
-        };
-        let kind = match file.scope {
-            Scope::User => "user",
-            Scope::Project => "project",
-            Scope::Local => "local",
-            Scope::Managed => "managed",
-        };
-        all.extend(entries_of(
-            world,
-            hooks,
-            &Source {
-                owner: Owner {
-                    kind,
-                    name: file.name.to_string(),
-                },
-                path: &file.path,
-                switch: (
-                    "edit-settings",
-                    format!(
-                        "edit the hooks key of {}",
-                        shorten(world, &fsx::display(&file.path))
-                    ),
-                ),
-            },
-        ));
-    }
-    all
-}
-
-pub fn hooks(
-    world: &World,
-    runner: Option<&dyn ClaudeRunner>,
-    cwd: Option<&Path>,
-    filter: &HookFilter,
-) -> Value {
-    let layers = layers(world, cwd);
-    let disabled_all = layers
-        .flag("disableAllHooks")
-        .is_some_and(|(value, _)| value);
-    let listing = list(world, runner);
-    let mut entries = settings_sources(world, &layers);
-    for plugin in &listing.plugins {
-        if layers.enabled(&plugin.id).effective {
-            entries.extend(plugin_hook_entries(world, plugin));
-        }
-    }
-    entries.retain(|entry| {
-        filter.event.is_none_or(|e| entry["event"] == e)
-            && filter.owner.is_none_or(|o| entry["owner"]["kind"] == o)
-            && filter.tool.is_none_or(|t| {
-                entry["tools"]
-                    .as_array()
-                    .is_some_and(|l| l.iter().any(|x| x == t))
-            })
-    });
-    let mut by_owner: BTreeMap<String, u64> = BTreeMap::new();
-    let mut per_tool: BTreeMap<&str, (u64, u64)> = BTreeMap::new();
-    let mut other: BTreeMap<String, u64> = BTreeMap::new();
-    let mut pre_owners: BTreeMap<&str, Vec<String>> = BTreeMap::new();
-    for entry in &entries {
-        let kind = entry["owner"]["kind"].as_str().unwrap_or("").to_string();
-        *by_owner.entry(kind).or_default() += 1;
-        let event = entry["event"].as_str().unwrap_or("");
-        let tools: Vec<&str> = entry["tools"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(Value::as_str)
-            .collect();
-        if matches!(event, "PreToolUse" | "PostToolUse") {
-            for tool in TOOLS.iter().filter(|t| tools.contains(t)) {
-                let slot = per_tool.entry(tool).or_default();
-                if event == "PreToolUse" {
-                    slot.0 += 1;
-                    let owner = entry["owner"]["name"].as_str().unwrap_or("").to_string();
-                    pre_owners.entry(tool).or_default().push(owner);
-                } else {
-                    slot.1 += 1;
-                }
-            }
-        } else {
-            *other.entry(event.to_string()).or_default() += 1;
-        }
-    }
-    let conflicts: Vec<Value> = pre_owners
-        .into_iter()
-        .filter_map(|(tool, mut owners)| {
-            owners.sort();
-            owners.dedup();
-            (owners.len() > 1).then(|| {
-                json!({
-                    "event": "PreToolUse",
-                    "tools": [tool],
-                    "hooks": owners,
-                    "note": "the strictest answer wins: deny, then defer, then ask, then allow",
-                })
-            })
-        })
-        .collect();
-    let per_tool_json: Map<String, Value> = per_tool
-        .into_iter()
-        .map(|(tool, (pre, post))| {
-            (
-                tool.to_string(),
-                json!({"pre": pre, "post": post, "total": pre + post}),
-            )
-        })
-        .collect();
-    json!({
-        "cwd": cwd.map(fsx::display),
-        "disabledAll": disabled_all,
-        "hooks": entries,
-        "counts": {"byOwner": by_owner, "perTool": per_tool_json, "otherEvents": other},
-        "conflicts": conflicts,
-    })
 }

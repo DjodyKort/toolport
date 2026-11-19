@@ -1,0 +1,81 @@
+{
+  "argv": [
+    "plugins",
+    "config",
+    "ecc@ecc",
+    "--cwd",
+    "{home}/proj",
+    "--set",
+    "hook_profile=minimal",
+    "--set",
+    "gateguard=off",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "plugins config",
+    "data": {
+      "adapter": "ecc@ecc",
+      "changes": [
+        {
+          "action": "set",
+          "env": "ECC_HOOK_PROFILE",
+          "knob": "hook_profile",
+          "option": null,
+          "value": "minimal"
+        },
+        {
+          "action": "set",
+          "env": "ECC_GATEGUARD",
+          "knob": "gateguard",
+          "option": null,
+          "value": "off"
+        }
+      ],
+      "conflicts": [],
+      "cwd": "<WORLD>/home/proj",
+      "dryRun": true,
+      "id": "ecc@ecc",
+      "ledger": "<WORLD>/data/plus/profile-ledger.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "2 key(s) owned by config:ecc@ecc",
+            "diff": {
+              "after": "env.ECC_GATEGUARD: \"off\"\nenv.ECC_HOOK_PROFILE: \"minimal\"\n",
+              "before": "env.ECC_GATEGUARD: (absent)\nenv.ECC_HOOK_PROFILE: (absent)\n"
+            },
+            "keys": ["env"],
+            "op": "create",
+            "path": "<WORLD>/home/proj/.claude/settings.local.json"
+          },
+          {
+            "detail": "git-ignore .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/proj/.git/info/exclude"
+          },
+          {
+            "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          },
+          {
+            "detail": "writes env keys of ecc@ecc in <WORLD>/home/proj/.claude/settings.local.json; every other key stays as it is",
+            "op": "note"
+          }
+        ],
+        "summary": "Set hook_profile, gateguard for ecc@ecc in <WORLD>/home/proj",
+        "undo": "toolportctl plugins config ecc@ecc --cwd <WORLD>/home/proj --unset hook_profile --unset gateguard",
+        "warnings": [
+          "a hook that is switched off still starts a process and exits at once; only turning the plugin off removes it",
+          "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+        ]
+      },
+      "result": null,
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

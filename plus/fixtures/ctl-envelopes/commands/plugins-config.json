@@ -1,0 +1,76 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Folder whose .claude/settings.local.json gets the env keys; without it only knobs that are plugin options are set, through claude plugin configure",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Knob and value, <knob>=<value>; lists take a comma list",
+      "escalates": true,
+      "hidden": false,
+      "name": "--set",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Knob whose Toolport-written value is removed (a plugin option is set back to the adapter default)",
+      "escalates": true,
+      "hidden": false,
+      "name": "--unset",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "plugins",
+  "id": "plugins config",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "id",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["plugins", "config"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Show a plugin's options and adapter knobs with their values, or set them: env keys in one folder's .claude/settings.local.json, or plugin options through claude (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["plugins_config"]
+}

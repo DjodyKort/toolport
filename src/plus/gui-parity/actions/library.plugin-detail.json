@@ -1,0 +1,5 @@
+{
+  "route": "library-later",
+  "status": "planned",
+  "summary": "One plugin as a page with Back: description, skills, agents and commands it provides, its hooks, where it is on, its marketplace and install path, and a link to choosing single items of it in Sources (plugins show; plugins_show)"
+}

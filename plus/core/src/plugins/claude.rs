@@ -1,7 +1,7 @@
-//! The `claude` binary as a mockable runner: `plugin list|update|validate` and
-//! `plugin marketplace remove` go through it, and nothing else.
+//! The `claude` binary as a mockable runner: `plugin list|details|configure|update|validate` and
+//! `plugin marketplace update|remove` go through it, and nothing else.
 
-use crate::skills::gitexec::{is_not_found, run_command, CmdOutput};
+use crate::skills::gitexec::{is_not_found, run_command_input, CmdOutput};
 use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
@@ -11,6 +11,20 @@ pub const ENV_CLAUDE_BIN: &str = "TOOLPORT_CLAUDE_BIN";
 
 pub trait ClaudeRunner: Sync {
     fn run(&self, args: &[&str], timeout: Duration) -> Result<CmdOutput, String>;
+
+    /// [`ClaudeRunner::run`] with `input` on stdin, for values that must not appear in an
+    /// argument list (`plugin configure --values-stdin`).
+    fn run_input(
+        &self,
+        args: &[&str],
+        input: Option<&str>,
+        timeout: Duration,
+    ) -> Result<CmdOutput, String> {
+        match input {
+            None => self.run(args, timeout),
+            Some(_) => Err("this runner cannot take input".to_string()),
+        }
+    }
 
     /// Whether the binary can be found, without starting it.
     fn present(&self) -> bool {
@@ -38,9 +52,18 @@ impl SystemClaude {
 
 impl ClaudeRunner for SystemClaude {
     fn run(&self, args: &[&str], timeout: Duration) -> Result<CmdOutput, String> {
+        self.run_input(args, None, timeout)
+    }
+
+    fn run_input(
+        &self,
+        args: &[&str],
+        input: Option<&str>,
+        timeout: Duration,
+    ) -> Result<CmdOutput, String> {
         let mut cmd = Command::new(&self.bin);
         cmd.args(args);
-        run_command(cmd, timeout).map_err(|e| {
+        run_command_input(cmd, input, timeout).map_err(|e| {
             if is_not_found(&e) {
                 NOT_FOUND.to_string()
             } else {

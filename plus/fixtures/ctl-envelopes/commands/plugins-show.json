@@ -36,7 +36,7 @@
     "flag": null,
     "mode": "none"
   },
-  "summary": "Show one plugin: its components, hooks and MCP servers (<id>, --cwd)",
+  "summary": "Show one plugin: its components, hooks, MCP servers, options and knobs (<id>, --cwd)",
   "surface": "screen",
   "tier": "read",
   "tools": ["plugins_show"]

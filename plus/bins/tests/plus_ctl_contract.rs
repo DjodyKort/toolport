@@ -325,6 +325,11 @@ fn plugin_inventory(world: &World) {
     world.plugin_inventory();
 }
 
+fn plugin_with_folder(world: &World) {
+    world.context_files();
+    world.plugin_inventory();
+}
+
 fn point_beta_at_a_loopback_authorization_server(world: &World) {
     let idp = OauthMock::start();
     let mut registry = world.registry();
@@ -2568,6 +2573,7 @@ const CASES: &[Case] = &[
         &[
             hook("files", plugin_inventory),
             read("installed", &["plugins", "ls"]),
+            read("refresh-without-claude", &["plugins", "ls", "--refresh"]),
             usage("usage", &["plugins", "ls", "extra"]),
         ],
     ),
@@ -2578,6 +2584,226 @@ const CASES: &[Case] = &[
             read("one", &["plugins", "show", "ecc@ecc"]),
             read("unknown", &["plugins", "show", "ghost@x"]).exit(1),
             usage("usage", &["plugins", "show"]),
+        ],
+    ),
+    case(
+        "plugins config",
+        &[
+            hook("files", plugin_with_folder),
+            read("one", &["plugins", "config", "ecc@ecc"]),
+            read(
+                "folder",
+                &["plugins", "config", "ecc@ecc", "--cwd", "{home}/proj"],
+            ),
+            read(
+                "plan",
+                &[
+                    "plugins",
+                    "config",
+                    "ecc@ecc",
+                    "--cwd",
+                    "{home}/proj",
+                    "--set",
+                    "hook_profile=minimal",
+                    "--set",
+                    "gateguard=off",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "plugins",
+                    "config",
+                    "ecc@ecc",
+                    "--cwd",
+                    "{home}/proj",
+                    "--set",
+                    "hook_profile=minimal",
+                    "--set",
+                    "gateguard=off",
+                ],
+            ),
+            read(
+                "written",
+                &["plugins", "config", "ecc@ecc", "--cwd", "{home}/proj"],
+            ),
+            apply(
+                "unset",
+                &[
+                    "plugins",
+                    "config",
+                    "ecc@ecc",
+                    "--cwd",
+                    "{home}/proj",
+                    "--unset",
+                    "hook_profile",
+                    "--unset",
+                    "gateguard",
+                ],
+            ),
+            read(
+                "global-without-claude",
+                &[
+                    "plugins",
+                    "config",
+                    "ecc@ecc",
+                    "--set",
+                    "hook_profile=strict",
+                ],
+            )
+            .exit(1),
+            read(
+                "folder-only-knob",
+                &["plugins", "config", "ecc@ecc", "--set", "gateguard=off"],
+            )
+            .exit(2),
+            read(
+                "unknown-knob",
+                &[
+                    "plugins",
+                    "config",
+                    "ecc@ecc",
+                    "--cwd",
+                    "{home}/proj",
+                    "--set",
+                    "nope=1",
+                ],
+            )
+            .exit(2),
+            read("unknown-plugin", &["plugins", "config", "ghost@x"]).exit(1),
+            usage("usage", &["plugins", "config"]),
+            usage(
+                "bad-pair",
+                &["plugins", "config", "ecc@ecc", "--set", "noequals"],
+            ),
+        ],
+    ),
+    case(
+        "plugins mcp ls",
+        &[
+            hook("files", plugin_with_folder),
+            read("servers", &["plugins", "mcp", "ls", "ecc@ecc"]),
+            read("unknown-plugin", &["plugins", "mcp", "ls", "ghost@x"]).exit(1),
+            usage("usage", &["plugins", "mcp", "ls"]),
+        ],
+    ),
+    case(
+        "plugins mcp deny",
+        &[
+            hook("files", plugin_with_folder),
+            read(
+                "plan",
+                &[
+                    "plugins",
+                    "mcp",
+                    "deny",
+                    "ecc@ecc",
+                    "chrome",
+                    "--cwd",
+                    "{home}/proj",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "plugins",
+                    "mcp",
+                    "deny",
+                    "ecc@ecc",
+                    "chrome",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            apply(
+                "again",
+                &[
+                    "plugins",
+                    "mcp",
+                    "deny",
+                    "ecc@ecc",
+                    "chrome",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            read(
+                "denied",
+                &["plugins", "mcp", "ls", "ecc@ecc", "--cwd", "{home}/proj"],
+            ),
+            read(
+                "unknown-server",
+                &[
+                    "plugins",
+                    "mcp",
+                    "deny",
+                    "ecc@ecc",
+                    "ghost",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            )
+            .exit(1),
+            usage("no-cwd", &["plugins", "mcp", "deny", "ecc@ecc", "chrome"]),
+            usage("usage", &["plugins", "mcp", "deny", "ecc@ecc"]),
+        ],
+    ),
+    case(
+        "plugins mcp allow",
+        &[
+            hook("files", plugin_with_folder),
+            apply(
+                "deny-first",
+                &[
+                    "plugins",
+                    "mcp",
+                    "deny",
+                    "ecc@ecc",
+                    "chrome",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            read(
+                "plan",
+                &[
+                    "plugins",
+                    "mcp",
+                    "allow",
+                    "ecc@ecc",
+                    "chrome",
+                    "--cwd",
+                    "{home}/proj",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "plugins",
+                    "mcp",
+                    "allow",
+                    "ecc@ecc",
+                    "chrome",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            apply(
+                "again",
+                &[
+                    "plugins",
+                    "mcp",
+                    "allow",
+                    "ecc@ecc",
+                    "chrome",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            usage("usage", &["plugins", "mcp", "allow", "ecc@ecc"]),
         ],
     ),
     case(

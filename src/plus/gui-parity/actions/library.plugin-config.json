@@ -1,0 +1,5 @@
+{
+  "route": "library-later",
+  "status": "planned",
+  "summary": "A plugin's options with current values (sensitive ones only as set or not set) and the knobs of its adapter with the layer each value comes from; a knob is changed in a folder or, when it is a plugin option, for every folder, after the plan (plugins config; plugins_config)"
+}

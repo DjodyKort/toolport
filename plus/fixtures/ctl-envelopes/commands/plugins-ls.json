@@ -13,6 +13,17 @@
       "required": false,
       "sensitive": false,
       "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Run claude plugin marketplace update first, so the update column reflects what the marketplaces offer now",
+      "escalates": true,
+      "hidden": false,
+      "name": "--refresh",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
     }
   ],
   "group": "plugins",
@@ -30,8 +41,8 @@
     "flag": null,
     "mode": "none"
   },
-  "summary": "List the installed plugins with where they are on and what they bring (--cwd)",
+  "summary": "List the installed plugins with where they are on (user, project, local, managed), what they bring, cost and update (--cwd, --refresh)",
   "surface": "screen",
-  "tier": "read",
+  "tier": "write",
   "tools": ["plugins_ls"]
 }

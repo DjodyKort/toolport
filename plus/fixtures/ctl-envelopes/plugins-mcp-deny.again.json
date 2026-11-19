@@ -1,0 +1,49 @@
+{
+  "argv": ["plugins", "mcp", "deny", "ecc@ecc", "chrome", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "plugins mcp deny",
+    "data": {
+      "changes": [
+        {
+          "action": "none",
+          "key": "deniedMcpServers",
+          "value": "plugin:ecc:chrome"
+        }
+      ],
+      "conflicts": [],
+      "cwd": "<WORLD>/home/proj",
+      "dryRun": false,
+      "id": "ecc@ecc",
+      "ledger": null,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "tools of the server are named mcp__plugin_ecc_chrome__*; the plugin itself stays on",
+            "op": "note"
+          }
+        ],
+        "summary": "Deny MCP server chrome of ecc@ecc in <WORLD>/home/proj",
+        "undo": "toolportctl plugins mcp allow ecc@ecc chrome --cwd <WORLD>/home/proj",
+        "warnings": [
+          "already denied by `plugins mcp deny`; nothing is written",
+          "the server stays outside the Toolport gateway; this only tells Claude Code not to start it here",
+          "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [],
+        "undo": "toolportctl plugins mcp allow ecc@ecc chrome --cwd <WORLD>/home/proj"
+      },
+      "scope": "folder",
+      "server": "chrome",
+      "serverName": "plugin:ecc:chrome",
+      "toolPrefix": "mcp__plugin_ecc_chrome__*"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

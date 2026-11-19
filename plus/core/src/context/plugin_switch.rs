@@ -56,7 +56,7 @@ fn valid_id(id: &str) -> bool {
     super::plugin_adapters::valid_ident(id)
 }
 
-fn quote(text: &str) -> String {
+pub(super) fn quote(text: &str) -> String {
     if !text.is_empty()
         && text
             .chars()
@@ -105,7 +105,7 @@ fn bundle_owner(data_dir: &Path, cwd: &Path, id: &str) -> Option<String> {
         .then(|| rec.bundle.clone())
 }
 
-fn note(detail: String) -> Step {
+pub(super) fn note(detail: String) -> Step {
     Step {
         op: "note",
         path: None,
@@ -116,24 +116,24 @@ fn note(detail: String) -> Step {
 }
 
 #[derive(Default)]
-struct Outcome {
-    acted: bool,
-    steps: Vec<Step>,
-    warnings: Vec<String>,
-    conflicts: Vec<String>,
-    changed: Vec<String>,
-    ledger: Option<String>,
+pub(super) struct Outcome {
+    pub acted: bool,
+    pub steps: Vec<Step>,
+    pub warnings: Vec<String>,
+    pub conflicts: Vec<String>,
+    pub changed: Vec<String>,
+    pub ledger: Option<String>,
 }
 
 impl Outcome {
-    fn skipped(warning: String) -> Self {
+    pub(super) fn skipped(warning: String) -> Self {
         Self {
             warnings: vec![warning],
             ..Self::default()
         }
     }
 
-    fn from_run(run: Run) -> Self {
+    pub(super) fn from_run(run: Run) -> Self {
         Self {
             acted: true,
             steps: run.steps,
@@ -161,7 +161,7 @@ fn change_row(op: Switch, id: &str, outcome: &Outcome, owned: Option<&ledger::Ow
     }
 }
 
-fn folder(cwd: &Path) -> Result<PathBuf, OpError> {
+pub(super) fn folder(cwd: &Path) -> Result<PathBuf, OpError> {
     if !fsx::is_dir(cwd) {
         return Err(OpError::usage(format!(
             "cwd is not a folder: {}",

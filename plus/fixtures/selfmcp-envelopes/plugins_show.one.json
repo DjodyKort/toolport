@@ -4,6 +4,8 @@
   },
   "isError": false,
   "result": {
+    "adapter": "ecc@ecc",
+    "adapterProblems": [],
     "brings": {
       "agents": 1,
       "commands": 1,
@@ -18,6 +20,11 @@
       "lspServers": [],
       "skills": ["review"]
     },
+    "cost": {
+      "measured": null,
+      "measuredAt": null,
+      "projected": null
+    },
     "description": "A synthetic plugin",
     "enabled": {
       "effective": true,
@@ -31,7 +38,7 @@
     "hooks": [
       {
         "async": false,
-        "command": "node guard.js",
+        "command": "node scripts/run-with-flags.js pre:bash:dispatcher guard.js",
         "event": "PreToolUse",
         "marker": null,
         "matcher": "Bash|Edit",
@@ -39,11 +46,11 @@
           "kind": "plugin",
           "name": "ecc@ecc"
         },
-        "runtimeId": null,
+        "runtimeId": "pre:bash:dispatcher",
         "source": "~/.claude/plugins/cache/ecc/hooks/hooks.json",
         "switch": {
-          "detail": "turn the plugin off: plugins off ecc@ecc --cwd <dir>",
-          "method": "disable-plugin"
+          "detail": "plugins config ecc@ecc --set disabled_hooks=pre:bash:dispatcher --cwd <dir>; the hook still starts a process and exits at once",
+          "method": "plugin-setting"
         },
         "timeoutSec": 5,
         "tools": ["Bash", "Edit"],
@@ -72,16 +79,140 @@
     ],
     "id": "ecc@ecc",
     "installPath": "~/.claude/plugins/cache/ecc",
+    "knobs": [
+      {
+        "choices": ["minimal", "standard", "strict"],
+        "current": {
+          "from": "option",
+          "value": "strict"
+        },
+        "default": "standard",
+        "env": "ECC_HOOK_PROFILE",
+        "folderOnly": false,
+        "key": "hook_profile",
+        "kind": "enum",
+        "label": "Hook profile",
+        "list": false,
+        "option": "hook_profile"
+      },
+      {
+        "choices": null,
+        "current": {
+          "from": "default",
+          "value": "true"
+        },
+        "default": "true",
+        "env": "ECC_HOOKS_ENABLED",
+        "folderOnly": false,
+        "key": "hooks_enabled",
+        "kind": "bool",
+        "label": "Hooks",
+        "list": false,
+        "option": "hooks_enabled"
+      },
+      {
+        "choices": null,
+        "current": {
+          "from": "default",
+          "value": "on"
+        },
+        "default": "on",
+        "env": "ECC_GATEGUARD",
+        "folderOnly": true,
+        "key": "gateguard",
+        "kind": "bool-off",
+        "label": "GateGuard",
+        "list": false,
+        "option": null
+      },
+      {
+        "choices": null,
+        "current": {
+          "from": "user-env",
+          "value": "docs/**"
+        },
+        "default": null,
+        "env": "GATEGUARD_EXEMPT_GLOBS",
+        "folderOnly": true,
+        "key": "gateguard_exempt_globs",
+        "kind": "globs",
+        "label": "GateGuard exempt paths",
+        "list": true,
+        "option": null
+      },
+      {
+        "choices": null,
+        "current": {
+          "from": "default",
+          "value": null
+        },
+        "default": null,
+        "env": "ECC_DISABLED_HOOKS",
+        "folderOnly": true,
+        "key": "disabled_hooks",
+        "kind": "hook-ids",
+        "label": "Hooks switched off",
+        "list": true,
+        "option": null
+      }
+    ],
     "marketplace": "ecc",
+    "mcpOutsideGateway": [
+      {
+        "denied": false,
+        "key": "plugin:ecc:chrome",
+        "name": "chrome"
+      }
+    ],
     "mcpServers": [
       {
+        "command": ["chrome-mcp", "--headless"],
+        "denied": {
+          "local": false,
+          "managed": false,
+          "project": false,
+          "user": false
+        },
         "key": "plugin:ecc:chrome",
         "name": "chrome",
-        "toolPrefix": "mcp__plugin_ecc_chrome__*"
+        "toolPrefix": "mcp__plugin_ecc_chrome__*",
+        "type": null,
+        "url": null
       }
     ],
     "name": "ecc",
-    "source": null,
+    "options": [
+      {
+        "choices": null,
+        "configured": null,
+        "current": null,
+        "default": null,
+        "description": "A secret",
+        "key": "api_token",
+        "sensitive": true,
+        "title": "Token",
+        "type": "string"
+      },
+      {
+        "choices": null,
+        "configured": true,
+        "current": "strict",
+        "default": "standard",
+        "description": "How strict the hooks are",
+        "key": "hook_profile",
+        "sensitive": false,
+        "title": "Hook profile",
+        "type": "string"
+      }
+    ],
+    "optionsFrom": "files",
+    "scope": "user",
+    "selectSource": null,
+    "source": "github:acme/ecc",
+    "update": {
+      "available": "1.10.0",
+      "state": "update"
+    },
     "version": "<masked>"
   },
   "tool": "plugins_show"

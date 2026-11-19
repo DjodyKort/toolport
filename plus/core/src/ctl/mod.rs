@@ -457,13 +457,33 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["plugins", "ls"],
-        "List the installed plugins with where they are on and what they bring (--cwd)",
+        "List the installed plugins with where they are on (user, project, local, managed), what they bring, cost and update (--cwd, --refresh)",
         plugins::ls,
     ),
     cmd(
         &["plugins", "show"],
-        "Show one plugin: its components, hooks and MCP servers (<id>, --cwd)",
+        "Show one plugin: its components, hooks, MCP servers, options and knobs (<id>, --cwd)",
         plugins::show,
+    ),
+    cmd(
+        &["plugins", "config"],
+        "Show a plugin's options and adapter knobs with their values, or set them: env keys in one folder's .claude/settings.local.json, or plugin options through claude (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)",
+        plugins::config,
+    ),
+    cmd(
+        &["plugins", "mcp", "ls"],
+        "List the MCP servers a plugin starts and where each is denied (<id>, --cwd)",
+        plugins::mcp_ls,
+    ),
+    cmd(
+        &["plugins", "mcp", "deny"],
+        "Deny one MCP server of a plugin in a folder: deniedMcpServers in .claude/settings.local.json, undone by `plugins mcp allow` (<id> <server>, --cwd, --dry-run)",
+        plugins::mcp_deny,
+    ),
+    cmd(
+        &["plugins", "mcp", "allow"],
+        "Allow a plugin's MCP server again in a folder: removes the entry `plugins mcp deny` wrote (<id> <server>, --cwd, --dry-run)",
+        plugins::mcp_allow,
     ),
     cmd(
         &["hooks", "ls"],
