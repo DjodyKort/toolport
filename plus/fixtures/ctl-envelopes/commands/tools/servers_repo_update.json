@@ -1,0 +1,7 @@
+{
+  "command": "server repo update",
+  "dryRun": "default-on",
+  "name": "servers_repo_update",
+  "tier": "write",
+  "toolTier": 3
+}

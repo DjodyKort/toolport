@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "gamma",
+    "of": "both"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "of is update or switch"
+    }
+  },
+  "text": "invalid_arguments: of is update or switch",
+  "tool": "servers_repo_undo"
+}

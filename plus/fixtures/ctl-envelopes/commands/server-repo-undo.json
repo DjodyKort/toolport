@@ -83,5 +83,5 @@
   "summary": "Move a server's checkout back to before the last update when nothing else moved it: <server> [--dry-run]",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["servers_repo_undo"]
 }

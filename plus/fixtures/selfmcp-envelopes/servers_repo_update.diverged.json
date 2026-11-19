@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "name": "gamma",
+    "plan_hash": "sha256:15f1e35a8e23a6ff"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "backend_error",
+      "message": "your branch diverged: 1 local commit(s) and 1 new commit(s) on origin/main; Toolport only fast-forwards, so rebase or merge it yourself"
+    }
+  },
+  "text": "backend_error: your branch diverged: 1 local commit(s) and 1 new commit(s) on origin/main; Toolport only fast-forwards, so rebase or merge it yourself",
+  "tool": "servers_repo_update"
+}

@@ -1,0 +1,7 @@
+{
+  "command": "server repo switch",
+  "dryRun": "default-on",
+  "name": "servers_repo_switch",
+  "tier": "write",
+  "toolTier": 3
+}

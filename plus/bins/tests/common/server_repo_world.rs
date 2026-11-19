@@ -135,3 +135,19 @@ pub fn server_repo_with_peers(world: &World) {
     server_repo(world);
     server_repo_peers(world);
 }
+
+/// A new commit on the remote and a different one in the checkout, which has fetched both.
+pub fn server_repo_diverged(world: &World) {
+    let other = world.base.join("gamma-other");
+    let work = world.base.join("gamma-work");
+    git(
+        &other,
+        &world.home,
+        &["pull", "-q", "--ff-only", "origin", "main"],
+    );
+    commit(world, &other, "more.js", "three", "Add the fetch tool");
+    std::fs::write(work.join("local.js"), "mine").unwrap();
+    git(&work, &world.home, &["add", "."]);
+    git(&work, &world.home, &["commit", "-q", "-m", "Local work"]);
+    git(&work, &world.home, &["fetch", "-q", "origin"]);
+}

@@ -1,0 +1,25 @@
+{
+  "arguments": {
+    "name": "gamma"
+  },
+  "isError": false,
+  "result": {
+    "applyWith": "call servers_repo_switch with dry_run=false, this planHash as plan_hash and confirm=true",
+    "build": {
+      "command": null,
+      "remembered": false
+    },
+    "createsBranch": true,
+    "fromBranch": "main",
+    "fromHead": "86846020f965369a54fc0d28358325928001cfbd",
+    "id": "srv-gamma",
+    "machine": "<masked>",
+    "planHash": "<masked>",
+    "refusal": null,
+    "root": "<WORLD>/gamma-work",
+    "server": "gamma",
+    "toBranch": "feature",
+    "toHead": "f2154560fc20b76468ca2eab7511818eefd4fb87"
+  },
+  "tool": "servers_repo_switch"
+}

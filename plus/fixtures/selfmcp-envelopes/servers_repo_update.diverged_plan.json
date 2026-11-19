@@ -1,0 +1,35 @@
+{
+  "arguments": {
+    "name": "gamma"
+  },
+  "isError": false,
+  "result": {
+    "applyWith": "call servers_repo_update with dry_run=false, this planHash as plan_hash and confirm=true",
+    "branch": "main",
+    "build": {
+      "blocked": null,
+      "command": "echo built",
+      "remembered": true,
+      "timeoutSeconds": 120
+    },
+    "commits": [],
+    "commitsTotal": 1,
+    "files": [],
+    "filesTotal": 0,
+    "from": "918a830f6007292eddb02d09046e82963554cbff",
+    "id": "srv-gamma",
+    "inFlight": null,
+    "planHash": "<masked>",
+    "refusal": {
+      "code": "diverged",
+      "message": "your branch diverged: 1 local commit(s) and 1 new commit(s) on origin/main; Toolport only fast-forwards, so rebase or merge it yourself"
+    },
+    "root": "<WORLD>/gamma-work",
+    "server": "gamma",
+    "sharedWith": [],
+    "to": "c9b36ad706f4088d54e1bb4a73ab94adb15c61aa",
+    "undo": "toolportctl server repo undo gamma",
+    "upstream": "origin/main"
+  },
+  "tool": "servers_repo_update"
+}

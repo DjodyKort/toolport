@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "machine": "<masked>",
+    "name": "gamma"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no other machine has published another branch of gamma"
+    }
+  },
+  "text": "not_found: no other machine has published another branch of gamma",
+  "tool": "servers_repo_switch"
+}

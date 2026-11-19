@@ -1,0 +1,14 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "checkedAt": "<TIME>",
+    "repos": [
+      {
+        "ok": true,
+        "server": "gamma"
+      }
+    ]
+  },
+  "tool": "servers_repo_check"
+}

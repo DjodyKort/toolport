@@ -3,8 +3,8 @@ use toolport_plus_api::Host;
 
 use super::{
     access, attention, backend, catalog_index, clients, compression, content, context,
-    launch_profile, library, memory, reach, servers, setup, skills, sources, spend, sync, tasks,
-    ToolError,
+    launch_profile, library, memory, reach, server_repo, servers, setup, skills, sources, spend,
+    sync, tasks, ToolError,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1174,6 +1174,61 @@ pub const TOOLS: &[ToolDef] = &[
             "Server id or name; every server that runs from a checkout when omitted"
         )],
         servers::repo_status
+    ),
+    tool!(
+        "servers_repo_check",
+        2,
+        None,
+        "Fetch the tracked remote of every local server that runs from a git checkout, so servers_repo_status and servers_repo_update see what was pushed; changes neither the branch nor the files and records when it looked. The only tool here that reaches the network for a checkout",
+        [],
+        server_repo::check
+    ),
+    tool!(
+        "servers_repo_update",
+        3,
+        UnlessDryRun,
+        "Fast-forward the tracked branch of a server's checkout to the commit the last check saw, run the build command, and restart the server. HIGH risk: it replaces the code the server runs and runs a command. dry_run is on by default and returns the plan: the commits, the files, the build command and its plan_hash (apply with dry_run=false, that plan_hash and confirm=true; refused when the plan changed since). Only a fast-forward is done: local changes, a diverged or detached branch are refused",
+        [
+            NAME,
+            DRY_ON,
+            PLAN_HASH,
+            p("build", Ty::Str, false, "Build command to run in the checkout after the update; without it the one agreed earlier runs. A command that carries a secret is refused"),
+            p("no_build", Ty::Bool, false, "Skip the build"),
+            p("restart_now", Ty::Bool, false, "Restart even while a call is running; calls in flight end. Without it a busy server is not restarted"),
+            p("fetch", Ty::Bool, false, "Fetch the tracked remote before planning")
+        ],
+        server_repo::update
+    ),
+    tool!(
+        "servers_repo_switch",
+        3,
+        UnlessDryRun,
+        "Switch a server's checkout to the branch another machine published for it, build, and restart. HIGH risk, as servers_repo_update. dry_run is on by default and returns the plan with its plan_hash (apply with dry_run=false, that plan_hash and confirm=true). A checkout with local changes or a head that was never pushed is refused",
+        [
+            NAME,
+            DRY_ON,
+            PLAN_HASH,
+            p("machine", Ty::Str, false, "The machine whose branch to switch to; the only other machine when omitted"),
+            p("build", Ty::Str, false, "Build command to run after the switch; without it the one agreed earlier runs"),
+            p("no_build", Ty::Bool, false, "Skip the build"),
+            p("restart_now", Ty::Bool, false, "Restart even while a call is running; calls in flight end"),
+            p("fetch", Ty::Bool, false, "Fetch the tracked remote before planning")
+        ],
+        server_repo::switch_branch
+    ),
+    tool!(
+        "servers_repo_undo",
+        3,
+        UnlessDryRun,
+        "Take back the one update (or, with of=switch, the one branch switch) of a server's checkout, when nothing else has moved the branch since, and run the same build again. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            NAME,
+            DRY_ON,
+            p("of", Ty::Str, false, "update (default) or switch"),
+            p("no_build", Ty::Bool, false, "Skip the build, which a remembered command that now carries a secret needs"),
+            p("restart_now", Ty::Bool, false, "Restart even while a call is running; calls in flight end")
+        ],
+        server_repo::undo
     ),
     tool!(
         "servers_list_profiles",

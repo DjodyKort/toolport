@@ -138,5 +138,5 @@
   "summary": "Check out the branch another machine is on, when the work tree is clean: <server> [--machine <name>] [--fetch] [--dry-run] [--plan-hash] [--build|--no-build] [--restart-now|--no-restart], or --undo",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["servers_repo_switch"]
 }

@@ -1,0 +1,7 @@
+{
+  "command": "server repo undo",
+  "dryRun": "default-on",
+  "name": "servers_repo_undo",
+  "tier": "write",
+  "toolTier": 3
+}

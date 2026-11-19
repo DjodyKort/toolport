@@ -20,7 +20,7 @@ use common::catalog_world;
 use common::client::Client;
 use common::compression;
 use common::library_world::{self, library_home};
-use common::server_repo_world::{server_repo, server_repo_with_peers};
+use common::server_repo_world::{server_repo, server_repo_diverged, server_repo_with_peers};
 use common::taps_world;
 use common::tasks_world::{scheduler_home, tasks_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
@@ -99,6 +99,13 @@ const fn setup(tool: &'static str, args: &'static str) -> Call {
     Call {
         golden: false,
         ..write(tool, tool, args)
+    }
+}
+
+const fn setup_as(label: &'static str, tool: &'static str, args: &'static str) -> Call {
+    Call {
+        label,
+        ..setup(tool, args)
     }
 }
 
@@ -1374,6 +1381,163 @@ const CASES: &[Case] = &[
                 "not_found",
                 "servers_repo_status",
                 r#"{"name":"alpha"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "servers_repo_check",
+        server_repo,
+        &[write("fetched", "servers_repo_check", "{}")],
+    ),
+    prepared(
+        "servers_repo_update",
+        server_repo,
+        &[
+            setup("servers_repo_check", "{}"),
+            read("plan", "servers_repo_update", r#"{"name":"gamma"}"#),
+            read(
+                "plan_build",
+                "servers_repo_update",
+                r#"{"name":"gamma","build":"echo built"}"#,
+            ),
+            fails(
+                "needs_hash",
+                "invalid_arguments",
+                "servers_repo_update",
+                r#"{"name":"gamma","dry_run":false,"confirm":true}"#,
+            ),
+            refused(
+                "refused",
+                "servers_repo_update",
+                r#"{"name":"gamma","dry_run":false,"plan_hash":"sha256:15f1e35a8e23a6ff"}"#,
+            ),
+            fails(
+                "stale_hash",
+                "conflict",
+                "servers_repo_update",
+                r#"{"name":"gamma","build":"echo built","dry_run":false,"plan_hash":"000000000000","confirm":true}"#,
+            ),
+            fails(
+                "other_build",
+                "conflict",
+                "servers_repo_update",
+                r#"{"name":"gamma","build":"echo other","dry_run":false,"plan_hash":"sha256:15f1e35a8e23a6ff","confirm":true}"#,
+            ),
+            fails(
+                "unknown",
+                "not_found",
+                "servers_repo_update",
+                r#"{"name":"ghost"}"#,
+            ),
+            write(
+                "update",
+                "servers_repo_update",
+                r#"{"name":"gamma","build":"echo built","dry_run":false,"plan_hash":"sha256:15f1e35a8e23a6ff","confirm":true}"#,
+            ),
+            read("up_to_date", "servers_repo_update", r#"{"name":"gamma"}"#),
+            hook("diverge", server_repo_diverged),
+            setup_as("check_again", "servers_repo_check", "{}"),
+            read(
+                "diverged_plan",
+                "servers_repo_update",
+                r#"{"name":"gamma"}"#,
+            ),
+            fails(
+                "diverged",
+                "backend_error",
+                "servers_repo_update",
+                r#"{"name":"gamma","dry_run":false,"plan_hash":"sha256:15f1e35a8e23a6ff","confirm":true}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "servers_repo_switch",
+        server_repo_with_peers,
+        &[
+            read("plan_cached", "servers_repo_switch", r#"{"name":"gamma"}"#),
+            read(
+                "plan",
+                "servers_repo_switch",
+                r#"{"name":"gamma","fetch":true}"#,
+            ),
+            fails(
+                "needs_hash",
+                "invalid_arguments",
+                "servers_repo_switch",
+                r#"{"name":"gamma","dry_run":false,"confirm":true}"#,
+            ),
+            refused(
+                "refused",
+                "servers_repo_switch",
+                r#"{"name":"gamma","dry_run":false,"plan_hash":"sha256:7772a977fa8898ee"}"#,
+            ),
+            fails(
+                "stale_hash",
+                "conflict",
+                "servers_repo_switch",
+                r#"{"name":"gamma","fetch":true,"dry_run":false,"plan_hash":"000000000000","confirm":true}"#,
+            ),
+            fails(
+                "unknown_machine",
+                "not_found",
+                "servers_repo_switch",
+                r#"{"name":"gamma","machine":"ghost"}"#,
+            ),
+            write(
+                "switch",
+                "servers_repo_switch",
+                r#"{"name":"gamma","fetch":true,"dry_run":false,"plan_hash":"sha256:7772a977fa8898ee","confirm":true}"#,
+            ),
+            setup_as(
+                "undo_switch",
+                "servers_repo_undo",
+                r#"{"name":"gamma","of":"switch","dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "servers_repo_undo",
+        server_repo,
+        &[
+            setup("servers_repo_check", "{}"),
+            fails(
+                "nothing",
+                "not_found",
+                "servers_repo_undo",
+                r#"{"name":"gamma"}"#,
+            ),
+            setup(
+                "servers_repo_update",
+                r#"{"name":"gamma","build":"echo built","dry_run":false,"plan_hash":"sha256:15f1e35a8e23a6ff","confirm":true}"#,
+            ),
+            read("preview", "servers_repo_undo", r#"{"name":"gamma"}"#),
+            refused(
+                "refused",
+                "servers_repo_undo",
+                r#"{"name":"gamma","dry_run":false}"#,
+            ),
+            fails(
+                "bad_of",
+                "invalid_arguments",
+                "servers_repo_undo",
+                r#"{"name":"gamma","of":"both"}"#,
+            ),
+            fails(
+                "no_switch",
+                "not_found",
+                "servers_repo_undo",
+                r#"{"name":"gamma","of":"switch"}"#,
+            ),
+            write(
+                "undo",
+                "servers_repo_undo",
+                r#"{"name":"gamma","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "again",
+                "not_found",
+                "servers_repo_undo",
+                r#"{"name":"gamma","dry_run":false,"confirm":true}"#,
             ),
         ],
     ),

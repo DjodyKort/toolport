@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "build": "echo built",
+    "confirm": true,
+    "dry_run": false,
+    "name": "gamma",
+    "plan_hash": "000000000000"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "the plan has changed since it was reviewed; review it again"
+    }
+  },
+  "text": "conflict: the plan has changed since it was reviewed; review it again",
+  "tool": "servers_repo_update"
+}

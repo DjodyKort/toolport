@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "gamma"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no update of gamma to take back"
+    }
+  },
+  "text": "not_found: no update of gamma to take back",
+  "tool": "servers_repo_undo"
+}

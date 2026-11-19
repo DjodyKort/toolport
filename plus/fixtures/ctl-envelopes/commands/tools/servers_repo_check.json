@@ -1,0 +1,7 @@
+{
+  "command": "server repo check",
+  "dryRun": "none",
+  "name": "servers_repo_check",
+  "tier": "write",
+  "toolTier": 2
+}

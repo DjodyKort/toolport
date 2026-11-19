@@ -1,0 +1,31 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "name": "gamma"
+  },
+  "isError": false,
+  "result": {
+    "applied": true,
+    "branch": "main",
+    "build": {
+      "command": "echo built",
+      "elapsedMs": 0,
+      "exitCode": 0,
+      "ok": true,
+      "output": "built"
+    },
+    "from": "fab65b24170eb5d491fa9ad78d358f61054f8a4d",
+    "id": "srv-gamma",
+    "restart": {
+      "detail": "No running gateway holds gamma (srv-gamma), so there is nothing to restart. It starts fresh at its next call.",
+      "status": "not_running"
+    },
+    "root": "<WORLD>/gamma-work",
+    "server": "gamma",
+    "to": "86846020f965369a54fc0d28358325928001cfbd",
+    "undo": "toolportctl server repo update gamma",
+    "warnings": []
+  },
+  "tool": "servers_repo_undo"
+}

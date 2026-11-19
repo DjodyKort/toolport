@@ -2603,6 +2603,179 @@
           "tier": 1
         },
         {
+          "description": "Fetch the tracked remote of every local server that runs from a git checkout, so servers_repo_status and servers_repo_update see what was pushed; changes neither the branch nor the files and records when it looked. The only tool here that reaches the network for a checkout",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "servers_repo_check",
+          "params": [],
+          "tier": 2
+        },
+        {
+          "description": "Fast-forward the tracked branch of a server's checkout to the commit the last check saw, run the build command, and restart the server. HIGH risk: it replaces the code the server runs and runs a command. dry_run is on by default and returns the plan: the commits, the files, the build command and its plan_hash (apply with dry_run=false, that plan_hash and confirm=true; refused when the plan changed since). Only a fast-forward is done: local changes, a diverged or detached branch are refused",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "servers_repo_update",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Hash of the plan dry_run returned; the write is refused when the plan changed since",
+              "name": "plan_hash",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Build command to run in the checkout after the update; without it the one agreed earlier runs. A command that carries a secret is refused",
+              "name": "build",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Skip the build",
+              "name": "no_build",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Restart even while a call is running; calls in flight end. Without it a busy server is not restarted",
+              "name": "restart_now",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Fetch the tracked remote before planning",
+              "name": "fetch",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Switch a server's checkout to the branch another machine published for it, build, and restart. HIGH risk, as servers_repo_update. dry_run is on by default and returns the plan with its plan_hash (apply with dry_run=false, that plan_hash and confirm=true). A checkout with local changes or a head that was never pushed is refused",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "servers_repo_switch",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Hash of the plan dry_run returned; the write is refused when the plan changed since",
+              "name": "plan_hash",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "The machine whose branch to switch to; the only other machine when omitted",
+              "name": "machine",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Build command to run after the switch; without it the one agreed earlier runs",
+              "name": "build",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Skip the build",
+              "name": "no_build",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Restart even while a call is running; calls in flight end",
+              "name": "restart_now",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Fetch the tracked remote before planning",
+              "name": "fetch",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Take back the one update (or, with of=switch, the one branch switch) of a server's checkout, when nothing else has moved the branch since, and run the same build again. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "servers_repo_undo",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "update (default) or switch",
+              "name": "of",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Skip the build, which a remembered command that now carries a secret needs",
+              "name": "no_build",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Restart even while a call is running; calls in flight end",
+              "name": "restart_now",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "List access sets (profiles) and the servers each lists",
           "dryRunDefault": false,
           "gate": "none",

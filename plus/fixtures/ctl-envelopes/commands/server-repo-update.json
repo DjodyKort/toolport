@@ -116,5 +116,5 @@
   "summary": "Fast-forward a server's checkout, run the agreed build and restart it: <server> [--dry-run] [--plan-hash] [--build|--no-build] [--restart-now|--no-restart]",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["servers_repo_update"]
 }

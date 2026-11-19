@@ -18,6 +18,7 @@ mod library;
 mod memory;
 mod reach;
 pub mod register;
+mod server_repo;
 mod servers;
 mod setup;
 mod skills;

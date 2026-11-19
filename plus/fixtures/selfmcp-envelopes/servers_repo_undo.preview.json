@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "name": "gamma"
+  },
+  "isError": false,
+  "result": {
+    "blocked": null,
+    "branch": "main",
+    "build": "echo built",
+    "from": "fab65b24170eb5d491fa9ad78d358f61054f8a4d",
+    "id": "srv-gamma",
+    "refusal": null,
+    "root": "<WORLD>/gamma-work",
+    "server": "gamma",
+    "to": "86846020f965369a54fc0d28358325928001cfbd"
+  },
+  "tool": "servers_repo_undo"
+}

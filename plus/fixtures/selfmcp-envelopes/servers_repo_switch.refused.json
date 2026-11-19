@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "name": "gamma",
+    "plan_hash": "sha256:7772a977fa8898ee"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: servers_repo_switch (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: servers_repo_switch (tier 3). Pass confirm=true to proceed.",
+  "tool": "servers_repo_switch"
+}
