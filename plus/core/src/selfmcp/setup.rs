@@ -3,7 +3,7 @@
 //! and a passphrase in a tool argument would sit in a transcript, so these tools never export
 //! secrets, never write sessions and never apply a restore: a person does that in the app. The
 //! `sessions` part only lists the repositories that have saved conversations, after the person
-//! approves that call.
+//! approves that call; writing the file needs that approval too.
 
 use std::path::PathBuf;
 
@@ -117,12 +117,38 @@ pub(super) fn export(host: &dyn Host, args: &Value) -> Result<Value, ToolError> 
             "out is needed to write the file",
         ));
     }
+    if !opts.dry_run {
+        approve_write(host, &opts)?;
+    }
     let mut data = with_ctx(host, |ctx| export::run(ctx, &opts, None))?;
     if sessions {
         approve_sessions_listing(host, &data)?;
         data["plan"]["warnings"] = json!([SESSIONS_PREVIEW_ONLY]);
     }
     Ok(data)
+}
+
+/// A file on disk that holds the person's repository list, settings and Claude Code files: the
+/// person approves exactly what goes in, each time, before anything is written.
+fn approve_write(host: &dyn Host, opts: &Options) -> Result<(), ToolError> {
+    let preview = Options {
+        dry_run: true,
+        ..opts.clone()
+    };
+    let data = with_ctx(host, |ctx| export::run(ctx, &preview, None))?;
+    let mut steps = vec![format!(
+        "write the setup file {}; an existing file is never replaced and the file is not encrypted",
+        data["file"].as_str().unwrap_or("")
+    )];
+    for part in data["parts"].as_array().into_iter().flatten() {
+        steps.push(format!(
+            "{}: {} items, {} bytes",
+            part["label"].as_str().unwrap_or(""),
+            part["count"],
+            part["fileSize"]
+        ));
+    }
+    approval::ask(host, "setup_export write", steps, json!([]))
 }
 
 fn approve_sessions_listing(host: &dyn Host, data: &Value) -> Result<(), ToolError> {

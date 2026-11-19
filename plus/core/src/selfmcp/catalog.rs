@@ -2148,7 +2148,7 @@ pub const TOOLS: &[ToolDef] = &[
         "setup_export",
         3,
         UnlessDryRun,
-        "Write one setup zip with the readable parts: dry_run is on by default and only lists what would go in (apply with dry_run=false and confirm=true). Secrets are never exported through this tool. sessions=true adds the sessions part as a listing only: every call asks the person for approval in the Toolport app, each time and never remembered, and answers with the repositories that have saved conversations, their counts and sizes, never their text; the sessions are sealed with a passphrase, so a person writes them with toolportctl",
+        "Write one setup zip with the readable parts: dry_run is on by default and only lists what would go in (apply with dry_run=false and confirm=true). Every apply call asks the person to approve the file and its parts in the Toolport app, each time and never remembered; without a running app it is refused. Secrets are never exported through this tool. sessions=true adds the sessions part as a listing only: every call asks the person for approval in the Toolport app, each time and never remembered, and answers with the repositories that have saved conversations, their counts and sizes, never their text; the sessions are sealed with a passphrase, so a person writes them with toolportctl",
         [
             p("parts", Ty::Str, false, "all, or a comma separated list of repos, servers, access, library, tasks, settings, claudeUser, memory"),
             p("out", Ty::Str, false, "File to write, or a folder to get toolport-setup-<date>.zip in; an existing file is never replaced"),

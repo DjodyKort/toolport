@@ -135,3 +135,83 @@ fn test07_without_sessions_no_approval_is_asked() {
     assert_eq!(data["dryRun"], true);
     assert!(world.host.tasks.approvals.borrow().is_empty());
 }
+
+fn write_args(world: &World) -> Value {
+    json!({
+        "roots": [world.home.join("code")],
+        "dry_run": false,
+        "confirm": true,
+        "out": world.out_dir().join("setup.zip"),
+    })
+}
+
+fn written(world: &World) -> bool {
+    world.out_dir().join("setup.zip").exists()
+}
+
+#[test]
+fn test08_the_file_is_written_only_after_the_person_approves_that_call() {
+    let world = world();
+    world.host.tasks.decision.set(RunDecision::Approved);
+    let data = call_tool(&world.host, "setup_export", &write_args(&world)).unwrap();
+    assert_eq!(data["verified"], true, "{data}");
+    assert!(written(&world));
+    let approvals = world.host.tasks.approvals.borrow();
+    assert_eq!(approvals.len(), 1);
+    let shown = format!("{approvals:?}");
+    assert!(shown.contains("setup.zip"), "{shown}");
+    assert!(shown.contains("Repositories: 2 items"), "{shown}");
+    assert!(!shown.contains(TRANSCRIPT));
+}
+
+#[test]
+fn test09_confirm_alone_writes_nothing_without_the_persons_approval() {
+    for (decision, kind) in [
+        (RunDecision::Unreachable, "approval_unavailable"),
+        (RunDecision::Denied, "approval_denied"),
+        (RunDecision::Timeout, "approval_denied"),
+        (RunDecision::Stale, "approval_denied"),
+    ] {
+        let world = world();
+        world.host.tasks.decision.set(decision);
+        let args = write_args(&world);
+        let before = world.snapshot();
+        let error = call_tool(&world.host, "setup_export", &args).unwrap_err();
+        assert_eq!(error.kind, kind);
+        assert!(!written(&world));
+        world.assert_unchanged(&before);
+        assert_eq!(world.host.tasks.approvals.borrow().len(), 1);
+    }
+}
+
+#[test]
+fn test10_every_write_asks_again_and_a_doomed_call_asks_nothing() {
+    let world = world();
+    world.host.tasks.decision.set(RunDecision::Approved);
+    let mut first = write_args(&world);
+    first["out"] = json!(world.out_dir().join("one.zip"));
+    let mut second = write_args(&world);
+    second["out"] = json!(world.out_dir().join("two.zip"));
+    call_tool(&world.host, "setup_export", &first).unwrap();
+    call_tool(&world.host, "setup_export", &second).unwrap();
+    assert_eq!(world.host.tasks.approvals.borrow().len(), 2);
+    let again = call_tool(&world.host, "setup_export", &first).unwrap_err();
+    assert_eq!(again.kind, "conflict");
+    assert_eq!(world.host.tasks.approvals.borrow().len(), 2);
+}
+
+#[test]
+fn test11_a_refused_write_is_not_a_preview_either() {
+    let world = world();
+    world.host.tasks.decision.set(RunDecision::Approved);
+    let mut args = write_args(&world);
+    args.as_object_mut().unwrap().remove("confirm");
+    assert_eq!(
+        call_tool(&world.host, "setup_export", &args)
+            .unwrap_err()
+            .kind,
+        "refused"
+    );
+    assert!(world.host.tasks.approvals.borrow().is_empty());
+    assert!(!written(&world));
+}

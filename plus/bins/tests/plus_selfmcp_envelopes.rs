@@ -102,9 +102,6 @@ const fn refused(label: &'static str, tool: &'static str, args: &'static str) ->
 }
 
 /// A call that prepares the world for the ones after it: no golden.
-const SETUP_EXPORT_APPLY: &str =
-    r#"{"out":"{base}/out/a.zip","roots":["{home}/code"],"dry_run":false,"confirm":true}"#;
-
 const fn setup(tool: &'static str, args: &'static str) -> Call {
     Call {
         golden: false,
@@ -3141,8 +3138,9 @@ const CASES: &[Case] = &[
         "setup_parts",
         &[read("roots", "setup_parts", r#"{"roots":["{home}/code"]}"#)],
     ),
-    setup_case(
+    prepared(
         "setup_export",
+        setup_file_home,
         &[
             read(
                 "preview",
@@ -3178,11 +3176,15 @@ const CASES: &[Case] = &[
                 "setup_export",
                 r#"{"roots":["{home}/code"],"session_repo":["web"]}"#,
             ),
-            write(
-                "apply",
-                "setup_export",
-                r#"{"out":"{base}/out/a.zip","roots":["{home}/code"],"dry_run":false,"confirm":true}"#,
-            ),
+            Call {
+                writes: true,
+                ..fails(
+                    "no_broker",
+                    "approval_unavailable",
+                    "setup_export",
+                    r#"{"out":"{base}/out/b.zip","roots":["{home}/code"],"dry_run":false,"confirm":true}"#,
+                )
+            },
             fails(
                 "exists",
                 "conflict",
@@ -3213,17 +3215,15 @@ const CASES: &[Case] = &[
             ),
         ],
     ),
-    setup_case(
+    prepared(
         "setup_inspect",
-        &[
-            setup("setup_export", SETUP_EXPORT_APPLY),
-            read("file", "setup_inspect", r#"{"file":"{base}/out/a.zip"}"#),
-        ],
+        setup_file_home,
+        &[read("file", "setup_inspect", r#"{"file":"{base}/out/a.zip"}"#)],
     ),
-    setup_case(
+    prepared(
         "setup_restore",
+        setup_file_home,
         &[
-            setup("setup_export", SETUP_EXPORT_APPLY),
             read("plan", "setup_restore", r#"{"file":"{base}/out/a.zip"}"#),
             refused(
                 "refused",
@@ -4186,6 +4186,28 @@ fn opt_alpha_into_the_stdio_probe(world: &World) {
     let mut registry = world.registry();
     registry["servers"][0]["plus"] = json!({"authProbe": {"kind": "stdio"}});
     world.write_registry(&registry);
+}
+
+/// The setup home with `out/a.zip` already written, as a person does it: the tool itself never
+/// writes a file without the person's approval, and the harness has no approval broker.
+fn setup_file_home(world: &World) {
+    use std::process::{Command, Stdio};
+    common::setup_world::setup_home(world);
+    let mut command = Command::new(env!("CARGO_BIN_EXE_toolportctl"));
+    command
+        .args(["setup", "export", "--out"])
+        .arg(world.base.join("out/a.zip"))
+        .arg("--roots")
+        .arg(world.home.join("code"))
+        .env_clear()
+        .current_dir(&world.home)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    for (key, value) in world.env() {
+        command.env(key, value);
+    }
+    assert!(command.status().expect("spawn toolportctl").success());
 }
 
 fn vault_a_secret(world: &World) {

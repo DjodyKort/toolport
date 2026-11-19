@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "out": "<WORLD>/out/b.zip",
+    "roots": ["<WORLD>/home/code"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "approval_unavailable",
+      "message": "no approval broker is running (open the Toolport app); nothing was changed"
+    }
+  },
+  "text": "approval_unavailable: no approval broker is running (open the Toolport app); nothing was changed",
+  "tool": "setup_export"
+}
