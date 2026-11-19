@@ -82,6 +82,45 @@ fn test80_a_pinned_package_with_a_newer_release_is_one_calm_skippable_row() {
         asked(&host),
         ["https://registry.npmjs.org/@scope%2Ffiles/latest"]
     );
+    let action = row.action.as_ref().unwrap();
+    assert_eq!(action.label, "Update");
+    assert_eq!(
+        action.command.as_deref().unwrap(),
+        [
+            "toolportctl",
+            "server",
+            "update",
+            "files",
+            "--dry-run",
+            "--fetch"
+        ],
+        "the button opens the plan, which writes nothing"
+    );
+}
+
+#[test]
+fn test80b_a_pin_toolport_cannot_rewrite_gets_a_row_that_says_what_to_edit_by_hand() {
+    let dir = Dir::new("pkg-manual");
+    let mut recipe = files_server();
+    recipe
+        .extra
+        .insert("launch".into(), json!({"inputs": [], "bindings": []}));
+    let host = with_replies(host(&dir, vec![recipe]), vec![npm("1.5.0")]);
+    ops::check(&host).unwrap();
+    let found = rows(&host);
+    assert_eq!(found.len(), 1);
+    let action = found[0].action.as_ref().unwrap();
+    assert_eq!(
+        (action.label.as_str(), action.command.is_none()),
+        ("Open Servers", true)
+    );
+    assert!(
+        found[0].detail.contains("launch recipe"),
+        "{}",
+        found[0].detail
+    );
+    assert!(found[0].detail.contains("Edit the pin to 1.5.0 by hand"));
+    assert_eq!(found[0].skip.as_deref(), Some("Skip 1.5.0"));
 }
 
 #[test]

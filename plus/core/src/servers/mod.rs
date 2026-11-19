@@ -387,6 +387,35 @@ pub fn update(
     Ok(changed)
 }
 
+/// Replaces one argument of a server, in the registry write that checks it still reads `expect`:
+/// an edit made since the caller looked is not written over.
+pub fn replace_arg(
+    host: &dyn Host,
+    server_id: &str,
+    index: usize,
+    expect: &str,
+    new: &str,
+) -> Result<(), ServerError> {
+    typed(host, |tx| {
+        let base = record_in(tx, server_id)?;
+        let mut args = base.strings("args");
+        match args.get_mut(index) {
+            Some(arg) if arg == expect => *arg = new.to_string(),
+            _ => {
+                return Err(ServerError::Rejected(
+                    "the server's arguments changed since the plan was made".into(),
+                ))
+            }
+        }
+        let patch = Patch {
+            args: Some(args),
+            ..Patch::default()
+        };
+        tx.update_server(server_id, &spec_from(&patch, Some(&base)))
+            .map_err(ServerError::Rejected)
+    })
+}
+
 /// Adds a curated catalog entry, switched off. Returns the new id.
 pub fn add_catalog(host: &dyn Host, entry: &CatalogEntryRecord) -> Result<String, ServerError> {
     typed(host, |tx| {

@@ -132,8 +132,29 @@ pub fn package_facts(pins: &[package::Pinned], store: &Store) -> Vec<PackageFact
                 .sources
                 .get(&pin.target.source())
                 .and_then(|check| check.latest.clone()),
+            manual: pin.manual.clone(),
         })
         .collect()
+}
+
+/// Records what one package lookup found, as the update check does for every package it asks
+/// about, so the row and a plan made right after read the same version.
+pub fn record_lookup(
+    base: &Path,
+    now: i64,
+    target: &Target,
+    found: &Result<Option<String>, String>,
+) -> Result<(), String> {
+    let mut store = Store::read(base)?;
+    store.updates.sources.insert(
+        target.source(),
+        SourceCheck {
+            at: now,
+            error: found.as_ref().err().cloned(),
+            latest: found.as_ref().ok().cloned().flatten(),
+        },
+    );
+    store.write(base)
 }
 
 pub struct Outcome {

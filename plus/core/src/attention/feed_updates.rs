@@ -32,11 +32,14 @@ pub struct RepoFacts {
 /// A server whose arguments pin a package version, with the newest version the last lookup found.
 pub struct PackageFacts {
     pub server: String,
-    /// `npm`, `pypi` or `docker`.
+    /// `npm`, `pypi`, `docker` or `github`.
     pub registry: &'static str,
     pub package: String,
     pub pinned: String,
     pub latest: Option<String>,
+    /// Why Toolport cannot move the server to another version itself; the row then says what to
+    /// do by hand instead of offering the update.
+    pub manual: Option<String>,
 }
 
 /// A selected source whose pinned commit is no longer in the remote's history.
@@ -196,23 +199,67 @@ fn package_row(package: &PackageFacts) -> Option<Item> {
     if !crate::servers::package::version::newer(latest, &package.pinned) {
         return None;
     }
+    let github = package.registry == "github";
+    let (title, found) = if github {
+        (
+            format!(
+                "{}: release {latest} of {} is out, installed {}",
+                package.server, package.package, package.pinned
+            ),
+            format!(
+                "The server was installed from a release of {} on GitHub.",
+                package.package
+            ),
+        )
+    } else {
+        (
+            format!(
+                "{}: {} {latest} is out, pinned to {}",
+                package.server, package.package, package.pinned
+            ),
+            format!(
+                "The server's arguments pin {} on {}.",
+                package.pinned, package.registry
+            ),
+        )
+    };
+    let (detail, action) = match &package.manual {
+        None => (
+            format!(
+                "{found} Review the plan to see the exact change; nothing is written until you confirm, and the server restarts only after that."
+            ),
+            Action::run(
+                "Update",
+                Screen::Servers,
+                &["toolportctl", "server", "update", &package.server, "--dry-run", "--fetch"],
+            ),
+        ),
+        Some(reason) => (
+            format!(
+                "{found} Toolport cannot change it itself: {reason}. {}",
+                if github {
+                    format!(
+                        "Download {latest} from https://github.com/{}/releases and replace the installed file by hand.",
+                        package.package
+                    )
+                } else {
+                    format!("Edit the pin to {latest} by hand.")
+                }
+            ),
+            Action::open("Open Servers", Screen::Servers),
+        ),
+    };
     Some(Item {
         id: format!(
             "updates:package:{}:{}>{}",
             package.server, package.pinned, latest
         ),
         urgency: Urgency::WorthALook,
-        title: format!(
-            "{}: {} {latest} is out, pinned to {}",
-            package.server, package.package, package.pinned
-        ),
-        detail: format!(
-            "The server's arguments pin {} on {}. Nothing changes until you edit them to {latest}.",
-            package.pinned, package.registry
-        ),
+        title,
+        detail,
         source: SOURCE,
         since: None,
-        action: Some(Action::open("Open Servers", Screen::Servers)),
+        action: Some(action),
         skip: Some(format!("Skip {latest}")),
     })
 }

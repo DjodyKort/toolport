@@ -544,7 +544,7 @@ impl Done {
     }
 }
 
-pub(super) fn restart_after(
+pub(crate) fn restart_after(
     host: &dyn Host,
     args: &UpdateArgs,
     server_id: &str,

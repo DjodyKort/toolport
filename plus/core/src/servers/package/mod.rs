@@ -1,13 +1,20 @@
-//! Servers that start from a package a runner downloads (`npx`, `uvx`, `pipx`, `docker run`):
-//! which package and version the arguments pin, and whether a newer one exists. The version a
-//! runner picks for an unpinned package lives in its own cache, which Toolport does not read, so
-//! only an exact pin is judged.
+//! Servers that start from a package a runner downloads (`npx`, `uvx`, `pipx`, `docker run`) or
+//! from a GitHub release: which package and version the arguments or the source pin, whether a
+//! newer one exists, and how a pin is rewritten. The version a runner picks for an unpinned
+//! package lives in its own cache, which Toolport does not read, so only an exact pin is judged.
 
+pub mod journal;
 pub mod lookup;
+pub mod release;
+pub mod update;
 pub mod version;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_release;
+#[cfg(test)]
+mod tests_update;
 
 use std::path::Path;
 
@@ -20,6 +27,8 @@ pub enum Kind {
     Npm,
     Pypi,
     Docker,
+    /// A binary or archive installed from a GitHub release; the name is `owner/repo`.
+    Github,
 }
 
 impl Kind {
@@ -28,7 +37,14 @@ impl Kind {
             Kind::Npm => "npm",
             Kind::Pypi => "pypi",
             Kind::Docker => "docker",
+            Kind::Github => "github",
         }
+    }
+
+    pub fn from_word(word: &str) -> Option<Kind> {
+        [Kind::Npm, Kind::Pypi, Kind::Docker, Kind::Github]
+            .into_iter()
+            .find(|kind| kind.word() == word)
     }
 }
 
@@ -59,6 +75,8 @@ pub struct Pinned {
     pub server_name: String,
     pub target: Target,
     pub version: String,
+    /// Why Toolport cannot rewrite this pin itself; the update has to be made by hand.
+    pub manual: Option<String>,
 }
 
 const NPM_RUNNERS: [&str; 3] = ["npx", "bunx", "pnpx"];
@@ -129,26 +147,28 @@ fn program(command: &str) -> String {
     name
 }
 
-/// The arguments after the runner's own words, and which registry the package comes from.
-fn runner<'a>(command: &str, args: &'a [String]) -> Option<(Kind, &'a [String])> {
+/// The arguments after the runner's own words (as an offset into the argument list), and which
+/// registry the package comes from.
+fn runner(command: &str, args: &[String]) -> Option<(Kind, usize)> {
     let program = program(command);
     let first = args.first().map(String::as_str);
     match (program.as_str(), first) {
-        (name, _) if NPM_RUNNERS.contains(&name) => Some((Kind::Npm, args)),
-        ("pnpm" | "yarn", Some("dlx")) => Some((Kind::Npm, &args[1..])),
-        ("uvx", _) => Some((Kind::Pypi, args)),
+        (name, _) if NPM_RUNNERS.contains(&name) => Some((Kind::Npm, 0)),
+        ("pnpm" | "yarn", Some("dlx")) => Some((Kind::Npm, 1)),
+        ("uvx", _) => Some((Kind::Pypi, 0)),
         ("uv", Some("tool")) if args.get(1).map(String::as_str) == Some("run") => {
-            Some((Kind::Pypi, &args[2..]))
+            Some((Kind::Pypi, 2))
         }
-        ("pipx", Some("run")) => Some((Kind::Pypi, &args[1..])),
-        ("docker" | "podman", Some("run")) => Some((Kind::Docker, &args[1..])),
+        ("pipx", Some("run")) => Some((Kind::Pypi, 1)),
+        ("docker" | "podman", Some("run")) => Some((Kind::Docker, 1)),
         _ => None,
     }
 }
 
-/// The package argument of an `npx` or `uvx` style call: `--from`, `--package` and `-p` name
-/// it explicitly, otherwise it is the first argument that is not an option.
-fn package_argument(kind: Kind, args: &[String]) -> Option<String> {
+/// Where the package argument of an `npx` or `uvx` style call sits: `--from`, `--package` and
+/// `-p` name it explicitly, otherwise it is the first argument that is not an option. `prefix` is
+/// what precedes the package text inside that argument (`--package=`).
+fn package_spot(kind: Kind, args: &[String]) -> Option<Spot> {
     let value_flags: &[&str] = if kind == Kind::Npm {
         &NPM_VALUE_FLAGS
     } else {
@@ -159,22 +179,29 @@ fn package_argument(kind: Kind, args: &[String]) -> Option<String> {
     } else {
         &["--from"]
     };
+    let at = |index: usize| Spot {
+        index,
+        prefix: String::new(),
+    };
     let mut positional = None;
     let mut index = 0;
     while let Some(arg) = args.get(index) {
         index += 1;
         if arg == "--" {
-            positional = positional.or_else(|| args.get(index).cloned());
+            positional = positional.or_else(|| args.get(index).map(|_| at(index)));
             break;
         }
-        if let Some((flag, value)) = arg.split_once('=').filter(|_| arg.starts_with('-')) {
+        if let Some((flag, _)) = arg.split_once('=').filter(|_| arg.starts_with('-')) {
             if named.contains(&flag) {
-                return Some(value.to_string());
+                return Some(Spot {
+                    index: index - 1,
+                    prefix: format!("{flag}="),
+                });
             }
             continue;
         }
         if named.contains(&arg.as_str()) {
-            return args.get(index).cloned();
+            return args.get(index).map(|_| at(index));
         }
         if value_flags.contains(&arg.as_str()) {
             index += 1;
@@ -183,10 +210,23 @@ fn package_argument(kind: Kind, args: &[String]) -> Option<String> {
         if arg.starts_with('-') {
             continue;
         }
-        positional = Some(arg.clone());
+        positional = Some(at(index - 1));
         break;
     }
     positional
+}
+
+fn docker_image(args: &[String]) -> Option<usize> {
+    let mut index = 0;
+    while let Some(arg) = args.get(index) {
+        index += 1;
+        if DOCKER_VALUE_FLAGS.contains(&arg.as_str()) {
+            index += 1;
+        } else if !arg.starts_with('-') {
+            return Some(index - 1);
+        }
+    }
+    None
 }
 
 fn valid_name(name: &str, scoped: bool) -> bool {
@@ -248,20 +288,7 @@ fn docker_pin(image: &str) -> Option<(String, String, String)> {
     Some((repository, tag.to_string(), flavor))
 }
 
-fn docker_image(args: &[String]) -> Option<&str> {
-    let mut index = 0;
-    while let Some(arg) = args.get(index) {
-        index += 1;
-        if DOCKER_VALUE_FLAGS.contains(&arg.as_str()) {
-            index += 1;
-        } else if !arg.starts_with('-') {
-            return Some(arg);
-        }
-    }
-    None
-}
-
-fn recorded_docker(server: &ServerRecord) -> Option<String> {
+pub(crate) fn recorded_docker(server: &ServerRecord) -> Option<String> {
     let source = server.fork.mcpm_source.as_ref()?;
     if source.kind.as_deref() != Some("docker") {
         return None;
@@ -271,39 +298,6 @@ fn recorded_docker(server: &ServerRecord) -> Option<String> {
     Some(format!("{image}:{tag}"))
 }
 
-/// The package version a stdio server's arguments pin, nothing when it is not pinned exactly.
-pub fn pinned(server: &ServerRecord) -> Option<Pinned> {
-    let transport = server.text("transport").unwrap_or("stdio");
-    if REMOTE_TRANSPORTS.contains(&transport) {
-        return None;
-    }
-    let command = server.text("command")?;
-    let args = server.strings("args");
-    let (kind, rest) = runner(command, &args)
-        .map(|(kind, rest)| (Some(kind), rest))
-        .unwrap_or((None, &[]));
-    let (target, version) = match kind {
-        Some(Kind::Npm) => {
-            let (name, version) = npm_pin(&package_argument(Kind::Npm, rest)?)?;
-            (named(Kind::Npm, name, String::new()), version)
-        }
-        Some(Kind::Pypi) => {
-            let (name, version) = pypi_pin(&package_argument(Kind::Pypi, rest)?)?;
-            (named(Kind::Pypi, name, String::new()), version)
-        }
-        Some(Kind::Docker) => {
-            docker_target(&recorded_docker(server).or(docker_image(rest).map(String::from))?)?
-        }
-        None => docker_target(&recorded_docker(server)?)?,
-    };
-    Some(Pinned {
-        server_id: server.id.clone(),
-        server_name: server.name.clone(),
-        target,
-        version,
-    })
-}
-
 fn named(kind: Kind, name: String, flavor: String) -> Target {
     Target { kind, name, flavor }
 }
@@ -311,6 +305,175 @@ fn named(kind: Kind, name: String, flavor: String) -> Target {
 fn docker_target(image: &str) -> Option<(Target, String)> {
     let (repository, tag, flavor) = docker_pin(image)?;
     Some((named(Kind::Docker, repository, flavor), tag))
+}
+
+/// Where a pin sits in the server's arguments.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Spot {
+    /// Index into the server's argument list.
+    pub index: usize,
+    /// What precedes the package text inside that argument (`--package=`); empty when the
+    /// argument is the package text.
+    pub prefix: String,
+}
+
+/// A pin together with where it was read from, so it can be rewritten.
+struct Found {
+    pin: Pinned,
+    /// `None` when the pin is not in the arguments: a GitHub release, or an image only the
+    /// server's source records.
+    spot: Option<Spot>,
+}
+
+fn locate(server: &ServerRecord) -> Option<Found> {
+    let transport = server.text("transport").unwrap_or("stdio");
+    if REMOTE_TRANSPORTS.contains(&transport) {
+        return None;
+    }
+    let command = server.text("command")?;
+    let args = server.strings("args");
+    let (kind, offset) = runner(command, &args)
+        .map(|(kind, offset)| (Some(kind), offset))
+        .unwrap_or((None, 0));
+    let rest = &args[offset.min(args.len())..];
+    let shift = |spot: Spot| Spot {
+        index: spot.index + offset,
+        prefix: spot.prefix,
+    };
+    let (target, version, spot) = match kind {
+        Some(Kind::Npm) => {
+            let spot = package_spot(Kind::Npm, rest)?;
+            let (name, version) = npm_pin(&rest[spot.index][spot.prefix.len()..])?;
+            (
+                named(Kind::Npm, name, String::new()),
+                version,
+                Some(shift(spot)),
+            )
+        }
+        Some(Kind::Pypi) => {
+            let spot = package_spot(Kind::Pypi, rest)?;
+            let (name, version) = pypi_pin(&rest[spot.index][spot.prefix.len()..])?;
+            (
+                named(Kind::Pypi, name, String::new()),
+                version,
+                Some(shift(spot)),
+            )
+        }
+        Some(Kind::Docker) => {
+            let in_args = docker_image(rest).map(|index| index + offset);
+            let image = recorded_docker(server).or(in_args.map(|index| args[index].clone()))?;
+            let (target, version) = docker_target(&image)?;
+            let spot = in_args.map(|index| Spot {
+                index,
+                prefix: String::new(),
+            });
+            (target, version, spot)
+        }
+        Some(Kind::Github) => return None,
+        None => {
+            let (target, version) = docker_target(&recorded_docker(server)?)?;
+            (target, version, None)
+        }
+    };
+    Some(Found {
+        pin: Pinned {
+            server_id: server.id.clone(),
+            server_name: server.name.clone(),
+            target,
+            version,
+            manual: None,
+        },
+        spot,
+    })
+}
+
+/// The package version a server's arguments or its GitHub release source pin, nothing when it is
+/// not pinned exactly.
+pub fn pinned(server: &ServerRecord) -> Option<Pinned> {
+    if let Some(pin) = release::pinned(server) {
+        return Some(pin);
+    }
+    let mut found = locate(server)?;
+    found.pin.manual = rewrite_in(&found, server, &found.pin.version).err();
+    Some(found.pin)
+}
+
+/// One argument of a server changing from `before` to `after`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Rewrite {
+    pub index: usize,
+    pub before: String,
+    pub after: String,
+}
+
+fn swap_version(spec: &str, kind: Kind, to: &str) -> Option<String> {
+    match kind {
+        Kind::Npm => spec.rfind('@').map(|at| format!("{}@{to}", &spec[..at])),
+        Kind::Pypi => match (spec.find("=="), spec.find('@')) {
+            (Some(at), _) => Some(format!("{}=={to}", &spec[..at])),
+            (None, Some(at)) => Some(format!("{}@{to}", &spec[..at])),
+            _ => None,
+        },
+        Kind::Docker => spec.rfind(':').map(|at| format!("{}:{to}", &spec[..at])),
+        Kind::Github => None,
+    }
+}
+
+fn rewrite_in(found: &Found, server: &ServerRecord, to: &str) -> Result<Rewrite, String> {
+    let pin = &found.pin;
+    if server
+        .extra
+        .get("launch")
+        .is_some_and(|launch| !launch.is_null())
+    {
+        return Err(
+            "its arguments come from a catalog launch recipe, and editing them detaches it".into(),
+        );
+    }
+    let spot = found.spot.as_ref().ok_or_else(|| {
+        format!(
+            "the {} pin is recorded in the server's source, not in its command, so Toolport cannot tell what the command reads",
+            pin.target.kind.word()
+        )
+    })?;
+    let mut args = server.strings("args");
+    let before = args[spot.index].clone();
+    let spec = &before[spot.prefix.len()..];
+    if pin.target.kind == Kind::Docker
+        && docker_target(spec).as_ref() != Some(&(pin.target.clone(), pin.version.clone()))
+    {
+        return Err("the image in the command is not the one the server's source records".into());
+    }
+    let after = swap_version(spec, pin.target.kind, to)
+        .map(|spec| format!("{}{spec}", spot.prefix))
+        .ok_or_else(|| "the pin could not be located in the argument".to_string())?;
+    args[spot.index] = after.clone();
+    let mut changed = server.clone();
+    changed.extra.insert("args".into(), serde_json::json!(args));
+    if let Some(source) = changed.fork.mcpm_source.as_mut() {
+        if recorded_docker(server).is_some() {
+            source.extra.insert("tag".into(), to.into());
+        }
+    }
+    match locate(&changed) {
+        Some(read) if read.pin.target == pin.target && read.pin.version == to => Ok(Rewrite {
+            index: spot.index,
+            before,
+            after,
+        }),
+        _ => Err(format!(
+            "{to} would not read back as a pin of {}",
+            pin.target.name
+        )),
+    }
+}
+
+/// The argument of `server` that pins its package, with `to` in place of the pinned version.
+/// `Err` says why Toolport cannot rewrite it: `to` is not a version the pin can hold, or the pin
+/// is not in the arguments.
+pub fn rewrite(server: &ServerRecord, to: &str) -> Result<Rewrite, String> {
+    let found = locate(server).ok_or_else(|| "the server pins no package".to_string())?;
+    rewrite_in(&found, server, to)
 }
 
 /// Every enabled server whose arguments pin a package version, by server name.
