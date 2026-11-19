@@ -11,13 +11,6 @@ pub const MIN_PASSPHRASE_CHARS: usize = 12;
 pub const WRONG_PASSPHRASE: &str = "wrong passphrase or damaged file";
 
 const MAGIC: &[u8; 4] = b"TPSE";
-const VERSION: u8 = 1;
-const KDF_ARGON2ID: u8 = 1;
-const HEADER_LEN: usize = 4 + 1 + 1 + 4 + 4 + 4 + 16 + 19 + 4;
-const CHUNK: usize = 64 * 1024;
-const TAG: usize = 16;
-const MAX_MEMORY_KIB: u32 = 1 << 20;
-const MAX_ITERATIONS: u32 = 16;
 
 /// Argon2id cost. The defaults take a few tenths of a second on a laptop.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -129,6 +122,14 @@ mod imp {
     use argon2::{Algorithm, Argon2, Params, Version};
     use chacha20poly1305::aead::{Aead, KeyInit, OsRng, Payload};
     use chacha20poly1305::{AeadCore, XChaCha20Poly1305, XNonce};
+
+    const VERSION: u8 = 1;
+    const KDF_ARGON2ID: u8 = 1;
+    pub(super) const HEADER_LEN: usize = 4 + 1 + 1 + 4 + 4 + 4 + 16 + 19 + 4;
+    pub(super) const CHUNK: usize = 64 * 1024;
+    pub(super) const TAG: usize = 16;
+    const MAX_MEMORY_KIB: u32 = 1 << 20;
+    const MAX_ITERATIONS: u32 = 16;
 
     fn derive(passphrase: &str, salt: &[u8], cost: Cost) -> Result<[u8; 32], String> {
         let params = Params::new(cost.memory_kib, cost.iterations, cost.lanes, Some(32))
@@ -299,6 +300,7 @@ mod imp {
 
 #[cfg(all(test, feature = "cipher"))]
 mod tests {
+    use super::imp::{CHUNK, HEADER_LEN, TAG};
     use super::*;
 
     const PASS: &str = "correct horse battery";

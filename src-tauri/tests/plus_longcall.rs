@@ -701,6 +701,7 @@ mod longcall {
         );
     }
 
+    #[cfg(feature = "plus")]
     fn serial_timeouts() -> Timeouts {
         Timeouts {
             request_ms: Some(WINDOW_MS),
@@ -709,6 +710,7 @@ mod longcall {
         }
     }
 
+    #[cfg(feature = "plus")]
     fn answered_at(case: &Case, call: &Value) -> u64 {
         case.entries()
             .iter()

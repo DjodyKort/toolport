@@ -1,5 +1,5 @@
 use serde_json::json;
-use toolport_plus_api::{RegistryView, ScopeKind};
+use toolport_plus_api::ScopeKind;
 
 use crate::plus_adapter::view_scope_reach;
 use crate::registry::Registry;

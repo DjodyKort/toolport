@@ -2,6 +2,7 @@
 //! the optimistic revision check and the recovery journal (`mutation`, `restore`) are private
 //! there. Entries are rendered by upstream's own formatters and written through its
 //! `mutation::run`, so a Disconnect later treats the file like any other Toolport touched.
+#![cfg(feature = "plus")]
 use super::*;
 
 pub(crate) const CHANGED_SINCE_PLAN: &str = "the client file changed since the plan";
@@ -16,8 +17,6 @@ pub(crate) struct EntryWrite {
 #[derive(Debug, Clone)]
 pub(crate) struct EntryTarget {
     pub path: PathBuf,
-    pub format_tag: &'static str,
-    pub remote: bool,
 }
 
 struct JsonLayout {
@@ -77,14 +76,6 @@ fn layout(format: Format) -> Layout {
     }
 }
 
-fn format_tag(format: Format) -> &'static str {
-    match layout(format) {
-        Layout::Json(_) => "json",
-        Layout::Toml => "toml",
-        Layout::Unsupported(_) => "unsupported",
-    }
-}
-
 /// Where a direct entry for `client_id` would be written, or why none can be.
 pub(crate) fn target(client_id: &str) -> Result<EntryTarget, String> {
     let def = find_def(client_id).ok_or_else(|| format!("unknown client '{client_id}'"))?;
@@ -92,11 +83,7 @@ pub(crate) fn target(client_id: &str) -> Result<EntryTarget, String> {
         return Err(format!("{} cannot hold a direct entry: {reason}", def.name));
     }
     let path = resolved_definition_path(&def)?;
-    Ok(EntryTarget {
-        path,
-        format_tag: format_tag(def.format),
-        remote: !def.uses_connectors,
-    })
+    Ok(EntryTarget { path })
 }
 
 /// The reason a client cannot hold a direct entry, or `None` when it can.

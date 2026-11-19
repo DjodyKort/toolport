@@ -236,30 +236,33 @@ pub struct CallClock {
 }
 
 impl CallClock {
+    #[cfg(feature = "plus")]
     pub fn start(
         window: std::time::Duration,
         params: &serde_json::Value,
         server_id: Option<&String>,
         connection: usize,
     ) -> Self {
-        #[cfg(feature = "plus")]
-        {
-            let token = toolport_plus::progress::request_token(params);
-            let window = token
-                .as_deref()
-                .and_then(toolport_plus::progress::leased_window)
-                .unwrap_or(window);
-            return Self {
-                clock: toolport_plus::progress::Clock::start(window, token, connection),
-                server_id: server_id.cloned(),
-            };
+        let token = toolport_plus::progress::request_token(params);
+        let window = token
+            .as_deref()
+            .and_then(toolport_plus::progress::leased_window)
+            .unwrap_or(window);
+        Self {
+            clock: toolport_plus::progress::Clock::start(window, token, connection),
+            server_id: server_id.cloned(),
         }
-        #[cfg(not(feature = "plus"))]
-        {
-            let _ = (params, server_id, connection);
-            Self {
-                deadline: std::time::Instant::now() + window,
-            }
+    }
+
+    #[cfg(not(feature = "plus"))]
+    pub fn start(
+        window: std::time::Duration,
+        _params: &serde_json::Value,
+        _server_id: Option<&String>,
+        _connection: usize,
+    ) -> Self {
+        Self {
+            deadline: std::time::Instant::now() + window,
         }
     }
 
@@ -528,8 +531,12 @@ pub fn tasks_request(
     }
 }
 
-/// Where a notification for a task goes: `sink` delivers it to the client session that created it.
-pub fn set_task_sink(sink: std::sync::Arc<dyn Fn(&str, &serde_json::Value) + Send + Sync>) {
+/// Delivers a task notification, as `(session, notification)`, to the client session that created
+/// the task.
+pub type TaskSink = std::sync::Arc<dyn Fn(&str, &serde_json::Value) + Send + Sync>;
+
+/// Where a notification for a task goes.
+pub fn set_task_sink(sink: TaskSink) {
     #[cfg(feature = "plus")]
     toolport_plus::mcp_tasks::set_sink(sink);
     #[cfg(not(feature = "plus"))]
