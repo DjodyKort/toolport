@@ -131,12 +131,18 @@ thread_local! {
     static PATHS: RefCell<Option<Paths>> = const { RefCell::new(None) };
 }
 
-/// Keeps these dirs for this thread until dropped; without a guard `home` reads `HOME` and there
-/// is no data dir.
+/// Keeps these dirs for this thread until dropped; a dir left `None` keeps the one of the guard
+/// around it. Without any guard `home` reads `HOME` and there is no data dir.
 pub struct PathsGuard(Option<Paths>);
 
 pub fn enter(paths: Paths) -> PathsGuard {
-    PathsGuard(PATHS.with(|p| p.borrow_mut().replace(paths)))
+    PathsGuard(PATHS.with(|p| {
+        let outer = p.borrow().clone().unwrap_or_default();
+        p.borrow_mut().replace(Paths {
+            home: paths.home.or(outer.home),
+            data_dir: paths.data_dir.or(outer.data_dir),
+        })
+    }))
 }
 
 impl Drop for PathsGuard {
@@ -147,10 +153,29 @@ impl Drop for PathsGuard {
 
 pub fn home() -> Option<PathBuf> {
     let set = PATHS.with(|p| p.borrow().as_ref().and_then(|p| p.home.clone()));
+    set.or_else(env_home)
+}
+
+#[cfg(not(test))]
+fn env_home() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+}
+
+/// Unit tests never see the real home: a `HOME` outside the temp dir becomes an empty home of
+/// this test process, so code that forgets its guard cannot read or fetch the user's own files.
+#[cfg(test)]
+fn env_home() -> Option<PathBuf> {
+    let temp = std::env::temp_dir();
+    let set = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+        .filter(|home| home.starts_with(&temp));
     set.or_else(|| {
-        std::env::var_os("HOME")
-            .or_else(|| std::env::var_os("USERPROFILE"))
-            .map(PathBuf::from)
+        let sandbox = temp.join(format!("plus-core-test-home-{}", std::process::id()));
+        std::fs::create_dir_all(&sandbox).ok()?;
+        Some(sandbox)
     })
 }
 
@@ -188,6 +213,29 @@ mod tests {
             .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
             .filter(|n| n.ends_with(".plus-tmp"))
             .collect()
+    }
+
+    #[test]
+    fn an_unguarded_home_in_tests_is_never_the_users_own() {
+        let home = home().unwrap();
+        assert!(home.starts_with(std::env::temp_dir()), "{}", home.display());
+    }
+
+    #[test]
+    fn a_nested_guard_keeps_the_dirs_it_leaves_unset() {
+        let _outer = enter(Paths {
+            home: Some(PathBuf::from("/outer/home")),
+            data_dir: Some(PathBuf::from("/outer/data")),
+        });
+        {
+            let _inner = enter(Paths {
+                home: None,
+                data_dir: Some(PathBuf::from("/inner/data")),
+            });
+            assert_eq!(home(), Some(PathBuf::from("/outer/home")));
+            assert_eq!(data_dir(), Some(PathBuf::from("/inner/data")));
+        }
+        assert_eq!(data_dir(), Some(PathBuf::from("/outer/data")));
     }
 
     #[test]
