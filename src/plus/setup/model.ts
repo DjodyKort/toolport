@@ -65,13 +65,18 @@ export const STATE_LABEL: Record<RestoreRow["state"], string> = {
   skip: "Skipped",
 };
 
+/** The part whose values need `--secrets`; it comes only from the checklist. */
+export const SECRETS_PART = "secrets";
+
+/** `passphrase` says the passphrase goes on stdin; the caller sends it only when a sealed part is ticked. */
 export function exportArgv(
   parts: string[],
   out: string,
-  options: { secrets: boolean; dryRun: boolean },
+  options: { passphrase: boolean; dryRun: boolean },
 ): string[] {
   const argv = ["setup", "export", "--parts", parts.join(","), "--out", out];
-  if (options.secrets) argv.push("--secrets", "--passphrase-stdin");
+  if (parts.includes(SECRETS_PART)) argv.push("--secrets");
+  if (options.passphrase) argv.push("--passphrase-stdin");
   if (options.dryRun) argv.push("--dry-run");
   return argv;
 }

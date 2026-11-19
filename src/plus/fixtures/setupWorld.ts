@@ -9,6 +9,8 @@ const PARTS = [
   },
   { id: "servers", label: "Servers", count: 2, notes: [] },
   { id: "settings", label: "Settings", count: 1, notes: [] },
+  { id: "history", label: "Sessions", count: 4, notes: [], sealed: true },
+  { id: "secrets", label: "Secrets", count: 2, notes: [], sealed: true },
 ];
 
 /** The setup commands against a fixed file and one reset checklist. */
@@ -57,21 +59,24 @@ export function createSetupWorld() {
             lastExport: null,
             parts: PARTS.map((p) => ({
               ...p,
-              default: true,
-              sealed: false,
+              default: !p.sealed,
+              sealed: p.sealed === true,
               error: null,
             })),
           },
         };
       }
       if (verb === "export") {
-        if (key.includes("--secrets") && !stdin) {
+        const dryRun = key.includes("--dry-run");
+        const sealed = (flag("--parts") ?? "")
+          .split(",")
+          .some((id) => PARTS.some((p) => p.id === id && p.sealed));
+        if ((key.includes("--secrets") || sealed) && !dryRun && !stdin) {
           return {
             ok: false,
             error: { code: "usage", message: "the passphrase comes on stdin" },
           };
         }
-        const dryRun = key.includes("--dry-run");
         return {
           ok: true,
           data: {

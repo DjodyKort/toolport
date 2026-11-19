@@ -51,12 +51,10 @@ function ExportView() {
   async function run(dryRun: boolean) {
     setBusy(true);
     try {
-      const secrets = passphrase !== "";
+      const sealing = sealedChosen && passphrase !== "";
       const data = await ctlData<ExportData>(
-        exportArgv(chosen, out, { secrets, dryRun }),
-        {
-          stdinSecret: secrets ? passphrase : undefined,
-        },
+        exportArgv(chosen, out, { passphrase: sealing, dryRun }),
+        { stdinSecret: sealing ? passphrase : undefined },
       );
       if (dryRun) setPreview(data);
       else toast.success(`Wrote ${data.file}`);
@@ -69,7 +67,8 @@ function ExportView() {
 
   if (!parts)
     return <p className="text-meta text-muted-foreground">Loading the parts…</p>;
-  const short = passphrase !== "" && passphrase.length < parts.minPassphrase;
+  const sealedChosen = parts.parts.some((p) => p.sealed && chosen.includes(p.id));
+  const short = sealedChosen && passphrase.length < parts.minPassphrase;
   return (
     <div className="flex flex-col gap-4">
       <section aria-label="Parts">
@@ -81,13 +80,14 @@ function ExportView() {
                 type="checkbox"
                 id={`part-${part.id}`}
                 checked={chosen.includes(part.id)}
-                onChange={(e) =>
-                  setChosen(
-                    e.target.checked
-                      ? [...chosen, part.id]
-                      : chosen.filter((id) => id !== part.id),
-                  )
-                }
+                onChange={(e) => {
+                  const next = e.target.checked
+                    ? [...chosen, part.id]
+                    : chosen.filter((id) => id !== part.id);
+                  setChosen(next);
+                  if (!parts.parts.some((p) => p.sealed && next.includes(p.id)))
+                    setPassphrase("");
+                }}
               />
               <label htmlFor={`part-${part.id}`} className="flex-1 text-sm">
                 {part.label}
@@ -102,24 +102,26 @@ function ExportView() {
           ))}
         </ul>
       </section>
-      <section aria-label="Secrets">
-        <SectionHeader>Secrets</SectionHeader>
-        <p className="text-meta text-muted-foreground">
-          Secrets only leave sealed with a passphrase of at least {parts.minPassphrase}{" "}
-          characters. Leave it empty to export without them.
-        </p>
-        <Input
-          type="password"
-          aria-label="Passphrase"
-          value={passphrase}
-          onChange={(e) => setPassphrase(e.target.value)}
-        />
-        {short && (
-          <p role="alert" className="text-meta text-destructive">
-            The passphrase is shorter than {parts.minPassphrase} characters.
+      {sealedChosen && (
+        <section aria-label="Sealing">
+          <SectionHeader>Passphrase</SectionHeader>
+          <p className="text-meta text-muted-foreground">
+            Sessions and secrets only leave sealed with a passphrase of at least{" "}
+            {parts.minPassphrase} characters. It is never stored and cannot be recovered.
           </p>
-        )}
-      </section>
+          <Input
+            type="password"
+            aria-label="Passphrase"
+            value={passphrase}
+            onChange={(e) => setPassphrase(e.target.value)}
+          />
+          {short && passphrase !== "" && (
+            <p role="alert" className="text-meta text-destructive">
+              The passphrase is shorter than {parts.minPassphrase} characters.
+            </p>
+          )}
+        </section>
+      )}
       <section aria-label="File">
         <SectionHeader>File</SectionHeader>
         <Input
@@ -140,7 +142,7 @@ function ExportView() {
       <div className="flex gap-2">
         <Button
           variant="outline"
-          disabled={busy || short || !out || chosen.length === 0}
+          disabled={busy || (short && passphrase !== "") || !out || chosen.length === 0}
           onClick={() => void run(true)}
         >
           Preview
