@@ -151,7 +151,9 @@ pub(crate) fn app_ready(handle: &tauri::AppHandle) {
     #[cfg(feature = "plus")]
     toolport_plus::attention::notify::spawn(
         crate::plus_adapter::HostAdapter,
-        crate::plus_adapter::AppNotifier::new(handle.clone()),
+        toolport_plus::attention::system_notifier::SystemNotifier(
+            crate::plus_adapter::AppPlatform::new(handle.clone()),
+        ),
     );
     #[cfg(not(feature = "plus"))]
     let _ = handle;

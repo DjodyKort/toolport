@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "notify", "--test"],
+  "envelope": {
+    "command": "attention notify",
+    "error": {
+      "code": "app_not_running",
+      "message": "the Toolport+ app did not answer; notifications are shown by the running app, so open it and try again"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

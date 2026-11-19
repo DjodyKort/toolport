@@ -40,7 +40,9 @@ pub use memory::{
     MemoryGateway, MemoryHost, MemoryRegistry, MemorySecrets, MemoryState, MemorySync, ScriptedHttp,
 };
 pub use mirror::{convert, ServerRecord};
-pub use notifier::{FakeNotifier, Notifier};
+pub use notifier::{
+    FakeNotifier, FakePlatform, Notifier, NotifyPlatform, Permission, Toast, ToastRow,
+};
 pub use secrets::{SecretsHost, TrustInputs, VaultAccess, HTTP_AUTH_KEY};
 pub use servers::{
     CallsInFlight, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter, RegistryEntries,

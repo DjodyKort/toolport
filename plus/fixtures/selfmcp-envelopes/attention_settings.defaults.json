@@ -47,7 +47,11 @@
           "on": false
         }
       ],
-      "enabled": false
+      "enabled": false,
+      "permission": {
+        "checkedAt": null,
+        "state": "unknown"
+      }
     },
     "staleDays": 30
   },

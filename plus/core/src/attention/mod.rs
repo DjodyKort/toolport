@@ -17,9 +17,11 @@ pub mod feed_tasks;
 pub mod feed_updates;
 mod gather;
 mod model;
+pub mod notifier_state;
 pub mod notify;
 pub mod ops;
 pub mod store;
+pub mod system_notifier;
 pub mod test_toast;
 pub mod updates;
 

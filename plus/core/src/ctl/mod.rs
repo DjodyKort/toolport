@@ -754,7 +754,7 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["attention", "notify"],
-        "Show a test notification from the running app (--test)",
+        "Show a test notification from the running app (--test), or open its notification settings in the system (--open-settings)",
         attention::notify,
     ),
     cmd(

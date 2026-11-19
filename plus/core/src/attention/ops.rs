@@ -126,7 +126,10 @@ pub fn undo(host: &dyn Host) -> Result<Value, OpError> {
 }
 
 pub fn settings(host: &dyn Host) -> Result<Value, OpError> {
-    Ok(open_store(host)?.1.settings.to_json())
+    let (base, store) = open_store(host)?;
+    let mut settings = store.settings.to_json();
+    settings["notify"]["permission"] = super::notifier_state::read(&base);
+    Ok(settings)
 }
 
 /// `check.<name>` switches a check, `notify` the master switch and `notify.<name>` one category.

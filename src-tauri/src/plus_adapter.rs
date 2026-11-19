@@ -4373,7 +4373,7 @@ mod tests {
 #[path = "plus_adapter_notifier.rs"]
 mod notifier;
 #[cfg(feature = "desktop")]
-pub(crate) use notifier::AppNotifier;
+pub(crate) use notifier::AppPlatform;
 
 #[cfg(test)]
 #[path = "plus_adapter_oauth_tests.rs"]

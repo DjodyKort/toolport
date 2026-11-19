@@ -507,6 +507,16 @@ const CASES: &[Case] = &[
         &[
             hook("busy-world", attention_home),
             usage("usage", &["attention", "notify"]),
+            usage(
+                "both",
+                &["attention", "notify", "--test", "--open-settings"],
+            ),
+            apply("no_app", &["attention", "notify", "--test"]).exit(1),
+            apply(
+                "no_app_settings",
+                &["attention", "notify", "--open-settings"],
+            )
+            .exit(1),
         ],
     ),
     case(

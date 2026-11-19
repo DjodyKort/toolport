@@ -18,7 +18,7 @@
     "flag": null,
     "mode": "none"
   },
-  "summary": "Show a test notification from the running app (--test)",
+  "summary": "Show a test notification from the running app (--test), or open its notification settings in the system (--open-settings)",
   "surface": "screen",
   "tier": "write",
   "tools": []

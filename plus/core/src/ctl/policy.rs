@@ -677,7 +677,7 @@ pub(super) const ROWS: &[Row] = &[
     row("attention undo", W).skip("writes the hidden list in the data dir; golden step"),
     row("attention check", W).skip("fetches from remotes; golden step uses a local remote"),
     row("attention settings", R),
-    row("attention notify", W).skip("needs the running app; golden step"),
+    row("attention notify", W).skip("needs the running app; golden steps cover usage and the answer without an app"),
     row("attention set", W).skip("writes the switches in the data dir; golden step"),
     row("sources ls", R).spec(&[&sources::LS]),
     row("sources root ls", R).spec(&[&sources::ROOT_LS]),

@@ -4,7 +4,7 @@
     "command": "attention notify",
     "error": {
       "code": "usage",
-      "message": "usage: toolportctl attention notify --test"
+      "message": "usage: toolportctl attention notify --test | --open-settings"
     },
     "ok": false,
     "schemaVersion": 1

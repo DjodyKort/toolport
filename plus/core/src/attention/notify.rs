@@ -4,11 +4,15 @@
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
-use toolport_plus_api::{Host, Notifier};
+use toolport_plus_api::{Host, Notifier, Permission, Toast, ToastRow};
 
 use super::store::{Store, NOTIFY_WINDOW_SECS};
-use super::{compute, read, Item, Urgency};
+use super::{compute, notifier_state, read, Item, Urgency};
 use crate::op::OpError;
+
+pub const CHANNEL_SYSTEM: &str = "system";
+pub const CHANNEL_TOAST: &str = "toast";
+pub const CHANNEL_NONE: &str = "none";
 
 pub const TEST_TITLE: &str = "Toolport+ notifications work";
 const POINTER: &str = "Open Toolport+ to see them.";
@@ -18,7 +22,10 @@ pub struct Report {
     pub reason: Option<&'static str>,
     /// Ids that were announced, or would have been had the window not had the focus.
     pub ids: Vec<String>,
+    /// System notifications handed over.
     pub sent: usize,
+    /// Which way the news went: the system, a toast in the window, or nowhere.
+    pub channel: &'static str,
     pub error: Option<String>,
 }
 
@@ -28,12 +35,19 @@ impl Report {
             reason: Some(reason),
             ids: Vec::new(),
             sent: 0,
+            channel: CHANNEL_NONE,
             error: None,
         }
     }
 
     pub fn to_json(&self) -> Value {
-        json!({"sent": self.sent, "ids": self.ids, "reason": self.reason, "error": self.error})
+        json!({
+            "sent": self.sent,
+            "channel": self.channel,
+            "ids": self.ids,
+            "reason": self.reason,
+            "error": self.error,
+        })
     }
 }
 
@@ -129,18 +143,40 @@ pub fn run(host: &dyn Host, notifier: &dyn Notifier) -> Result<Report, OpError> 
                 for id in &ids {
                     store.notified.insert(id.clone(), now);
                 }
+                let (title, body) = message(&news);
                 if notifier.window_focused() {
+                    let rows = news
+                        .iter()
+                        .map(|item| ToastRow {
+                            id: item.id.clone(),
+                            screen: screen_of(item),
+                        })
+                        .collect();
+                    match notifier.toast(&Toast { title, body, rows }) {
+                        Ok(()) => Report {
+                            reason: None,
+                            channel: CHANNEL_TOAST,
+                            ids,
+                            ..Report::quiet("")
+                        },
+                        Err(error) => Report {
+                            error: Some(error),
+                            ids,
+                            ..Report::quiet("the window could not show the toast")
+                        },
+                    }
+                } else if notifier.permission() == Permission::Blocked {
                     Report {
                         ids,
-                        ..Report::quiet("the window has the focus")
+                        ..Report::quiet("the system blocks notifications from Toolport+")
                     }
                 } else {
-                    let (title, body) = message(&news);
                     match notifier.notify(&title, &body) {
                         Ok(()) => Report {
                             reason: None,
                             ids,
                             sent: 1,
+                            channel: CHANNEL_SYSTEM,
                             error: None,
                         },
                         Err(error) => Report {
@@ -166,8 +202,56 @@ pub fn run(host: &dyn Host, notifier: &dyn Notifier) -> Result<Report, OpError> 
     Ok(report)
 }
 
-pub fn test(notifier: &dyn Notifier) -> Result<(), String> {
-    notifier.notify(TEST_TITLE, "This is what a row that needs you looks like.")
+fn screen_of(item: &Item) -> String {
+    item.action
+        .as_ref()
+        .and_then(|action| serde_json::to_value(action.screen).ok())
+        .and_then(|screen| screen.as_str().map(str::to_string))
+        .unwrap_or_default()
+}
+
+/// The answer of a test notification. `sent` says the system was handed it, `confirmed` that the
+/// platform also reports the permission as granted: a platform that does not report it hands the
+/// notification over and cannot say more.
+pub struct TestOutcome {
+    pub permission: Permission,
+    pub sent: bool,
+    pub error: Option<String>,
+}
+
+impl TestOutcome {
+    pub fn confirmed(&self) -> bool {
+        self.sent && self.permission == Permission::Allowed
+    }
+
+    pub fn code(&self) -> Option<&'static str> {
+        match (&self.error, self.permission) {
+            (None, _) => None,
+            (Some(_), Permission::Blocked) => Some("notifications_blocked"),
+            (Some(_), _) => Some("notify_failed"),
+        }
+    }
+}
+
+pub fn test(notifier: &dyn Notifier) -> TestOutcome {
+    let permission = notifier.permission();
+    let result = if permission == Permission::Blocked {
+        Err(super::system_notifier::BLOCKED.to_string())
+    } else {
+        notifier.notify(TEST_TITLE, "This is what a row that needs you looks like.")
+    };
+    TestOutcome {
+        permission,
+        sent: result.is_ok(),
+        error: result.err(),
+    }
+}
+
+/// Leaves the permission the system reports where `attention settings` can read it.
+pub fn record_permission(host: &dyn Host, notifier: &dyn Notifier) {
+    if let Some(base) = host.data_dir() {
+        notifier_state::record(&base, notifier.permission(), host.now_unix());
+    }
 }
 
 /// How often the app looks for news, and how often for a test request from the command line.
@@ -180,6 +264,7 @@ const FIRST_PASS_AFTER: Duration = Duration::from_secs(20);
 /// appeared in the meantime.
 pub fn pass(host: &dyn Host, notifier: &dyn Notifier) -> Result<Option<Report>, OpError> {
     let _ = super::observe_access(host);
+    record_permission(host, notifier);
     let base = host
         .data_dir()
         .ok_or_else(|| OpError::failed("no_data_dir", "data directory could not be resolved"))?;
@@ -205,6 +290,7 @@ where
         .name("attention-notifier".into())
         .spawn(move || {
             let mut next_pass = Instant::now() + FIRST_PASS_AFTER;
+            record_permission(&host, &notifier);
             loop {
                 let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     super::test_toast::answer(&host, &notifier);

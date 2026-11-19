@@ -26,7 +26,10 @@ pub(super) const SNOOZE: Spec = plain(
 );
 pub(super) const HIDE: Spec = plain(&[switch("--dry-run")], Operands::Collect);
 pub(super) const ONE: Spec = plain(&[], Operands::Collect);
-pub(super) const NOTIFY: Spec = plain(&[switch("--test")], Operands::Reject);
+pub(super) const NOTIFY: Spec = plain(
+    &[switch("--test"), switch("--open-settings")],
+    Operands::Reject,
+);
 pub(super) const NONE: Spec = plain(&[], Operands::Reject);
 
 fn id_of(flags: &super::flags::Flags, usage: &str) -> Result<String, CtlError> {
@@ -177,15 +180,23 @@ pub fn set(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn notify(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let usage = "usage: toolportctl attention notify --test | --open-settings";
     let flags = NOTIFY.parse(rest)?;
-    if !flags.on("--test") {
-        return Err(CtlError::usage(
-            "usage: toolportctl attention notify --test",
+    if flags.on("--test") == flags.on("--open-settings") {
+        return Err(CtlError::usage(usage));
+    }
+    if flags.on("--open-settings") {
+        let data =
+            attention::test_toast::request_settings(host, attention::test_toast::DEFAULT_WAIT)?;
+        return Ok(Output::new(
+            data,
+            "Opened the system's notification settings".to_string(),
         ));
     }
     let data = attention::test_toast::request(host, attention::test_toast::DEFAULT_WAIT)?;
-    Ok(Output::new(
-        data,
-        "Sent a test notification from the Toolport+ app".to_string(),
-    ))
+    let human = match data["note"].as_str() {
+        None => "Sent a test notification from the Toolport+ app".to_string(),
+        Some(note) => format!("{note}."),
+    };
+    Ok(Output::new(data, human))
 }
