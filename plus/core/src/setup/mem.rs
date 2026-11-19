@@ -130,7 +130,7 @@ fn collect(dir: &Path, base: &Path, out: &mut Vec<KeptFile>) {
     }
 }
 
-const INSTRUCTION_PATHS: [&str; 4] = [
+pub(super) const INSTRUCTION_PATHS: [&str; 4] = [
     "CLAUDE.local.md",
     "CLAUDE.md",
     "AGENTS.md",
@@ -179,7 +179,7 @@ impl MemorySource for FsMemory {
                 })
             })
             .collect();
-        candidates.extend(rule_files);
+        candidates.extend(rule_files.into_iter().filter(|f| f.name.ends_with(".md")));
         for file in candidates {
             if !tracked.contains(&file.name) && file.bytes.len() as u64 <= MAX_FILE_BYTES {
                 found.push(file);

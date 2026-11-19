@@ -13,6 +13,7 @@ use toolport_plus_api::{StaticSecret, UpdatedServer};
 
 use super::inspect::{self, Opened, Standing};
 use super::repos;
+use super::safe_path;
 use super::threeway::{hash_json, Baseline, Verdict};
 use super::{crypto, sha256_hex, unhex, Ctx, PartId};
 use crate::fsx::{atomic_write_bytes, Mode};
@@ -48,6 +49,11 @@ struct Write {
     path: PathBuf,
     bytes: Vec<u8>,
     replace: bool,
+    /// The folder Toolport chose for this write; the path is checked against it again right
+    /// before the write.
+    root: PathBuf,
+    /// The root must be a git repository then: a clone that failed leaves nothing to write into.
+    in_repo: bool,
 }
 
 enum Step {
@@ -78,6 +84,8 @@ struct Row {
     note: String,
     step: Option<Step>,
     other: Option<String>,
+    /// The file asked for a destination that this restore never writes.
+    refused: bool,
 }
 
 impl Row {
@@ -95,7 +103,26 @@ impl Row {
             note: String::new(),
             step: None,
             other: None,
+            refused: false,
         }
+    }
+
+    fn refuse(
+        id: impl Into<String>,
+        part: PartId,
+        label: &str,
+        why: impl std::fmt::Display,
+    ) -> Self {
+        let id: String = id.into();
+        let mut row = Self::new(
+            id.escape_debug().to_string(),
+            part,
+            label.escape_debug().to_string(),
+            STATE_SKIP,
+        )
+        .note(format!("refused: {why}"));
+        row.refused = true;
+        row
     }
 
     fn hash(mut self, other: String) -> Self {
@@ -171,6 +198,10 @@ fn repo_rows(
         let dest = ctx.untilde(path);
         let id = format!("repo:{path}");
         let label = format!("{name} → {path}");
+        if let Err(why) = safe_path::no_parent_parts(path) {
+            rows.push(Row::refuse(id, PartId::Repos, &label, why));
+            continue;
+        }
         let url = entry["remotes"]
             .as_array()
             .into_iter()
@@ -460,13 +491,25 @@ fn settings_rows(
     let dir = crate::context::bundle_store::dir(&roots);
     for (name, text) in doc["bundles"].as_object().into_iter().flatten() {
         let Some(text) = text.as_str() else { continue };
-        let path = dir.join(format!("{name}.yaml"));
         let id = format!("settings:bundle:{name}");
+        let label = format!("Bundle {name}");
+        let file = format!("{name}.yaml");
+        let path = crate::context::bundle_store::valid_name(name)
+            .map_err(|e| e.message)
+            .and_then(|()| safe_path::confined(&dir, &[&file]));
+        let path = match path {
+            Ok(path) => path,
+            Err(why) => {
+                rows.push(Row::refuse(id, PartId::Settings, &label, why));
+                continue;
+            }
+        };
         rows.push(file_row(
             opts,
             id,
             PartId::Settings,
-            format!("Bundle {name}"),
+            label,
+            &dir,
             path,
             text.as_bytes().to_vec(),
         ));
@@ -490,6 +533,8 @@ fn settings_rows(
             path,
             bytes,
             replace,
+            root: ctx.data_dir.clone(),
+            in_repo: false,
         };
         rows.push(
             file_row_in(id, PartId::Settings, "Compression settings", state, write).hash(other),
@@ -504,6 +549,7 @@ fn file_row(
     id: String,
     part: PartId,
     label: impl Into<String>,
+    root: &Path,
     path: PathBuf,
     bytes: Vec<u8>,
 ) -> Row {
@@ -515,6 +561,8 @@ fn file_row(
         path,
         bytes,
         replace,
+        root: root.to_path_buf(),
+        in_repo: false,
     };
     file_row_in(id, part, label, state, write).hash(other)
 }
@@ -596,10 +644,22 @@ fn library_row(opened: &mut Opened, rows: &mut Vec<Row>) {
 
 fn claude_rows(ctx: &Ctx<'_>, opened: &mut Opened, opts: &RestoreOptions, rows: &mut Vec<Row>) {
     for name in opened.names_under("claude-user/") {
-        let rel = name.trim_start_matches("claude-user/").to_string();
+        let Some(rel) = name.strip_prefix("claude-user/") else {
+            continue;
+        };
+        if rel.is_empty() || rel.ends_with('/') {
+            continue;
+        }
         let id = format!("claude:{rel}");
         let label = format!("~/.claude/{rel}");
-        match rel.as_str() {
+        let parts = match safe_path::plain_parts(rel) {
+            Ok(parts) => parts,
+            Err(why) => {
+                rows.push(Row::refuse(id, PartId::ClaudeUser, &label, why));
+                continue;
+            }
+        };
+        match rel {
             "removed.json" => continue,
             "plugins.json" => {
                 rows.push(
@@ -617,12 +677,46 @@ fn claude_rows(ctx: &Ctx<'_>, opened: &mut Opened, opts: &RestoreOptions, rows: 
             }
             _ => {}
         }
+        let path = safe_path::claude_user(&parts)
+            .and_then(|()| safe_path::confined(&ctx.claude_home, &parts));
+        let path = match path {
+            Ok(path) => path,
+            Err(why) => {
+                rows.push(Row::refuse(id, PartId::ClaudeUser, &label, why));
+                continue;
+            }
+        };
         let Ok(bytes) = opened.zip.read(&name) else {
             continue;
         };
-        let path = ctx.claude_home.join(&rel);
-        rows.push(file_row(opts, id, PartId::ClaudeUser, label, path, bytes));
+        rows.push(file_row(
+            opts,
+            id,
+            PartId::ClaudeUser,
+            label,
+            &ctx.claude_home,
+            path,
+            bytes,
+        ));
     }
+}
+
+/// What a memory row may write into: the repository of the file, as it is on this Mac, only when
+/// it is a git repository that exists or that this restore clones.
+fn memory_repo(
+    ctx: &Ctx<'_>,
+    path: &str,
+    cloning: &BTreeMap<PathBuf, String>,
+) -> Result<Option<PathBuf>, String> {
+    safe_path::no_parent_parts(path)?;
+    let abs = ctx.untilde(path);
+    if cloning.contains_key(&abs) || is_git(&abs) {
+        return Ok(Some(abs));
+    }
+    if abs.exists() {
+        return Err("it is not a git repository, so nothing is written into it".into());
+    }
+    Ok(None)
 }
 
 fn memory_rows(
@@ -639,50 +733,84 @@ fn memory_rows(
         let dir = repo["dir"].as_str().unwrap_or_default();
         let name = repo["name"].as_str().unwrap_or(dir);
         let path = repo["path"].as_str().unwrap_or_default();
-        let abs = ctx.untilde(path);
         let id = format!("memory:{dir}");
         let label = format!("Memory of {name}");
-        if !abs.is_dir() && !cloning.contains_key(&abs) {
-            rows.push(
-                Row::new(id, PartId::Memory, label, STATE_SKIP).note("the repository is not here"),
-            );
+        let single = safe_path::plain_parts(dir).is_ok_and(|parts| parts.len() == 1);
+        if !single {
+            rows.push(Row::refuse(
+                id,
+                PartId::Memory,
+                &label,
+                "the folder name in the file is not a plain name",
+            ));
             continue;
         }
+        let abs = match memory_repo(ctx, path, cloning) {
+            Ok(Some(abs)) => abs,
+            Ok(None) => {
+                rows.push(
+                    Row::new(id, PartId::Memory, label, STATE_SKIP)
+                        .note("the repository is not here"),
+                );
+                continue;
+            }
+            Err(why) => {
+                rows.push(Row::refuse(id, PartId::Memory, &label, why));
+                continue;
+            }
+        };
         let target = memory.memory_dir(&abs);
         let replace = take.contains(&id);
         let mut writes = Vec::new();
         let (mut add, mut same, mut differ) = (0, 0, 0);
-        let mut place = |dest: PathBuf, bytes: Vec<u8>, writes: &mut Vec<Write>| match file_state(
-            &dest, &bytes,
-        ) {
-            STATE_ADD => {
-                add += 1;
-                writes.push(Write {
-                    path: dest,
-                    bytes,
-                    replace: false,
-                });
-            }
-            STATE_HERE => same += 1,
-            _ => {
-                differ += 1;
-                if replace {
-                    writes.push(Write {
-                        path: dest,
-                        bytes,
-                        replace: true,
-                    });
+        let mut place =
+            |dest: PathBuf, bytes: Vec<u8>, root: &Path, in_repo: bool, writes: &mut Vec<Write>| {
+                match file_state(&dest, &bytes) {
+                    STATE_ADD => {
+                        add += 1;
+                        writes.push(Write {
+                            path: dest,
+                            bytes,
+                            replace: false,
+                            root: root.to_path_buf(),
+                            in_repo,
+                        });
+                    }
+                    STATE_HERE => same += 1,
+                    _ => {
+                        differ += 1;
+                        if replace {
+                            writes.push(Write {
+                                path: dest,
+                                bytes,
+                                replace: true,
+                                root: root.to_path_buf(),
+                                in_repo,
+                            });
+                        }
+                    }
                 }
-            }
-        };
+            };
         for file in repo["files"]
             .as_array()
             .into_iter()
             .flatten()
             .filter_map(Value::as_str)
         {
-            if let Ok(bytes) = opened.zip.read(&format!("memory/{dir}/{file}")) {
-                place(target.join(file), bytes, &mut writes);
+            let dest =
+                safe_path::plain_parts(file).and_then(|parts| safe_path::confined(&target, &parts));
+            match dest {
+                Ok(dest) => {
+                    if let Ok(bytes) = opened.zip.read(&format!("memory/{dir}/{file}")) {
+                        place(dest, bytes, &target, false, &mut writes);
+                    }
+                }
+                Err(why) => rows.push(Row::refuse(
+                    format!("memory:{dir}/{file}"),
+                    PartId::Memory,
+                    &format!("Memory of {name}: {file}"),
+                    why,
+                )),
             }
         }
         for file in repo["instructions"]
@@ -691,11 +819,25 @@ fn memory_rows(
             .flatten()
             .filter_map(Value::as_str)
         {
-            if let Ok(bytes) = opened
-                .zip
-                .read(&format!("memory/{dir}/instructions/{file}"))
-            {
-                place(abs.join(file), bytes, &mut writes);
+            let dest = safe_path::plain_parts(file).and_then(|parts| {
+                safe_path::instruction(&parts)?;
+                safe_path::confined(&abs, &parts)
+            });
+            match dest {
+                Ok(dest) => {
+                    if let Ok(bytes) = opened
+                        .zip
+                        .read(&format!("memory/{dir}/instructions/{file}"))
+                    {
+                        place(dest, bytes, &abs, true, &mut writes);
+                    }
+                }
+                Err(why) => rows.push(Row::refuse(
+                    format!("memory:{dir}/instructions/{file}"),
+                    PartId::Memory,
+                    &format!("{path}/{file}"),
+                    why,
+                )),
             }
         }
         for flagged in secrets
@@ -704,11 +846,22 @@ fn memory_rows(
             .flatten()
             .filter(|f| f["dir"].as_str() == Some(dir))
         {
-            if let (Some(name), Some(bytes)) = (
+            let (Some(file), Some(bytes)) = (
                 flagged["name"].as_str(),
                 flagged["hex"].as_str().and_then(unhex),
-            ) {
-                place(target.join(name), bytes, &mut writes);
+            ) else {
+                continue;
+            };
+            let dest =
+                safe_path::plain_parts(file).and_then(|parts| safe_path::confined(&target, &parts));
+            match dest {
+                Ok(dest) => place(dest, bytes, &target, false, &mut writes),
+                Err(why) => rows.push(Row::refuse(
+                    format!("memory:{dir}/{file}"),
+                    PartId::Memory,
+                    &format!("Memory of {name}: {file}"),
+                    why,
+                )),
             }
         }
         let state = if differ > 0 {
@@ -728,8 +881,26 @@ fn memory_rows(
     }
     for switch in index["switches"].as_array().into_iter().flatten() {
         let path = switch["path"].as_str().unwrap_or_default();
-        let abs = ctx.untilde(path);
         let id = format!("switch:{path}");
+        let label = format!("Memory switches of {path}");
+        let abs = match memory_repo(ctx, path, cloning) {
+            Ok(Some(abs)) => abs,
+            Ok(None) => {
+                rows.push(
+                    Row::new(id, PartId::Memory, label, STATE_SKIP)
+                        .note("the repository is not here"),
+                );
+                continue;
+            }
+            Err(why) => {
+                rows.push(Row::refuse(id, PartId::Memory, &label, why));
+                continue;
+            }
+        };
+        if let Err(why) = safe_path::confined(&abs, &[".claude", "settings.local.json"]) {
+            rows.push(Row::refuse(id, PartId::Memory, &label, why));
+            continue;
+        }
         let off = switch["autoMemory"] == "off";
         let excludes: Vec<String> = switch["claudeMdExcludes"]
             .as_array()
@@ -743,12 +914,7 @@ fn memory_rows(
             .unwrap_or(Value::Null);
         let missing = (off && local.get("autoMemoryEnabled").is_none())
             || (!excludes.is_empty() && local.get("claudeMdExcludes").is_none());
-        let label = format!("Memory switches of {path}");
-        if !abs.is_dir() && !cloning.contains_key(&abs) {
-            rows.push(
-                Row::new(id, PartId::Memory, label, STATE_SKIP).note("the repository is not here"),
-            );
-        } else if missing {
+        if missing {
             rows.push(
                 Row::new(id, PartId::Memory, label, STATE_ADD)
                     .note("the switches come back")
@@ -921,6 +1087,9 @@ fn plan_json(plan: &Plan, hash: &str, opened: &Opened, judged: bool) -> Value {
             if let (true, Some(other)) = (judged, &r.other) {
                 row["hash"] = json!(other);
             }
+            if r.refused {
+                row["refused"] = json!(true);
+            }
             row
         }).collect::<Vec<_>>(),
         "file_info": inspect::summary(opened)["parts"],
@@ -929,7 +1098,19 @@ fn plan_json(plan: &Plan, hash: &str, opened: &Opened, judged: bool) -> Value {
         plan_doc["summary"]["incoming"] = json!(count(STATE_INCOMING));
         plan_doc["summary"]["mine"] = json!(count(STATE_MINE));
     }
+    let refused = refused_rows(&plan.rows);
+    if !refused.is_empty() {
+        plan_doc["refused"] = json!(refused);
+    }
     plan_doc
+}
+
+/// The entries of the file that asked for a place a restore never writes.
+fn refused_rows(rows: &[Row]) -> Vec<Value> {
+    rows.iter()
+        .filter(|r| r.refused)
+        .map(|r| json!({"id": r.id, "label": r.label, "note": r.note}))
+        .collect()
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -952,7 +1133,7 @@ struct Journal {
     secrets: u64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct Touched {
     path: String,
     sha: String,
@@ -971,6 +1152,12 @@ fn save_journal(ctx: &Ctx<'_>, journal: &Journal) -> Result<(), OpError> {
 }
 
 fn write_one(ctx: &Ctx<'_>, journal: &mut Journal, write: &Write) -> Result<bool, String> {
+    let parts = safe_path::below(&write.root, &write.path)
+        .ok_or_else(|| format!("{} is outside its folder", write.path.display()))?;
+    safe_path::confined(&write.root, &parts)?;
+    if write.in_repo && !is_git(&write.root) {
+        return Err(format!("{} is not a repository here", write.root.display()));
+    }
     let exists = write.path.exists();
     if exists && !write.replace {
         return Ok(false);
@@ -1068,7 +1255,10 @@ fn run_step(
             off,
             excludes,
         } => {
-            let path = repo.join(".claude/settings.local.json");
+            if !is_git(repo) {
+                return Err(format!("{} is not a repository here", repo.display()));
+            }
+            let path = safe_path::confined(repo, &[".claude", "settings.local.json"])?;
             let mut doc: Value = std::fs::read(&path)
                 .ok()
                 .and_then(|b| serde_json::from_slice(&b).ok())
@@ -1171,6 +1361,7 @@ pub fn run(ctx: &Ctx<'_>, opts: &RestoreOptions) -> Result<Value, OpError> {
             .map_or(0, |d| d.as_nanos()),
         ..Journal::default()
     };
+    let refused = refused_rows(&plan.rows);
     let mut rows = std::mem::take(&mut plan.rows);
     rows.sort_by_key(|r| order(&r.step));
     let mut added = Vec::new();
@@ -1201,6 +1392,9 @@ pub fn run(ctx: &Ctx<'_>, opts: &RestoreOptions) -> Result<Value, OpError> {
         "needsYou": needs,
         "serversToRemoveOnUndo": journal.servers,
     });
+    if !refused.is_empty() {
+        data["refused"] = json!(refused);
+    }
     if opts.baseline.is_some() {
         data["rows"] = rows
             .iter()
@@ -1370,4 +1564,62 @@ pub fn undo(ctx: &Ctx<'_>, run_id: Option<&str>, dry_run: bool) -> Result<Value,
             "note": "servers and stored values are removed in Servers; a restore does not delete them",
         },
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::setup::tests::World;
+
+    fn blank_journal() -> Journal {
+        Journal {
+            id: "run-test".into(),
+            ..Journal::default()
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_write_checks_its_way_again_right_before_it_happens() {
+        let world = World::new();
+        let root = world.home.join(".claude");
+        let outside = world.dir.path().join("outside");
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::create_dir_all(&root).unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("agents")).unwrap();
+        let write = Write {
+            path: root.join("agents/a.md"),
+            bytes: b"x".to_vec(),
+            replace: false,
+            root: root.clone(),
+            in_repo: false,
+        };
+        let mut journal = blank_journal();
+        let error = write_one(&world.ctx(), &mut journal, &write).unwrap_err();
+        assert!(error.contains("symlink"), "{error}");
+        assert!(journal.files.is_empty());
+        assert!(!outside.join("a.md").exists());
+    }
+
+    #[test]
+    fn a_write_outside_its_root_or_into_a_missing_repository_is_refused() {
+        let world = World::new();
+        let root = world.home.join("code/web");
+        std::fs::create_dir_all(&root).unwrap();
+        let write = |path: PathBuf, in_repo| Write {
+            path,
+            bytes: b"x".to_vec(),
+            replace: false,
+            root: root.clone(),
+            in_repo,
+        };
+        let mut journal = blank_journal();
+        let elsewhere = write(world.home.join("other/CLAUDE.md"), false);
+        assert!(write_one(&world.ctx(), &mut journal, &elsewhere).is_err());
+        let not_a_repo = write(root.join("CLAUDE.md"), true);
+        let error = write_one(&world.ctx(), &mut journal, &not_a_repo).unwrap_err();
+        assert!(error.contains("not a repository"), "{error}");
+        assert!(!root.join("CLAUDE.md").exists());
+        assert!(journal.files.is_empty());
+    }
 }

@@ -12,6 +12,7 @@ pub mod parts;
 pub mod repo_heads;
 pub mod repos;
 pub mod restore;
+pub mod safe_path;
 pub mod scan;
 pub mod scratch;
 pub mod threeway;
@@ -19,6 +20,8 @@ pub mod zipio;
 
 #[cfg(test)]
 mod export_safety_tests;
+#[cfg(test)]
+mod restore_safety_tests;
 #[cfg(test)]
 mod restore_tests;
 #[cfg(test)]
