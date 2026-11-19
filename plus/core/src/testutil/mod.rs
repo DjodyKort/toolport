@@ -1,3 +1,5 @@
+#[cfg(feature = "cipher")]
+pub mod alloc;
 pub mod exec;
 
 use std::collections::BTreeMap;

@@ -4,8 +4,6 @@
 
 use std::path::{Path, PathBuf};
 
-use sha2::{Digest, Sha256};
-
 use super::config::{TransportCfg, FILE_NAME};
 use crate::skills::git::GitRunner;
 use crate::skills::taps::redact;
@@ -29,8 +27,7 @@ pub struct Folder {
 }
 
 fn digest(path: &Path) -> Result<String, String> {
-    let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    Ok(crate::setup::hex(&Sha256::digest(&bytes)))
+    crate::setup::sha256_file(path).map_err(|e| format!("{}: {e}", path.display()))
 }
 
 impl Folder {

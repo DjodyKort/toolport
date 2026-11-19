@@ -1130,13 +1130,14 @@ fn order(step: &Option<Step>) -> u8 {
 }
 
 pub fn run(ctx: &Ctx<'_>, opts: &RestoreOptions) -> Result<Value, OpError> {
+    super::scratch::sweep(ctx);
     let mut opened = inspect::open(&opts.file)?;
     if opened.parts.iter().all(|p| p.standing != Standing::Ok) {
         return Err(failed(
             "no part of this file matches its hash: nothing to restore",
         ));
     }
-    let file_sha = sha256_hex(&std::fs::read(&opts.file).map_err(|e| failed(e.to_string()))?);
+    let file_sha = super::sha256_file(&opts.file).map_err(|e| failed(e.to_string()))?;
     let mut plan = build(ctx, &mut opened, opts)?;
     let hash = plan_hash(&plan, opts, &file_sha);
     if !opts.apply {

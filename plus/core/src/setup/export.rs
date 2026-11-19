@@ -9,6 +9,7 @@ use sha2::{Digest, Sha256};
 
 use super::parts::{self, Body, Build, Entry, Flagged, Part};
 use super::repos::{self, Repo};
+use super::scratch::{self, Scratch};
 use super::{crypto, hex, search_roots, zipio, Ctx, PartId, ALL_PARTS, FORMAT, MANIFEST, VERSION};
 use crate::op::OpError;
 
@@ -97,26 +98,6 @@ fn scan_repos(ctx: &Ctx<'_>, opts: &Options, ignored_names: bool) -> Scan {
         .map(|dir| repos::read(dir, &ctx.home, ignored_names))
         .collect();
     Scan { roots, repos }
-}
-
-fn scratch_in(dir: &Path) -> Result<PathBuf, OpError> {
-    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    let path = dir.join(format!(
-        ".toolport-setup-{}-{}",
-        std::process::id(),
-        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    ));
-    std::fs::create_dir_all(&path)
-        .map_err(|e| OpError::failed("write", format!("{}: {e}", path.display())))?;
-    Ok(path)
-}
-
-struct Scratch(PathBuf);
-
-impl Drop for Scratch {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
 }
 
 fn build_all(
@@ -280,9 +261,7 @@ pub fn list(ctx: &Ctx<'_>, roots: &[PathBuf]) -> Result<Value, OpError> {
     opts.parts.insert(PartId::History);
     opts.parts.insert(PartId::Secrets);
     let scan = scan_repos(ctx, &opts, false);
-    let scratch = scratch_in(&ctx.state_dir())?;
-    let _guard = Scratch(scratch.clone());
-    let parts = build_all(ctx, &opts, &scan, &scratch, false, None);
+    let parts = build_all(ctx, &opts, &scan, Path::new(""), false, None);
     let total: u64 = parts
         .iter()
         .filter(|p| !p.id.sealed())
@@ -389,9 +368,8 @@ fn verify(path: &Path, rows: &[Value], passphrase: Option<&str>) -> Result<(), O
             let pass = passphrase
                 .ok_or_else(|| bad(format!("{id} needs the passphrase to be checked")))?;
             let name = row["file"].as_str().unwrap_or_default();
-            let mut reader = Vec::new();
-            zip.copy(name, &mut reader).map_err(bad)?;
-            crypto::open(pass, &mut &reader[..], &mut std::io::sink())
+            let mut reader = zip.stream(name).map_err(bad)?;
+            crypto::open(pass, &mut reader, &mut std::io::sink())
                 .map_err(|e| bad(format!("{id} does not open with the passphrase: {e}")))?;
         }
     }
@@ -416,6 +394,7 @@ pub fn not_included(parts: &BTreeSet<PartId>) -> Vec<&'static str> {
 }
 
 pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Value, OpError> {
+    scratch::sweep(ctx);
     if opts.needs_passphrase() && (!opts.dry_run || passphrase.is_some() || opts.peek.is_some()) {
         let pass = passphrase.ok_or_else(|| {
             OpError::usage("secrets and sessions need a passphrase: use --passphrase-stdin")
@@ -438,15 +417,11 @@ pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Va
         }
     }
     let scan = scan_repos(ctx, opts, false);
-    let scratch_base = target
-        .as_ref()
-        .and_then(|t| t.parent().map(Path::to_path_buf))
-        .filter(|p| p.is_dir() && !opts.seal_file)
-        .unwrap_or_else(|| ctx.state_dir());
-    let scratch = scratch_in(&scratch_base)?;
-    let _guard = Scratch(scratch.clone());
     let content = !opts.dry_run || opts.peek.is_some();
-    let parts = build_all(ctx, opts, &scan, &scratch, content, passphrase);
+    // A run that writes nothing needs no working folder.
+    let scratch = content.then(|| Scratch::new(ctx)).transpose()?;
+    let scratch_path = scratch.as_ref().map_or(Path::new(""), Scratch::path);
+    let parts = build_all(ctx, opts, &scan, scratch_path, content, passphrase);
 
     let failed: Vec<String> = parts
         .iter()
@@ -492,7 +467,7 @@ pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Va
     });
     let partial = PathBuf::from(format!("{}.part", target.display()));
     let plain = if opts.seal_file {
-        scratch.join("setup.zip")
+        scratch_path.join("setup.zip")
     } else {
         partial.clone()
     };

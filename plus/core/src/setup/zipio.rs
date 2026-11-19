@@ -315,6 +315,23 @@ impl ZipFile {
         Ok(data)
     }
 
+    /// A stored entry as a reader, so a large one is never held in memory. The checksum is not
+    /// checked; a deflated entry has to go through [`ZipFile::read`].
+    pub fn stream(&mut self, name: &str) -> Result<impl Read + '_, String> {
+        let entry = self
+            .entry(name)
+            .cloned()
+            .ok_or_else(|| format!("{name} is not in the file"))?;
+        if entry.method != 0 {
+            return Err(format!("{name} is not stored as it was written"));
+        }
+        let start = self.data_start(&entry)?;
+        self.file
+            .seek(SeekFrom::Start(start))
+            .map_err(|e| e.to_string())?;
+        Ok((&mut self.file).take(entry.csize))
+    }
+
     /// Streams a stored entry into `out`; a deflated one goes through memory.
     pub fn copy(&mut self, name: &str, out: &mut dyn Write) -> Result<(), String> {
         let entry = self

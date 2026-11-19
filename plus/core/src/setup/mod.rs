@@ -13,9 +13,12 @@ pub mod repo_heads;
 pub mod repos;
 pub mod restore;
 pub mod scan;
+pub mod scratch;
 pub mod threeway;
 pub mod zipio;
 
+#[cfg(test)]
+mod export_safety_tests;
 #[cfg(test)]
 mod restore_tests;
 #[cfg(test)]
@@ -152,6 +155,25 @@ pub fn parse_parts(text: &str) -> Result<BTreeSet<PartId>, String> {
 
 pub fn sha256_hex(bytes: &[u8]) -> String {
     hex(&Sha256::digest(bytes))
+}
+
+/// The hash of a file, read in pieces: a setup file can hold gigabytes of sessions.
+pub fn sha256_file(path: &Path) -> std::io::Result<String> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 256 * 1024];
+    loop {
+        let n = match file.read(&mut buf) {
+            Ok(n) => n,
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e) => return Err(e),
+        };
+        if n == 0 {
+            return Ok(hex(&hasher.finalize()));
+        }
+        hasher.update(&buf[..n]);
+    }
 }
 
 pub fn hex(bytes: &[u8]) -> String {

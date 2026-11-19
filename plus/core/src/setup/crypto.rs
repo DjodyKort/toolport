@@ -71,7 +71,21 @@ pub fn check_passphrase(passphrase: &str) -> Result<(), String> {
 }
 
 pub fn seal(passphrase: &str, plain: &mut dyn Read, out: &mut dyn Write) -> Result<(), String> {
-    seal_with(passphrase, Cost::default(), plain, out)
+    seal_with(passphrase, default_cost(), plain, out)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Lets a test seal a large file without paying the real Argon2id cost.
+    pub(crate) static TEST_COST: std::cell::Cell<Option<Cost>> = const { std::cell::Cell::new(None) };
+}
+
+fn default_cost() -> Cost {
+    #[cfg(test)]
+    if let Some(cost) = TEST_COST.with(std::cell::Cell::get) {
+        return cost;
+    }
+    Cost::default()
 }
 
 pub fn seal_with(

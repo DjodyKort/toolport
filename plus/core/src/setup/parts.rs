@@ -3,7 +3,6 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use serde_json::{json, Map, Value};
@@ -60,17 +59,7 @@ impl Entry {
         match &self.body {
             Body::Bytes(bytes) => Ok(super::sha256_hex(bytes)),
             Body::File(path) => {
-                let mut file =
-                    fs::File::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
-                let mut hasher = Sha256::new();
-                let mut buf = vec![0u8; 256 * 1024];
-                loop {
-                    let n = file.read(&mut buf).map_err(|e| e.to_string())?;
-                    if n == 0 {
-                        return Ok(hex(&hasher.finalize()));
-                    }
-                    hasher.update(&buf[..n]);
-                }
+                super::sha256_file(path).map_err(|e| format!("{}: {e}", path.display()))
             }
         }
     }
