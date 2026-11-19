@@ -33,5 +33,5 @@
   "summary": "Sync the local index of the MCP Registry from the registry; continues an unfinished sync (--full starts over)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["catalog_sync"]
 }

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "path": "<WORLD>/elsewhere"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "<WORLD>/elsewhere is not inside the home directory <WORLD>/home"
+    }
+  },
+  "text": "refused: <WORLD>/elsewhere is not inside the home directory <WORLD>/home",
+  "tool": "skills_init"
+}

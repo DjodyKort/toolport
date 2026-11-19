@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "path": "<WORLD>/home/fresh-skills"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: skills_init (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: skills_init (tier 3). Pass confirm=true to proceed.",
+  "tool": "skills_init"
+}

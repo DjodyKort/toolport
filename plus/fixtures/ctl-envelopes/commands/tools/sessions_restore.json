@@ -1,0 +1,7 @@
+{
+  "command": "sessions restore",
+  "dryRun": "default-on",
+  "name": "sessions_restore",
+  "tier": "write",
+  "toolTier": 3
+}

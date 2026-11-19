@@ -19,6 +19,9 @@ mod context;
 mod launch_profile;
 mod library;
 mod memory;
+mod paths;
+#[cfg(test)]
+mod paths_tests;
 mod plugins;
 mod reach;
 pub mod register;

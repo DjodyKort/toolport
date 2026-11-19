@@ -39,5 +39,5 @@
   "summary": "Add a curated catalog server <name> [--offline]",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["servers_install_catalog"]
 }

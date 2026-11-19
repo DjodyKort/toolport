@@ -172,6 +172,12 @@ pub(super) fn check(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
     })
 }
 
+pub(super) fn undo(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    let run = str_nonempty(args, "run");
+    let dry_run = flag_or(args, "dry_run", true);
+    with_ctx(host, |ctx| crate::setup::restore::undo(ctx, run, dry_run))
+}
+
 pub(super) fn restore(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
     let file = str_nonempty(args, "file")
         .ok_or_else(|| ToolError::new("invalid_arguments", "file is required"))?;

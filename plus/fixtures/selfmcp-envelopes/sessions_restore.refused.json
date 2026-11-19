@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "id": "sessions-<STAMP>"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: sessions_restore (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: sessions_restore (tier 3). Pass confirm=true to proceed.",
+  "tool": "sessions_restore"
+}

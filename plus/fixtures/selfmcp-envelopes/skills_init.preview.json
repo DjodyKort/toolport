@@ -1,0 +1,21 @@
+{
+  "arguments": {
+    "path": "<WORLD>/home/fresh-skills"
+  },
+  "isError": false,
+  "result": {
+    "alreadyExists": false,
+    "created": [
+      "mcpm-skills.yaml",
+      "skills/",
+      "rules/",
+      "agents/",
+      "styles/",
+      "profiles/"
+    ],
+    "dryRun": true,
+    "name": "fresh-skills",
+    "repo": "<WORLD>/home/fresh-skills"
+  },
+  "tool": "skills_init"
+}

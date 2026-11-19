@@ -1,0 +1,39 @@
+{
+  "arguments": {
+    "action": "add",
+    "confirm": true,
+    "dir": "<WORLD>/home/lib",
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "dryRun": false,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "add <WORLD>/home/lib to sourceRoots",
+          "diff": {
+            "after": "[\"~/dups\",\"~/lib\"]",
+            "before": "[\"~/dups\"]"
+          },
+          "keys": ["sourceRoots"],
+          "op": "merge",
+          "path": "<WORLD>/home/.config/mcpm/context.json"
+        }
+      ],
+      "summary": "add source root <WORLD>/home/lib",
+      "undo": "toolportctl sources root rm <WORLD>/home/lib",
+      "warnings": [
+        "<WORLD>/home/lib is not a git checkout; its child checkouts are read, not the folder itself"
+      ]
+    },
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": ["<WORLD>/home/.config/mcpm/context.json"],
+      "undo": "toolportctl sources root rm <WORLD>/home/lib"
+    }
+  },
+  "tool": "sources_root_set"
+}

@@ -247,6 +247,22 @@ pub(super) fn scaffold(host: &dyn Host, args: &Value) -> Outcome {
     Ok(json!({"created_path": path.to_string_lossy(), "kind": skill_type}))
 }
 
+pub(super) fn init(host: &dyn Host, args: &Value) -> Outcome {
+    let name = str_nonempty(args, "name").map(path_safe).transpose()?;
+    let dry_run = flag_or(args, "dry_run", true);
+    with_paths(host, || {
+        let path = super::paths::under_home(str_arg(args, "path").unwrap_or_default())?;
+        let report = crate::skills::repo::init_repo(&path, name, dry_run).map_err(failed)?;
+        Ok(json!({
+            "repo": report.repo.to_string_lossy(),
+            "name": report.name,
+            "alreadyExists": report.already_exists,
+            "created": report.created,
+            "dryRun": dry_run,
+        }))
+    })
+}
+
 pub(super) fn clean(host: &dyn Host, args: &Value) -> Outcome {
     with_paths(host, || typed(state::clean(scoped_request(args, &[])?)))
 }

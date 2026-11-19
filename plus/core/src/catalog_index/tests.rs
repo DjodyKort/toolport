@@ -382,3 +382,42 @@ fn test13_a_corrupt_or_foreign_index_file_reads_as_empty() {
     .unwrap();
     assert_eq!(status(&host).last_synced_at, None);
 }
+
+#[test]
+fn test14_a_bounded_sync_saves_its_pass_and_the_next_call_continues_it() {
+    let dir = TempDir::new().unwrap();
+    let host = host(dir.path());
+    script(
+        &host,
+        vec![
+            page(vec![server("a/one", "1")], Some("c2")),
+            page(vec![server("a/two", "2")], Some("c3")),
+            page(vec![server("a/three", "3")], None),
+        ],
+    );
+    let first = sync_bounded(&host, Mode::Incremental, 2, &mut |_| {}).unwrap();
+    assert_eq!((first.pages, first.count, first.complete), (2, 2, false));
+    assert_eq!(store::part_count(&plus(&dir)), 1);
+    assert!(status(&host).resumable);
+
+    let second = sync_bounded(&host, Mode::Incremental, 2, &mut |_| {}).unwrap();
+    assert_eq!(
+        (second.kind, second.count, second.complete),
+        ("resume", 3, true)
+    );
+    assert_eq!(status(&host).state, STATE_FRESH);
+}
+
+#[test]
+fn test15_search_lists_curated_entries_before_the_index_without_asking_the_network() {
+    let dir = TempDir::new().unwrap();
+    let mut host = synced(dir.path());
+    host.catalog = vec![record("Widget Curated", "https://curated.invalid/mcp")];
+    let hits = search(&host, "widget");
+    assert_eq!(
+        hits.first().map(|hit| hit.name.as_str()),
+        Some("Widget Curated")
+    );
+    assert!(hits.len() >= 2);
+    assert!(host.http.requests.borrow().is_empty());
+}

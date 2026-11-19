@@ -33,5 +33,5 @@
   "summary": "Undo the last restore run as far as nothing changed since (<run>, --dry-run)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["setup_undo"]
 }

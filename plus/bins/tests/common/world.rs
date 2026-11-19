@@ -283,6 +283,14 @@ impl World {
     /// `memory_files`, then the memory of `proj` and its oldest session sit in Toolport's trash as
     /// a clear would have left them.
     pub fn trashed_files(&self) {
+        self.stashed_files("trash", true);
+    }
+
+    pub fn archived_files(&self) {
+        self.stashed_files("archive", false);
+    }
+
+    fn stashed_files(&self, store: &str, with_memory: bool) {
         self.memory_files();
         let proj = std::fs::canonicalize(self.home.join("proj")).unwrap();
         let slug: String = proj
@@ -297,7 +305,7 @@ impl World {
             .unwrap()
             .as_secs();
         let trash = |id: &str, kind: &str, moves: &[(&str, u64)]| {
-            let dir = self.data.join("plus/memory/trash").join(id);
+            let dir = self.data.join("plus/memory").join(store).join(id);
             let mut items = Vec::new();
             for (index, (name, bytes)) in moves.iter().enumerate() {
                 let from = project.join(name);
@@ -317,7 +325,9 @@ impl World {
                 }),
             );
         };
-        trash("memory-20260101-000000", "memory", &[("memory", 246)]);
+        if with_memory {
+            trash("memory-20260101-000000", "memory", &[("memory", 246)]);
+        }
         trash(
             "sessions-20260101-000000",
             "sessions",

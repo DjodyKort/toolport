@@ -1,0 +1,7 @@
+{
+  "command": "setup undo",
+  "dryRun": "default-on",
+  "name": "setup_undo",
+  "tier": "write",
+  "toolTier": 3
+}

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "path": "<WORLD>/home/fresh/../../elsewhere"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "the path must not contain .."
+    }
+  },
+  "text": "invalid_arguments: the path must not contain ..",
+  "tool": "skills_init"
+}

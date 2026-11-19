@@ -17,6 +17,7 @@ const PAGE_SIZE: u32 = 100;
 /// A first sync lists well over a hundred pages; a flush every tenth keeps a stopped pass
 /// resumable without writing after each one.
 const FLUSH_EVERY_PAGES: u32 = 10;
+pub(super) const CAPPED: &str = "the registry listed more than";
 const MAX_PAGE_BYTES: usize = 16 * 1024 * 1024;
 
 #[derive(Clone, Copy)]
@@ -293,10 +294,7 @@ fn run(
             error
         };
         if report.pages >= tuning.max_pages {
-            let error = registry_error(format!(
-                "the registry listed more than {} pages",
-                tuning.max_pages
-            ));
+            let error = registry_error(format!("{CAPPED} {} pages", tuning.max_pages));
             return Err(stop(&mut pass, &cursor, pages, error));
         }
         let body = match fetch(host, &page_url(cursor.as_deref(), since.as_deref()), tuning) {

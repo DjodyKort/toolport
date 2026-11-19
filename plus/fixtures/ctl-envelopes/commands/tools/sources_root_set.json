@@ -1,0 +1,7 @@
+{
+  "command": "sources root add",
+  "dryRun": "default-on",
+  "name": "sources_root_set",
+  "tier": "write",
+  "toolTier": 3
+}

@@ -159,6 +159,45 @@ pub fn sync(
     sync::sync_with(host, mode, sync::TUNING, progress)
 }
 
+/// Like [`sync`], but stops after `max_pages` pages with the pass saved: the report then says
+/// `complete: false` and the next call continues from there.
+pub fn sync_bounded(
+    host: &dyn Host,
+    mode: Mode,
+    max_pages: u32,
+    progress: &mut dyn FnMut(&Report),
+) -> Result<Report, OpError> {
+    let mut last = Report::default();
+    let tuning = sync::Tuning {
+        max_pages,
+        ..sync::TUNING
+    };
+    let result = sync::sync_with(host, mode, tuning, &mut |report| {
+        last = report.clone();
+        progress(report);
+    });
+    match result {
+        Err(error) if error.message.starts_with(sync::CAPPED) => Ok(last),
+        other => other,
+    }
+}
+
+/// Servers whose name or text matches `query`: the curated catalog first, then the synced
+/// index. Never goes to the network.
+pub fn search(host: &dyn Host, query: &str) -> Vec<CatalogEntryRecord> {
+    let mut hits = host.curated(query);
+    let indexed = matches(host, query, false).unwrap_or_default();
+    for entry in indexed {
+        if !hits
+            .iter()
+            .any(|seen| seen.name.eq_ignore_ascii_case(&entry.name))
+        {
+            hits.push(entry);
+        }
+    }
+    hits
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Tick {
     NotDue,

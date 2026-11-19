@@ -1,0 +1,12 @@
+{
+  "arguments": {},
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no restore run to undo"
+    }
+  },
+  "text": "not_found: no restore run to undo",
+  "tool": "setup_undo"
+}

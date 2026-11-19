@@ -1,0 +1,21 @@
+{
+  "arguments": {
+    "query": "widget"
+  },
+  "isError": false,
+  "result": {
+    "matches": 1,
+    "query": "widget",
+    "servers": [
+      {
+        "description": "Synthetic registry server",
+        "envKeys": [],
+        "installable": false,
+        "name": "Widget",
+        "source": "registry",
+        "transport": "http"
+      }
+    ]
+  },
+  "tool": "catalog_search"
+}

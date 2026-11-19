@@ -316,6 +316,47 @@
           "tier": 1
         },
         {
+          "description": "List the folders whose repositories the repo, client and vendored detectors walk: the defaults from the clients root and the ones added with sources_root_set, with whether each exists and is a git checkout",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "sources_root_ls",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Add or remove one source root in context.json (sourceRoots) and nothing else. The filesystem root and the home directory itself are refused, because they would put every repository on the machine in scope. A default root cannot be removed here. dry_run is on by default and returns the plan; apply with dry_run=false and confirm=true",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "sources_root_set",
+          "params": [
+            {
+              "description": "add or rm",
+              "name": "action",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Absolute folder, or one that starts with ~/",
+              "name": "dir",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "Every file of one library skill with what the next sync does to it (copied, would-copy, differs, hand-edited, removed-on-next-sync, not-copied with its reason, not-yours), its links and the two description limits",
           "dryRunDefault": false,
           "gate": "none",
@@ -454,6 +495,39 @@
             }
           ],
           "tier": 2
+        },
+        {
+          "description": "Create an empty skills repository (manifest and the skills, rules, agents and styles folders) in a folder inside the home directory; a path outside it is refused. An existing repository is left as it is. dry_run is on by default and lists what would be created; apply with dry_run=false and confirm=true",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "skills_init",
+          "params": [
+            {
+              "description": "Absolute folder inside the home directory, or one that starts with ~/",
+              "name": "path",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Repository name, the folder name by default",
+              "name": "name",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
         },
         {
           "description": "Transpile skills, agents and output styles to client outputs in one plan with one snapshot; dry_run is on by default (apply with dry_run=false and confirm=true). Removals, new hooks and files that differ wait unless apply_held=true",
@@ -1575,6 +1649,48 @@
           "name": "catalog_status",
           "params": [],
           "tier": 1
+        },
+        {
+          "description": "Search the curated catalog and the local index of the MCP Registry by name or text, without the network: the curated entries first. installable is true for a curated entry, which servers_install_catalog adds by name; the others are listed so you can see what exists. Run catalog_sync when the index is stale",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "catalog_search",
+          "params": [
+            {
+              "description": "Words to look for in names and descriptions",
+              "name": "query",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Bring the local index of the MCP Registry up to date: fetches from the network, at most 20 pages per call, and an unfinished pass is saved so the next call continues it (complete=false in the report says to call again). dry_run is on by default and reports the index state and what a call would do; apply with dry_run=false and confirm=true. full=true starts a new pass over the whole registry",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "catalog_sync",
+          "params": [
+            {
+              "description": "Start a new pass over the whole registry, dropping what it no longer lists",
+              "name": "full",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
         },
         {
           "description": "Show the skills library against its remote: branch, commits ahead and behind, uncommitted files, how git authenticates (gh, a credential helper or ssh) and any other clone of the same remote with its own counts. Pass fetch to contact the remote and test the credentials; without it nothing touches the network. Read only",
@@ -3103,6 +3219,33 @@
           "tier": 3
         },
         {
+          "description": "Install a curated catalog server by name (see catalog_search; installable=true), switched off and without secret values: set each envKey with secret_set, then switch it on. Same risk as servers_install, because the entry runs a command on this machine, so the preview names the command and url. dry_run is on by default; apply with dry_run=false and confirm=true",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "servers_install_catalog",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "Patch a server's configuration, including plain env entries, inheritEnv and maxRequestTimeoutMs (milliseconds, 1 to 86400000; null restores the default) and toolBudgets (seconds per tool name, 0 to 86400 exclusive; null removes one) and serial (true: the gateway sends the server one call at a time)",
           "dryRunDefault": false,
           "gate": "always",
@@ -4479,6 +4622,33 @@
           "tier": 2
         },
         {
+          "description": "Move sessions that were archived back into the project's session folder. id is the archive entry sessions_clear reported. dry_run is on by default and lists what would come back; apply with dry_run=false and confirm=true",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "sessions_restore",
+          "params": [
+            {
+              "description": "Archive entry, as the clear reported it",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "How long Claude Code keeps sessions (cleanupPeriodDays in the user settings, default 30, at least 1): one value for every project, with no per-repository retention. Read only",
           "dryRunDefault": false,
           "gate": "none",
@@ -4851,6 +5021,33 @@
               "name": "take",
               "required": false,
               "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Reverse a setup restore run as far as nothing changed since: settings and files still as the restore wrote them go back, and clones without new work are removed. Servers and vault values the restore added stay, and the result names them. run is the run id, the latest when empty. dry_run is on by default and lists the steps; apply with dry_run=false and confirm=true",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "setup_undo",
+          "params": [
+            {
+              "description": "Run id of the restore, the latest when empty",
+              "name": "run",
+              "required": false,
+              "type": "string"
             },
             {
               "description": "Report without writing; true unless you pass false to apply",

@@ -1,0 +1,21 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "left": {
+      "note": "servers and stored values are removed in Servers; a restore does not delete them",
+      "secretValues": 0,
+      "servers": ["gamma"]
+    },
+    "run": "run-1",
+    "steps": [
+      {
+        "note": "removed",
+        "ok": true,
+        "what": "switches of ~/code/web"
+      }
+    ]
+  },
+  "tool": "setup_undo"
+}

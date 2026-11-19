@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "action": "add",
+    "dir": "/"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "/ is too broad to use as a source root"
+    }
+  },
+  "text": "refused: / is too broad to use as a source root",
+  "tool": "sources_root_set"
+}

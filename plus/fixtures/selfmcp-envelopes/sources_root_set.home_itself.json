@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "action": "rm",
+    "dir": "~"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "<WORLD>/home is too broad to use as a source root"
+    }
+  },
+  "text": "refused: <WORLD>/home is too broad to use as a source root",
+  "tool": "sources_root_set"
+}

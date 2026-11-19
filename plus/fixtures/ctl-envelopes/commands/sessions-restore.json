@@ -39,5 +39,5 @@
   "summary": "Put archived sessions back (<archive-id>, --dry-run)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["sessions_restore"]
 }

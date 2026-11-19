@@ -1,0 +1,7 @@
+{
+  "command": "skills init",
+  "dryRun": "default-on",
+  "name": "skills_init",
+  "tier": "write",
+  "toolTier": 3
+}

@@ -130,6 +130,14 @@ pub(super) fn sessions_undo(host: &dyn Host, args: &Value) -> Outcome {
     )?)
 }
 
+pub(super) fn sessions_restore(host: &dyn Host, args: &Value) -> Outcome {
+    Ok(api::sessions_restore(
+        host,
+        required(args, "id")?,
+        flag_or(args, "dry_run", true),
+    )?)
+}
+
 pub(super) fn sessions_retention(host: &dyn Host, _args: &Value) -> Outcome {
     Ok(api::sessions_retention(host, None, true)?)
 }

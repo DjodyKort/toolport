@@ -1,0 +1,7 @@
+{
+  "command": "catalog sync",
+  "dryRun": "default-on",
+  "name": "catalog_sync",
+  "tier": "write",
+  "toolTier": 3
+}

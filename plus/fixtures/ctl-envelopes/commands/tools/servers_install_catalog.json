@@ -1,0 +1,7 @@
+{
+  "command": "server install",
+  "dryRun": "default-on",
+  "name": "servers_install_catalog",
+  "tier": "write",
+  "toolTier": 3
+}

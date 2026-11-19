@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "path": "fresh-skills"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "give an absolute path or one that starts with ~/"
+    }
+  },
+  "text": "invalid_arguments: give an absolute path or one that starts with ~/",
+  "tool": "skills_init"
+}

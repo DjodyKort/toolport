@@ -1,0 +1,1 @@
+{ "route": "servers", "action": "servers.add-catalog", "surface": "screen" }

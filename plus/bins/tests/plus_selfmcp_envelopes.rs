@@ -3838,6 +3838,190 @@ const CASES: &[Case] = &[
             read("sealed", "compression_seal", APPLY),
         ],
     ),
+    prepared(
+        "sessions_restore",
+        World::archived_files,
+        &[
+            read(
+                "preview",
+                "sessions_restore",
+                r#"{"id":"sessions-20260101-000000"}"#,
+            ),
+            refused(
+                "refused",
+                "sessions_restore",
+                r#"{"id":"sessions-20260101-000000","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "sessions_restore",
+                r#"{"id":"sessions-20260101-000000","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "gone",
+                "not_found",
+                "sessions_restore",
+                r#"{"id":"sessions-20260101-000000"}"#,
+            ),
+            fails("no_id", "invalid_arguments", "sessions_restore", "{}"),
+        ],
+    ),
+    case(
+        "skills_init",
+        &[
+            read("preview", "skills_init", r#"{"path":"{home}/fresh-skills"}"#),
+            refused(
+                "refused",
+                "skills_init",
+                r#"{"path":"{home}/fresh-skills","dry_run":false}"#,
+            ),
+            fails(
+                "outside_home",
+                "refused",
+                "skills_init",
+                r#"{"path":"{base}/elsewhere"}"#,
+            ),
+            fails("home_itself", "refused", "skills_init", r#"{"path":"{home}"}"#),
+            fails(
+                "dotdot",
+                "invalid_arguments",
+                "skills_init",
+                r#"{"path":"{home}/fresh/../../elsewhere"}"#,
+            ),
+            fails(
+                "relative",
+                "invalid_arguments",
+                "skills_init",
+                r#"{"path":"fresh-skills"}"#,
+            ),
+            write(
+                "apply",
+                "skills_init",
+                r#"{"path":"~/fresh-skills","name":"fresh","dry_run":false,"confirm":true}"#,
+            ),
+            read("again", "skills_init", r#"{"path":"{home}/fresh-skills"}"#),
+        ],
+    ),
+    prepared(
+        "sources_root_ls",
+        sources_home,
+        &[read("roots", "sources_root_ls", "{}")],
+    ),
+    prepared(
+        "sources_root_set",
+        sources_home,
+        &[
+            read(
+                "preview",
+                "sources_root_set",
+                r#"{"action":"add","dir":"{home}/lib"}"#,
+            ),
+            refused(
+                "refused",
+                "sources_root_set",
+                r#"{"action":"add","dir":"{home}/lib","dry_run":false}"#,
+            ),
+            fails(
+                "filesystem_root",
+                "refused",
+                "sources_root_set",
+                r#"{"action":"add","dir":"/"}"#,
+            ),
+            fails(
+                "home_itself",
+                "refused",
+                "sources_root_set",
+                r#"{"action":"rm","dir":"~"}"#,
+            ),
+            fails(
+                "missing_dir",
+                "not_found",
+                "sources_root_set",
+                r#"{"action":"add","dir":"{home}/nowhere"}"#,
+            ),
+            fails(
+                "unknown_action",
+                "invalid_arguments",
+                "sources_root_set",
+                r#"{"action":"set","dir":"{home}/lib"}"#,
+            ),
+            write(
+                "apply",
+                "sources_root_set",
+                r#"{"action":"add","dir":"{home}/lib","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "again",
+                "conflict",
+                "sources_root_set",
+                r#"{"action":"add","dir":"{home}/lib"}"#,
+            ),
+            read(
+                "remove_preview",
+                "sources_root_set",
+                r#"{"action":"rm","dir":"{home}/dups"}"#,
+            ),
+        ],
+    ),
+    case(
+        "catalog_search",
+        &[
+            hook("indexed-world", catalog_world::indexed),
+            read("indexed", "catalog_search", r#"{"query":"widget"}"#),
+            read("curated", "catalog_search", r#"{"query":"stripe"}"#),
+            read("nothing", "catalog_search", r#"{"query":"no-such-server-anywhere"}"#),
+            fails("no_query", "invalid_arguments", "catalog_search", "{}"),
+        ],
+    ),
+    case(
+        "catalog_sync",
+        &[
+            read("fresh_install", "catalog_sync", "{}"),
+            hook("stopped-world", catalog_world::stopped),
+            read("resumable", "catalog_sync", "{}"),
+            read("full", "catalog_sync", r#"{"full":true}"#),
+            refused("refused", "catalog_sync", UNCONFIRMED),
+        ],
+    ),
+    case(
+        "servers_install_catalog",
+        &[
+            read("preview", "servers_install_catalog", r#"{"name":"Stripe"}"#),
+            refused(
+                "refused",
+                "servers_install_catalog",
+                r#"{"name":"Stripe","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "servers_install_catalog",
+                r#"{"name":"Stripe","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "exists",
+                "conflict",
+                "servers_install_catalog",
+                r#"{"name":"stripe"}"#,
+            ),
+            fails(
+                "unknown",
+                "not_found",
+                "servers_install_catalog",
+                r#"{"name":"no-such-server"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "setup_undo",
+        restore_run,
+        &[
+            read("preview", "setup_undo", "{}"),
+            refused("refused", "setup_undo", UNCONFIRMED),
+            write("apply", "setup_undo", APPLY),
+            fails("nothing_left", "not_found", "setup_undo", "{}"),
+            fails("unknown_run", "not_found", "setup_undo", r#"{"run":"run-9"}"#),
+        ],
+    ),
 ];
 
 fn stem(case: &Case, call: &Call) -> String {
@@ -3999,6 +4183,19 @@ fn spend_aged(world: &World) {
 
 fn spend_settings(world: &World) {
     common::spend_world::settings_with_a_conflict(world);
+}
+
+fn restore_run(world: &World) {
+    let web = world.home.join("code/web");
+    common::world::write_json(
+        &world.data.join("plus/setup/runs/run-1.json"),
+        &json!({
+            "id": "run-1", "file": "export.zip", "at": 1, "undone": false, "settings": {},
+            "servers": ["gamma"], "tasks": [], "clones": [], "files": [], "access": null,
+            "switches": [[web.to_string_lossy(), {"enableAllProjectMcpServers": true}]],
+            "secrets": 0,
+        }),
+    );
 }
 
 fn sources_home(world: &World) {

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "id": "sessions-<STAMP>"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "nothing called sessions-<STAMP> in the archive"
+    }
+  },
+  "text": "not_found: nothing called sessions-<STAMP> in the archive",
+  "tool": "sessions_restore"
+}

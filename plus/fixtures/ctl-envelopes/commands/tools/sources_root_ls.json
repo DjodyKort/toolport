@@ -1,0 +1,7 @@
+{
+  "command": "sources root ls",
+  "dryRun": "none",
+  "name": "sources_root_ls",
+  "tier": "read",
+  "toolTier": 1
+}

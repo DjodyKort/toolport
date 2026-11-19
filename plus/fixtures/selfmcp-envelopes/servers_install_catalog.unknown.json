@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "no-such-server"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no catalog entry named 'no-such-server'"
+    }
+  },
+  "text": "not_found: no catalog entry named 'no-such-server'",
+  "tool": "servers_install_catalog"
+}

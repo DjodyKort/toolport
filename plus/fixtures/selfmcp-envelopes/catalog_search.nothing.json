@@ -1,0 +1,12 @@
+{
+  "arguments": {
+    "query": "no-such-server-anywhere"
+  },
+  "isError": false,
+  "result": {
+    "matches": 0,
+    "query": "no-such-server-anywhere",
+    "servers": []
+  },
+  "tool": "catalog_search"
+}

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "stripe"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "server 'Stripe' is already installed"
+    }
+  },
+  "text": "conflict: server 'Stripe' is already installed",
+  "tool": "servers_install_catalog"
+}

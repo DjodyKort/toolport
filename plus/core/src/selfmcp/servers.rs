@@ -361,6 +361,37 @@ pub(super) fn install(host: &dyn Host, args: &Value) -> Outcome {
     Ok(json!({"installed": true, "id": id, "name": server.name}))
 }
 
+pub(super) fn install_catalog(host: &dyn Host, args: &Value) -> Outcome {
+    let name = name_arg(args)?;
+    let entry = servers::find_catalog(host, name)
+        .ok_or_else(|| ToolError::new("not_found", format!("no catalog entry named '{name}'")))?;
+    let exists = view_servers(host)?
+        .iter()
+        .any(|server| server.name.eq_ignore_ascii_case(&entry.name));
+    if exists {
+        return Err(ToolError::new(
+            "conflict",
+            format!("server '{}' is already installed", entry.name),
+        ));
+    }
+    let dry_run = flag_or(args, "dry_run", true);
+    let mut data = json!({
+        "dryRun": dry_run,
+        "name": entry.name,
+        "transport": entry.transport,
+        "source": entry.source,
+        "command": entry.text("command"),
+        "url": entry.text("url"),
+        "envKeys": entry.env_keys,
+        "note": "installed switched off, with no secret values; set each envKey with secret_set, then switch it on",
+    });
+    if !dry_run {
+        servers::require_readable(host)?;
+        data["id"] = json!(servers::add_catalog(host, &entry).map_err(server_error)?);
+    }
+    Ok(data)
+}
+
 pub(super) fn update_config(host: &dyn Host, args: &Value) -> Outcome {
     let server = load(host, args)?;
     let patch = args

@@ -1,0 +1,22 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "mode": "resume",
+    "note": "applying fetches at most 20 pages of the MCP Registry from the network; an unfinished pass is continued by the next call",
+    "status": {
+      "background": true,
+      "count": 2,
+      "error": {
+        "kind": "registry",
+        "message": "the MCP Registry did not answer: connection failed: down"
+      },
+      "lastAttemptAt": "<TIME>",
+      "lastSyncedAt": "<TIME>",
+      "resumable": true,
+      "state": "error"
+    }
+  },
+  "tool": "catalog_sync"
+}

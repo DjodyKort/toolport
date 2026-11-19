@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "path": "<WORLD>/home/fresh-skills"
+  },
+  "isError": false,
+  "result": {
+    "alreadyExists": true,
+    "created": [],
+    "dryRun": true,
+    "name": "fresh-skills",
+    "repo": "<WORLD>/home/fresh-skills"
+  },
+  "tool": "skills_init"
+}

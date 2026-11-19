@@ -1,0 +1,20 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "name": "Stripe"
+  },
+  "isError": false,
+  "result": {
+    "command": null,
+    "dryRun": false,
+    "envKeys": [],
+    "id": "stripe",
+    "name": "Stripe",
+    "note": "installed switched off, with no secret values; set each envKey with secret_set, then switch it on",
+    "source": "curated",
+    "transport": "http",
+    "url": "https://mcp.stripe.com"
+  },
+  "tool": "servers_install_catalog"
+}

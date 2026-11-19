@@ -275,6 +275,26 @@ pub const TOOLS: &[ToolDef] = &[
         sources::ls
     ),
     tool!(
+        "sources_root_ls",
+        1,
+        None,
+        "List the folders whose repositories the repo, client and vendored detectors walk: the defaults from the clients root and the ones added with sources_root_set, with whether each exists and is a git checkout",
+        [],
+        sources::root_ls
+    ),
+    tool!(
+        "sources_root_set",
+        3,
+        UnlessDryRun,
+        "Add or remove one source root in context.json (sourceRoots) and nothing else. The filesystem root and the home directory itself are refused, because they would put every repository on the machine in scope. A default root cannot be removed here. dry_run is on by default and returns the plan; apply with dry_run=false and confirm=true",
+        [
+            p("action", Ty::Str, true, "add or rm"),
+            p("dir", Ty::Str, true, "Absolute folder, or one that starts with ~/"),
+            DRY_ON
+        ],
+        sources::root_set
+    ),
+    tool!(
         "skills_files",
         1,
         None,
@@ -320,6 +340,18 @@ pub const TOOLS: &[ToolDef] = &[
         "Create a new skill skeleton",
         [SKILL_NAME, p("skill_type", Ty::Str, false, "skill or rule"), REPO],
         skills::scaffold
+    ),
+    tool!(
+        "skills_init",
+        3,
+        UnlessDryRun,
+        "Create an empty skills repository (manifest and the skills, rules, agents and styles folders) in a folder inside the home directory; a path outside it is refused. An existing repository is left as it is. dry_run is on by default and lists what would be created; apply with dry_run=false and confirm=true",
+        [
+            p("path", Ty::Str, true, "Absolute folder inside the home directory, or one that starts with ~/"),
+            p("name", Ty::Str, false, "Repository name, the folder name by default"),
+            DRY_ON
+        ],
+        skills::init
     ),
     tool!(
         "skills_sync",
@@ -757,6 +789,25 @@ pub const TOOLS: &[ToolDef] = &[
         "Show the local index of the MCP Registry that catalog search answers from: how many servers it holds, when it was last synced, whether it is fresh (synced within 24 hours), stale, syncing, or its last sync failed, and whether an unfinished sync can be continued. Read only; the index is synced in the background and with toolportctl catalog sync",
         [],
         catalog_index::status
+    ),
+    tool!(
+        "catalog_search",
+        1,
+        None,
+        "Search the curated catalog and the local index of the MCP Registry by name or text, without the network: the curated entries first. installable is true for a curated entry, which servers_install_catalog adds by name; the others are listed so you can see what exists. Run catalog_sync when the index is stale",
+        [p("query", Ty::Str, true, "Words to look for in names and descriptions")],
+        catalog_index::search
+    ),
+    tool!(
+        "catalog_sync",
+        3,
+        UnlessDryRun,
+        "Bring the local index of the MCP Registry up to date: fetches from the network, at most 20 pages per call, and an unfinished pass is saved so the next call continues it (complete=false in the report says to call again). dry_run is on by default and reports the index state and what a call would do; apply with dry_run=false and confirm=true. full=true starts a new pass over the whole registry",
+        [
+            p("full", Ty::Bool, false, "Start a new pass over the whole registry, dropping what it no longer lists"),
+            DRY_ON
+        ],
+        catalog_index::sync
     ),
     tool!(
         "library_status",
@@ -1398,6 +1449,17 @@ pub const TOOLS: &[ToolDef] = &[
         servers::install
     ),
     tool!(
+        "servers_install_catalog",
+        3,
+        UnlessDryRun,
+        "Install a curated catalog server by name (see catalog_search; installable=true), switched off and without secret values: set each envKey with secret_set, then switch it on. Same risk as servers_install, because the entry runs a command on this machine, so the preview names the command and url. dry_run is on by default; apply with dry_run=false and confirm=true",
+        [
+            NAME,
+            DRY_ON
+        ],
+        servers::install_catalog
+    ),
+    tool!(
         "servers_update_config",
         3,
         Always,
@@ -1944,6 +2006,17 @@ pub const TOOLS: &[ToolDef] = &[
         memory::sessions_undo
     ),
     tool!(
+        "sessions_restore",
+        3,
+        UnlessDryRun,
+        "Move sessions that were archived back into the project's session folder. id is the archive entry sessions_clear reported. dry_run is on by default and lists what would come back; apply with dry_run=false and confirm=true",
+        [
+            p("id", Ty::Str, true, "Archive entry, as the clear reported it"),
+            DRY_ON
+        ],
+        memory::sessions_restore
+    ),
+    tool!(
         "sessions_retention",
         1,
         None,
@@ -2091,6 +2164,17 @@ pub const TOOLS: &[ToolDef] = &[
             DRY_ON
         ],
         setup::restore
+    ),
+    tool!(
+        "setup_undo",
+        3,
+        UnlessDryRun,
+        "Reverse a setup restore run as far as nothing changed since: settings and files still as the restore wrote them go back, and clones without new work are removed. Servers and vault values the restore added stay, and the result names them. run is the run id, the latest when empty. dry_run is on by default and lists the steps; apply with dry_run=false and confirm=true",
+        [
+            p("run", Ty::Str, false, "Run id of the restore, the latest when empty"),
+            DRY_ON
+        ],
+        setup::undo
     ),
     tool!(
         "sync_status",

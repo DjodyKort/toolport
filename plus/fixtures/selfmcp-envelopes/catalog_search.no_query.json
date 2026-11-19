@@ -1,0 +1,12 @@
+{
+  "arguments": {},
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "missing required argument: query"
+    }
+  },
+  "text": "invalid_arguments: missing required argument: query",
+  "tool": "catalog_search"
+}

@@ -1,0 +1,32 @@
+{
+  "arguments": {
+    "id": "sessions-<STAMP>"
+  },
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "id": "sessions-<STAMP>",
+    "name": "proj",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "move 18 bytes back",
+          "op": "move",
+          "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/sess-old.jsonl"
+        },
+        {
+          "detail": "move 3 bytes back",
+          "op": "move",
+          "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-proj/sess-old"
+        }
+      ],
+      "summary": "Put back 2 session item(s) of proj",
+      "undo": "toolportctl sessions clear --cwd <WORLD>/home/proj --to archive",
+      "warnings": []
+    },
+    "result": null,
+    "root": "<WORLD>/home/proj"
+  },
+  "tool": "sessions_restore"
+}

@@ -1,0 +1,29 @@
+{
+  "arguments": {
+    "query": "stripe"
+  },
+  "isError": false,
+  "result": {
+    "matches": 2,
+    "query": "stripe",
+    "servers": [
+      {
+        "description": "Payments, customers, charges, and balances.",
+        "envKeys": [],
+        "installable": true,
+        "name": "Stripe",
+        "source": "curated",
+        "transport": "http"
+      },
+      {
+        "description": "Toolport overlay: all 587 Stripe endpoints as intent-named tools, with the full write coverage the official MCP lacks (your API key, runs locally).",
+        "envKeys": ["STRIPE_API_KEY"],
+        "installable": true,
+        "name": "Stripe (Full API)",
+        "source": "curated",
+        "transport": "stdio"
+      }
+    ]
+  },
+  "tool": "catalog_search"
+}

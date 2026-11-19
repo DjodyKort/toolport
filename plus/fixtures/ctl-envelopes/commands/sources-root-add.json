@@ -39,5 +39,5 @@
   "summary": "Search a folder for repo checkouts (<dir>, --dry-run)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["sources_root_set"]
 }

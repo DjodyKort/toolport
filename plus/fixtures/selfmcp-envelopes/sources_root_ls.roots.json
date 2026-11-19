@@ -1,0 +1,27 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "roots": [
+      {
+        "exists": true,
+        "origin": "default",
+        "path": "<WORLD>/home/work/odh",
+        "repo": true
+      },
+      {
+        "exists": true,
+        "origin": "default",
+        "path": "<WORLD>/home/work/odh/clients",
+        "repo": false
+      },
+      {
+        "exists": true,
+        "origin": "config",
+        "path": "<WORLD>/home/dups",
+        "repo": false
+      }
+    ]
+  },
+  "tool": "sources_root_ls"
+}

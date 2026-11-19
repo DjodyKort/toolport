@@ -55,5 +55,5 @@
   "summary": "Create a skills repository (--path <dir>, --name <name>, --dry-run)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["skills_init"]
 }

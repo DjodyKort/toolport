@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "action": "add",
+    "dir": "<WORLD>/home/nowhere"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "not a directory: <WORLD>/home/nowhere"
+    }
+  },
+  "text": "not_found: not a directory: <WORLD>/home/nowhere",
+  "tool": "sources_root_set"
+}

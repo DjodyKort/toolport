@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "action": "set",
+    "dir": "<WORLD>/home/lib"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "action is add or rm"
+    }
+  },
+  "text": "invalid_arguments: action is add or rm",
+  "tool": "sources_root_set"
+}

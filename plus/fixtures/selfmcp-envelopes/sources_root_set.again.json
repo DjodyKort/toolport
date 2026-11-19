@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "action": "add",
+    "dir": "<WORLD>/home/lib"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "<WORLD>/home/lib is already a source root"
+    }
+  },
+  "text": "conflict: <WORLD>/home/lib is already a source root",
+  "tool": "sources_root_set"
+}
