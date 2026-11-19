@@ -1,6 +1,6 @@
 {
   "command": null,
-  "dryRun": "none",
+  "dryRun": "param",
   "name": "skills_edit_frontmatter",
   "tier": "write",
   "toolTier": 3

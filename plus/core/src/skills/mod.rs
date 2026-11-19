@@ -14,6 +14,7 @@ pub mod compare;
 pub mod files;
 pub mod fix;
 pub mod frontmatter;
+pub mod frontmatter_patch;
 pub mod git;
 pub(crate) mod gitexec;
 pub mod json;

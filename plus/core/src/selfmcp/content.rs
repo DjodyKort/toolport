@@ -11,7 +11,9 @@ use crate::skills::agents::{
     all_agent_transpilers, discover_agents, sync_scoped, Agent, AgentKind,
 };
 use crate::skills::api::{self, lint_json};
+use crate::skills::frontmatter_patch::{fields_of, patch_frontmatter};
 use crate::skills::kind::ContentKind;
+use crate::skills::lint::{lint_description_lengths, lint_skill};
 use crate::skills::lock::LockFile;
 use crate::skills::ops::read_lock;
 use crate::skills::parser::{build_frontmatter, parse_frontmatter, Skill, SkillKind};
@@ -23,7 +25,6 @@ use crate::skills::styles::manage::{
 use crate::skills::styles::{all_style_transpilers, discover_styles, Style, StyleKind, Tier};
 use crate::skills::SystemClock;
 use serde_json::{json, Value};
-use serde_yaml::{Mapping, Value as Yaml};
 use std::path::{Path, PathBuf};
 use toolport_plus_api::Host;
 
@@ -114,40 +115,6 @@ fn rewrite_body(path: &Path, new_body: &str) -> Result<String, ToolError> {
     // The blank lines between the closing fence and the text stay, so an edit does not move them.
     let gap: String = lines.take_while(|line| line.trim().is_empty()).collect();
     let content = format!("---\n{yaml}---\n{gap}{}\n", new_body.trim_end());
-    write_text(path, &content).map_err(ToolError::backend)?;
-    file_hash(path)
-}
-
-fn rewrite_frontmatter(path: &Path, patch: &Value, skill: bool) -> Result<String, ToolError> {
-    let raw = std::fs::read_to_string(path)?;
-    let (mut fm, body) = parse_frontmatter(&raw).map_err(|e| ToolError::new("invalid_input", e))?;
-    if fm.is_empty() {
-        return Err(ToolError::new(
-            "invalid_input",
-            format!("{} has no YAML frontmatter", path.display()),
-        ));
-    }
-    let patch = patch
-        .as_object()
-        .ok_or_else(|| ToolError::new("invalid_arguments", "patch must be an object"))?;
-    for (key, value) in patch {
-        let key = key.replace('-', "_");
-        let value: Yaml = serde_yaml::to_value(value)
-            .map_err(|e| ToolError::new("invalid_arguments", e.to_string()))?;
-        match fm.iter_mut().find(|(k, _)| *k == key) {
-            Some(slot) => slot.1 = value,
-            None => fm.push((key, value)),
-        }
-    }
-    if skill {
-        build_frontmatter(&fm).map_err(|e| ToolError::new("invalid_input", e))?;
-    }
-    let mut map = Mapping::new();
-    for (k, v) in fm {
-        map.insert(Yaml::String(k), v);
-    }
-    let yaml = serde_yaml::to_string(&map).map_err(|e| ToolError::backend(e.to_string()))?;
-    let content = format!("---\n{yaml}---\n{}\n", body.trim_end());
     write_text(path, &content).map_err(ToolError::backend)?;
     file_hash(path)
 }
@@ -246,14 +213,87 @@ fn edit_body(args: &Value, kind: &str) -> Outcome {
     Ok(json!({"sourcePath": path.to_string_lossy(), "newHash": hash}))
 }
 
+/// The frontmatter text and what follows the closing fence, kept as the file has them.
+fn split_document(path: &Path, raw: &str) -> Result<(String, String), ToolError> {
+    let mut lines = raw.split_inclusive('\n');
+    let mut yaml = String::new();
+    let mut closed = false;
+    if lines.next().is_some_and(fence) {
+        for line in lines.by_ref() {
+            if fence(line) {
+                closed = true;
+                break;
+            }
+            yaml.push_str(line);
+        }
+    }
+    if !closed {
+        return Err(ToolError::new(
+            "invalid_input",
+            format!("{} has no YAML frontmatter", path.display()),
+        ));
+    }
+    Ok((yaml, lines.collect()))
+}
+
+/// Sets, changes or (with `null`) removes single frontmatter fields of a skill. Only the lines of
+/// the fields that change are rewritten, and the result is checked like any skill before it is
+/// written. `dry_run` reports the same without writing; it also answers an empty patch with the
+/// fields as they are.
 pub(super) fn skills_edit_frontmatter(host: &dyn Host, args: &Value) -> Outcome {
     let _paths = enter(host);
     let name = name_arg(args)?;
     let repo = skills_repo(args)?;
     let skill = find_skill(&repo, name)?;
-    let patch = args.get("patch").cloned().unwrap_or_else(|| json!({}));
-    let hash = rewrite_frontmatter(&skill.source_path, &patch, true)?;
-    Ok(json!({"sourcePath": skill.source_path.to_string_lossy(), "newHash": hash}))
+    let empty = json!({});
+    let patch = args
+        .get("patch")
+        .unwrap_or(&empty)
+        .as_object()
+        .ok_or_else(|| ToolError::new("invalid_arguments", "patch must be an object"))?;
+    let raw = std::fs::read_to_string(&skill.source_path)?;
+    let (before, rest) = split_document(&skill.source_path, &raw)?;
+    let invalid = |e: String| ToolError::new("invalid_input", e);
+    let patched = patch_frontmatter(&before, patch).map_err(invalid)?;
+    let text = format!("---\n{}---\n{rest}", patched.yaml);
+    let (fm, _) = parse_frontmatter(&text).map_err(invalid)?;
+    if fm.is_empty() {
+        return Err(ToolError::new(
+            "invalid_input",
+            format!("{} has no YAML frontmatter", skill.source_path.display()),
+        ));
+    }
+    let frontmatter = build_frontmatter(&fm).map_err(invalid)?;
+    let candidate = Skill {
+        frontmatter,
+        ..skill.clone()
+    };
+    let mut found = lint_skill(&candidate);
+    found
+        .messages
+        .extend(lint_description_lengths(&[candidate], false).messages);
+    let dry = flag(args, "dry_run");
+    let mut out = json!({
+        "sourcePath": skill.source_path.to_string_lossy(),
+        "dryRun": dry,
+        "changed": patched.changed,
+        "rewritten": patched.rewritten,
+        "before": before,
+        "after": patched.yaml,
+        "fields": fields_of(&before).map_err(invalid)?,
+        "lint": found
+            .messages
+            .iter()
+            .map(|m| json!({"level": m.level, "message": m.message}))
+            .collect::<Vec<_>>(),
+    });
+    if !dry {
+        if !patched.changed.is_empty() {
+            write_text(&skill.source_path, &text).map_err(ToolError::backend)?;
+        }
+        out["newHash"] = json!(file_hash(&skill.source_path)?);
+    }
+    Ok(out)
 }
 
 pub(super) fn skills_delete(host: &dyn Host, args: &Value) -> Outcome {

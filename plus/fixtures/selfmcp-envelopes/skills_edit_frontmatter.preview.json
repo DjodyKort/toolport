@@ -1,0 +1,33 @@
+{
+  "arguments": {
+    "dry_run": true,
+    "name": "demo",
+    "patch": {
+      "description": "Edited description"
+    }
+  },
+  "isError": false,
+  "result": {
+    "after": "name: demo\ndescription: Edited description\n",
+    "before": "name: demo\ndescription: A synthetic demo skill\n",
+    "changed": ["description"],
+    "dryRun": true,
+    "fields": {
+      "description": "A synthetic demo skill",
+      "name": "demo"
+    },
+    "lint": [
+      {
+        "level": "warning",
+        "message": "Description is very short (<20 chars). Add detail about when to use this skill."
+      },
+      {
+        "level": "info",
+        "message": "Description lacks 'when to use' guidance. Consider adding context for agent discovery."
+      }
+    ],
+    "rewritten": false,
+    "sourcePath": "<WORLD>/skills-repo/skills/demo/SKILL.md"
+  },
+  "tool": "skills_edit_frontmatter"
+}

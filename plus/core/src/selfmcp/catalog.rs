@@ -596,12 +596,13 @@ pub const TOOLS: &[ToolDef] = &[
     tool!(
         "skills_edit_frontmatter",
         3,
-        Always,
-        "Patch a skill's frontmatter",
+        UnlessDryRun,
+        "Patch a skill's frontmatter: only the lines of the fields that change are rewritten. dry_run reports the new frontmatter, the fields as they are and the lint of the result, and writes nothing",
         [
             ENTITY,
-            p("patch", Ty::Obj, true, "Frontmatter fields to set"),
-            REPO
+            p("patch", Ty::Obj, true, "Frontmatter fields to set; null removes a field"),
+            REPO,
+            p("dry_run", Ty::Bool, false, "Report the change and write nothing")
         ],
         content::skills_edit_frontmatter
     ),

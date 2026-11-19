@@ -508,6 +508,17 @@ const CASES: &[Case] = &[
                 "skills_edit_frontmatter",
                 r#"{"name":"demo","patch":{"description":"Edited description"}}"#,
             ),
+            read(
+                "preview",
+                "skills_edit_frontmatter",
+                r#"{"name":"demo","patch":{"description":"Edited description"},"dry_run":true}"#,
+            ),
+            fails(
+                "empty-description",
+                "invalid_input",
+                "skills_edit_frontmatter",
+                r#"{"name":"demo","patch":{"description":""},"confirm":true}"#,
+            ),
             write(
                 "apply",
                 "skills_edit_frontmatter",

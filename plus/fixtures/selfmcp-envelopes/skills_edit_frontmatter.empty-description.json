@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "demo",
+    "patch": {
+      "description": ""
+    }
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_input",
+      "message": "description must be 1-1536 characters"
+    }
+  },
+  "text": "invalid_input: description must be 1-1536 characters",
+  "tool": "skills_edit_frontmatter"
+}

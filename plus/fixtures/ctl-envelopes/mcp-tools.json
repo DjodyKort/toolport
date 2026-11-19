@@ -1084,9 +1084,9 @@
           "tier": 3
         },
         {
-          "description": "Patch a skill's frontmatter",
+          "description": "Patch a skill's frontmatter: only the lines of the fields that change are rewritten. dry_run reports the new frontmatter, the fields as they are and the lint of the result, and writes nothing",
           "dryRunDefault": false,
-          "gate": "always",
+          "gate": "unless-dry-run",
           "name": "skills_edit_frontmatter",
           "params": [
             {
@@ -1096,7 +1096,7 @@
               "type": "string"
             },
             {
-              "description": "Frontmatter fields to set",
+              "description": "Frontmatter fields to set; null removes a field",
               "name": "patch",
               "required": true,
               "type": "object"
@@ -1106,6 +1106,12 @@
               "name": "repo_path",
               "required": false,
               "type": "string"
+            },
+            {
+              "description": "Report the change and write nothing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
             },
             {
               "description": "Must be true to run this tool",
