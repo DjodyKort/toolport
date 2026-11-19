@@ -1,5 +1,5 @@
 {
-  "route": "library-later",
+  "route": "library",
   "action": "library.plugin-update",
   "surface": "screen"
 }

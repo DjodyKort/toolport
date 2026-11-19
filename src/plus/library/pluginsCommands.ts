@@ -72,3 +72,10 @@ export const switchMcp = (
     cwd,
     ...dry(dryRun),
   ]);
+
+/** `claude plugin disable|enable|update` for the user, after a plan. */
+export const userScope = (
+  action: "disable" | "enable" | "update",
+  id: string,
+  dryRun: boolean,
+) => ctlData<PluginWriteData>(["plugins", action, id, ...dry(dryRun)]);

@@ -20,6 +20,12 @@ export interface PluginsWorldOptions {
   empty?: boolean;
   /** An administrator switches `kit@acme` off. */
   managed?: boolean;
+  /** Administrators block the marketplace of `kit@acme`: its update is offered but blocked. */
+  blocked?: boolean;
+  /** A Claude Code session that started before the last plugin change is running. */
+  restart?: boolean;
+  /** `claude plugin disable|enable|update` fails with this message. */
+  claudeFails?: string;
 }
 
 interface Seed {
@@ -192,31 +198,43 @@ const SEEDS: Seed[] = [
   },
 ];
 
-const row = (
-  seed: Seed,
-  folderOff: boolean,
-  managedOff: boolean,
-  denied: Set<string>,
-): PluginRow => {
+interface RowState {
+  folderOff: boolean;
+  managedOff: boolean;
+  userOff: boolean;
+  blocked: boolean;
+  version: string;
+  denied: Set<string>;
+}
+
+const row = (seed: Seed, state: RowState): PluginRow => {
+  const { folderOff, managedOff, userOff, denied } = state;
   const [name, marketplace] = seed.id.split("@");
+  const behind = seed.available !== undefined && state.version === seed.version;
   return {
     id: seed.id,
     name,
     marketplace,
-    version: seed.version,
+    version: state.version,
     scope: "user",
-    installPath: `~/.claude/plugins/cache/${marketplace}/${name}/${seed.version}`,
+    installPath: `~/.claude/plugins/cache/${marketplace}/${name}/${state.version}`,
     source: seed.source,
     enabled: {
-      user: true,
+      user: userOff ? false : true,
       project: null,
       local: folderOff ? false : null,
       managed: managedOff ? false : null,
-      effective: !folderOff && !managedOff,
+      effective: !folderOff && !managedOff && !userOff,
     },
-    update: seed.available
-      ? { state: "update", available: seed.available }
-      : { state: "current", available: null },
+    update: !behind
+      ? { state: "current", available: null }
+      : state.blocked
+        ? {
+            state: "blocked",
+            available: seed.available ?? null,
+            reason: "your administrator blocks the acme marketplace",
+          }
+        : { state: "update", available: seed.available ?? null },
     brings: {
       skills: seed.skills.length,
       agents: seed.agents?.length ?? 0,
@@ -266,19 +284,23 @@ export function createPluginsWorld(
   const written = new Map<string, Map<string, string>>();
   const global = new Map<string, string>();
   const denied = new Map<string, Set<string>>();
-  let refreshed = false;
+  const userOff = new Set<string>();
+  const versions = new Map<string, string>();
+  let restart = options.restart ?? false;
 
   const folderKey = (cwd: string, id: string) => `${cwd}|${id}`;
   const deniedIn = (cwd: string | null) => denied.get(cwd ?? "") ?? new Set<string>();
 
   function rowFor(seed: Seed, cwd: string | null): PluginRow {
     const folderOff = cwd ? off(cwd).includes(seed.id) : false;
-    return row(
-      seed,
+    return row(seed, {
       folderOff,
-      !!options.managed && seed.id === "kit@acme",
-      deniedIn(cwd),
-    );
+      managedOff: !!options.managed && seed.id === "kit@acme",
+      userOff: userOff.has(seed.id),
+      blocked: !!options.blocked && seed.id === "kit@acme",
+      version: versions.get(seed.id) ?? seed.version,
+      denied: deniedIn(cwd),
+    });
   }
 
   function find(id: string): Seed | null {
@@ -316,7 +338,6 @@ export function createPluginsWorld(
 
   function ls(argv: string[]): CtlReply {
     const cwd = value(argv, "--cwd");
-    if (flag(argv, "--refresh")) refreshed = !options.noClaude;
     const plugins = seeds.map((s) => rowFor(s, cwd));
     const markets = [...new Set(plugins.map((p) => p.marketplace as string))];
     const data: PluginsLsData = {
@@ -340,8 +361,8 @@ export function createPluginsWorld(
       refreshError:
         flag(argv, "--refresh") && options.noClaude ? "claude not found on PATH" : null,
       partial: !!options.noClaude && plugins.length > 0,
+      restartRequired: restart,
     };
-    void refreshed;
     return { ok: true, data };
   }
 
@@ -580,6 +601,107 @@ export function createPluginsWorld(
     };
   }
 
+  /** `plugins disable|enable|update`: the user-scope commands claude runs. */
+  function userScope(argv: string[]): CtlReply {
+    const action = argv[1] as "disable" | "enable" | "update";
+    const seed = find(argv[2] ?? "");
+    if (!seed)
+      return fail("not_found", `${argv[2] ?? ""} is not among the installed plugins`);
+    if (options.noClaude) {
+      return fail(
+        "conflict",
+        `claude not found on PATH: \`claude plugin ${action}\` needs it`,
+      );
+    }
+    const dryRun = flag(argv, "--dry-run");
+    const version = versions.get(seed.id) ?? seed.version;
+    const wantOn = action === "enable";
+    const isOn = !userOff.has(seed.id);
+    let runs: boolean;
+    let note: string;
+    if (action === "update") {
+      if (options.blocked && seed.id === "kit@acme" && seed.available) {
+        return fail(
+          "conflict",
+          `${seed.id} cannot be updated here: your administrator blocks the acme marketplace`,
+        );
+      }
+      runs = seed.available !== undefined && version === seed.version;
+      note = runs
+        ? `the marketplace offers ${seed.available}`
+        : `${seed.id} is up to date; nothing is run`;
+    } else {
+      if (options.managed && seed.id === "kit@acme") {
+        return fail(
+          "conflict",
+          `${seed.id} is decided by your administrator's managed settings; it cannot be switched here`,
+        );
+      }
+      runs = wantOn !== isOn;
+      note = runs
+        ? "your folder settings still apply on top"
+        : `${seed.id} is already ${wantOn ? "on" : "off"} in your user settings; nothing is run`;
+    }
+    const shown = `claude plugin ${action} ${seed.id} --scope user`;
+    const undo =
+      action === "update"
+        ? `no undo: the version before the update was ${version}`
+        : `toolportctl plugins ${wantOn ? "disable" : "enable"} ${seed.id}`;
+    const to = action === "update" ? (seed.available ?? null) : null;
+    if (runs && !dryRun) {
+      if (options.claudeFails) return fail("conflict", options.claudeFails);
+      if (action === "update") {
+        versions.set(seed.id, seed.available ?? version);
+      } else if (wantOn) userOff.delete(seed.id);
+      else userOff.add(seed.id);
+      restart = true;
+    }
+    const verb = action[0].toUpperCase() + action.slice(1);
+    return {
+      ok: true,
+      data: {
+        id: seed.id,
+        scope: "user",
+        cwd: null,
+        dryRun,
+        plan: {
+          summary: `${verb} ${seed.id} (user scope)`,
+          steps: [
+            ...(runs ? [{ op: "exec", detail: shown }] : []),
+            { op: "note", detail: note },
+          ],
+          effects: {},
+          warnings: runs
+            ? [
+                "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart",
+              ]
+            : [],
+          undo,
+        },
+        result: dryRun
+          ? null
+          : {
+              applied: runs,
+              changed: runs ? [`${seed.id} (user scope)`] : [],
+              undo,
+              backups: [],
+            },
+        changes: [
+          {
+            scope: "user",
+            action: runs ? action : "none",
+            command: runs ? shown.split(" ") : null,
+            from: action === "update" ? version : null,
+            to,
+          },
+        ],
+        conflicts: [],
+        ledger: null,
+        restartRequired: runs,
+      },
+    };
+  }
+
   function hooks(argv: string[]): CtlReply {
     const cwd = value(argv, "--cwd");
     const own: HookEntry = {
@@ -647,6 +769,9 @@ export function createPluginsWorld(
       if (first === "hooks") return hooks(argv);
       if (second === "ls") return ls(argv);
       if (second === "show") return show(argv);
+      if (second === "disable" || second === "enable" || second === "update") {
+        return userScope(argv);
+      }
       if (second === "config") return config(argv);
       if (second === "mcp") return mcp(argv);
       throw new Error(`Unimplemented fixture command: plus_ctl ${argv.join(" ")}`);

@@ -184,6 +184,7 @@ export function plusFixtureFromSearch(search: string) {
       ...loginWorld(params),
     },
     tasks: tasksFromSearch(params),
+    plugins: pluginsFromSearch(params),
     library: libraryFromSearch(params),
     attention: attentionFromSearch(params),
     spend: spendFromSearch(params),
@@ -256,11 +257,31 @@ function spendFromSearch(params: URLSearchParams): SpendWorldOptions {
  * `?plus-tasks-live` keeps a started run live for a minute. */
 function tasksFromSearch(params: URLSearchParams): TaskWorldOptions {
   const scenario = params.get("plus-tasks");
-  if (scenario === null) return {};
+  const updateCheck = params.has("plus-update-check")
+    ? params.get("plus-update-check") === "off"
+      ? ("off" as const)
+      : true
+    : undefined;
+  if (scenario === null) return updateCheck ? { updateCheck } : {};
   setClock(FIXTURE_NOW);
   return {
     scenario: scenario === "empty" || scenario === "edge" ? scenario : "default",
     stepMs: params.has("plus-tasks-live") ? 60_000 : undefined,
+    updateCheck,
+  };
+}
+
+/** `?plus-plugins=managed|blocked|restart|noclaude|empty` changes the Library's Plugins tab: an
+ * administrator switches one plugin, blocks a marketplace, a running session predates a change,
+ * `claude` is missing or nothing is installed. */
+function pluginsFromSearch(params: URLSearchParams): WorldOptions["plugins"] {
+  const scenario = params.get("plus-plugins");
+  return {
+    managed: scenario === "managed",
+    blocked: scenario === "blocked",
+    restart: scenario === "restart",
+    noClaude: scenario === "noclaude",
+    empty: scenario === "empty",
   };
 }
 

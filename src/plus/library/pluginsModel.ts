@@ -86,6 +86,8 @@ export function updateText(plugin: PluginRow): string {
   switch (plugin.update.state) {
     case "update":
       return `Update to ${plugin.update.available}`;
+    case "blocked":
+      return `Update to ${plugin.update.available} is blocked`;
     case "current":
       return "Up to date";
     default:

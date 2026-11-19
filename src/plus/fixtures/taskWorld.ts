@@ -37,6 +37,27 @@ export interface TaskWorldOptions {
   runnerGone?: boolean;
   /** A first run that starts while this one is already live is refused. */
   refuseStart?: boolean;
+  /** The built-in scheduled check of chosen items and plugin marketplaces, off by default. */
+  updateCheck?: boolean | "off";
+}
+
+function updateCheckTask(enabled: boolean): TaskDefinition {
+  return define(
+    "selective-update-check",
+    "Check chosen items for updates",
+    [
+      exec("check", "Fetch the chosen sources", "toolportctl", [
+        "library",
+        "select",
+        "check",
+      ]),
+    ],
+    {
+      enabled,
+      triggers: triggers({ schedule: { cron: "0 6 * * *", autoRun: true } }),
+      createdFrom: { kind: "manual" },
+    },
+  );
 }
 
 const fail = (code: string, message: string, data?: unknown): CtlReply => ({
@@ -451,7 +472,10 @@ function describeStep(step: TaskStep, i: number) {
 export function createTaskWorld(options: TaskWorldOptions = {}) {
   const scenario = options.scenario ?? "default";
   const stepMs = options.stepMs ?? 2500;
-  const base = scenario === "empty" ? [] : defaultTasks();
+  const base = [
+    ...(scenario === "empty" ? [] : defaultTasks()),
+    ...(options.updateCheck ? [updateCheckTask(options.updateCheck !== "off")] : []),
+  ];
   const defs = new Map<string, TaskDefinition>(base.map((d) => [d.id, d]));
   const routineIds = new Set<string>();
   const problems = new Map<string, TaskProblem[]>();

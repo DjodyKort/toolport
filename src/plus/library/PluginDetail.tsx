@@ -8,6 +8,7 @@ import { switchPlugin } from "../context/commands";
 import { useLoad } from "../servers/useLoad";
 import { HookRow } from "./PluginHooks";
 import { PluginSettings } from "./PluginSettings";
+import { UserScopeDialog, type UserAction } from "./PluginUserDialogs";
 import { switchMcp, showPlugin } from "./pluginsCommands";
 import type { McpServerRow, PluginShowData } from "./pluginsData";
 import {
@@ -78,6 +79,7 @@ function Names({ title, names }: { title: string; names: string[] }) {
 
 type Dialog =
   | { kind: "switch"; off: boolean }
+  | { kind: "user"; action: UserAction }
   | { kind: "mcp"; action: "deny" | "allow"; server: McpServerRow }
   | null;
 
@@ -146,17 +148,31 @@ function Detail({
           {enabled.effective ? "On" : "Off"}
         </Badge>
         {plugin.update.state !== "unknown" && (
-          <Badge variant={plugin.update.state === "update" ? "warning" : "off"}>
+          <Badge
+            variant={
+              plugin.update.state === "update" || plugin.update.state === "blocked"
+                ? "warning"
+                : "off"
+            }
+          >
             {updateText(plugin)}
           </Badge>
         )}
       </div>
       {plugin.description && <p className="text-sm">{plugin.description}</p>}
       {plugin.update.state === "update" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={() => setDialog({ kind: "user", action: "update" })}>
+            Update to {plugin.update.available}…
+          </Button>
+          <span className="text-meta text-muted-foreground">
+            Claude Code applies it in the next session.
+          </span>
+        </div>
+      )}
+      {plugin.update.state === "blocked" && (
         <p className="text-meta text-muted-foreground">
-          Update with{" "}
-          <code className="font-mono text-xs">claude plugin update {plugin.id}</code>;
-          Claude Code applies it in the next session.
+          Version {plugin.update.available} is offered, but {plugin.update.reason}.
         </p>
       )}
 
@@ -177,6 +193,24 @@ function Detail({
           ))}
         </ul>
         <div className="flex flex-wrap items-center gap-2">
+          {!lockedByAdmin &&
+            (enabled.user === false ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDialog({ kind: "user", action: "enable" })}
+              >
+                Enable everywhere…
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDialog({ kind: "user", action: "disable" })}
+              >
+                Disable everywhere…
+              </Button>
+            ))}
           {lockedByAdmin ? (
             <p className="text-meta text-muted-foreground">
               Your administrator decides this plugin; it cannot be switched here.
@@ -311,6 +345,14 @@ function Detail({
           confirm={() =>
             switchPlugin(dialog.off ? "off" : "on", plugin.id, folder, false)
           }
+          onClose={() => setDialog(null)}
+          onDone={onChanged}
+        />
+      )}
+      {dialog?.kind === "user" && (
+        <UserScopeDialog
+          action={dialog.action}
+          plugin={plugin}
           onClose={() => setDialog(null)}
           onDone={onChanged}
         />

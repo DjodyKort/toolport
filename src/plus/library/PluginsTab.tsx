@@ -13,6 +13,8 @@ import { useLoad } from "../servers/useLoad";
 import { errorText } from "../settings/useCtl";
 import { plural } from "./model";
 import PluginDetail from "./PluginDetail";
+import { UpdateAllDialog } from "./PluginUserDialogs";
+import { ScheduledCheck } from "./ScheduledCheck";
 import { HooksSection } from "./PluginHooks";
 import { listPlugins } from "./pluginsCommands";
 import type { PluginsLsData, PluginRow } from "./pluginsData";
@@ -54,6 +56,9 @@ function PluginLine({
         {update.state === "update" && (
           <Badge variant="warning">Update to {update.available}</Badge>
         )}
+        {update.state === "blocked" && (
+          <Badge variant="destructive">Update blocked</Badge>
+        )}
         {update.state === "current" && <Badge variant="off">Up to date</Badge>}
         {enabled.managed !== null && <Badge variant="partial">Managed</Badge>}
         <Badge variant={enabled.effective ? "success" : "off"}>
@@ -71,14 +76,18 @@ function List({
   refreshing,
   onRefresh,
   onOpen,
+  onChanged,
 }: {
   data: PluginsLsData;
   folder: string | null;
   refreshing: boolean;
   onRefresh: () => void;
   onOpen: (id: string) => void;
+  onChanged: () => void;
 }) {
+  const [updating, setUpdating] = useState(false);
   const waiting = data.updatesAvailable;
+  const behind = data.plugins.filter((p) => p.update.state === "update");
   const big = data.plugins.filter((p) => p.brings.skills >= BIG_PLUGIN);
   return (
     <>
@@ -96,12 +105,27 @@ function List({
             : "Updates come from the marketplace folders on this machine. Check for updates asks Claude Code to refresh them first."
         }
         actions={
-          <Button variant="outline" size="sm" disabled={refreshing} onClick={onRefresh}>
-            <RefreshCw className={refreshing ? "animate-spin" : undefined} /> Check for
-            updates
-          </Button>
+          <>
+            {behind.length > 0 && (
+              <Button size="sm" onClick={() => setUpdating(true)}>
+                Update {behind.length === 1 ? "1 plugin" : `${behind.length} plugins`}…
+              </Button>
+            )}
+            <Button variant="outline" size="sm" disabled={refreshing} onClick={onRefresh}>
+              <RefreshCw className={refreshing ? "animate-spin" : undefined} /> Check for
+              updates
+            </Button>
+          </>
         }
       />
+      <ScheduledCheck />
+      {updating && (
+        <UpdateAllDialog
+          plugins={behind}
+          onClose={() => setUpdating(false)}
+          onDone={onChanged}
+        />
+      )}
       {data.managedSettings.present && (
         <p className="rounded-xl border bg-card px-4 py-3 text-meta text-muted-foreground">
           An administrator manages some settings for Claude Code on this machine (
@@ -211,6 +235,15 @@ export default function PluginsTab({
           The folder decides where a plugin is on and where a switch is written.
         </span>
       </div>
+      {data.restartRequired && (
+        <p
+          role="status"
+          className="rounded-xl border bg-card px-4 py-3 text-meta text-warning"
+        >
+          A Claude Code session that is already running started before a plugin changed.
+          It keeps the old state until you restart it.
+        </p>
+      )}
       {data.plugins.length === 0 ? (
         <EmptyState
           icon={<Puzzle />}
@@ -228,6 +261,7 @@ export default function PluginsTab({
           refreshing={refreshing}
           onRefresh={() => void check()}
           onOpen={setOpen}
+          onChanged={plugins.reload}
         />
       )}
       <HooksSection folder={folder} />

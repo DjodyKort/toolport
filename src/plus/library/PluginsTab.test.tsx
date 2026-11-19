@@ -30,12 +30,16 @@ const COVERS = [
   "library.plugin-config",
   "library.plugin-mcp",
   "library.hooks-inventory",
+  "library.plugin-disable",
+  "library.plugin-update",
 ] as const;
 
 const FOLDER_KEY = "toolport-plus-context-folder";
 
-async function setup(options: { folder?: boolean; plugins?: object } = {}) {
-  resetPlusFixture({ plugins: options.plugins });
+async function setup(
+  options: { folder?: boolean; plugins?: object; tasks?: object } = {},
+) {
+  resetPlusFixture({ plugins: options.plugins, tasks: options.tasks });
   if (options.folder) localStorage.setItem(FOLDER_KEY, PLUGIN_FOLDER);
   render(<LibraryScreen />);
   await userEvent.click(await screen.findByRole("tab", { name: "Plugins" }));
@@ -366,6 +370,149 @@ describe("Library screen, Plugins tab", () => {
       expect(ranExactly("plugins", "ls", "--cwd", PLUGIN_FOLDER)).toBe(true),
     );
     expect(ranExactly("hooks", "ls", "--cwd", PLUGIN_FOLDER)).toBe(true);
+  });
+
+  it("test20_the_updates_card_names_the_scheduled_check_and_what_it_does_not_do", async () => {
+    await setup({ tasks: { updateCheck: true } });
+    const line = await screen.findByText(/Updates are looked for on a schedule/);
+    expect(line).toHaveTextContent("Check chosen items for updates");
+    expect(line).toHaveTextContent("it has not run yet");
+    expect(line).toHaveTextContent("nothing is updated until you press Update");
+  });
+
+  it("test21_a_switched_off_scheduled_check_says_updates_are_only_looked_for_on_request", async () => {
+    await setup({ tasks: { updateCheck: "off" } });
+    expect(await screen.findByText(/The scheduled check/)).toHaveTextContent(
+      "is off, so updates are only looked for when you press Check for updates",
+    );
+  });
+
+  it("test22_without_the_task_the_card_shows_no_schedule_line", async () => {
+    await setup();
+    expect(screen.queryByText(/on a schedule/)).toBeNull();
+  });
+
+  it("test23_update_all_shows_each_plan_then_runs_the_update_and_the_restart_notice_follows", async () => {
+    await setup();
+    expect(screen.queryByText(/already running started before/)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Update 1 plugin…" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      await within(dialog).findByText(/claude plugin update kit@acme --scope user/),
+    ).toBeVisible();
+    expect(ranExactly("plugins", "update", "kit@acme", "--dry-run")).toBe(true);
+    expect(
+      within(dialog).getByText(/sessions that are already running keep the old state/),
+    ).toBeVisible();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Update all" }));
+    await waitFor(() => expect(ranExactly("plugins", "update", "kit@acme")).toBe(true));
+    expect(await screen.findByText("Plugins are up to date")).toBeVisible();
+    expect(
+      await screen.findByText(/already running started before a plugin changed/),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Open kit@acme" })).toHaveTextContent(
+      "1.9.0",
+    );
+  });
+
+  it("test24_the_detail_page_updates_one_plugin_after_the_plan", async () => {
+    await setup();
+    await open("kit@acme");
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Update to 1.9.0…" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText(/Update kit@acme/);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Update" }));
+    await waitFor(() => expect(ranExactly("plugins", "update", "kit@acme")).toBe(true));
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Update to 1.9.0…" })).toBeNull(),
+    );
+    expect(screen.getByText("Up to date")).toBeVisible();
+  });
+
+  it("test25_a_blocked_update_is_marked_gives_its_reason_and_offers_no_button", async () => {
+    const list = await setup({ plugins: { blocked: true } });
+    expect(within(list).getByRole("button", { name: "Open kit@acme" })).toHaveTextContent(
+      "Update blocked",
+    );
+    expect(screen.queryByRole("button", { name: /^Update \d plugin/ })).toBeNull();
+    await open("kit@acme");
+    expect(
+      await screen.findByText(/your administrator blocks the acme marketplace/),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: /^Update to/ })).toBeNull();
+  });
+
+  it("test26_a_failing_claude_is_shown_in_the_plan_and_nothing_is_written", async () => {
+    await setup({ plugins: { noClaude: true } });
+    await open("kit@acme");
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Update to 1.9.0…" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "claude not found on PATH",
+    );
+    expect(ranExactly("plugins", "update", "kit@acme")).toBe(false);
+  });
+
+  it("test27_disable_everywhere_needs_the_name_typed_and_enable_everywhere_follows", async () => {
+    await setup();
+    await open("notes-helper@community");
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Disable everywhere…" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText(
+      /claude plugin disable notes-helper@community --scope user/,
+    );
+    expect(ranExactly("plugins", "disable", "notes-helper@community", "--dry-run")).toBe(
+      true,
+    );
+    const confirm = within(dialog).getByRole("button", { name: "Disable everywhere" });
+    expect(confirm).toBeDisabled();
+    await userEvent.type(
+      within(dialog).getByLabelText(/Type notes-helper to confirm/),
+      "notes-helper",
+    );
+    expect(confirm).toBeEnabled();
+    await userEvent.click(confirm);
+    await waitFor(() =>
+      expect(ranExactly("plugins", "disable", "notes-helper@community")).toBe(true),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Enable everywhere…" }),
+    );
+    const again = await screen.findByRole("dialog");
+    await within(again).findByText(
+      /claude plugin enable notes-helper@community --scope user/,
+    );
+    await userEvent.click(
+      within(again).getByRole("button", { name: "Enable everywhere" }),
+    );
+    await waitFor(() =>
+      expect(ranExactly("plugins", "enable", "notes-helper@community")).toBe(true),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Disable everywhere…" }),
+    ).toBeVisible();
+  });
+
+  it("test28_a_plugin_the_administrator_decides_has_no_disable_button", async () => {
+    await setup({ plugins: { managed: true } });
+    await open("kit@acme");
+    expect(
+      await screen.findByText(/Your administrator decides this plugin/),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: /everywhere/ })).toBeNull();
+  });
+
+  it("test29_a_running_session_that_started_before_a_change_gets_a_restart_notice", async () => {
+    await setup({ plugins: { restart: true } });
+    expect(
+      await screen.findByText(/keeps the old state until you restart it/),
+    ).toBeVisible();
   });
 });
 

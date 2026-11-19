@@ -81,6 +81,10 @@ describe("the Plugins fixture world", () => {
         ["plugins", "mcp", "deny", "kit@acme", "docs", ...folder],
       ],
       ["hooks-ls.all", ["hooks", "ls"]],
+      ["plugins-disable.plan", ["plugins", "disable", "kit@acme", "--dry-run"]],
+      ["plugins-disable.apply", ["plugins", "disable", "lint-rules@community"]],
+      ["plugins-update.plan", ["plugins", "update", "kit@acme", "--dry-run"]],
+      ["plugins-update.apply", ["plugins", "update", "kit@acme"]],
     ];
     for (const [name, argv] of pairs) {
       same(data(argv), golden(name), name);
@@ -112,6 +116,27 @@ describe("the Plugins fixture world", () => {
       value: "off",
       from: "folder-env",
     });
+  });
+
+  it("test03b_disable_and_enable_move_the_user_scope_and_ls_asks_for_a_restart", () => {
+    const w = world();
+    expect(
+      (data(["plugins", "ls"], w) as { restartRequired: boolean }).restartRequired,
+    ).toBe(false);
+    data(["plugins", "disable", "kit@acme"], w);
+    const ls = data(["plugins", "ls"], w) as {
+      restartRequired: boolean;
+      plugins: Array<{ id: string; enabled: { user: boolean; effective: boolean } }>;
+    };
+    expect(ls.restartRequired).toBe(true);
+    expect(ls.plugins.find((p) => p.id === "kit@acme")?.enabled).toMatchObject({
+      user: false,
+      effective: false,
+    });
+    const again = data(["plugins", "disable", "kit@acme"], w) as {
+      changes: Array<{ action: string }>;
+    };
+    expect(again.changes[0].action).toBe("none");
   });
 
   it("test04_a_knob_the_adapter_does_not_have_and_a_folder_only_knob_without_a_folder_are_refused", () => {

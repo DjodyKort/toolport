@@ -4,7 +4,7 @@
 
 import type { Plan, WriteResult } from "../context/data";
 
-export type UpdateState = "current" | "update" | "unknown";
+export type UpdateState = "current" | "update" | "blocked" | "unknown";
 
 export interface Tokens {
   value: number;
@@ -28,7 +28,7 @@ export interface PluginRow {
   installPath: string | null;
   source: string | null;
   enabled: PluginEnabled;
-  update: { state: UpdateState; available: string | null };
+  update: { state: UpdateState; available: string | null; reason?: string };
   brings: {
     skills: number;
     agents: number;
@@ -62,6 +62,8 @@ export interface PluginsLsData {
   refreshed: boolean;
   refreshError: string | null;
   partial: boolean;
+  /** A running Claude Code session started before a plugin file last changed. */
+  restartRequired: boolean;
 }
 
 export interface HookEntry {
@@ -163,7 +165,8 @@ export interface PluginMcpData {
 /** `plugins config --set|--unset` and `plugins mcp deny|allow`: a plan and, once applied, a result. */
 export interface PluginWriteData {
   id: string;
-  scope: "folder" | "global";
+  scope: "folder" | "global" | "user" | "project" | "local" | "managed";
+  restartRequired?: boolean;
   cwd: string | null;
   dryRun: boolean;
   plan: Plan;
