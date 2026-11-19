@@ -1,6 +1,6 @@
 {
   "route": "context",
   "status": "built",
-  "summary": "Turn a plugin off or back on in one folder, one click with Undo, on the leave-out ledger (plugins off|on); a bundle's plugins.config is applied again as env keys",
+  "summary": "Turn a plugin off or back on in one folder, one click with Undo, on the leave-out ledger (plugins off|on); a bundle's plugins.config is applied again as env keys; the Plugins section also names the plugins of the folder, which is all that plugins ls and plugins show have on screen so far (their components, hooks and counts are not shown)",
   "test": "src/plus/context/ContextScreen.test.tsx"
 }

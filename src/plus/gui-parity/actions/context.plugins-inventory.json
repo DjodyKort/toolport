@@ -1,5 +1,0 @@
-{
-  "route": "context",
-  "status": "planned",
-  "summary": "Library > Plugins: the installed plugins with where each is on and what it brings, and one plugin's components, hooks and MCP servers (plugins ls, plugins show, plugins_ls, plugins_show); the folder rows of Turn off in a folder already show on/off"
-}

@@ -1,5 +1,5 @@
 {
-  "route": "client-direct",
+  "route": "library-later",
   "status": "planned",
   "summary": "Point the gateway entry a client already holds at the installed gateway when it has drifted, with the plan and its hash before the write (clients_sync); the app's own Connect and Reconnect on the Clients screen write the entry for a first install"
 }

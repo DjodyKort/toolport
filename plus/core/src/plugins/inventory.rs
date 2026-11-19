@@ -238,7 +238,7 @@ pub fn ls(world: &World, runner: Option<&dyn ClaudeRunner>, cwd: Option<&Path>) 
     let listing = list(world, runner);
     let layers = layers(world, cwd);
     json!({
-        "cwd": cwd.map(|c| fsx::display(c)),
+        "cwd": cwd.map(fsx::display),
         "plugins": listing.plugins.iter()
             .map(|p| row(world, p, &layers, listing.via))
             .collect::<Vec<_>>(),
@@ -411,7 +411,7 @@ pub fn hooks(
         })
         .collect();
     json!({
-        "cwd": cwd.map(|c| fsx::display(c)),
+        "cwd": cwd.map(fsx::display),
         "disabledAll": disabled_all,
         "hooks": entries,
         "counts": {"byOwner": by_owner, "perTool": per_tool_json, "otherEvents": other},

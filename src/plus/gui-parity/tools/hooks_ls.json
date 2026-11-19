@@ -1,1 +1,1 @@
-{ "route": "context", "action": "context.hooks-inventory", "surface": "screen" }
+{ "route": "library-later", "action": "library.hooks-inventory", "surface": "screen" }

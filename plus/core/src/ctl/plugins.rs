@@ -138,12 +138,7 @@ pub fn show(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let flags = SHOW.parse(rest)?;
     let id = flags.single(SHOW_USAGE)?;
     let data = with_world(host, |world, runner| {
-        Ok(inventory::show(
-            world,
-            runner,
-            id,
-            flags.one("--cwd").map(Path::new),
-        )?)
+        inventory::show(world, runner, id, flags.one("--cwd").map(Path::new))
     })?;
     let mut human = ls_text(&serde_json::json!({"plugins": [data.clone()]}));
     if let Some(description) = data["description"].as_str() {

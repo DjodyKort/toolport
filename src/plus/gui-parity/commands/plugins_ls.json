@@ -1,1 +1,1 @@
-{ "route": "context", "action": "context.plugins-inventory", "surface": "screen" }
+{ "route": "context", "action": "context.plugin-switch", "surface": "screen" }
