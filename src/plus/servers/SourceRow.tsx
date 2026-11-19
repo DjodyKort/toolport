@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { checkNow } from "../attention/attentionCtl";
 import { sourceRows } from "./commands";
 import type { SourceRowData } from "./data";
-import { shortVersion } from "./format";
+import { shortVersion, since } from "./format";
 import { OperationRow } from "./OperationRow";
 import { useLoad } from "./useLoad";
 
@@ -20,11 +20,14 @@ const KIND: Record<string, string> = {
 
 function checked(row: SourceRowData): string {
   if (!row.checkedAt) return "not checked yet";
-  const at = new Date(row.checkedAt);
-  return `checked ${at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  return `checked ${since(Date.parse(row.checkedAt))}`;
 }
 
-function describe(row: SourceRowData): { sub: string; warn: boolean; badge?: string } {
+function describe(row: SourceRowData): {
+  sub: string;
+  warn: boolean;
+  badge?: string;
+} {
   const what =
     `${KIND[row.kind] ?? row.kind} ${row.package ?? ""}${row.tracks ? `:${row.tracks}` : ""} ${shortVersion(row.pinned ?? "")}`.trim();
   switch (row.state) {
@@ -35,7 +38,11 @@ function describe(row: SourceRowData): { sub: string; warn: boolean; badge?: str
         badge: "Update available",
       };
     case "up_to_date":
-      return { sub: `${what} · up to date, ${checked(row)}`, warn: false };
+      return {
+        sub: `${what} · up to date, ${checked(row)}`,
+        warn: false,
+        badge: "Up to date",
+      };
     case "unchecked":
       return { sub: `${what} · not checked yet`, warn: false };
     case "error":
@@ -44,10 +51,31 @@ function describe(row: SourceRowData): { sub: string; warn: boolean; badge?: str
       return {
         sub: `${KIND[row.kind] ?? row.kind} · fetches the newest version on each start; nothing to apply`,
         warn: false,
+        badge: "Automatic",
       };
     default:
       return { sub: "No update source is known for this server", warn: false };
   }
+}
+
+/** A remote server has no code of ours to update: the provider does it. */
+export function RemoteSourceRow({ url }: { url: string }) {
+  const where = (() => {
+    try {
+      const { host, pathname } = new URL(url);
+      return `${host}${pathname === "/" ? "" : pathname}`;
+    } catch {
+      return url;
+    }
+  })();
+  return (
+    <OperationRow
+      icon={<CircleHelp />}
+      title="Source and updates"
+      sub={`Remote · ${where} · the provider updates it`}
+      badge={<Badge variant="off">Nothing to check</Badge>}
+    />
+  );
 }
 
 /** Where a server's code comes from and whether a newer version is known: the Source row of the
@@ -75,15 +103,21 @@ export default function SourceRow({ serverId }: { serverId: string }) {
     <>
       <OperationRow
         icon={pinned ? <Package /> : <CircleHelp />}
-        title="Source"
-        tone={warn ? "warning" : undefined}
+        title="Source and updates"
+        tone={warn || row.state === "update_available" ? "warning" : undefined}
         sub={sub}
-        badge={badge ? <Badge variant="warning">{badge}</Badge> : undefined}
+        badge={
+          badge ? (
+            <Badge variant={row.state === "update_available" ? "warning" : "off"}>
+              {badge}
+            </Badge>
+          ) : undefined
+        }
         actions={
           <>
             {row.state === "update_available" && !row.manual && (
               <Button size="sm" onClick={() => setReview(true)}>
-                Update
+                Review update
               </Button>
             )}
             {pinned && (
@@ -93,7 +127,7 @@ export default function SourceRow({ serverId }: { serverId: string }) {
                 disabled={checking}
                 onClick={() => void check()}
               >
-                {checking && <Loader2 className="animate-spin" />} Check now
+                {checking && <Loader2 className="animate-spin" />} Check
               </Button>
             )}
           </>

@@ -291,4 +291,20 @@ describe("Operations list", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Nobody reaches it")).not.toBeInTheDocument();
   });
+  it("test12_the_source_row_says_who_updates_a_remote_server_and_a_stdio_one_has_its_own", async () => {
+    const remote = stdioServer("srv-remote", "remote-tools", {
+      transport: "http",
+      command: null,
+      url: "https://example.test/mcp",
+    });
+    const { unmount } = setup({ servers: [remote] });
+    expect(await screen.findByText("Source and updates")).toBeInTheDocument();
+    expect(
+      screen.getByText("Remote · example.test/mcp · the provider updates it"),
+    ).toBeInTheDocument();
+    unmount();
+    setup();
+    expect(await screen.findByText(/No update source is known/)).toBeInTheDocument();
+    expect(screen.queryByText(/the provider updates it/)).toBeNull();
+  });
 });

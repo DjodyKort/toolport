@@ -6,7 +6,7 @@ import type { PackageSeed } from "../fixtures/packageWorld";
 import { fixtureServers } from "../fixtures/serverWorld";
 import { guiParity } from "../guiParity";
 import { invokeLog, ranArgv } from "./testkit";
-import SourceRow from "./SourceRow";
+import SourceRow, { RemoteSourceRow } from "./SourceRow";
 
 vi.mock("@tauri-apps/api/core", async () => {
   const { plusFixtureIpc } = await import("../fixtures/ipc");
@@ -59,20 +59,21 @@ describe("servers.source-row", () => {
     expect(
       await screen.findByText(/npm @scope\/alpha 1.4.2 · 1.5.0 is out/),
     ).toBeInTheDocument();
+    expect(screen.getByText("Source and updates")).toBeInTheDocument();
     expect(screen.getByText("Update available")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Update" }));
+    await userEvent.click(screen.getByRole("button", { name: "Review update" }));
     const dialog = await screen.findByRole("dialog");
-    expect(
-      await within(dialog).findByText(/Update @scope\/alpha from 1.4.2 to 1.5.0/),
-    ).toBeInTheDocument();
+    expect(await within(dialog).findByLabelText("Update alpha-api")).toBeChecked();
+    expect(within(dialog).getByText("1.4.2 to 1.5.0")).toBeInTheDocument();
     expect(sourceArgv()[0]).toEqual(["server", "source", "fixture-0"]);
   });
 
-  it("test02_a_current_pin_shows_when_it_was_checked_and_offers_only_check_now", async () => {
+  it("test02_a_current_pin_shows_when_it_was_checked_and_offers_only_check", async () => {
     start({ ...NPM, to: "1.4.2" });
     expect(await screen.findByText(/up to date, checked/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Update" })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Check now" }));
+    expect(screen.getByText("Up to date")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Review update" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Check" }));
     await waitFor(() => expect(ranArgv()).toContainEqual(["attention", "check"]));
     await waitFor(() => expect(sourceArgv().length).toBeGreaterThan(1));
   });
@@ -97,7 +98,7 @@ describe("servers.source-row", () => {
         /cannot update it itself: its arguments come from a launch recipe/,
       ),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Update" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Review update" })).toBeNull();
   });
 
   it("test05_an_image_pinned_by_digest_shows_the_tag_it_follows_and_a_short_digest", async () => {
@@ -120,7 +121,31 @@ describe("servers.source-row", () => {
     expect(
       await screen.findByText(/fetches the newest version on each start/),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Check now" })).toBeNull();
+    expect(screen.getByText("Automatic")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Check" })).toBeNull();
+  });
+
+  it("test08_a_check_from_an_earlier_day_says_which_day", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-20T12:00:00+01:00"));
+    try {
+      start({ ...NPM, to: "1.4.2" });
+      expect(
+        await screen.findByText(/up to date, checked \w{3} \d\d:\d\d/),
+      ).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("test09_a_remote_server_has_nothing_to_check_and_says_who_updates_it", () => {
+    render(<RemoteSourceRow url="https://example.test/mcp" />);
+    expect(screen.getByText("Source and updates")).toBeInTheDocument();
+    expect(
+      screen.getByText("Remote · example.test/mcp · the provider updates it"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Nothing to check")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
   });
 
   it("test07_a_server_with_no_known_source_gets_one_quiet_line", async () => {
