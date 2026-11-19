@@ -55,5 +55,5 @@
   "summary": "Remove events past the retention and size caps, keeping the daily totals (--dry-run, --totals --yes)",
   "surface": "screen",
   "tier": "destructive",
-  "tools": []
+  "tools": ["spend_prune"]
 }

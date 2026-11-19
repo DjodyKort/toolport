@@ -1025,6 +1025,14 @@ pub const TOOLS: &[ToolDef] = &[
         spend::setup_undo
     ),
     tool!(
+        "spend_prune",
+        4,
+        UnlessDryRun,
+        "Remove the collected spend events that are older than the retention days or over the size cap, oldest first: they are folded into the daily totals first, so the totals stay and only the event rows go. dry_run is on by default and returns the plan: how many events, how many bytes and how many days go and how many events stay (apply with dry_run=false and confirm=true). Deleting the daily totals is not offered here",
+        [DRY_ON],
+        spend::prune
+    ),
+    tool!(
         "compression_status",
         1,
         None,

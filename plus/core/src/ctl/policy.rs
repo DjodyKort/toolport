@@ -1176,6 +1176,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("spend_config_set", W, "spend config set").on(),
     maps("spend_setup_apply", W, "spend setup apply").on(),
     maps("spend_setup_undo", W, "spend setup undo").on(),
+    maps("spend_prune", D, "spend prune").on(),
     maps("compression_status", R, "compression status"),
     maps("compression_measure", R, "compression measure"),
     maps("compression_presets", R, "compression presets"),

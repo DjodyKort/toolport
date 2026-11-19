@@ -2280,6 +2280,27 @@
           "tier": 3
         },
         {
+          "description": "Remove the collected spend events that are older than the retention days or over the size cap, oldest first: they are folded into the daily totals first, so the totals stay and only the event rows go. dry_run is on by default and returns the plan: how many events, how many bytes and how many days go and how many events stay (apply with dry_run=false and confirm=true). Deleting the daily totals is not offered here",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "spend_prune",
+          "params": [
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
           "description": "Show the compression provider, active preset, engine pin and shims",
           "dryRunDefault": false,
           "gate": "none",

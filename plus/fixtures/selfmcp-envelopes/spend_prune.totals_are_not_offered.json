@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "totals": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "unknown argument: totals"
+    }
+  },
+  "text": "invalid_arguments: unknown argument: totals",
+  "tool": "spend_prune"
+}

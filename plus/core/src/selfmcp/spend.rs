@@ -1,8 +1,8 @@
 //! `spend_status`, `spend_receiver_status`, `spend_summary`, `spend_export_csv` and
 //! `spend_setup_plan` (tier 1), `spend_config_set`, `spend_setup_apply` and `spend_setup_undo`
-//! (tier 3, preview first): the same operations as `toolportctl spend`, over
-//! `crate::spend::api`. Overwriting a key another tool set, writing a file to a path and deleting
-//! the collected data stay with the command line and the Spend page.
+//! (tier 3) and `spend_prune` (tier 4), all preview first: the same operations as
+//! `toolportctl spend`, over `crate::spend::api`. Overwriting a key another tool set, writing a
+//! file to a path and deleting the daily totals stay with the command line and the Spend page.
 
 use serde_json::Value;
 use toolport_plus_api::Host;
@@ -103,4 +103,18 @@ pub(super) fn setup_undo(host: &dyn Host, args: &Value) -> Result<Value, ToolErr
         false,
         flag_or(args, "dry_run", true),
     )?)
+}
+
+pub(super) fn prune(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    let dry_run = flag_or(args, "dry_run", true);
+    let mut report = api::prune(host, dry_run, false)?;
+    report["summary"] = json!(format!(
+        "{} {} events ({} bytes) of {} days; the daily totals of those days stay, {} events are kept",
+        if dry_run { "Would remove" } else { "Removed" },
+        report["removedEvents"],
+        report["removedBytes"],
+        report["foldedDays"],
+        report["keptEvents"],
+    ));
+    Ok(report)
 }

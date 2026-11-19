@@ -1,0 +1,17 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "foldedDays": 0,
+    "keptBytes": 0,
+    "keptEvents": 0,
+    "maxBytes": 67108864,
+    "removedBytes": 0,
+    "removedEvents": 0,
+    "retentionDays": 30,
+    "summary": "Would remove 0 events (0 bytes) of 0 days; the daily totals of those days stay, 0 events are kept",
+    "totalsDeleted": false
+  },
+  "tool": "spend_prune"
+}

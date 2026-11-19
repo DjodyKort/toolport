@@ -65,6 +65,19 @@ pub fn build(world: &World) {
     );
 }
 
+/// Events counted from the real clock, which the server reads: two sessions a day apart that the
+/// default retention has outlived, and a recent one it keeps.
+pub fn aged_events(world: &World) {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    let mut events = session("s-new", "claude-sonnet-4", now - 2 * HOUR, 0.12);
+    events.extend(session("s-old", "claude-sonnet-4", now - 45 * DAY, 0.5));
+    events.extend(session("s-older", "claude-haiku-4", now - 46 * DAY, 0.2));
+    put(world.data.join("plus/spend/events.jsonl"), lines(&events));
+}
+
 pub fn settings_with_a_conflict(world: &World) {
     put(
         world.home.join(".claude/settings.json"),

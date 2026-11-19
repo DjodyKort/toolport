@@ -3112,6 +3112,23 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "spend_prune",
+        &[
+            read("empty", "spend_prune", "{}"),
+            hook("aged", spend_aged),
+            read("preview", "spend_prune", "{}"),
+            refused("refused", "spend_prune", UNCONFIRMED),
+            fails(
+                "totals_are_not_offered",
+                "invalid_arguments",
+                "spend_prune",
+                r#"{"totals":true,"dry_run":false,"confirm":true}"#,
+            ),
+            write("apply", "spend_prune", APPLY),
+            read("again", "spend_prune", "{}"),
+        ],
+    ),
+    case(
         "spend_setup_plan",
         &[
             hook("settings", spend_settings),
@@ -3813,6 +3830,10 @@ fn folder_routing_world(world: &World) {
 
 fn spend_data(world: &World) {
     common::spend_world::build(world);
+}
+
+fn spend_aged(world: &World) {
+    common::spend_world::aged_events(world);
 }
 
 fn spend_settings(world: &World) {

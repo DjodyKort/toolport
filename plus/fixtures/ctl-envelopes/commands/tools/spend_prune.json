@@ -1,0 +1,7 @@
+{
+  "command": "spend prune",
+  "dryRun": "default-on",
+  "name": "spend_prune",
+  "tier": "destructive",
+  "toolTier": 4
+}
