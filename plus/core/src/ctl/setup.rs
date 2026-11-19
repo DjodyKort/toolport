@@ -7,10 +7,12 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 use toolport_plus_api::Host;
+use zeroize::Zeroizing;
 
 use super::flags::{greedy, switch, value, Flags, Inline, Operands, Spec, Unknown};
 use super::output::{CtlError, Output};
 use super::skills::enter_paths;
+use crate::setup::crypto::Passphrase;
 use crate::setup::export::{self, Options};
 use crate::setup::{check, inspect, restore};
 use crate::setup::{parse_parts, Ctx, PartId};
@@ -43,6 +45,8 @@ pub(super) const EXPORT: Spec = Spec {
     ..PARTS
 };
 
+/// Room for any passphrase a person types.
+const PASSPHRASE_LINE: usize = 1024;
 const INSPECT_USAGE: &str = "usage: setup inspect <file>";
 const RESTORE_USAGE: &str = "usage: setup restore <file> [--parts <list>] [--take <row>] [--passphrase-stdin] [--apply --plan <hash>]";
 const UNDO_USAGE: &str = "usage: setup undo [<run>] [--dry-run]";
@@ -135,12 +139,16 @@ pub fn parts(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     Ok(Output::new(data, human))
 }
 
-pub(super) fn read_passphrase(input: &mut dyn BufRead) -> Result<String, CtlError> {
-    let mut line = String::new();
+pub(super) fn read_passphrase(input: &mut dyn BufRead) -> Result<Passphrase, CtlError> {
+    // Sized up front: a line buffer that grows leaves its shorter copies in freed memory.
+    let mut line = Zeroizing::new(String::with_capacity(PASSPHRASE_LINE));
     input
         .read_line(&mut line)
         .map_err(|e| CtlError::failed("read", format!("could not read the passphrase: {e}")))?;
-    Ok(line.trim_end_matches(['\n', '\r']).to_string())
+    while line.ends_with(['\n', '\r']) {
+        line.pop();
+    }
+    Ok(Passphrase::from(std::mem::take(&mut *line)))
 }
 
 fn options_of(flags: &Flags) -> Result<Options, CtlError> {

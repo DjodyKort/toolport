@@ -215,7 +215,7 @@ mod sealed {
     fn opts(file: &std::path::Path, passphrase: Option<&str>) -> RestoreOptions {
         RestoreOptions {
             file: file.into(),
-            passphrase: passphrase.map(String::from),
+            passphrase: passphrase.map(Into::into),
             ..Default::default()
         }
     }

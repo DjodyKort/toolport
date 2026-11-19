@@ -5,8 +5,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
+use toolport_plus_api::StaticSecret;
+use zeroize::{Zeroize, Zeroizing};
 
 use super::mem::{self, KeptFile, MemorySource};
 use super::repos::{self, Repo};
@@ -618,7 +621,7 @@ pub fn claude_user_part(b: &Build<'_>) -> Part {
 pub struct Flagged {
     pub dir: String,
     pub name: String,
-    pub bytes: Vec<u8>,
+    pub bytes: Zeroizing<Vec<u8>>,
 }
 
 fn switches_of(repo: &Repo) -> Option<Value> {
@@ -670,15 +673,15 @@ pub fn memory_part(b: &Build<'_>) -> (Part, Vec<Flagged>) {
         let mut kept_names = Vec::new();
         let mut flagged_names = Vec::new();
         for file in auto {
-            let text = String::from_utf8_lossy(&file.bytes);
-            if scan::looks_secret_text(&text) {
+            if looks_secret(&file.bytes) {
                 flagged_names.push(file.name.clone());
                 part.flagged.push(format!("{}/{}", repo.name, file.name));
+                let bytes = Zeroizing::new(file.bytes);
                 if sealing {
                     flagged_files.push(Flagged {
                         dir: dir.clone(),
                         name: file.name,
-                        bytes: file.bytes,
+                        bytes,
                     });
                 }
                 continue;
@@ -693,6 +696,7 @@ pub fn memory_part(b: &Build<'_>) -> (Part, Vec<Flagged>) {
         let mut instructions_held = Vec::new();
         for KeptFile { name, bytes } in instructions {
             if looks_secret(&bytes) {
+                let _wiped = Zeroizing::new(bytes);
                 part.flagged.push(format!("{}/{name}", repo.name));
                 instructions_held.push(name);
                 continue;
@@ -846,6 +850,104 @@ pub fn create_private(path: &Path) -> Result<fs::File, String> {
         .map_err(|e| format!("{}: {e}", path.display()))
 }
 
+/// The vaulted values as the host hands them over; each is wiped when the list is dropped.
+struct Wiped(Vec<StaticSecret>);
+
+impl Zeroize for Wiped {
+    fn zeroize(&mut self) {
+        for secret in &mut self.0 {
+            secret.value.zeroize();
+        }
+    }
+}
+
+impl Drop for Wiped {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+#[derive(Serialize)]
+struct SecretsDoc<'a> {
+    version: u32,
+    values: Vec<SecretRow<'a>>,
+    #[serde(rename = "memoryFiles")]
+    memory_files: Vec<MemoryRow<'a>>,
+}
+
+#[derive(Serialize)]
+struct SecretRow<'a> {
+    server: &'a str,
+    key: &'a str,
+    kind: &'a str,
+    value: &'a str,
+}
+
+#[derive(Serialize)]
+struct MemoryRow<'a> {
+    dir: &'a str,
+    name: &'a str,
+    hex: HexBytes<'a>,
+}
+
+/// Written as lowercase hex straight into the output, without a plaintext string in between.
+struct HexBytes<'a>(&'a [u8]);
+
+impl std::fmt::Display for HexBytes<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.iter().try_for_each(|byte| write!(f, "{byte:02x}"))
+    }
+}
+
+impl Serialize for HexBytes<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+struct CountingSink(usize);
+
+impl std::io::Write for CountingSink {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0 += buf.len();
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// The document that gets sealed. It is serialised twice, the first time only to size the buffer,
+/// because a buffer that grows leaves its earlier, smaller copies in freed memory.
+fn secrets_plain(values: &[StaticSecret], flagged: &[Flagged]) -> Zeroizing<Vec<u8>> {
+    let doc = SecretsDoc {
+        version: 1,
+        values: values
+            .iter()
+            .map(|s| SecretRow {
+                server: &s.server,
+                key: &s.key,
+                kind: &s.kind,
+                value: &s.value,
+            })
+            .collect(),
+        memory_files: flagged
+            .iter()
+            .map(|f| MemoryRow {
+                dir: &f.dir,
+                name: &f.name,
+                hex: HexBytes(&f.bytes),
+            })
+            .collect(),
+    };
+    let mut size = CountingSink(0);
+    let _ = serde_json::to_writer(&mut size, &doc);
+    let mut plain = Zeroizing::new(Vec::with_capacity(size.0));
+    let _ = serde_json::to_writer(&mut *plain, &doc);
+    plain
+}
+
 pub fn secrets_part(
     b: &Build<'_>,
     passphrase: Option<&str>,
@@ -862,27 +964,70 @@ pub fn secrets_part(
         return Part::failed(PartId::Secrets, "secrets need a passphrase");
     };
     let values = match b.ctx.host.setup_secrets() {
-        Ok(values) => values,
+        Ok(values) => Wiped(values),
         Err(why) => return Part::failed(PartId::Secrets, why),
     };
-    let doc = json!({
-        "version": 1,
-        "values": values
-            .iter()
-            .map(|s| json!({"server": s.server, "key": s.key, "kind": s.kind, "value": s.value}))
-            .collect::<Vec<_>>(),
-        "memoryFiles": flagged
-            .iter()
-            .map(|f| json!({"dir": f.dir, "name": f.name, "hex": hex(&f.bytes)}))
-            .collect::<Vec<_>>(),
-    });
-    let plain = serde_json::to_vec(&doc).unwrap_or_default();
+    let plain = secrets_plain(&values.0, flagged);
     match crypto::seal_bytes(passphrase, &plain) {
         Ok(sealed) => {
-            part.count = values.len() as u64;
+            part.count = values.0.len() as u64;
             part.entries.push(Entry::bytes("secrets.enc", sealed));
             part
         }
         Err(why) => Part::failed(PartId::Secrets, why),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn secret(value: &str) -> StaticSecret {
+        StaticSecret {
+            server: "alpha".into(),
+            key: "API_KEY".into(),
+            kind: "env".into(),
+            value: value.into(),
+        }
+    }
+
+    fn flagged(bytes: &[u8]) -> Flagged {
+        Flagged {
+            dir: "web".into(),
+            name: "leak.md".into(),
+            bytes: Zeroizing::new(bytes.to_vec()),
+        }
+    }
+
+    #[test]
+    fn the_sealed_document_is_built_once_in_a_buffer_that_never_grew() {
+        let values = [secret("v\"alue"), secret(&"x".repeat(10_000))];
+        let files = [flagged(&[0, 15, 255]), flagged(&vec![7u8; 5_000])];
+        let plain: Zeroizing<Vec<u8>> = secrets_plain(&values, &files);
+        assert_eq!(plain.capacity(), plain.len());
+        let doc: Value = serde_json::from_slice(&plain).unwrap();
+        assert_eq!(doc["version"], 1);
+        assert_eq!(doc["values"][0]["value"], "v\"alue");
+        assert_eq!(doc["values"][0]["server"], "alpha");
+        assert_eq!(doc["values"][0]["kind"], "env");
+        assert_eq!(doc["values"][1]["value"].as_str().unwrap().len(), 10_000);
+        assert_eq!(doc["memoryFiles"][0]["dir"], "web");
+        assert_eq!(doc["memoryFiles"][0]["name"], "leak.md");
+        assert_eq!(doc["memoryFiles"][0]["hex"], "000fff");
+        assert_eq!(doc["memoryFiles"][1]["hex"].as_str().unwrap().len(), 10_000);
+    }
+
+    #[test]
+    fn the_values_the_host_hands_over_are_blanked_when_they_are_wiped() {
+        let mut values = Wiped(vec![secret("first"), secret("second")]);
+        values.zeroize();
+        assert!(values.0.iter().all(|s| s.value.is_empty()));
+        assert_eq!(values.0[0].server, "alpha");
+    }
+
+    #[test]
+    fn the_bytes_of_a_held_back_file_are_wiped_on_drop() {
+        fn wipes_on_drop<T: zeroize::ZeroizeOnDrop>(_: &T) {}
+        wipes_on_drop(&flagged(b"x").bytes);
     }
 }

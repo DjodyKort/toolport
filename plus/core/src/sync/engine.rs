@@ -14,6 +14,7 @@ use super::config::{
 use super::peers::{self, Peers};
 use super::transport::{self, Transport};
 use crate::op::OpError;
+use crate::setup::crypto::Passphrase;
 use crate::setup::export::{self, Options};
 use crate::setup::restore::{self, RestoreOptions};
 use crate::setup::threeway::Baseline;
@@ -80,14 +81,14 @@ fn effective_parts(ctx: &Ctx<'_>, cfg: &Config) -> Result<(BTreeSet<PartId>, Vec
     Ok((parts, skipped))
 }
 
-fn passphrase_of(ctx: &Ctx<'_>, unattended: bool) -> Result<String, OpError> {
+fn passphrase_of(ctx: &Ctx<'_>, unattended: bool) -> Result<Passphrase, OpError> {
     match ctx.host.sync_passphrase(unattended).map_err(|why| {
         OpError::failed(
             "keyring",
             format!("the passphrase could not be read from the keychain: {why}"),
         )
     })? {
-        Some(pass) => Ok(pass),
+        Some(pass) => Ok(Passphrase::from(pass)),
         None => Err(OpError::failed(
             "passphrase",
             "no passphrase is stored on this machine: run `toolportctl sync setup --passphrase-stdin`",
@@ -169,7 +170,10 @@ pub fn status(ctx: &Ctx<'_>) -> Result<Value, OpError> {
         "locked"
     } else {
         match ctx.host.sync_passphrase(true) {
-            Ok(Some(_)) => "stored",
+            Ok(Some(pass)) => {
+                let _wiped = Passphrase::from(pass);
+                "stored"
+            }
             Ok(None) => "missing",
             Err(_) => "locked",
         }
@@ -199,7 +203,7 @@ pub struct SetupOptions {
     pub branch: Option<String>,
     pub folder: Option<PathBuf>,
     pub parts: Option<BTreeSet<PartId>>,
-    pub passphrase: Option<String>,
+    pub passphrase: Option<Passphrase>,
     pub enabled: Option<bool>,
     pub schedule: Option<bool>,
     pub forget_passphrase: bool,
@@ -344,7 +348,7 @@ fn agreed_rows(
         ctx,
         &RestoreOptions {
             file: plain.to_path_buf(),
-            passphrase: Some(passphrase.to_string()),
+            passphrase: Some(passphrase.into()),
             parts: Some(parts.clone()),
             baseline: Some(Baseline::default()),
             ..Default::default()

@@ -7,10 +7,44 @@
 
 use std::io::{Read, Write};
 
+use zeroize::{ZeroizeOnDrop, Zeroizing};
+
 pub const MIN_PASSPHRASE_CHARS: usize = 12;
 pub const WRONG_PASSPHRASE: &str = "wrong passphrase or damaged file";
 
 const MAGIC: &[u8; 4] = b"TPSE";
+
+/// A passphrase that is wiped from memory when it is dropped and never printed.
+#[derive(Clone, Default)]
+pub struct Passphrase(Zeroizing<String>);
+
+impl From<String> for Passphrase {
+    fn from(text: String) -> Self {
+        Self(Zeroizing::new(text))
+    }
+}
+
+impl From<&str> for Passphrase {
+    fn from(text: &str) -> Self {
+        Self(Zeroizing::new(text.to_string()))
+    }
+}
+
+impl std::ops::Deref for Passphrase {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Debug for Passphrase {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Passphrase(<hidden>)")
+    }
+}
+
+impl ZeroizeOnDrop for Passphrase {}
 
 /// Argon2id cost. The defaults take a few tenths of a second on a laptop.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -109,9 +143,11 @@ pub fn seal_bytes(passphrase: &str, plain: &[u8]) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
-pub fn open_bytes(passphrase: &str, sealed: &[u8]) -> Result<Vec<u8>, OpenError> {
-    let mut out = Vec::new();
-    open(passphrase, &mut &sealed[..], &mut out)?;
+/// The opened data is wiped when dropped. It is never larger than the sealed bytes, so the buffer
+/// is sized once and growing it never leaves a plaintext copy behind.
+pub fn open_bytes(passphrase: &str, sealed: &[u8]) -> Result<Zeroizing<Vec<u8>>, OpenError> {
+    let mut out = Zeroizing::new(Vec::with_capacity(sealed.len()));
+    open(passphrase, &mut &sealed[..], &mut *out)?;
     Ok(out)
 }
 
@@ -133,7 +169,7 @@ mod imp {
 #[cfg(feature = "cipher")]
 mod imp {
     use super::*;
-    use argon2::{Algorithm, Argon2, Params, Version};
+    use argon2::{Algorithm, Argon2, Block, Params, Version};
     use chacha20poly1305::aead::{Aead, KeyInit, OsRng, Payload};
     use chacha20poly1305::{AeadCore, XChaCha20Poly1305, XNonce};
 
@@ -145,12 +181,23 @@ mod imp {
     const MAX_MEMORY_KIB: u32 = 1 << 20;
     const MAX_ITERATIONS: u32 = 16;
 
-    fn derive(passphrase: &str, salt: &[u8], cost: Cost) -> Result<[u8; 32], String> {
+    pub(super) fn derive(
+        passphrase: &str,
+        salt: &[u8],
+        cost: Cost,
+    ) -> Result<Zeroizing<[u8; 32]>, String> {
         let params = Params::new(cost.memory_kib, cost.iterations, cost.lanes, Some(32))
             .map_err(|e| format!("encryption cost: {e}"))?;
-        let mut key = [0u8; 32];
+        // The working memory is held here so it can be wiped; `hash_password_into` would drop it as is.
+        let mut blocks = Zeroizing::new(vec![Block::default(); params.block_count()]);
+        let mut key = Zeroizing::new([0u8; 32]);
         Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
-            .hash_password_into(passphrase.as_bytes(), salt, &mut key)
+            .hash_password_into_with_memory(
+                passphrase.as_bytes(),
+                salt,
+                key.as_mut_slice(),
+                blocks.as_mut_slice(),
+            )
             .map_err(|e| format!("key derivation: {e}"))?;
         Ok(key)
     }
@@ -203,14 +250,14 @@ mod imp {
         out.write_all(&header).map_err(|e| e.to_string())?;
 
         let key = derive(passphrase, &salt, cost)?;
-        let cipher = XChaCha20Poly1305::new((&key).into());
-        let mut buf = vec![0u8; CHUNK];
-        let mut ahead = vec![0u8; CHUNK];
-        let mut have = fill(plain, &mut buf).map_err(|e| e.to_string())?;
+        let cipher = XChaCha20Poly1305::new(key.as_slice().into());
+        let mut buf = Zeroizing::new(vec![0u8; CHUNK]);
+        let mut ahead = Zeroizing::new(vec![0u8; CHUNK]);
+        let mut have = fill(plain, &mut buf[..]).map_err(|e| e.to_string())?;
         let mut index = 0u32;
         loop {
             let next = if have == CHUNK {
-                fill(plain, &mut ahead).map_err(|e| e.to_string())?
+                fill(plain, &mut ahead[..]).map_err(|e| e.to_string())?
             } else {
                 0
             };
@@ -274,7 +321,7 @@ mod imp {
             ));
         }
         let key = derive(passphrase, &header[18..34], cost).map_err(OpenError::Unreadable)?;
-        let cipher = XChaCha20Poly1305::new((&key).into());
+        let cipher = XChaCha20Poly1305::new(key.as_slice().into());
         let prefix = &header[34..53];
         let size = chunk + TAG;
         let mut buf = vec![0u8; size];
@@ -291,15 +338,17 @@ mod imp {
                 0
             };
             let last = next == 0;
-            let plain = cipher
-                .decrypt(
-                    &nonce(prefix, index, last),
-                    Payload {
-                        msg: &buf[..have],
-                        aad: &header,
-                    },
-                )
-                .map_err(|_| OpenError::Wrong)?;
+            let plain = Zeroizing::new(
+                cipher
+                    .decrypt(
+                        &nonce(prefix, index, last),
+                        Payload {
+                            msg: &buf[..have],
+                            aad: &header,
+                        },
+                    )
+                    .map_err(|_| OpenError::Wrong)?,
+            );
             out.write_all(&plain)
                 .map_err(|e| OpenError::Io(e.to_string()))?;
             if last {
@@ -334,7 +383,10 @@ mod tests {
     fn a_sealed_value_opens_with_the_same_passphrase() {
         let sealed = seal_cheap(b"static value");
         assert!(!sealed.windows(6).any(|w| w == b"static"));
-        assert_eq!(open_bytes(PASS, &sealed).unwrap(), b"static value");
+        assert_eq!(
+            open_bytes(PASS, &sealed).unwrap().as_slice(),
+            b"static value"
+        );
     }
 
     #[test]
@@ -342,7 +394,7 @@ mod tests {
         for len in [0, 1, CHUNK - 1, CHUNK, CHUNK + 1, 3 * CHUNK, 3 * CHUNK + 7] {
             let plain: Vec<u8> = (0..len).map(|i| (i % 251) as u8).collect();
             assert_eq!(
-                open_bytes(PASS, &seal_cheap(&plain)).unwrap(),
+                open_bytes(PASS, &seal_cheap(&plain)).unwrap().as_slice(),
                 plain,
                 "{len}"
             );
@@ -390,6 +442,36 @@ mod tests {
             open_bytes(PASS, &sealed),
             Err(OpenError::Unreadable(_))
         ));
+    }
+
+    #[test]
+    fn the_derived_key_is_held_in_a_wiped_buffer_and_depends_on_every_input() {
+        let key: Zeroizing<[u8; 32]> = imp::derive(PASS, &[1; 16], CHEAP).unwrap();
+        assert_ne!(*key, [0u8; 32]);
+        assert_eq!(*key, *imp::derive(PASS, &[1; 16], CHEAP).unwrap());
+        assert_ne!(*key, *imp::derive(PASS, &[2; 16], CHEAP).unwrap());
+        assert_ne!(
+            *key,
+            *imp::derive("another passphrase", &[1; 16], CHEAP).unwrap()
+        );
+    }
+
+    #[test]
+    fn opened_data_is_wiped_on_drop_and_lands_in_a_buffer_that_never_grew() {
+        let plain: Vec<u8> = (0..3 * CHUNK + 5).map(|i| (i % 251) as u8).collect();
+        let opened: Zeroizing<Vec<u8>> = open_bytes(PASS, &seal_cheap(&plain)).unwrap();
+        assert_eq!(opened.as_slice(), plain);
+        assert_eq!(opened.capacity(), seal_cheap(&plain).len());
+    }
+
+    #[test]
+    fn a_passphrase_is_never_printed_and_reads_as_text() {
+        let pass = Passphrase::from(PASS);
+        assert_eq!(&*pass, PASS);
+        assert!(!format!("{pass:?}").contains("horse"));
+        assert!(!format!("{:?}", Some(pass.clone())).contains("horse"));
+        fn wipes_on_drop<T: ZeroizeOnDrop>(_: &T) {}
+        wipes_on_drop(&pass);
     }
 
     #[test]

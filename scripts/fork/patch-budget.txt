@@ -6,8 +6,9 @@
 # (the status file of the login probes) and on libc (its cross-process lock).
 # +2 lines: toolport-plus depends on serde_yaml and regex (bundle files are YAML, globs are regular
 # expressions).
+# +1 line: toolport-plus depends on zeroize (the passphrase, the derived key and the sealed plaintext of a setup file are wiped when dropped).
 # serde and libc also serve the task scheduler (task records, process groups of task runs); the lines above count them.
-23	src-tauri/Cargo.lock
+24	src-tauri/Cargo.lock
 7	src-tauri/Cargo.toml
 # check-locales.mjs, 2 changed lines: `plus` joins the directories the scan skips; the fork's own screens
 # are English only (D-135) and its shell labels are wrapped through msg() in src/lib/settingsPages.ts.

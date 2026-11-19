@@ -6707,6 +6707,7 @@ dependencies = [
  "serde_yaml",
  "sha2",
  "toolport-plus-api",
+ "zeroize",
 ]
 
 [[package]]

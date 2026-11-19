@@ -92,6 +92,7 @@ dependencies = [
  "blake2",
  "cpufeatures",
  "password-hash",
+ "zeroize",
 ]
 
 [[package]]
@@ -2950,6 +2951,7 @@ dependencies = [
  "sha2",
  "tempfile",
  "toolport-plus-api",
+ "zeroize",
 ]
 
 [[package]]

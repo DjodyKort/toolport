@@ -34,7 +34,7 @@ pub const STATE_MINE: &str = "mine";
 #[derive(Clone, Debug, Default)]
 pub struct RestoreOptions {
     pub file: PathBuf,
-    pub passphrase: Option<String>,
+    pub passphrase: Option<crypto::Passphrase>,
     pub parts: Option<BTreeSet<PartId>>,
     pub take: BTreeSet<String>,
     pub apply: bool,
