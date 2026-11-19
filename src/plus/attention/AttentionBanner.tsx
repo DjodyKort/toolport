@@ -53,6 +53,14 @@ function packageServers(items: AttentionItem[]): string[] {
   });
 }
 
+const UPDATE_ROW = /^updates:package:([^:]+):[^>]*>(.+)$/;
+
+/** `alpha-api 1.5.0` for a package row, the row's own title for any other update. */
+function updateLabel(item: AttentionItem): string {
+  const match = UPDATE_ROW.exec(item.id);
+  return match ? `${match[1]} ${match[2]}` : item.title;
+}
+
 function Fix({ item }: { item: AttentionItem }) {
   const [busy, setBusy] = useState(false);
   const command = item.action?.command;
@@ -102,6 +110,7 @@ export function AttentionBanner({
   );
   const urgent = rows.filter((item) => item.urgency === "needs-you");
   const other = rows.filter((item) => item.urgency !== "needs-you");
+  const allUpdates = other.every((item) => item.id.startsWith("updates:"));
   if (rows.length === 0) return null;
   return (
     <div className={`flex flex-col gap-2 ${className}`} data-plus="attention-banner">
@@ -132,13 +141,17 @@ export function AttentionBanner({
           title={
             other.length === 1
               ? other[0].title
-              : `${other.length} things are worth a look`
+              : allUpdates
+                ? `${other.length} updates are available`
+                : `${other.length} things are worth a look`
           }
           detail={
             <>
               {other.length === 1
                 ? other[0].detail
-                : other.map((item) => item.title).join("; ")}{" "}
+                : other
+                    .map((item) => (allUpdates ? updateLabel(item) : item.title))
+                    .join(allUpdates ? ", " : "; ")}{" "}
               <span className="text-warning">Attention · {other[0].source}</span>
             </>
           }

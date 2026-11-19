@@ -296,6 +296,9 @@ export const packagePlan = (
     ...(options.to ? ["--to", options.to] : []),
   ]);
 
+/** An update or its undo never restarts a server by itself; the result asks for it. */
+const NO_RESTART = "--no-restart";
+
 /** A restart that failed exits 1 but still says what changed; a refusal throws with its reason. */
 async function packageDone(argv: string[]): Promise<PackageUpdateDone> {
   try {
@@ -321,10 +324,11 @@ export const packageApply = (
     "--plan-hash",
     options.planHash,
     ...(options.allowUnverified ? ["--allow-unverified"] : []),
+    NO_RESTART,
   ]);
 
 export const packageUndo = (key: string) =>
-  packageDone(["server", "update", key, "--undo"]);
+  packageDone(["server", "update", key, "--undo", NO_RESTART]);
 
 function oneAsBatch(done: PackageUpdateDone): PackageBatchDone {
   return {
@@ -385,6 +389,7 @@ export async function batchApply(
     "--plan-hash",
     batch.planHash,
     ...(options.allowUnverified ? ["--allow-unverified"] : []),
+    NO_RESTART,
   ];
   try {
     return await ctlData<PackageBatchDone>(argv);
@@ -398,7 +403,7 @@ export async function batchApply(
 
 export async function batchUndo(names: string[]): Promise<PackageBatchDone> {
   if (names.length === 1) return oneAsBatch(await packageUndo(names[0]));
-  const argv = ["server", "update", ...names, "--undo"];
+  const argv = ["server", "update", ...names, "--undo", NO_RESTART];
   try {
     return await ctlData<PackageBatchDone>(argv);
   } catch (error) {

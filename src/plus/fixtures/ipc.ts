@@ -3,6 +3,7 @@ import { setClock } from "../tasks/clock";
 import type { HooksScenario, MeasureScenario } from "./compressionWorld";
 import { FIXTURE_NOW, type TaskWorldOptions } from "./taskWorld";
 import { SPEND_NOW, type SpendScenario, type SpendWorldOptions } from "./spendWorld";
+import type { PackageSeed } from "./packageWorld";
 import {
   fixtureServers,
   type LoginSeed,
@@ -178,7 +179,8 @@ export function plusFixtureFromSearch(search: string) {
     },
     down: params.get("plus-bridge") === "down",
     servers: {
-      servers: fixtureServers(params.has("auth-guidance")),
+      servers: updateServers(params),
+      packages: updateSeeds(params.get("plus-update")),
       restart: restartScripts(params.get("plus-restart")),
       defaultAccess: params.get("plus-default"),
       ...loginWorld(params),
@@ -197,13 +199,13 @@ export function plusFixtureFromSearch(search: string) {
   });
 }
 
-if (typeof location !== "undefined") plusFixtureFromSearch(location.search);
-
 /** `?plus-bell` shows the footer bell with five rows, `?plus-bell=clear` with none and
  * `?plus-bell=unchecked` with one area that could not be read; without it `attention ls` fails and
  * the bell stays out. `?plus-notify=allowed|not-asked|blocked` sets what the system says about
  * notifications (unknown without it). */
 function attentionFromSearch(params: URLSearchParams): WorldOptions["attention"] {
+  const update = UPDATE_SCENARIOS[params.get("plus-update") ?? ""];
+  if (update) return { scenario: update.attention };
   if (!params.has("plus-bell")) return {};
   const scenario = params.get("plus-bell");
   const notify = params.get("plus-notify");
@@ -213,6 +215,128 @@ function attentionFromSearch(params: URLSearchParams): WorldOptions["attention"]
       ? { permission: notify }
       : {}),
   };
+}
+
+const NPM: PackageSeed = {
+  kind: "npm",
+  package: "@scope/alpha",
+  from: "1.4.2",
+  to: "1.5.0",
+};
+const RELEASE: PackageSeed = {
+  kind: "github",
+  package: "acme/alpha",
+  from: "1.3.0",
+  to: "1.4.0",
+  release: {
+    asset: "alpha_1.4.0_darwin_arm64.tar.gz",
+    size: 12_400_000,
+    checksum: "checksums.txt",
+    file: "/Users/example/.claude/mcp-servers/alpha/alpha",
+  },
+};
+const MAIL: PackageSeed = { ...NPM, package: "tools-mcp", from: "0.9.1", to: "1.0.0" };
+
+interface UpdateScenario {
+  attention: NonNullable<WorldOptions["attention"]>["scenario"];
+  seeds: Record<string, PackageSeed>;
+}
+
+/** `?plus-update=<name>` seeds server package updates: `plan`, `release`, `unverified`, `busy`,
+ * `stale`, `error`, `slow`, `batch`, `batch-mixed`, `batch-error`, `source-update`,
+ * `source-current`, `source-automatic`, `source-error`, `source-none`. The servers are named
+ * `alpha-api` and `beta-mail` so the attention rows find them. */
+const UPDATE_SCENARIOS: Record<string, UpdateScenario> = {
+  plan: { attention: "package-update", seeds: { "fixture-0": NPM } },
+  release: { attention: "release-update", seeds: { "fixture-0": RELEASE } },
+  unverified: {
+    attention: "release-update",
+    seeds: {
+      "fixture-0": {
+        ...RELEASE,
+        release: { ...RELEASE.release!, checksum: null },
+      },
+    },
+  },
+  busy: { attention: "package-update", seeds: { "fixture-0": { ...NPM, inFlight: 1 } } },
+  stale: {
+    attention: "package-update",
+    seeds: { "fixture-0": { ...NPM, conflictOnce: "1.4.9" } },
+  },
+  error: {
+    attention: "package-update",
+    seeds: {
+      "fixture-0": {
+        ...NPM,
+        applyFails: "the registry refused the change: package.json is read-only",
+      },
+    },
+  },
+  slow: {
+    attention: "package-update",
+    seeds: { "fixture-0": { ...NPM, delayMs: 600_000 } },
+  },
+  batch: { attention: "package-updates", seeds: { "fixture-0": NPM, "fixture-1": MAIL } },
+  "batch-mixed": {
+    attention: "package-updates",
+    seeds: {
+      "fixture-0": NPM,
+      "fixture-1": {
+        ...RELEASE,
+        release: { ...RELEASE.release!, checksum: null },
+      },
+    },
+  },
+  "batch-slow": {
+    attention: "package-updates",
+    seeds: {
+      "fixture-0": { ...NPM, delayMs: 600_000 },
+      "fixture-1": MAIL,
+    },
+  },
+  "batch-error": {
+    attention: "package-updates",
+    seeds: {
+      "fixture-0": NPM,
+      "fixture-1": {
+        ...MAIL,
+        refusal: { code: "cannot_rewrite", message: "tools-mcp is pinned by a range" },
+      },
+    },
+  },
+  "source-update": { attention: "clear", seeds: { "fixture-0": NPM } },
+  "source-current": {
+    attention: "clear",
+    seeds: { "fixture-0": { ...NPM, to: "1.4.2" } },
+  },
+  "source-automatic": {
+    attention: "clear",
+    seeds: { "fixture-0": { ...NPM, sourceState: "automatic" } },
+  },
+  "source-error": {
+    attention: "clear",
+    seeds: {
+      "fixture-0": {
+        ...NPM,
+        sourceState: "error",
+        sourceError: "could not reach registry.npmjs.org",
+      },
+    },
+  },
+  "source-none": { attention: "clear", seeds: {} },
+};
+
+function updateSeeds(name: string | null): Record<string, PackageSeed> {
+  return UPDATE_SCENARIOS[name ?? ""]?.seeds ?? {};
+}
+
+function updateServers(params: URLSearchParams) {
+  const servers = fixtureServers(params.has("auth-guidance"));
+  if (UPDATE_SCENARIOS[params.get("plus-update") ?? ""]) {
+    servers[0].name = "alpha-api";
+    servers[1].name = "beta-mail";
+  }
+  return servers;
 }
 
 /** `?plus-library=plan|done|held|blocked|behind|empty|catchup|busy` picks the state of the Library
@@ -386,3 +510,5 @@ export function plusFixtureIpc(command: string, args: Record<string, unknown>): 
       throw new Error(`Unimplemented fixture command: ${command}`);
   }
 }
+
+if (typeof location !== "undefined") plusFixtureFromSearch(location.search);

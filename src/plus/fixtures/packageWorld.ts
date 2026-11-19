@@ -37,6 +37,8 @@ export interface PackageSeed {
   /** Someone edits the pin to this version just before the first apply, so the reviewed plan is
    * stale and the apply is refused. */
   conflictOnce?: string;
+  /** An apply answers after this many milliseconds, so the screen can be looked at while it waits. */
+  delayMs?: number;
 }
 
 interface State {
@@ -52,6 +54,7 @@ interface State {
       | "sourceState"
       | "sourceError"
       | "tracks"
+      | "delayMs"
     >
   > &
     Pick<
@@ -65,6 +68,7 @@ interface State {
       | "sourceState"
       | "sourceError"
       | "tracks"
+      | "delayMs"
     >;
   running: string;
   applied: { from: string; to: string } | null;
@@ -185,12 +189,14 @@ export function createPackageWorld(
     back: boolean,
   ): PackageUpdateDone {
     const busy = (state.seed.inFlight ?? 0) > 0 && !argv.includes("--restart-now");
-    const restart = busy
-      ? {
-          status: "busy",
-          detail: `a call is running; restart when it ends with: toolportctl server restart ${name}`,
-        }
-      : { status: "restarted", detail: `Restarted ${name} in 1 gateway process` };
+    const restart = argv.includes("--no-restart")
+      ? null
+      : busy
+        ? {
+            status: "busy",
+            detail: `a call is running; restart when it ends with: toolportctl server restart ${name}`,
+          }
+        : { status: "restarted", detail: `Restarted ${name} in 1 gateway process` };
     return {
       applied: true,
       server: name,
@@ -368,6 +374,15 @@ export function createPackageWorld(
           },
         };
       }
+      if (state.seed.applyFails) {
+        return {
+          server: server.name,
+          id: server.id,
+          ok: false,
+          result: null,
+          error: { code: "update_failed", message: state.seed.applyFails },
+        };
+      }
       const from = state.running;
       state.applied = { from, to: current.to };
       state.running = current.to;
@@ -409,6 +424,19 @@ export function createPackageWorld(
       };
     },
     run(argv: string[]): CtlReply {
+      const reply = this.runNow(argv);
+      const writes = !argv.includes("--dry-run");
+      const delayMs = writes
+        ? Math.max(
+            0,
+            ...operands(argv).map(
+              (key) => states.get(find(key)?.id ?? key)?.seed.delayMs ?? 0,
+            ),
+          )
+        : 0;
+      return delayMs > 0 ? { ...reply, delayMs } : reply;
+    },
+    runNow(argv: string[]): CtlReply {
       if (argv.includes("--all") || operands(argv).length > 1) return batch(argv);
       const key = argv[1];
       if (!key) return fail("usage", "usage: server update <id|name>");
