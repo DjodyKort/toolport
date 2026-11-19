@@ -91,13 +91,15 @@ fn test05_session_repo_narrows_the_listing_and_needs_sessions() {
     let world = world();
     world.host.tasks.decision.set(RunDecision::Approved);
     let data = export(&world, json!({"session_repo": ["docs"]})).unwrap();
-    let history = data["parts"]
+    assert!(data["parts"]
         .as_array()
         .unwrap()
         .iter()
-        .find(|part| part["id"] == "history")
-        .unwrap();
-    assert_eq!(history["info"]["repos"], json!([]));
+        .all(|part| part["id"] != "history"));
+    assert_eq!(
+        data["skipped"],
+        json!(["sessions: none found for the chosen repositories"])
+    );
     let error = call_tool(
         &world.host,
         "setup_export",
