@@ -56,6 +56,16 @@ pub fn no_parent_parts(text: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// A repository a restore may clone sits below the home folder: a setup file comes from another
+/// machine and must not pick a place like `/Volumes/..` or `/etc` on this one.
+pub fn clone_target(path: &str, abs: &Path, home: &Path) -> Result<(), String> {
+    no_parent_parts(path)?;
+    if abs == home || !abs.starts_with(home) {
+        return Err(format!("{path} is not inside the home folder"));
+    }
+    Ok(())
+}
+
 /// `rel` under `~/.claude` is one of the files or folders a restore writes.
 pub fn claude_user(parts: &[&str]) -> Result<(), String> {
     match parts {
@@ -189,6 +199,21 @@ mod tests {
         assert!(no_parent_parts("/Volumes/work/web").is_ok());
         for bad in ["", "~/code/../.ssh", "..", "a\\..\\b", "~/a\nb"] {
             assert!(no_parent_parts(bad).is_err(), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn a_clone_goes_only_below_the_home_folder() {
+        let home = Path::new("/Users/a");
+        assert!(clone_target("~/code/web", Path::new("/Users/a/code/web"), home).is_ok());
+        for (path, abs) in [
+            ("/Volumes/work/web", "/Volumes/work/web"),
+            ("/Users/b/web", "/Users/b/web"),
+            ("/Users/ab/web", "/Users/ab/web"),
+            ("~", "/Users/a"),
+            ("~/code/../../b", "/Users/b"),
+        ] {
+            assert!(clone_target(path, Path::new(abs), home).is_err(), "{path}");
         }
     }
 

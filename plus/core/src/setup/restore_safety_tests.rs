@@ -602,6 +602,33 @@ fn test10_a_clone_destination_and_memory_file_names_with_odd_parts_are_refused()
 }
 
 #[test]
+fn test12_a_repository_is_cloned_only_below_the_home_folder() {
+    let to = World::new();
+    let outside = to.home.parent().unwrap().join("volume/web");
+    let outside_text = outside.to_string_lossy().into_owned();
+    let file = setup_file(
+        &to,
+        "outside.zip",
+        vec![(
+            PartId::Repos,
+            vec![json_entry(
+                "repos.json",
+                &json!({"repos": [{
+                    "path": outside_text, "name": "web", "branch": "main",
+                    "remotes": [{"name": "origin", "url": "file:///nonexistent/x.git"}],
+                }]}),
+            )],
+        )],
+    );
+    let before = to.snapshot();
+    let (dry, applied) = plan_and_apply(&to, &file);
+    assert_eq!(refused(&dry), [format!("repo:{outside_text}")]);
+    assert_eq!(applied["failed"], 0, "{applied}");
+    assert!(changed(&to, &before).is_empty());
+    assert!(!outside.exists());
+}
+
+#[test]
 fn test11_everything_an_export_writes_comes_back_through_the_lists() {
     let from = World::new();
     let web = from.repo("web");

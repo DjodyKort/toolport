@@ -198,7 +198,7 @@ fn repo_rows(
         let dest = ctx.untilde(path);
         let id = format!("repo:{path}");
         let label = format!("{name} → {path}");
-        if let Err(why) = safe_path::no_parent_parts(path) {
+        if let Err(why) = safe_path::clone_target(path, &dest, &ctx.home) {
             rows.push(Row::refuse(id, PartId::Repos, &label, why));
             continue;
         }
