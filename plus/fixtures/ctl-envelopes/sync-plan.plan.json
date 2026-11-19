@@ -1,8 +1,5 @@
 {
-  "argv": [
-    "sync",
-    "plan"
-  ],
+  "argv": ["sync", "plan"],
   "envelope": {
     "command": "sync plan",
     "data": {
