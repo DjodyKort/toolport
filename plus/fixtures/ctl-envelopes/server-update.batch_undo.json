@@ -1,0 +1,54 @@
+{
+  "argv": ["server", "update", "--all", "--undo", "--no-restart"],
+  "envelope": {
+    "command": "server update",
+    "data": {
+      "applied": 2,
+      "failed": 0,
+      "results": [
+        {
+          "error": null,
+          "id": "srv-files",
+          "ok": true,
+          "result": {
+            "applied": true,
+            "changes": [],
+            "from": "1.6.0",
+            "id": "srv-files",
+            "kind": "npm",
+            "package": "@scope/files",
+            "restart": null,
+            "server": "files",
+            "to": "1.4.2",
+            "undo": "toolportctl server update files",
+            "warnings": []
+          },
+          "server": "files"
+        },
+        {
+          "error": null,
+          "id": "srv-img",
+          "ok": true,
+          "result": {
+            "applied": true,
+            "changes": [],
+            "from": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "id": "srv-img",
+            "kind": "docker",
+            "package": "acme/files",
+            "restart": null,
+            "server": "img",
+            "to": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "undo": "toolportctl server update img",
+            "warnings": []
+          },
+          "server": "img"
+        }
+      ],
+      "undo": "toolportctl server update files img"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

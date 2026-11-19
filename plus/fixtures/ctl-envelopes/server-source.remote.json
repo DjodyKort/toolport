@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "source", "beta"],
+  "envelope": {
+    "command": "server source",
+    "error": {
+      "code": "not_found",
+      "message": "beta runs remotely, so it has no code of its own to update"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

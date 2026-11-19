@@ -1,0 +1,28 @@
+{
+  "arguments": {
+    "name": "files"
+  },
+  "isError": false,
+  "result": {
+    "sources": [
+      {
+        "behind": 0,
+        "branch": null,
+        "checkedAt": "<TIME>",
+        "error": null,
+        "id": "srv-files",
+        "kind": "npm",
+        "latest": "1.5.0",
+        "manual": null,
+        "package": "@scope/files",
+        "pinned": "1.4.2",
+        "root": null,
+        "server": "files",
+        "state": "update_available",
+        "tracks": null,
+        "upstream": null
+      }
+    ]
+  },
+  "tool": "servers_source"
+}

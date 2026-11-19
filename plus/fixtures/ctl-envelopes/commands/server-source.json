@@ -1,0 +1,25 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "server",
+  "id": "server source",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["server", "source"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Show where each local server's code comes from and whether a newer version is known; reads the last check and asks nobody [<server>]",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["servers_source"]
+}

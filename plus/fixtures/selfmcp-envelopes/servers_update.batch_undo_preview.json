@@ -1,0 +1,30 @@
+{
+  "arguments": {
+    "names": ["tools", "img"],
+    "undo": true
+  },
+  "isError": false,
+  "result": {
+    "plans": [
+      {
+        "from": "1.0.0",
+        "id": "srv-tools",
+        "kind": "pypi",
+        "package": "tools-mcp",
+        "refusal": null,
+        "server": "tools",
+        "to": "0.9.1"
+      },
+      {
+        "from": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "id": "srv-img",
+        "kind": "docker",
+        "package": "acme/files",
+        "refusal": null,
+        "server": "img",
+        "to": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  },
+  "tool": "servers_update"
+}

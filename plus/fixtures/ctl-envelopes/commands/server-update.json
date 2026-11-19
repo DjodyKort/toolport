@@ -5,7 +5,7 @@
   "flags": [
     {
       "aliases": [],
-      "effect": "The version to move to (default: the newest one the last check found)",
+      "effect": "The version (or image digest) to move one server to (default: the newest one the last check found)",
       "escalates": false,
       "hidden": false,
       "name": "--to",
@@ -13,6 +13,17 @@
       "required": false,
       "sensitive": false,
       "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Every server that has an update, in one plan",
+      "escalates": false,
+      "hidden": false,
+      "name": "--all",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
     },
     {
       "aliases": [],
@@ -113,8 +124,8 @@
   "operands": [
     {
       "name": "server",
-      "required": true,
-      "variadic": false
+      "required": false,
+      "variadic": true
     }
   ],
   "parent": null,
@@ -124,7 +135,7 @@
     "flag": "--dry-run",
     "mode": "flag"
   },
-  "summary": "Move a server to another version of its pinned package or GitHub release: the plan shows the exact change, then the pin is rewritten and the server restarts <server> [--to <version>] [--fetch] [--dry-run] [--plan-hash] [--allow-unverified] [--restart-now|--no-restart], or --undo",
+  "summary": "Move servers to another version of their pinned package or GitHub release: the plan shows the exact change, then the pin is rewritten and the server restarts <server>... or --all [--to <version>] [--fetch] [--dry-run] [--plan-hash] [--allow-unverified] [--restart-now|--no-restart], or --undo",
   "surface": "screen",
   "tier": "write",
   "tools": ["servers_update"]

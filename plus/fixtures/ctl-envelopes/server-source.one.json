@@ -1,0 +1,30 @@
+{
+  "argv": ["server", "source", "files"],
+  "envelope": {
+    "command": "server source",
+    "data": {
+      "sources": [
+        {
+          "behind": 0,
+          "branch": null,
+          "checkedAt": "<TIME>",
+          "error": null,
+          "id": "srv-files",
+          "kind": "npm",
+          "latest": "1.5.0",
+          "manual": null,
+          "package": "@scope/files",
+          "pinned": "1.4.2",
+          "root": null,
+          "server": "files",
+          "state": "update_available",
+          "tracks": null,
+          "upstream": null
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

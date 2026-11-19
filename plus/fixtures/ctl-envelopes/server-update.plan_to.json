@@ -12,6 +12,7 @@
             "to": "@scope/files@1.6.0"
           }
         ],
+        "digest": false,
         "downgrade": false,
         "from": "1.4.2",
         "id": "srv-files",

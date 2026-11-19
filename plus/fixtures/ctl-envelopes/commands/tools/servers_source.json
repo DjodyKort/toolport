@@ -1,0 +1,7 @@
+{
+  "command": "server source",
+  "dryRun": "none",
+  "name": "servers_source",
+  "tier": "read",
+  "toolTier": 1
+}

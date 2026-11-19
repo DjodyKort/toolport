@@ -1,0 +1,63 @@
+{
+  "argv": [
+    "server",
+    "update",
+    "img",
+    "recipe",
+    "--plan-hash",
+    "sha256:847e70630d4f240d",
+    "--no-restart"
+  ],
+  "envelope": {
+    "command": "server update",
+    "data": {
+      "applied": 1,
+      "failed": 1,
+      "results": [
+        {
+          "error": null,
+          "id": "srv-img",
+          "ok": true,
+          "result": {
+            "applied": true,
+            "changes": [
+              {
+                "field": "args[3]",
+                "from": "acme/files:latest@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "to": "acme/files:latest@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ],
+            "from": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "id": "srv-img",
+            "kind": "docker",
+            "package": "acme/files",
+            "restart": null,
+            "server": "img",
+            "to": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "undo": "toolportctl server update img --undo",
+            "warnings": []
+          },
+          "server": "img"
+        },
+        {
+          "error": {
+            "code": "update_refused",
+            "message": "Toolport cannot change this pin itself: its arguments come from a catalog launch recipe, and editing them detaches it"
+          },
+          "id": "srv-recipe",
+          "ok": false,
+          "result": null,
+          "server": "recipe"
+        }
+      ],
+      "undo": "toolportctl server update img recipe --undo"
+    },
+    "error": {
+      "code": "unhealthy",
+      "message": "one or more checks failed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

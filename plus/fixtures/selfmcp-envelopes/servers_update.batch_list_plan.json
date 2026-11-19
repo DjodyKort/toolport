@@ -1,0 +1,64 @@
+{
+  "arguments": {
+    "names": ["tools", "img"]
+  },
+  "isError": false,
+  "result": {
+    "apply": "toolportctl server update img tools --plan-hash sha256:c8ba49dfb5b438d0",
+    "applyWith": "call servers_update with dry_run=false, the same names (or all), this planHash as plan_hash and confirm=true",
+    "count": 2,
+    "planHash": "<masked>",
+    "plans": [
+      {
+        "apply": "toolportctl server update img --to sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb --plan-hash sha256:4132b06f39813c9f",
+        "changes": [
+          {
+            "field": "args[3]",
+            "from": "acme/files:latest@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "to": "acme/files:latest@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ],
+        "digest": true,
+        "downgrade": false,
+        "from": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "id": "srv-img",
+        "inFlight": null,
+        "kind": "docker",
+        "package": "acme/files",
+        "planHash": "<masked>",
+        "refusal": null,
+        "release": null,
+        "server": "img",
+        "to": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "undo": "toolportctl server update img --undo",
+        "verified": false
+      },
+      {
+        "apply": "toolportctl server update tools --to 1.0.0 --plan-hash sha256:076fd56fa108efca",
+        "changes": [
+          {
+            "field": "args[0]",
+            "from": "tools-mcp==0.9.1",
+            "to": "tools-mcp==1.0.0"
+          }
+        ],
+        "digest": false,
+        "downgrade": false,
+        "from": "0.9.1",
+        "id": "srv-tools",
+        "inFlight": null,
+        "kind": "pypi",
+        "package": "tools-mcp",
+        "planHash": "<masked>",
+        "refusal": null,
+        "release": null,
+        "server": "tools",
+        "to": "1.0.0",
+        "undo": "toolportctl server update tools --undo",
+        "verified": false
+      }
+    ],
+    "undo": "toolportctl server update img tools --undo"
+  },
+  "tool": "servers_update"
+}

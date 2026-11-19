@@ -6,6 +6,7 @@
       "plan": {
         "apply": null,
         "changes": [],
+        "digest": false,
         "downgrade": false,
         "from": "2.0.0",
         "id": "srv-recipe",

@@ -21,11 +21,16 @@ use common::client::Client;
 use common::compression;
 use common::library_world::{self, library_home};
 use common::server_repo_world::{server_repo, server_repo_diverged, server_repo_with_peers};
-use common::server_update_world::server_package;
+use common::server_update_world::{server_package, server_package_more};
 use common::taps_world;
 use common::tasks_world::{scheduler_home, tasks_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY, SET_SENTINEL};
 use common::{golden, normalize};
+
+fn server_package_both(world: &World) {
+    server_package(world);
+    server_package_more(world);
+}
 
 #[derive(Clone, Copy, PartialEq)]
 enum Expect {
@@ -1914,6 +1919,56 @@ const CASES: &[Case] = &[
                 "servers_update",
                 r#"{"name":"files","undo":true}"#,
             ),
+            hook("more-packages", server_package_more),
+            read("batch_plan", "servers_update", r#"{"all":true}"#),
+            read(
+                "batch_list_plan",
+                "servers_update",
+                r#"{"names":["tools","img"]}"#,
+            ),
+            fails(
+                "batch_needs_hash",
+                "invalid_arguments",
+                "servers_update",
+                r#"{"all":true,"dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "batch_names_and_all",
+                "invalid_arguments",
+                "servers_update",
+                r#"{"all":true,"name":"files"}"#,
+            ),
+            fails(
+                "batch_with_version",
+                "invalid_arguments",
+                "servers_update",
+                r#"{"names":["tools","img"],"to":"1.0.0"}"#,
+            ),
+            write(
+                "batch",
+                "servers_update",
+                r#"{"names":["tools","img"],"dry_run":false,"plan_hash":"sha256:c8ba49dfb5b438d0","confirm":true}"#,
+            ),
+            read(
+                "batch_undo_preview",
+                "servers_update",
+                r#"{"names":["tools","img"],"undo":true}"#,
+            ),
+            write(
+                "batch_undo",
+                "servers_update",
+                r#"{"names":["tools","img"],"undo":true,"dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "servers_source",
+        server_package_both,
+        &[
+            read("all", "servers_source", "{}"),
+            read("one", "servers_source", r#"{"name":"files"}"#),
+            fails("remote", "not_found", "servers_source", r#"{"name":"beta"}"#),
+            fails("unknown", "not_found", "servers_source", r#"{"name":"ghost"}"#),
         ],
     ),
     prepared(

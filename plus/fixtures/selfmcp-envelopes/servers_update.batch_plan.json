@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "all": true
+  },
+  "isError": false,
+  "result": {
+    "apply": "toolportctl server update  --plan-hash sha256:e3b0c44298fc1c14",
+    "applyWith": "call servers_update with dry_run=false, the same names (or all), this planHash as plan_hash and confirm=true",
+    "count": 0,
+    "planHash": "<masked>",
+    "plans": [],
+    "undo": "toolportctl server update  --undo"
+  },
+  "tool": "servers_update"
+}

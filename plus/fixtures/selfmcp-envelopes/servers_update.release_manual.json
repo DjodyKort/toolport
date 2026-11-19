@@ -7,6 +7,7 @@
     "apply": null,
     "applyWith": "call servers_update with dry_run=false, this planHash as plan_hash, this `to` as to and confirm=true",
     "changes": [],
+    "digest": false,
     "downgrade": false,
     "from": "1.3.0",
     "id": "srv-golf",

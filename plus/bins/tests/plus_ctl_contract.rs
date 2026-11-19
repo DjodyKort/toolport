@@ -29,7 +29,7 @@ use common::compression::{
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
 use common::server_repo_world::{server_repo, server_repo_dirty, server_repo_peers};
-use common::server_update_world::server_package;
+use common::server_update_world::{server_package, server_package_more};
 use common::setup_world::{self, PASSPHRASE};
 use common::taps_world;
 use common::tasks_world::{scheduler_extras, tasks_home};
@@ -1890,6 +1890,54 @@ const CASES: &[Case] = &[
                 "restart",
                 &["server", "update", "files", "--to", "1.6.0", "--wait", "1"],
             ),
+            hook("more-packages", server_package_more),
+            read("batch_plan", &["server", "update", "--all", "--dry-run"]),
+            read(
+                "batch_list_plan",
+                &["server", "update", "tools", "img", "--dry-run"],
+            ),
+            read(
+                "batch_partial_plan",
+                &["server", "update", "img", "recipe", "--dry-run"],
+            ),
+            apply(
+                "batch_stale_hash",
+                &[
+                    "server",
+                    "update",
+                    "tools",
+                    "img",
+                    "--plan-hash",
+                    "sha256:0000000000000000",
+                ],
+            )
+            .exit(1),
+            apply(
+                "batch",
+                &[
+                    "server",
+                    "update",
+                    "img",
+                    "recipe",
+                    "--plan-hash",
+                    "sha256:847e70630d4f240d",
+                    "--no-restart",
+                ],
+            )
+            .exit(1),
+            read(
+                "batch_undo_preview",
+                &["server", "update", "--all", "--undo", "--dry-run"],
+            ),
+            apply(
+                "batch_undo",
+                &["server", "update", "--all", "--undo", "--no-restart"],
+            ),
+            usage(
+                "batch_with_version",
+                &["server", "update", "tools", "img", "--to", "1.0.0"],
+            ),
+            usage("all_with_names", &["server", "update", "tools", "--all"]),
             usage("usage", &["server", "update"]),
             usage(
                 "conflicting_restart",
@@ -1903,6 +1951,20 @@ const CASES: &[Case] = &[
                 "bad_version",
                 &["server", "update", "files", "--to", "latest"],
             ),
+        ],
+    ),
+    case(
+        "server source",
+        &[
+            hook("package-world", server_package),
+            hook("more-packages", server_package_more),
+            read("all", &["server", "source"]),
+            read("one", &["server", "source", "files"]),
+            read("unchecked", &["server", "source", "bare"]),
+            read("unknown", &["server", "source", "alpha"]),
+            read("remote", &["server", "source", "beta"]).exit(1),
+            read("ghost", &["server", "source", "ghost"]).exit(1),
+            usage("usage", &["server", "source", "a", "b"]),
         ],
     ),
     case(

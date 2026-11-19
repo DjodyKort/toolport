@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "beta"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "beta runs remotely, so it has no code of its own to update"
+    }
+  },
+  "text": "not_found: beta runs remotely, so it has no code of its own to update",
+  "tool": "servers_source"
+}

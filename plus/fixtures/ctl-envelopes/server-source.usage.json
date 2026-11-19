@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "source", "a", "b"],
+  "envelope": {
+    "command": "server source",
+    "error": {
+      "code": "usage",
+      "message": "usage: server source [<id|name>]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,31 @@
+{
+  "argv": ["server", "update", "--all", "--undo", "--dry-run"],
+  "envelope": {
+    "command": "server update",
+    "data": {
+      "plans": [
+        {
+          "from": "1.6.0",
+          "id": "srv-files",
+          "kind": "npm",
+          "package": "@scope/files",
+          "refusal": null,
+          "server": "files",
+          "to": "1.4.2"
+        },
+        {
+          "from": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "id": "srv-img",
+          "kind": "docker",
+          "package": "acme/files",
+          "refusal": null,
+          "server": "img",
+          "to": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

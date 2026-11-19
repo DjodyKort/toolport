@@ -1,0 +1,30 @@
+{
+  "argv": ["server", "source", "alpha"],
+  "envelope": {
+    "command": "server source",
+    "data": {
+      "sources": [
+        {
+          "behind": 0,
+          "branch": null,
+          "checkedAt": null,
+          "error": null,
+          "id": "srv-alpha",
+          "kind": "none",
+          "latest": null,
+          "manual": null,
+          "package": null,
+          "pinned": null,
+          "root": null,
+          "server": "alpha",
+          "state": "unknown",
+          "tracks": null,
+          "upstream": null
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

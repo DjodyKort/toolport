@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "names": ["tools", "img"],
+    "to": "1.0.0"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "to names one version, so it takes one server"
+    }
+  },
+  "text": "invalid_arguments: to names one version, so it takes one server",
+  "tool": "servers_update"
+}

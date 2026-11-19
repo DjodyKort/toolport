@@ -1,0 +1,18 @@
+{
+  "argv": ["server", "update", "--all", "--dry-run"],
+  "envelope": {
+    "command": "server update",
+    "data": {
+      "batch": {
+        "apply": "toolportctl server update  --plan-hash sha256:e3b0c44298fc1c14",
+        "count": 0,
+        "planHash": "<masked>",
+        "plans": [],
+        "undo": "toolportctl server update  --undo"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

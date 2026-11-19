@@ -1375,18 +1375,28 @@ pub const TOOLS: &[ToolDef] = &[
         "servers_update",
         3,
         UnlessDryRun,
-        "Move a server to another version of the package its arguments pin (npm, uvx or pipx, Docker Hub tag) or of the GitHub release it was installed from, then restart it. HIGH risk: it changes what code the server runs, and for a release it replaces the installed binary. dry_run is on by default and returns the plan: the exact registry change, for a release the file and whether its checksum is published, and the plan_hash (apply with dry_run=false, that plan_hash, the plan's `to` and confirm=true; refused when the plan changed since). Without `to` the newest version the last update check found is taken; fetch asks the registry or GitHub first. undo=true takes back the one update on record when nothing changed it since. A pin Toolport cannot rewrite is refused with the reason",
+        "Move a server to another version of the package its arguments pin (npm, uvx or pipx, Docker Hub tag or image digest) or of the GitHub release it was installed from, then restart it. HIGH risk: it changes what code the server runs, and for a release it replaces the installed binary. dry_run is on by default and returns the plan: the exact registry change, for a release the file and whether its checksum is published, and the plan_hash (apply with dry_run=false, that plan_hash, the plan's `to` and confirm=true; refused when the plan changed since). Without `to` the newest version the last update check found is taken; fetch asks the registry or GitHub first. Give `names` (or all=true for every server with an update) for one plan, one plan_hash and one confirm over several servers: each is applied in turn and reports its own result, and a server that fails does not stop the others. undo=true takes back the one update on record per server when nothing changed it since. A pin Toolport cannot rewrite is refused with the reason",
         [
-            NAME,
+            p("name", Ty::Str, false, "Server id or name"),
+            p("names", Ty::StrList, false, "Several servers, for one combined plan"),
+            p("all", Ty::Bool, false, "Every enabled server that has an update"),
             DRY_ON,
             PLAN_HASH,
-            p("to", Ty::Str, false, "The exact version to move to; the newest checked one when omitted"),
+            p("to", Ty::Str, false, "The exact version (or sha256 digest) to move one server to; the newest checked one when omitted"),
             p("fetch", Ty::Bool, false, "Ask the registry or GitHub before planning, so the newest version and that the version exists are checked now"),
             p("allow_unverified", Ty::Bool, false, "Install a release file the publisher gives no checksum for"),
             p("restart_now", Ty::Bool, false, "Restart even while a call is running; calls in flight end. Without it a busy server is not restarted"),
-            p("undo", Ty::Bool, false, "Put back the last update of this server instead of making one")
+            p("undo", Ty::Bool, false, "Put back the last update instead of making one")
         ],
         server_update::run
+    ),
+    tool!(
+        "servers_source",
+        1,
+        None,
+        "Where each local server's code comes from and whether a newer version is known: package and release pins, git checkouts, servers that fetch the newest version on every start, and servers with no known source. Reads the registry, the last update check and git on disk; asks no registry and no gateway",
+        [p("name", Ty::Str, false, "Server id or name; every local server when omitted")],
+        server_update::sources
     ),
     tool!(
         "servers_repo_status",

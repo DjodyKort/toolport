@@ -146,8 +146,13 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["server", "update"],
-        "Move a server to another version of its pinned package or GitHub release: the plan shows the exact change, then the pin is rewritten and the server restarts <server> [--to <version>] [--fetch] [--dry-run] [--plan-hash] [--allow-unverified] [--restart-now|--no-restart], or --undo",
+        "Move servers to another version of their pinned package or GitHub release: the plan shows the exact change, then the pin is rewritten and the server restarts <server>... or --all [--to <version>] [--fetch] [--dry-run] [--plan-hash] [--allow-unverified] [--restart-now|--no-restart], or --undo",
         server_update::run,
+    ),
+    cmd(
+        &["server", "source"],
+        "Show where each local server's code comes from and whether a newer version is known; reads the last check and asks nobody [<server>]",
+        server_update::source_rows,
     ),
     cmd(
         &["server", "repo", "status"],

@@ -3092,7 +3092,7 @@
           "tier": 1
         },
         {
-          "description": "Move a server to another version of the package its arguments pin (npm, uvx or pipx, Docker Hub tag) or of the GitHub release it was installed from, then restart it. HIGH risk: it changes what code the server runs, and for a release it replaces the installed binary. dry_run is on by default and returns the plan: the exact registry change, for a release the file and whether its checksum is published, and the plan_hash (apply with dry_run=false, that plan_hash, the plan's `to` and confirm=true; refused when the plan changed since). Without `to` the newest version the last update check found is taken; fetch asks the registry or GitHub first. undo=true takes back the one update on record when nothing changed it since. A pin Toolport cannot rewrite is refused with the reason",
+          "description": "Move a server to another version of the package its arguments pin (npm, uvx or pipx, Docker Hub tag or image digest) or of the GitHub release it was installed from, then restart it. HIGH risk: it changes what code the server runs, and for a release it replaces the installed binary. dry_run is on by default and returns the plan: the exact registry change, for a release the file and whether its checksum is published, and the plan_hash (apply with dry_run=false, that plan_hash, the plan's `to` and confirm=true; refused when the plan changed since). Without `to` the newest version the last update check found is taken; fetch asks the registry or GitHub first. Give `names` (or all=true for every server with an update) for one plan, one plan_hash and one confirm over several servers: each is applied in turn and reports its own result, and a server that fails does not stop the others. undo=true takes back the one update on record per server when nothing changed it since. A pin Toolport cannot rewrite is refused with the reason",
           "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "servers_update",
@@ -3100,8 +3100,20 @@
             {
               "description": "Server id or name",
               "name": "name",
-              "required": true,
+              "required": false,
               "type": "string"
+            },
+            {
+              "description": "Several servers, for one combined plan",
+              "name": "names",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Every enabled server that has an update",
+              "name": "all",
+              "required": false,
+              "type": "boolean"
             },
             {
               "description": "Report without writing; true unless you pass false to apply",
@@ -3116,7 +3128,7 @@
               "type": "string"
             },
             {
-              "description": "The exact version to move to; the newest checked one when omitted",
+              "description": "The exact version (or sha256 digest) to move one server to; the newest checked one when omitted",
               "name": "to",
               "required": false,
               "type": "string"
@@ -3140,7 +3152,7 @@
               "type": "boolean"
             },
             {
-              "description": "Put back the last update of this server instead of making one",
+              "description": "Put back the last update instead of making one",
               "name": "undo",
               "required": false,
               "type": "boolean"
@@ -3153,6 +3165,21 @@
             }
           ],
           "tier": 3
+        },
+        {
+          "description": "Where each local server's code comes from and whether a newer version is known: package and release pins, git checkouts, servers that fetch the newest version on every start, and servers with no known source. Reads the registry, the last update check and git on disk; asks no registry and no gateway",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "servers_source",
+          "params": [
+            {
+              "description": "Server id or name; every local server when omitted",
+              "name": "name",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
         },
         {
           "description": "Where the git checkout each local server runs from stands against the branch it tracks: branch, head, commits ahead and behind, local changes and the time of the last fetch. Reads git state already on disk and fetches nothing; applying an update is not offered here",

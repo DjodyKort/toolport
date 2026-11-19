@@ -363,8 +363,9 @@ pub(super) const ROWS: &[Row] = &[
     row("server update", W)
         .dry()
         .spec(&[&server_update::UPDATE])
-        .args(&[req("server")])
+        .args(&[many("server")])
         .skip("rewrites a server's pin or replaces its binary and restarts it; its --dry-run is a golden step"),
+    row("server source", R).spec(&[&server_update::SOURCE]),
     row("server repo status", R).spec(&[&server_repo::STATUS]),
     row("server repo check", W)
         .spec(&[&server_repo::CHECK])
@@ -1301,6 +1302,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("servers_set_enabled", W).on(),
     maps("servers_restart", W, "server restart").on(),
     maps("servers_update", W, "server update").on(),
+    maps("servers_source", R, "server source"),
     maps("servers_repo_status", R, "server repo status"),
     maps("servers_repo_check", W, "server repo check"),
     maps("servers_repo_update", W, "server repo update").on(),

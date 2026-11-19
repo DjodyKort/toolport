@@ -1,0 +1,30 @@
+{
+  "argv": ["server", "source", "bare"],
+  "envelope": {
+    "command": "server source",
+    "data": {
+      "sources": [
+        {
+          "behind": 0,
+          "branch": null,
+          "checkedAt": "<TIME>",
+          "error": null,
+          "id": "srv-bare",
+          "kind": "pypi",
+          "latest": null,
+          "manual": null,
+          "package": "bare-mcp",
+          "pinned": "0.9.1",
+          "root": null,
+          "server": "bare",
+          "state": "up_to_date",
+          "tracks": null,
+          "upstream": null
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "source", "ghost"],
+  "envelope": {
+    "command": "server source",
+    "error": {
+      "code": "not_found",
+      "message": "no server 'ghost'"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

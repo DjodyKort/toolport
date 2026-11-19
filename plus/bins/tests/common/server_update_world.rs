@@ -60,3 +60,30 @@ pub fn files_args(world: &World) -> Value {
         .unwrap()["args"]
         .clone()
 }
+
+const DIGEST_OLD: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const DIGEST_NEW: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+/// Two more servers with an update waiting, so a plan over several servers has something to
+/// move: a uvx pin and an image pinned by digest that follows its tag.
+pub fn server_package_more(world: &World) {
+    let registry = world.data.join("registry.json");
+    let mut value = read_json(&registry);
+    let servers = value["servers"].as_array_mut().unwrap();
+    servers.push(json!({
+        "id": "srv-tools", "name": "tools", "transport": "stdio", "command": "uvx",
+        "args": ["tools-mcp==0.9.1"],
+    }));
+    servers.push(json!({
+        "id": "srv-img", "name": "img", "transport": "stdio", "command": "docker",
+        "args": ["run", "-i", "--rm", format!("acme/files:latest@{DIGEST_OLD}")],
+    }));
+    write_json(&registry, &value);
+    let store = world.data.join("plus/attention.json");
+    let mut checked = read_json(&store);
+    checked["updates"]["sources"]["package:pypi:tools-mcp"] =
+        json!({"at": CHECKED_AT, "latest": "1.0.0"});
+    checked["updates"]["sources"]["package:docker:acme/files:@latest"] =
+        json!({"at": CHECKED_AT, "latest": DIGEST_NEW});
+    write_json(&store, &checked);
+}

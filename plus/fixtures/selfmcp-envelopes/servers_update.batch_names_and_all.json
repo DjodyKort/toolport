@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "all": true,
+    "name": "files"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "give name or names, or all=true, not both"
+    }
+  },
+  "text": "invalid_arguments: give name or names, or all=true, not both",
+  "tool": "servers_update"
+}

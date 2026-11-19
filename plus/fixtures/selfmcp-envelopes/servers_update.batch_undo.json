@@ -1,0 +1,61 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "names": ["tools", "img"],
+    "undo": true
+  },
+  "isError": false,
+  "result": {
+    "applied": 2,
+    "failed": 0,
+    "results": [
+      {
+        "error": null,
+        "id": "srv-tools",
+        "ok": true,
+        "result": {
+          "applied": true,
+          "changes": [],
+          "from": "1.0.0",
+          "id": "srv-tools",
+          "kind": "pypi",
+          "package": "tools-mcp",
+          "restart": {
+            "detail": "No running gateway holds tools (srv-tools), so there is nothing to restart. It starts fresh at its next call.",
+            "status": "not_running"
+          },
+          "server": "tools",
+          "to": "0.9.1",
+          "undo": "toolportctl server update tools",
+          "warnings": []
+        },
+        "server": "tools"
+      },
+      {
+        "error": null,
+        "id": "srv-img",
+        "ok": true,
+        "result": {
+          "applied": true,
+          "changes": [],
+          "from": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "id": "srv-img",
+          "kind": "docker",
+          "package": "acme/files",
+          "restart": {
+            "detail": "No running gateway holds img (srv-img), so there is nothing to restart. It starts fresh at its next call.",
+            "status": "not_running"
+          },
+          "server": "img",
+          "to": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "undo": "toolportctl server update img",
+          "warnings": []
+        },
+        "server": "img"
+      }
+    ],
+    "undo": "toolportctl server update tools img"
+  },
+  "tool": "servers_update"
+}

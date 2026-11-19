@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "update", "tools", "--all"],
+  "envelope": {
+    "command": "server update",
+    "error": {
+      "code": "usage",
+      "message": "usage: server update <id|name>... [--all] [--to <version>] [--fetch] [--dry-run] [--plan-hash <hash>] [--allow-unverified] [--restart-now|--no-restart] [--wait <seconds>] | --undo [--dry-run]; several servers or --all share one plan, one confirm and one undo; --to takes one server"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}
