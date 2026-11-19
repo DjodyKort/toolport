@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "source": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "nope has no selection; `library select ls` lists the sources that do"
+    }
+  },
+  "text": "not_found: nope has no selection; `library select ls` lists the sources that do",
+  "tool": "library_select_check"
+}

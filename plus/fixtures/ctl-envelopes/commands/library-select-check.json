@@ -50,5 +50,5 @@
   "summary": "Fetch every source with a selection (or the one named) and record which have a plan waiting; with --deepen also whether a force-push removed the pinned commit; applies nothing (<source>, --no-fetch, --deepen)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["library_select_check"]
 }

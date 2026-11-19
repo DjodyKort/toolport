@@ -822,6 +822,54 @@ pub const TOOLS: &[ToolDef] = &[
         library::select_plan
     ),
     tool!(
+        "library_select_set",
+        3,
+        UnlessDryRun,
+        "Turn single items of a tap or plugin on or off in the selection; nothing is loaded until library_select_apply runs. A hook cannot be turned on here: it runs a command in every session, so a person ticks it after reading the command (toolportctl library select set --tick-hook). dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("source", Ty::Str, true, "A tap, or <tap>/<plugin> for a plugin marketplace tap"),
+            p("on", Ty::StrList, false, "Items to turn on, as library_select_ls names them (a skill, agent, command or rule)"),
+            p("off", Ty::StrList, false, "Items to turn off"),
+            DRY_ON
+        ],
+        library::select_set
+    ),
+    tool!(
+        "library_select_apply",
+        3,
+        UnlessDryRun,
+        "Apply the selection of a tap or plugin: generates the slice plugin, enables it in the Claude Code settings and links chosen rules into the Library, as the plan shows. dry_run is on by default and returns the plan with its plan_hash; apply with dry_run=false, that plan_hash and confirm=true, and it is refused when the source or the settings moved since the plan. Never ticks a hook, never replaces a Library folder Toolport did not write (skip names the rules to leave as they are). The result lists skills_sync as the follow-up; it is not run",
+        [
+            p("source", Ty::Str, true, "A tap, or <tap>/<plugin> for a plugin marketplace tap"),
+            PLAN_HASH,
+            p("fetch", Ty::Bool, false, "Fetch the latest version (default true); must match the plan the hash came from"),
+            p("switch", Ty::Bool, false, "Also switch off the whole plugin that is installed beside the chosen items; must match the plan"),
+            p("skip", Ty::StrList, false, "Rules whose Library folder stays as it is"),
+            DRY_ON
+        ],
+        library::select_apply
+    ),
+    tool!(
+        "library_select_undo",
+        3,
+        Always,
+        "Put back what the last library_select_apply of a source changed: the record, the generated slice and the settings entries; refuses when a rule it linked was edited in the Library since",
+        [p("source", Ty::Str, true, "A tap, or <tap>/<plugin> for a plugin marketplace tap")],
+        library::select_undo
+    ),
+    tool!(
+        "library_select_check",
+        2,
+        None,
+        "Fetch the selected sources and record which have an update plan waiting and whether the pinned commit is still on the remote; applies nothing. deepen downloads the whole history to tell, which costs time and data on a large repository",
+        [
+            p("source", Ty::Str, false, "Only this source; default every selected one"),
+            p("fetch", Ty::Bool, false, "Fetch the latest version (default true); false compares with the local clones"),
+            p("deepen", Ty::Bool, false, "Look at the whole history to see whether the pinned commit is still in it")
+        ],
+        library::select_check
+    ),
+    tool!(
         "skills_git_push",
         4,
         Always,

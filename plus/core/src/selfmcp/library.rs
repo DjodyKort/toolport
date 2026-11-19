@@ -1,13 +1,16 @@
 //! `library_status` (tier 1), `library_pull` (tier 2) and `skills_git_push` (tier 4): the same
 //! operations as `toolportctl library status|pull|push`, over `crate::library`; and
-//! `library_select_ls` and `library_select_plan` (tier 1) over `crate::selective`.
+//! `library_select_ls` and `library_select_plan` (tier 1), `library_select_check` (tier 2),
+//! `library_select_set`, `library_select_apply` and `library_select_undo` (tier 3) over
+//! `crate::selective`. Ticking a hook and forcing over a Library folder stay with the person.
 
 use super::ToolError;
-use crate::args::{flag, flag_or, str_arg};
+use crate::args::{flag, flag_or, nonempty_strings, str_arg};
 use crate::library::{self, connect, remote, sync};
 use crate::op::OpError;
+use crate::selective::check::Request;
 use crate::selective::handlers as selective;
-use crate::selective::ops::Options;
+use crate::selective::ops::{Choices, Options, SetArgs};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use toolport_plus_api::Host;
@@ -109,7 +112,6 @@ pub(super) fn select_ls(host: &dyn Host, args: &Value) -> Result<Value, ToolErro
     })
 }
 
-/// Only plans: applying a plan and ticking a hook are not offered through this server.
 pub(super) fn select_plan(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
     let source = source_arg(args)?;
     with_paths(host, || {
@@ -119,5 +121,88 @@ pub(super) fn select_plan(host: &dyn Host, args: &Value) -> Result<Value, ToolEr
             ..Default::default()
         };
         selective::plan(host, source, opts).map_err(tool_error)
+    })
+}
+
+fn names(args: &Value, key: &str) -> Vec<String> {
+    nonempty_strings(args, key)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|name| name.trim().to_string())
+        .filter(|name| !name.is_empty())
+        .collect()
+}
+
+pub(super) fn select_set(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    let source = source_arg(args)?;
+    let set = SetArgs {
+        on: names(args, "on"),
+        off: names(args, "off"),
+        tick_hook: Vec::new(),
+    };
+    if set.on.is_empty() && set.off.is_empty() {
+        return Err(ToolError::new(
+            "invalid_arguments",
+            "nothing to set: pass on or off",
+        ));
+    }
+    with_paths(host, || {
+        selective::set(host, source, &set, flag_or(args, "dry_run", true)).map_err(tool_error)
+    })
+}
+
+pub(super) fn select_apply(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    let source = source_arg(args)?;
+    let opts = Options {
+        fetch: flag_or(args, "fetch", true),
+        switch: flag(args, "switch"),
+        ..Default::default()
+    };
+    with_paths(host, || {
+        if flag_or(args, "dry_run", true) {
+            let mut plan = selective::plan(host, source, opts).map_err(tool_error)?;
+            plan["applyWith"] = json!(
+                "call library_select_apply with dry_run=false, this plan_hash and confirm=true"
+            );
+            return Ok(plan);
+        }
+        let hash = str_arg(args, "plan_hash")
+            .map(str::trim)
+            .filter(|hash| !hash.is_empty())
+            .ok_or_else(|| {
+                ToolError::new(
+                    "invalid_arguments",
+                    "plan_hash is required: take it from library_select_apply with dry_run=true",
+                )
+            })?;
+        let choices = Choices {
+            force: Vec::new(),
+            skip: names(args, "skip"),
+        };
+        let mut done = selective::apply(host, source, hash, opts, &choices).map_err(tool_error)?;
+        done["followUp"] = json!([{
+            "tool": "skills_sync",
+            "why": "carries chosen rules of the Library to the clients; this tool does not run it",
+        }]);
+        Ok(done)
+    })
+}
+
+pub(super) fn select_undo(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    let source = source_arg(args)?;
+    with_paths(host, || selective::undo(host, source).map_err(tool_error))
+}
+
+pub(super) fn select_check(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    with_paths(host, || {
+        selective::check(
+            host,
+            Request {
+                fetch: flag_or(args, "fetch", true),
+                source: str_arg(args, "source").filter(|s| !s.trim().is_empty()),
+                deepen: flag(args, "deepen"),
+            },
+        )
+        .map_err(tool_error)
     })
 }

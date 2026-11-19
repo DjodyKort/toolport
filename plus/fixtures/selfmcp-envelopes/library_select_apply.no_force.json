@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "force": ["style"],
+    "plan_hash": "sha256:0000000000000000",
+    "source": "picks"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "unknown argument: force"
+    }
+  },
+  "text": "invalid_arguments: unknown argument: force",
+  "tool": "library_select_apply"
+}

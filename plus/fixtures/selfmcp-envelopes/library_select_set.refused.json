@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "on": ["code-review"],
+    "source": "picks"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: library_select_set (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: library_select_set (tier 3). Pass confirm=true to proceed.",
+  "tool": "library_select_set"
+}

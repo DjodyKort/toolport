@@ -83,5 +83,5 @@
   "summary": "Apply a plan: generate the slice plugin of the chosen items, switch it on and install or remove the chosen rules in the Library (<source>, --plan-hash <hash>, --no-fetch, --switch, --force, --skip)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["library_select_apply"]
 }

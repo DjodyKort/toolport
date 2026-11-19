@@ -72,5 +72,5 @@
   "summary": "Record which items of a tap or plugin are on or off; nothing is loaded until a plan is applied (<source>, --on, --off, --tick-hook, --dry-run)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["library_select_set"]
 }

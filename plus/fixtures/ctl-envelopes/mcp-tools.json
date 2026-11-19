@@ -1734,6 +1734,144 @@
           "tier": 2
         },
         {
+          "description": "Turn single items of a tap or plugin on or off in the selection; nothing is loaded until library_select_apply runs. A hook cannot be turned on here: it runs a command in every session, so a person ticks it after reading the command (toolportctl library select set --tick-hook). dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "library_select_set",
+          "params": [
+            {
+              "description": "A tap, or <tap>/<plugin> for a plugin marketplace tap",
+              "name": "source",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Items to turn on, as library_select_ls names them (a skill, agent, command or rule)",
+              "name": "on",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Items to turn off",
+              "name": "off",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Apply the selection of a tap or plugin: generates the slice plugin, enables it in the Claude Code settings and links chosen rules into the Library, as the plan shows. dry_run is on by default and returns the plan with its plan_hash; apply with dry_run=false, that plan_hash and confirm=true, and it is refused when the source or the settings moved since the plan. Never ticks a hook, never replaces a Library folder Toolport did not write (skip names the rules to leave as they are). The result lists skills_sync as the follow-up; it is not run",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "library_select_apply",
+          "params": [
+            {
+              "description": "A tap, or <tap>/<plugin> for a plugin marketplace tap",
+              "name": "source",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Hash of the plan dry_run returned; the write is refused when the plan changed since",
+              "name": "plan_hash",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Fetch the latest version (default true); must match the plan the hash came from",
+              "name": "fetch",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Also switch off the whole plugin that is installed beside the chosen items; must match the plan",
+              "name": "switch",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Rules whose Library folder stays as it is",
+              "name": "skip",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Put back what the last library_select_apply of a source changed: the record, the generated slice and the settings entries; refuses when a rule it linked was edited in the Library since",
+          "dryRunDefault": false,
+          "gate": "always",
+          "name": "library_select_undo",
+          "params": [
+            {
+              "description": "A tap, or <tap>/<plugin> for a plugin marketplace tap",
+              "name": "source",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Fetch the selected sources and record which have an update plan waiting and whether the pinned commit is still on the remote; applies nothing. deepen downloads the whole history to tell, which costs time and data on a large repository",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "library_select_check",
+          "params": [
+            {
+              "description": "Only this source; default every selected one",
+              "name": "source",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Fetch the latest version (default true); false compares with the local clones",
+              "name": "fetch",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Look at the whole history to see whether the pinned commit is still in it",
+              "name": "deepen",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
           "description": "Commit and push the skills repository to its remote",
           "dryRunDefault": false,
           "gate": "always",

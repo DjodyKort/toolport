@@ -1,0 +1,7 @@
+{
+  "command": "library select apply",
+  "dryRun": "default-on",
+  "name": "library_select_apply",
+  "tier": "write",
+  "toolTier": 3
+}

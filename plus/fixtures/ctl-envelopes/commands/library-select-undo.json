@@ -27,5 +27,5 @@
   "summary": "Put back what the last apply for the source changed (<source>)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["library_select_undo"]
 }

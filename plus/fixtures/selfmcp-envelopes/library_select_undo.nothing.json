@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "confirm": true,
+    "source": "picks"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "nothing to undo for picks"
+    }
+  },
+  "text": "not_found: nothing to undo for picks",
+  "tool": "library_select_undo"
+}

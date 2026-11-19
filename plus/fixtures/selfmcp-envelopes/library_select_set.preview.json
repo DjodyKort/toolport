@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "on": ["code-review", "agent:reviewer"],
+    "source": "picks"
+  },
+  "isError": false,
+  "result": {
+    "changed": ["skill:code-review on", "agent:reviewer on"],
+    "dryRun": true,
+    "next": "toolportctl library select plan picks",
+    "on": 2,
+    "source": "picks",
+    "total": 6
+  },
+  "tool": "library_select_set"
+}

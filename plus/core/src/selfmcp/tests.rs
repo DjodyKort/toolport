@@ -52,6 +52,25 @@ fn no_tool_takes_a_credential_value_so_a_secret_never_passes_through_a_model() {
 }
 
 #[test]
+fn library_select_tools_offer_no_way_to_tick_a_hook_or_force_over_a_library_folder() {
+    for name in [
+        "library_select_set",
+        "library_select_apply",
+        "library_select_undo",
+        "library_select_check",
+    ] {
+        let tool = TOOLS.iter().find(|t| t.name == name).unwrap();
+        for param in tool.params {
+            assert!(
+                !["force", "tick_hook", "accept_egress", "out"].contains(&param.name),
+                "{name}: {}",
+                param.name
+            );
+        }
+    }
+}
+
+#[test]
 fn a_call_validates_arguments_before_it_runs() {
     let host = host();
     for (args, kind) in [

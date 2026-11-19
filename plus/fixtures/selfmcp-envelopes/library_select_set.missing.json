@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "source": "picks"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "nothing to set: pass on or off"
+    }
+  },
+  "text": "invalid_arguments: nothing to set: pass on or off",
+  "tool": "library_select_set"
+}

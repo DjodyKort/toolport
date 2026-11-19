@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "off": ["agent:reviewer"],
+    "source": "picks"
+  },
+  "isError": false,
+  "result": {
+    "changed": ["agent:reviewer off"],
+    "dryRun": false,
+    "next": "toolportctl library select plan picks",
+    "on": 1,
+    "source": "picks",
+    "total": 6
+  },
+  "tool": "library_select_set"
+}

@@ -1,0 +1,91 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "plan_hash": "sha256:d4b8e6eb5001ce78",
+    "source": "picks"
+  },
+  "isError": false,
+  "result": {
+    "changes": [],
+    "checked": true,
+    "conflicts": [],
+    "cwd": null,
+    "diffs": {
+      "added": [],
+      "changed": [],
+      "dropped": [],
+      "fresh": [],
+      "gone": [],
+      "retick": [],
+      "rules": [
+        {
+          "id": "style",
+          "kind": "rule"
+        }
+      ]
+    },
+    "dryRun": false,
+    "fetchError": null,
+    "followUp": [
+      {
+        "tool": "skills_sync",
+        "why": "carries chosen rules of the Library to the clients; this tool does not run it"
+      }
+    ],
+    "history": {
+      "error": null,
+      "pinned": "78b20008ec7b986019384f2adc6d00b1fa08c506",
+      "state": "unchecked"
+    },
+    "hooks": {},
+    "id": "picks",
+    "lines": {},
+    "offer": null,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "rule:style is installed into the Library as rules/style",
+          "op": "link"
+        },
+        {
+          "detail": "Run /reload-plugins in running Claude Code sessions, or restart them, to load the change",
+          "op": "note"
+        }
+      ],
+      "summary": "Load the chosen items of picks through picks-selected@toolport-selections: 2 of 6 item(s) on",
+      "undo": "toolportctl library select undo picks",
+      "warnings": []
+    },
+    "planHash": "<masked>",
+    "policy": {
+      "blocked": null,
+      "hooksOff": null
+    },
+    "ref": {
+      "latest": "78b20008ec7b986019384f2adc6d00b1fa08c506",
+      "pinned": "78b20008ec7b986019384f2adc6d00b1fa08c506"
+    },
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": ["rules/style written"],
+      "undo": "toolportctl library select undo picks"
+    },
+    "rules": [
+      {
+        "action": "install",
+        "id": "style",
+        "name": "style",
+        "path": "rules/style"
+      }
+    ],
+    "scope": "user",
+    "slice": "picks-selected@toolport-selections",
+    "source": "picks",
+    "waiting": false,
+    "warnings": []
+  },
+  "tool": "library_select_apply"
+}

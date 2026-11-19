@@ -1,0 +1,11 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "applied": false,
+    "checkedAt": "<TIME>",
+    "sources": [],
+    "waiting": 0
+  },
+  "tool": "library_select_check"
+}

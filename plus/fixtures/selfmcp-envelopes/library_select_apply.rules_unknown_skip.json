@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "plan_hash": "sha256:d4b8e6eb5001ce78",
+    "skip": ["nope"],
+    "source": "picks"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "rule:nope has no conflict to choose for; the plan lists: ; nothing was changed"
+    }
+  },
+  "text": "conflict: rule:nope has no conflict to choose for; the plan lists: ; nothing was changed",
+  "tool": "library_select_apply"
+}

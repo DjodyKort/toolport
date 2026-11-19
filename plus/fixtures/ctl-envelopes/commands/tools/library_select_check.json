@@ -1,0 +1,7 @@
+{
+  "command": "library select check",
+  "dryRun": "none",
+  "name": "library_select_check",
+  "tier": "write",
+  "toolTier": 2
+}

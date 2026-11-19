@@ -150,6 +150,9 @@ const fn prepared(tool: &'static str, prepare: fn(&World), calls: &'static [Call
     }
 }
 
+const SELECT_TAP: &str = r#"{"repo":"{base}/select-src","name":"picks","dry_run":false}"#;
+const SELECT_CHOOSE: &str =
+    r#"{"source":"picks","on":["code-review","agent:reviewer"],"dry_run":false,"confirm":true}"#;
 const BUNDLE: &str = r#"{"bundle_path":"{repo}/skills-repo-bundle.zip"}"#;
 const ADD_TAP: &str = r#"{"repo":"{base}/tap-src","name":"local","dry_run":false}"#;
 const APPLY: &str = r#"{"dry_run":false,"confirm":true}"#;
@@ -2147,6 +2150,150 @@ const CASES: &[Case] = &[
         ],
     ),
     prepared(
+        "library_select_set",
+        taps_world::select_src,
+        &[
+            setup("skills_tap_add", SELECT_TAP),
+            fails(
+                "missing",
+                "invalid_arguments",
+                "library_select_set",
+                r#"{"source":"picks"}"#,
+            ),
+            read(
+                "preview",
+                "library_select_set",
+                r#"{"source":"picks","on":["code-review","agent:reviewer"]}"#,
+            ),
+            refused(
+                "refused",
+                "library_select_set",
+                r#"{"source":"picks","on":["code-review"],"dry_run":false}"#,
+            ),
+            fails(
+                "hook_stays_with_a_person",
+                "invalid_arguments",
+                "library_select_set",
+                r#"{"source":"picks","on":["PostToolUse:Write|Edit"],"dry_run":false,"confirm":true}"#,
+            ),
+            write(
+                "apply",
+                "library_select_set",
+                r#"{"source":"picks","on":["code-review","agent:reviewer"],"dry_run":false,"confirm":true}"#,
+            ),
+            write(
+                "off",
+                "library_select_set",
+                r#"{"source":"picks","off":["agent:reviewer"],"dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "library_select_apply",
+        select_with_library,
+        &[
+            setup("skills_tap_add", SELECT_TAP),
+            setup("library_select_set", SELECT_CHOOSE),
+            read("plan", "library_select_apply", r#"{"source":"picks"}"#),
+            fails(
+                "no_hash",
+                "invalid_arguments",
+                "library_select_apply",
+                r#"{"source":"picks","dry_run":false,"confirm":true}"#,
+            ),
+            refused(
+                "refused",
+                "library_select_apply",
+                r#"{"source":"picks","plan_hash":"sha256:0000000000000000","dry_run":false}"#,
+            ),
+            fails(
+                "wrong_hash",
+                "conflict",
+                "library_select_apply",
+                r#"{"source":"picks","plan_hash":"sha256:0000000000000000","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "no_force",
+                "invalid_arguments",
+                "library_select_apply",
+                r#"{"source":"picks","plan_hash":"sha256:0000000000000000","force":["style"],"dry_run":false,"confirm":true}"#,
+            ),
+            write(
+                "apply",
+                "library_select_apply",
+                r#"{"source":"picks","plan_hash":"sha256:4fa22760680f65ff","dry_run":false,"confirm":true}"#,
+            ),
+            Call {
+                label: "choose_rule",
+                ..setup(
+                    "library_select_set",
+                    r#"{"source":"picks","on":["style"],"dry_run":false,"confirm":true}"#,
+                )
+            },
+            read(
+                "rules_plan",
+                "library_select_apply",
+                r#"{"source":"picks"}"#,
+            ),
+            fails(
+                "rules_unknown_skip",
+                "conflict",
+                "library_select_apply",
+                r#"{"source":"picks","plan_hash":"sha256:d4b8e6eb5001ce78","skip":["nope"],"dry_run":false,"confirm":true}"#,
+            ),
+            write(
+                "rules_apply",
+                "library_select_apply",
+                r#"{"source":"picks","plan_hash":"sha256:d4b8e6eb5001ce78","dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "library_select_undo",
+        taps_world::select_src,
+        &[
+            setup("skills_tap_add", SELECT_TAP),
+            setup("library_select_set", SELECT_CHOOSE),
+            refused("refused", "library_select_undo", r#"{"source":"picks"}"#),
+            fails(
+                "nothing",
+                "not_found",
+                "library_select_undo",
+                r#"{"source":"picks","confirm":true}"#,
+            ),
+            setup(
+                "library_select_apply",
+                r#"{"source":"picks","plan_hash":"sha256:4fa22760680f65ff","dry_run":false,"confirm":true}"#,
+            ),
+            write(
+                "undo",
+                "library_select_undo",
+                r#"{"source":"picks","confirm":true}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "library_select_check",
+        taps_world::select_src,
+        &[
+            write("none", "library_select_check", "{}"),
+            setup("skills_tap_add", SELECT_TAP),
+            setup("library_select_set", SELECT_CHOOSE),
+            write("waiting", "library_select_check", r#"{"source":"picks"}"#),
+            write(
+                "local",
+                "library_select_check",
+                r#"{"fetch":false,"deepen":true}"#,
+            ),
+            fails(
+                "unknown",
+                "not_found",
+                "library_select_check",
+                r#"{"source":"nope"}"#,
+            ),
+        ],
+    ),
+    prepared(
         "skills_tap_link",
         taps_world::both,
         &[
@@ -2707,6 +2854,11 @@ fn arguments(world: &World, case: &Case, call: &Call) -> Value {
         .replace("{base}", &world.base.to_string_lossy());
     serde_json::from_str(&expanded)
         .unwrap_or_else(|e| panic!("{} {}: arguments are not JSON: {e}", case.tool, call.label))
+}
+
+fn select_with_library(world: &World) {
+    taps_world::select_src(world);
+    taps_world::library_with_style(world);
 }
 
 fn outside_link(world: &World) {

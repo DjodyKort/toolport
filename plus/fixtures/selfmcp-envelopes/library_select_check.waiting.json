@@ -1,0 +1,31 @@
+{
+  "arguments": {
+    "source": "picks"
+  },
+  "isError": false,
+  "result": {
+    "applied": false,
+    "checkedAt": "<TIME>",
+    "sources": [
+      {
+        "changed": 0,
+        "checked": true,
+        "fetchError": null,
+        "fresh": 0,
+        "gone": 0,
+        "history": {
+          "error": null,
+          "pinned": null,
+          "state": "unchecked"
+        },
+        "latest": "78b20008ec7b986019384f2adc6d00b1fa08c506",
+        "planHash": "<masked>",
+        "retick": 0,
+        "source": "picks",
+        "waiting": false
+      }
+    ],
+    "waiting": 0
+  },
+  "tool": "library_select_check"
+}

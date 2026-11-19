@@ -1,0 +1,7 @@
+{
+  "command": "library select set",
+  "dryRun": "default-on",
+  "name": "library_select_set",
+  "tier": "write",
+  "toolTier": 3
+}

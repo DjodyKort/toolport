@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "plan_hash": "sha256:0000000000000000",
+    "source": "picks"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "the plan changed since it was made (now sha256:4fa22760680f65ff); run `toolportctl library select plan picks` again and apply that"
+    }
+  },
+  "text": "conflict: the plan changed since it was made (now sha256:4fa22760680f65ff); run `toolportctl library select plan picks` again and apply that",
+  "tool": "library_select_apply"
+}

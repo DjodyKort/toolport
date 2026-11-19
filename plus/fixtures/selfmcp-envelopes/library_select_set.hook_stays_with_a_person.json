@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "on": ["PostToolUse:Write|Edit"],
+    "source": "picks"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "hook 'PostToolUse:Write|Edit' runs a command in every session; tick it with --tick-hook so the command is read first"
+    }
+  },
+  "text": "invalid_arguments: hook 'PostToolUse:Write|Edit' runs a command in every session; tick it with --tick-hook so the command is read first",
+  "tool": "library_select_set"
+}
