@@ -1,6 +1,6 @@
 {
   "route": "attention-manage",
   "status": "built",
-  "summary": "The switches of every check, the days after which a server counts as stale, the notification categories and the test notification in Settings > Toolport+ > Attention (attention settings, set, notify; attention_settings, attention_set)",
+  "summary": "The switches of every check, the days after which a server counts as stale, the notification categories, the test notification and the permission state (allowed, not asked, blocked, unknown) with a button that opens the system's notification settings in Settings > Toolport+ > Attention (attention settings, set, notify; attention_settings, attention_set)",
   "test": "src/plus/attention/AttentionManage.test.tsx"
 }

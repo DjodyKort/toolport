@@ -195,12 +195,17 @@ if (typeof location !== "undefined") plusFixtureFromSearch(location.search);
 
 /** `?plus-bell` shows the footer bell with five rows, `?plus-bell=clear` with none and
  * `?plus-bell=unchecked` with one area that could not be read; without it `attention ls` fails and
- * the bell stays out. */
+ * the bell stays out. `?plus-notify=allowed|not-asked|blocked` sets what the system says about
+ * notifications (unknown without it). */
 function attentionFromSearch(params: URLSearchParams): WorldOptions["attention"] {
   if (!params.has("plus-bell")) return {};
   const scenario = params.get("plus-bell");
+  const notify = params.get("plus-notify");
   return {
     scenario: scenario === "clear" || scenario === "unchecked" ? scenario : "busy",
+    ...(notify === "allowed" || notify === "not-asked" || notify === "blocked"
+      ? { permission: notify }
+      : {}),
   };
 }
 

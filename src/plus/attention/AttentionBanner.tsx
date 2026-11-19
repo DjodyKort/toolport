@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { CircleAlert, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusCard } from "@/components/ui/status-card";
@@ -7,6 +7,7 @@ import { ctlData } from "../bridge/ctl";
 import { useAttentionSnapshot, type AttentionItem } from "../shell/attentionFeed";
 import { refreshAttention } from "./attentionCtl";
 import { RowMenu } from "./RowMenu";
+import { registerShownPage } from "./shownPages";
 
 type Page = "servers" | "tasks" | "library";
 
@@ -108,6 +109,7 @@ export function AttentionBanner({
   className?: string;
 }) {
   const snapshot = useAttentionSnapshot();
+  useEffect(() => registerShownPage(page), [page]);
   const rows = (snapshot?.items ?? []).filter(
     (item) =>
       item.action?.view === page && !except.some((prefix) => item.id.startsWith(prefix)),

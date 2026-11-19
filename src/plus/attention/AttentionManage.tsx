@@ -8,6 +8,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { toastError } from "@/lib/toast";
+import { CtlError } from "../bridge/ctl";
 import type {
   AttentionCheckName,
   AttentionData,
@@ -24,10 +25,12 @@ import {
   readSettings,
   refreshAttention,
   restoreRow,
+  openNotificationSettings,
   sendTestNotification,
   setStaleDays,
   setSwitch,
 } from "./attentionCtl";
+import { NotifyPermission } from "./NotifyPermission";
 import { RowMenu } from "./RowMenu";
 
 function StaleDays({
@@ -270,9 +273,32 @@ export default function AttentionManage() {
 
   const sendTest = () =>
     run(async () => {
-      await sendTestNotification();
-      toast.success("A test notification was sent");
+      try {
+        const result = await sendTestNotification();
+        if (result.confirmed) toast.success("A test notification was sent");
+        else
+          toast.info("The test notification was handed to the system", {
+            description: result.note,
+          });
+      } catch (cause) {
+        if (cause instanceof CtlError && cause.code === "notifications_blocked") {
+          toastError("macOS blocks notifications from Toolport+", {
+            description: errorText(cause),
+          });
+        } else {
+          toastError("The test notification did not arrive", {
+            description: errorText(cause),
+          });
+        }
+      } finally {
+        load();
+      }
     }, "The test notification did not arrive");
+
+  const openSettings = () =>
+    run(async () => {
+      await openNotificationSettings();
+    }, "The system settings did not open");
 
   if (error !== null && view === null) {
     return (
@@ -443,7 +469,8 @@ export default function AttentionManage() {
               <p className="text-sm font-medium">Notify me when something needs me</p>
               <p className="text-meta text-muted-foreground">
                 Only Needs-you rows ever notify. One notification per new row; several at
-                once arrive as one. Nothing shows while this window has the focus.
+                once arrive as one. While this window has the focus, a toast shows instead
+                of a system notification.
               </p>
             </div>
             <Button
@@ -461,6 +488,13 @@ export default function AttentionManage() {
               onCheckedChange={(next) => void flip("notify", next)}
             />
           </div>
+        </div>
+        <div className="mt-3">
+          <NotifyPermission
+            permission={settings.notify.permission.state}
+            busy={busy}
+            onOpenSettings={() => void openSettings()}
+          />
         </div>
       </section>
     </div>

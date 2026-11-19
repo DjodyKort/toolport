@@ -113,7 +113,10 @@ describe("Settings > Toolport+ > Attention", () => {
     );
     await waitFor(() => expect(send).toBeEnabled());
     await userEvent.click(send);
-    expect(await screen.findByText("A test notification was sent")).toBeVisible();
+    expect(
+      await screen.findByText("The test notification was handed to the system"),
+    ).toBeVisible();
+    expect(screen.getByText(/does not tell Toolport\+ whether/)).toBeVisible();
   });
 
   it("test07_a_list_that_cannot_be_read_says_so_with_a_retry", async () => {
@@ -154,5 +157,68 @@ describe("Settings > Toolport+ > Attention", () => {
     await userEvent.type(days, "999");
     await userEvent.tab();
     await waitFor(() => expect(days).toHaveValue(14));
+  });
+
+  it("test10_a_platform_that_reports_allowed_confirms_the_test_and_shows_the_allowed_state", async () => {
+    resetPlusFixture({ attention: { scenario: "busy", permission: "allowed" } });
+    mount();
+    expect(
+      await screen.findByText("macOS allows notifications from Toolport+"),
+    ).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("switch", { name: "Notify me when something needs me" }),
+    );
+    const send = screen.getByRole("button", { name: "Send a test" });
+    await waitFor(() => expect(send).toBeEnabled());
+    await userEvent.click(send);
+    expect(await screen.findByText("A test notification was sent")).toBeVisible();
+  });
+
+  it("test11_blocked_shows_how_to_fix_it_and_the_test_fails_instead_of_saying_sent", async () => {
+    resetPlusFixture({ attention: { scenario: "busy", permission: "blocked" } });
+    mount();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("macOS blocks notifications from Toolport+");
+    expect(alert).toHaveTextContent("System Settings > Notifications > Toolport+");
+    await userEvent.click(
+      screen.getByRole("switch", { name: "Notify me when something needs me" }),
+    );
+    const send = screen.getByRole("button", { name: "Send a test" });
+    await waitFor(() => expect(send).toBeEnabled());
+    await userEvent.click(send);
+    expect(
+      await screen.findByText("macOS blocks notifications from Toolport+", {
+        selector: "[data-title]",
+      }),
+    ).toBeVisible();
+    expect(screen.queryByText("A test notification was sent")).toBeNull();
+  });
+
+  it("test12_open_system_settings_asks_the_app_to_open_them", async () => {
+    resetPlusFixture({ attention: { scenario: "busy", permission: "blocked" } });
+    mount();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Open System Settings" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Open System Settings" })).toBeEnabled(),
+    );
+    expect(screen.queryByText("The system settings did not open")).toBeNull();
+  });
+
+  it("test13_not_asked_says_the_first_test_asks_once", async () => {
+    resetPlusFixture({ attention: { scenario: "busy", permission: "not-asked" } });
+    mount();
+    expect(await screen.findByText("macOS has not been asked yet")).toBeVisible();
+  });
+
+  it("test14_an_unreadable_permission_is_named_as_unknown_with_the_way_to_check", async () => {
+    mount();
+    expect(
+      await screen.findByText("Toolport+ cannot see whether macOS allows notifications"),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Open System Settings" }),
+    ).toBeInTheDocument();
   });
 });

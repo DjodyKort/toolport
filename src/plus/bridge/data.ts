@@ -241,15 +241,30 @@ export interface AttentionHiddenRow extends AttentionRow {
 export type AttentionCheckName =
   "credentials" | "updates" | "access" | "tasks" | "library";
 
+/** What the app's notifier last learned from the system. `unknown` is a platform that never
+ * says (macOS through the desktop plugin) and a notifier that has not reported yet. */
+export type NotifyPermission = "allowed" | "not-asked" | "blocked" | "unknown";
+
 /** `attention settings`: which checks run and which categories may notify. */
 export interface AttentionSettings {
   checks: Array<{ name: AttentionCheckName; on: boolean }>;
   notify: {
     enabled: boolean;
     categories: Array<{ name: AttentionCheckName; on: boolean }>;
+    permission: { state: NotifyPermission; checkedAt: string | null };
   };
   /** Days without a successful call after which a server in use counts as stale. */
   staleDays: number;
+}
+
+/** `attention notify --test`: the system was handed the notification. `confirmed` is true only
+ * when the platform also reports the permission as granted; otherwise `note` says what to check. */
+export interface AttentionNotifyResult {
+  sent: true;
+  channel: "system";
+  permission: NotifyPermission;
+  confirmed: boolean;
+  note?: string;
 }
 
 /** `attention check`: what the network pass looked at. */

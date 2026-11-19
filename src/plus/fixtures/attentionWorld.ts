@@ -4,6 +4,7 @@ import type {
   AttentionHiddenRow,
   AttentionRow,
   AttentionSettings,
+  NotifyPermission,
 } from "../bridge/data";
 import type { CtlReply } from "./ctlWorld";
 
@@ -24,6 +25,8 @@ export interface AttentionWorldOptions {
   /** Without a scenario `attention ls` fails the way a build without toolportctl does, so the bell
    * stays out. */
   scenario?: AttentionScenario;
+  /** What the system says about notifications; the real app cannot read it on macOS. */
+  permission?: NotifyPermission;
 }
 
 const iso = (at: number) => new Date(at).toISOString().replace(/\.\d+Z$/, "Z");
@@ -216,6 +219,7 @@ export function createAttentionWorld(options: AttentionWorldOptions = {}) {
         name,
         on: NOTIFIES_BY_DEFAULT.includes(name),
       })),
+      permission: { state: options.permission ?? "unknown", checkedAt: null },
     },
     staleDays: 30,
   };
@@ -335,7 +339,27 @@ export function createAttentionWorld(options: AttentionWorldOptions = {}) {
         };
       }
       if (verb === "notify") {
-        return { ok: true, data: { sent: true } };
+        if (argv.includes("--open-settings")) return { ok: true, data: { opened: true } };
+        const state = settings.notify.permission.state;
+        if (state === "blocked") {
+          return fail(
+            "notifications_blocked",
+            "the system blocks notifications from Toolport+; allow them in System Settings > Notifications > Toolport+",
+          );
+        }
+        const confirmed = state === "allowed";
+        return {
+          ok: true,
+          data: {
+            sent: true,
+            channel: "system",
+            permission: state,
+            confirmed,
+            ...(!confirmed && {
+              note: "Handed to the system. This platform does not tell Toolport+ whether notifications are allowed; if nothing appeared, check System Settings > Notifications > Toolport+",
+            }),
+          },
+        };
       }
       return fail("usage", `unknown command: ${argv.join(" ")}`);
     },

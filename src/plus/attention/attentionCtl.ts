@@ -4,6 +4,7 @@ import type {
   AttentionCheckReport,
   AttentionData,
   AttentionHideResult,
+  AttentionNotifyResult,
   AttentionSettings,
 } from "../bridge/data";
 
@@ -123,6 +124,11 @@ export function checkNow() {
   return ctlData<AttentionCheckReport>(["attention", "check"]);
 }
 
+/** Fails with the code `notifications_blocked` when the system blocks Toolport+. */
 export function sendTestNotification() {
-  return ctlData<{ sent: boolean }>(["attention", "notify", "--test"]);
+  return ctlData<AttentionNotifyResult>(["attention", "notify", "--test"]);
+}
+
+export function openNotificationSettings() {
+  return ctlData<{ opened: true }>(["attention", "notify", "--open-settings"]);
 }
