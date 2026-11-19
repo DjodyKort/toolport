@@ -1,6 +1,8 @@
 use super::transpilers::WINDSURF_WORKSPACE_CHAR_LIMIT;
-use super::Style;
-use crate::skills::lint::{stripped_lines, LintResult};
+use super::{Style, StyleKind};
+use crate::skills::kind::discover_report;
+use crate::skills::lint::{lint_unreadable, stripped_lines, LintResult, RepoLint};
+use std::path::Path;
 
 pub fn lint_style(style: &Style) -> LintResult {
     let mut result = LintResult::default();
@@ -77,4 +79,18 @@ pub fn lint_styles(styles: &[Style]) -> LintResult {
         seen.push(style.name());
     }
     result
+}
+
+/// The checks of every style that parses, and an error row for each style file that does not.
+pub fn lint_repo(repo: &Path) -> RepoLint {
+    let found = discover_report::<StyleKind>(repo);
+    let mut result = lint_styles(&found.items);
+    result
+        .messages
+        .extend(lint_unreadable(&found.failures).messages);
+    RepoLint {
+        count: found.items.len(),
+        warnings: found.warnings,
+        result,
+    }
 }

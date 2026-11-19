@@ -1,6 +1,6 @@
 //! Pydantic-style lax coercions shared by the agent and style frontmatter models.
 
-use super::parser::{valid_name, want_str};
+use super::parser::{valid_name, want_str, DESCRIPTION_LIMIT};
 use serde_yaml::{Mapping, Value};
 
 pub(crate) type Fm = [(String, Value)];
@@ -79,8 +79,10 @@ pub(crate) fn name_and_description(fm: &Fm) -> Result<(String, String), String> 
         "description",
     )?;
     let len = description.chars().count();
-    if len == 0 || len > 1024 {
-        return Err("description must be 1-1024 characters".into());
+    if len == 0 || len > DESCRIPTION_LIMIT {
+        return Err(format!(
+            "description must be 1-{DESCRIPTION_LIMIT} characters"
+        ));
     }
     Ok((name, description))
 }

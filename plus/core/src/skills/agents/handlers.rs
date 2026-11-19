@@ -5,7 +5,7 @@
 //! repository from it. Agent files that fail to parse are skipped and listed as
 //! `discoveryWarnings`.
 
-use super::lint::lint_agents;
+use super::lint::lint_repo;
 use super::manage::add_agent;
 use super::{all_agent_transpilers, discover_agents_report, sync_scoped, Agent, AgentFrontmatter};
 use crate::args::{flag, flag_or, nonempty_strings, str_nonempty};
@@ -49,12 +49,14 @@ pub fn list_handler(args: Value) -> Result<Value, String> {
 }
 
 pub fn lint_handler(args: Value) -> Result<Value, String> {
-    let (repo, agents, warnings) = discovered(&args)?;
-    let result = lint_agents(&agents);
+    let start = str_nonempty(&args, "repo_path").map(|p| resolve_path(Path::new(p)));
+    let repo = find_repo(start.as_deref()).ok_or("no skills repository found")?;
+    let linted = lint_repo(&repo);
+    let result = &linted.result;
     let (errors, warns) = (result.errors().count(), result.warnings().count());
     Ok(json!({
         "repo": display(&repo),
-        "agentCount": agents.len(),
+        "agentCount": linted.count,
         "errors": errors,
         "warnings": warns,
         "infos": result.messages.len() - errors - warns,
@@ -63,7 +65,7 @@ pub fn lint_handler(args: Value) -> Result<Value, String> {
             .iter()
             .map(|m| json!({"level": m.level, "name": m.name, "message": m.message}))
             .collect::<Vec<_>>(),
-        "discoveryWarnings": warnings,
+        "discoveryWarnings": linted.warnings,
     }))
 }
 

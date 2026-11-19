@@ -398,6 +398,30 @@ pub fn lint_parse_failures(repo: &Path, failures: &[ParseFailure]) -> LintResult
     result
 }
 
+/// What the lint of a repository's agents or styles found, with the items that parsed counted.
+#[derive(Debug)]
+pub struct RepoLint {
+    pub count: usize,
+    pub warnings: Vec<String>,
+    pub result: LintResult,
+}
+
+/// Agents and styles that did not parse are dropped from discovery like skills, so each one is an
+/// error row; the reason names the description limit when that is what failed.
+pub fn lint_unreadable(failures: &[ParseFailure]) -> LintResult {
+    let mut result = LintResult::default();
+    for failure in failures {
+        result.error(
+            &failure.name,
+            format!(
+                "{} cannot be read and is not synced: {}",
+                failure.path, failure.reason
+            ),
+        );
+    }
+    result
+}
+
 /// A description between the spec limit and what Claude Code keeps is cut by every other client.
 /// It is a warning while only Claude Code receives skills and an error once another client does.
 pub fn lint_description_lengths(skills: &[Skill], other_clients_on: bool) -> LintResult {

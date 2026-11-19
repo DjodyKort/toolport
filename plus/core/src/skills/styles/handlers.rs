@@ -5,7 +5,7 @@
 //! which needs none. Style files that fail to parse are skipped and listed as
 //! `discoveryWarnings`.
 
-use super::lint::lint_styles;
+use super::lint::lint_repo;
 use super::manage::{
     add_style, apply_scoped, check_style_name, is_native_client, remove_scoped, sync_scoped,
 };
@@ -66,12 +66,13 @@ pub fn list_handler(args: Value) -> Result<Value, String> {
 }
 
 pub fn lint_handler(args: Value) -> Result<Value, String> {
-    let (repo, styles, warnings) = discovered(&args)?;
-    let result = lint_styles(&styles);
+    let repo = found_repo(&args)?;
+    let linted = lint_repo(&repo);
+    let result = &linted.result;
     let (errors, warns) = (result.errors().count(), result.warnings().count());
     Ok(json!({
         "repo": display(&repo),
-        "styleCount": styles.len(),
+        "styleCount": linted.count,
         "errors": errors,
         "warnings": warns,
         "infos": result.messages.len() - errors - warns,
@@ -80,7 +81,7 @@ pub fn lint_handler(args: Value) -> Result<Value, String> {
             .iter()
             .map(|m| json!({"level": m.level, "name": m.name, "message": m.message}))
             .collect::<Vec<_>>(),
-        "discoveryWarnings": warnings,
+        "discoveryWarnings": linted.warnings,
     }))
 }
 

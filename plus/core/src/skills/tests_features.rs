@@ -216,6 +216,48 @@ fn agent_lint_reports_conflicts() {
     assert!(result.has_errors());
 }
 
+#[test]
+fn agent_and_style_descriptions_share_the_skill_limit() {
+    let t = Tmp::new("shared-limit");
+    let limit = super::parser::DESCRIPTION_LIMIT;
+    let edge = "x".repeat(limit);
+    let over = "x".repeat(limit + 1);
+    put(
+        &t.0,
+        "agents/edge/AGENT.md",
+        &format!("---\nname: edge\ndescription: \"{edge}\"\n---\nbody\n"),
+    );
+    put(
+        &t.0,
+        "agents/over/AGENT.md",
+        &format!("---\nname: over\ndescription: \"{over}\"\n---\nbody\n"),
+    );
+    put(
+        &t.0,
+        "styles/over/STYLE.md",
+        &format!("---\nname: over\ndescription: \"{over}\"\n---\nbody\n"),
+    );
+    let agents = super::agents::lint::lint_repo(&t.0);
+    assert_eq!(agents.count, 1, "only the agent inside the limit parses");
+    let unreadable: Vec<_> = agents.result.errors().collect();
+    assert_eq!(unreadable.len(), 1);
+    assert_eq!(unreadable[0].name, "over");
+    assert!(
+        unreadable[0].message.contains("agents/over/AGENT.md")
+            && unreadable[0]
+                .message
+                .contains(&format!("description must be 1-{limit} characters")),
+        "{}",
+        unreadable[0].message
+    );
+    let styles = super::styles::lint::lint_repo(&t.0);
+    assert_eq!(styles.count, 0);
+    assert!(styles
+        .result
+        .errors()
+        .any(|m| m.message.contains(&format!("1-{limit} characters"))));
+}
+
 fn style_md(name: &str, body: &str) -> String {
     format!("---\nname: {name}\ndescription: Be {name} in every answer\n---\n{body}\n")
 }

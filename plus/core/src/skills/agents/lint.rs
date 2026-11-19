@@ -1,5 +1,7 @@
-use super::Agent;
-use crate::skills::lint::LintResult;
+use super::{Agent, AgentKind};
+use crate::skills::kind::discover_report;
+use crate::skills::lint::{lint_unreadable, LintResult, RepoLint};
+use std::path::Path;
 
 const VALID_MODELS: &[&str] = &["sonnet", "opus", "haiku", "inherit"];
 
@@ -88,4 +90,18 @@ pub fn lint_agents(agents: &[Agent]) -> LintResult {
         seen.push(agent.name());
     }
     result
+}
+
+/// The checks of every agent that parses, and an error row for each agent file that does not.
+pub fn lint_repo(repo: &Path) -> RepoLint {
+    let found = discover_report::<AgentKind>(repo);
+    let mut result = lint_agents(&found.items);
+    result
+        .messages
+        .extend(lint_unreadable(&found.failures).messages);
+    RepoLint {
+        count: found.items.len(),
+        warnings: found.warnings,
+        result,
+    }
 }

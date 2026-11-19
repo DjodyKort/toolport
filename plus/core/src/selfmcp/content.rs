@@ -6,7 +6,7 @@ use super::skills::{kebab, path_safe, repo_of as skills_repo};
 use super::ToolError;
 use crate::args::{flag, flag_or, nonempty_strings, str_arg};
 use crate::hashing::lock_hash;
-use crate::skills::agents::lint::lint_agents;
+use crate::skills::agents::lint::lint_repo as lint_agent_repo;
 use crate::skills::agents::{
     all_agent_transpilers, discover_agents, sync_scoped, Agent, AgentKind,
 };
@@ -16,7 +16,7 @@ use crate::skills::lock::LockFile;
 use crate::skills::ops::read_lock;
 use crate::skills::parser::{build_frontmatter, parse_frontmatter, Skill, SkillKind};
 use crate::skills::pyfs::write_text;
-use crate::skills::styles::lint::lint_styles;
+use crate::skills::styles::lint::lint_repo as lint_style_repo;
 use crate::skills::styles::manage::{
     apply_scoped, remove_scoped, style_template, sync_scoped as sync_styles_scoped,
 };
@@ -210,12 +210,12 @@ pub(super) fn styles_edit_body(host: &dyn Host, args: &Value) -> Outcome {
 
 pub(super) fn agents_lint(host: &dyn Host, args: &Value) -> Outcome {
     let _paths = enter(host);
-    skills_repo(args).map(|r| lint_json(&lint_agents(&discover_agents(&r))))
+    skills_repo(args).map(|r| lint_json(&lint_agent_repo(&r).result))
 }
 
 pub(super) fn styles_lint(host: &dyn Host, args: &Value) -> Outcome {
     let _paths = enter(host);
-    skills_repo(args).map(|r| lint_json(&lint_styles(&discover_styles(&r))))
+    skills_repo(args).map(|r| lint_json(&lint_style_repo(&r).result))
 }
 
 pub(super) fn agents_list_transpilers(host: &dyn Host, _: &Value) -> Outcome {
