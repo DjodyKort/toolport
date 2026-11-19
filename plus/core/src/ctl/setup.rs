@@ -81,6 +81,7 @@ pub(super) const CHECK: Spec = Spec {
         greedy("--tick").needs("an item"),
         greedy("--untick").needs("an item"),
         greedy("--ack").needs("a finding id"),
+        switch("--since"),
     ],
     ..PARTS
 };
@@ -328,6 +329,7 @@ pub fn check(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
             tick: strings("--tick"),
             untick: strings("--untick"),
             ack: strings("--ack"),
+            since: flags.on("--since"),
         },
     )?;
     let mut human = format!(

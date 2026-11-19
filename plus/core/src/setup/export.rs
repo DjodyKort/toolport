@@ -502,7 +502,7 @@ pub fn run(ctx: &Ctx<'_>, opts: &Options, passphrase: Option<&str>) -> Result<Va
     }
     let bytes = std::fs::metadata(&target).map_or(0, |m| m.len());
     if !opts.seal_file {
-        record_last(ctx, &target, &manifest, bytes);
+        record_last(ctx, &target, &manifest, bytes, opts, &parts);
     }
     let mut data = json!({
         "dryRun": false,
@@ -593,20 +593,150 @@ fn peek(part: &Part) -> Value {
     json!({"dryRun": true, "peek": {"part": part.id.id(), "label": part.id.label(), "files": files}})
 }
 
-fn record_last(ctx: &Ctx<'_>, target: &Path, manifest: &Value, bytes: u64) {
+/// The entries of a readable part by name and hash, as a later check compares them. The zip of
+/// uncommitted skills is left out: it is made anew every time.
+fn entry_hashes(part: &Part) -> serde_json::Map<String, Value> {
+    part.entries
+        .iter()
+        .filter(|e| !e.name.ends_with(".zip"))
+        .filter_map(|e| Some((e.name.clone(), json!(e.hash().ok()?))))
+        .collect()
+}
+
+/// Branch per repository path from the repositories part, so a check can say how many changed branch.
+fn branches_of(part: &Part) -> std::collections::BTreeMap<String, String> {
+    let doc = part.entries.iter().find_map(|e| match &e.body {
+        Body::Bytes(bytes) if e.name == "repos.json" => serde_json::from_slice::<Value>(bytes).ok(),
+        _ => None,
+    });
+    doc.iter()
+        .flat_map(|d| d["repos"].as_array())
+        .flatten()
+        .filter_map(|r| {
+            Some((
+                r["path"].as_str()?.to_string(),
+                r["branch"].as_str()?.to_string(),
+            ))
+        })
+        .collect()
+}
+
+fn options_json(opts: &Options) -> Value {
+    json!({
+        "roots": opts.roots.iter().map(|r| r.to_string_lossy()).collect::<Vec<_>>(),
+        "worktrees": opts.worktrees,
+        "skipNoRemote": opts.skip_no_remote,
+        "libraryZip": opts.library_zip,
+        "without": opts.without,
+        "sessionRepos": opts.session_repos,
+    })
+}
+
+fn options_from(doc: &Value) -> Options {
+    let strings = |key: &str| -> Vec<String> {
+        doc[key]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect()
+    };
+    Options {
+        roots: strings("roots").into_iter().map(PathBuf::from).collect(),
+        worktrees: doc["worktrees"].as_bool().unwrap_or(true),
+        skip_no_remote: doc["skipNoRemote"].as_bool().unwrap_or(false),
+        library_zip: doc["libraryZip"].as_bool().unwrap_or(false),
+        without: strings("without").into_iter().collect(),
+        session_repos: strings("sessionRepos"),
+        ..Options::default()
+    }
+}
+
+fn record_last(
+    ctx: &Ctx<'_>,
+    target: &Path,
+    manifest: &Value,
+    bytes: u64,
+    opts: &Options,
+    parts: &[Part],
+) {
+    let files: std::collections::BTreeMap<&str, serde_json::Map<String, Value>> = parts
+        .iter()
+        .filter(|p| !p.id.sealed() && !p.id.sync_only())
+        .map(|p| (p.id.id(), entry_hashes(p)))
+        .collect();
     let doc = json!({
         "version": 1,
         "file": target.to_string_lossy(),
         "madeAt": manifest["madeAt"],
         "bytes": bytes,
+        "options": options_json(opts),
         "parts": manifest["parts"]
             .as_array()
             .into_iter()
             .flatten()
-            .map(|p| (p["id"].as_str().unwrap_or("").to_string(), json!({"count": p["count"], "sha256": p["sha256"]})))
+            .map(|p| {
+                let id = p["id"].as_str().unwrap_or("");
+                let mut row = json!({"count": p["count"], "sha256": p["sha256"]});
+                if let Some(files) = files.get(id) {
+                    row["files"] = json!(files);
+                }
+                if let Some(repos) = parts.iter().find(|p| p.id == PartId::Repos && id == "repos") {
+                    row["branches"] = json!(branches_of(repos));
+                }
+                (id.to_string(), row)
+            })
             .collect::<serde_json::Map<_, _>>(),
     });
     let mut text = serde_json::to_string_pretty(&doc).unwrap_or_default();
     text.push('\n');
     let _ = crate::fsx::write_private(&last_export_path(ctx), &text);
+}
+
+/// What changed on this Mac since the last export, part by part: the readable parts are built
+/// again the way that export built them and their entries compared by hash. `None` when the record
+/// predates this check or the working folder cannot be made.
+pub fn changed_since(ctx: &Ctx<'_>, last: &Value) -> Option<Value> {
+    let mut opts = options_from(last.get("options")?);
+    let recorded = last["parts"].as_object()?;
+    opts.parts = recorded
+        .iter()
+        .filter(|(_, row)| row.get("files").is_some())
+        .filter_map(|(id, _)| PartId::parse(id))
+        .collect();
+    let scan = scan_repos(ctx, &opts, false);
+    let scratch = Scratch::new(ctx).ok()?;
+    let parts = build_all(ctx, &opts, &scan, scratch.path(), true, None);
+    let mut changed = Vec::new();
+    for part in parts.iter().filter(|p| p.error.is_none()) {
+        let was = recorded.get(part.id.id())?;
+        let was_files = was["files"].as_object()?;
+        let now = entry_hashes(part);
+        let added = now.keys().filter(|n| !was_files.contains_key(*n)).count();
+        let removed = was_files.keys().filter(|n| !now.contains_key(*n)).count();
+        let differ = now
+            .iter()
+            .filter(|(n, h)| was_files.get(*n).is_some_and(|w| w != *h))
+            .count();
+        if added + removed + differ > 0 {
+            let mut row = json!({
+                "id": part.id.id(),
+                "label": part.id.label(),
+                "added": added,
+                "removed": removed,
+                "changed": differ,
+                "countWas": was["count"],
+                "countNow": part.count,
+            });
+            if let (PartId::Repos, Some(old)) = (part.id, was["branches"].as_object()) {
+                let now = branches_of(part);
+                row["branchChanges"] = json!(now
+                    .iter()
+                    .filter(|(path, branch)| old.get(*path).is_some_and(|b| b != *branch))
+                    .count());
+            }
+            changed.push(row);
+        }
+    }
+    Some(json!({"parts": changed}))
 }

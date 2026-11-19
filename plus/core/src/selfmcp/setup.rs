@@ -193,6 +193,7 @@ pub(super) fn check(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
                 tick: nonempty_strings(args, "tick").unwrap_or_default(),
                 untick: nonempty_strings(args, "untick").unwrap_or_default(),
                 ack: Vec::new(),
+                since: false,
             },
         )
     })

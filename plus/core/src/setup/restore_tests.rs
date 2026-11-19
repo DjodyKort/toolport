@@ -188,6 +188,7 @@ fn test06_the_reset_check_lists_work_that_exists_only_here_and_never_writes_to_a
         tick: vec![],
         untick: vec![],
         ack: vec![],
+        since: false,
     };
     let data = check::run(&world.ctx(), &opts).unwrap();
     world.assert_unchanged(&before);
@@ -214,12 +215,126 @@ fn test07_ticks_and_acknowledgements_survive_and_a_clean_world_is_ready_once_exp
         tick: tick.iter().map(|t| t.to_string()).collect(),
         untick: vec![],
         ack: vec![],
+        since: false,
     };
     let first = check::run(&world.ctx(), &opts(&["browser", "keys"])).unwrap();
     assert_eq!(first["ready"], false);
     let last = check::run(&world.ctx(), &opts(&["licenses", "outside"])).unwrap();
     assert_eq!(last["ready"], true, "{last}");
     assert!(check::run(&world.ctx(), &opts(&["nonsense"])).is_err());
+}
+
+fn check_options(world: &World, since: bool) -> check::Options {
+    check::Options {
+        roots: vec![world.home.join("code")],
+        tick: vec![],
+        untick: vec![],
+        ack: vec![],
+        since,
+    }
+}
+
+fn finding<'a>(data: &'a Value, kind: &str) -> &'a Value {
+    ["blockers", "amber"]
+        .iter()
+        .flat_map(|group| data[group].as_array().unwrap())
+        .find(|f| f["kind"] == kind)
+        .unwrap_or_else(|| panic!("no {kind} in {data}"))
+}
+
+#[test]
+fn test18_the_check_hands_over_the_commands_that_would_push_the_work() {
+    let world = World::new();
+    world.messy_repo();
+    world.no_remote_repo("scratch");
+    let spaced = world.repo("my-app");
+    world.put(&spaced.join("b.txt"), "b\n");
+    world.git(&spaced, &["add", "-A"]);
+    world.git(&spaced, &["commit", "-q", "-m", "not pushed"]);
+    world.git(&spaced, &["checkout", "-q", "-b", "idea"]);
+    let before = world.snapshot();
+    let data = check::run(&world.ctx(), &check_options(&world, false)).unwrap();
+    world.assert_unchanged(&before);
+    let commands = |kind: &str, repo: &str| -> Vec<String> {
+        ["blockers", "amber"]
+            .iter()
+            .flat_map(|group| data[group].as_array().unwrap())
+            .find(|f| f["kind"] == kind && f["repo"] == repo)
+            .map(|f| {
+                f["commands"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|c| c.as_str().unwrap().to_string())
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    assert_eq!(
+        commands("unpushed", "~/code/web"),
+        ["git -C ~/code/web push origin main"]
+    );
+    assert_eq!(
+        commands("never-pushed", "~/code/web"),
+        [
+            "git -C ~/code/web push -u origin feature",
+            "git -C ~/code/web push -u origin wip"
+        ]
+    );
+    assert_eq!(
+        commands("unpushed", "~/code/my-app"),
+        ["git -C ~/code/my-app push origin main"]
+    );
+    assert_eq!(
+        commands("never-pushed", "~/code/my-app"),
+        ["git -C ~/code/my-app push -u origin idea"]
+    );
+    assert_eq!(
+        finding(&data, "stash")["commands"],
+        json!(["git -C ~/code/web stash list"])
+    );
+    assert_eq!(finding(&data, "no-remote")["commands"], json!([]));
+}
+
+#[test]
+fn test19_the_check_lists_the_sessions_an_export_could_carry_per_repository() {
+    let world = World::new();
+    let web = world.repo("web");
+    world.repo("api");
+    world.session_of(&web, "abc", "a transcript\n");
+    let data = check::run(&world.ctx(), &check_options(&world, false)).unwrap();
+    assert_eq!(data["sessions"]["count"], 1);
+    assert!(data["sessions"]["fileSize"].as_u64().unwrap() > 0);
+    let repos = data["sessions"]["repos"].as_array().unwrap();
+    assert_eq!(repos.len(), 1);
+    assert_eq!(repos[0]["name"], "web");
+    assert_eq!(repos[0]["sessions"], 1);
+}
+
+#[test]
+fn test20_since_names_the_parts_that_changed_after_the_last_export_and_only_those() {
+    let world = World::new();
+    let web = world.repo("web");
+    world.claude("CLAUDE.md", "global\n");
+    world.memory_of(&web, &[("a.md", "one\n"), ("b.md", "two\n")]);
+    let none = check::run(&world.ctx(), &check_options(&world, true)).unwrap();
+    assert_eq!(none["since"], Value::Null);
+    export::run(&world.ctx(), &options(&world), None).unwrap();
+    let same = check::run(&world.ctx(), &check_options(&world, true)).unwrap();
+    assert_eq!(same["since"], json!({"parts": []}), "{same}");
+    let without = check::run(&world.ctx(), &check_options(&world, false)).unwrap();
+    assert_eq!(without["since"], Value::Null);
+
+    world.memory_of(&web, &[("a.md", "changed\n"), ("c.md", "new\n")]);
+    world.git(&web, &["checkout", "-q", "-b", "next"]);
+    let data = check::run(&world.ctx(), &check_options(&world, true)).unwrap();
+    let parts = data["since"]["parts"].as_array().unwrap();
+    let by = |id: &str| parts.iter().find(|p| p["id"] == id).unwrap();
+    assert_eq!(parts.len(), 2, "{parts:?}");
+    assert_eq!(by("memory")["added"], 1);
+    assert_eq!(by("memory")["changed"], 2);
+    assert_eq!(by("repos")["branchChanges"], 1);
+    assert!(parts.iter().all(|p| p["id"] != "claudeUser"));
 }
 
 fn journal_dir(to: &World) -> std::path::PathBuf {
